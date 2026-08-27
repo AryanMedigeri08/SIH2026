@@ -4,11 +4,11 @@ import { Play } from 'lucide-react';
 
 export function CaseStudiesBar({ activeCaseId, onSelectCase, isLoading }) {
   return (
-    <div className="bg-slate-900/60 border-b border-indigo-500/10 py-2.5 px-4 overflow-x-auto">
+    <div className="bg-slate-100/90 border-b border-slate-200 py-2.5 px-4 overflow-x-auto shadow-inner">
       <div className="max-w-7xl mx-auto flex items-center gap-2 min-w-max">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mr-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-          SIH 2026 Pitch Cases:
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 mr-2">
+          <span className="w-2 h-2 rounded-full bg-sovereign-700"></span>
+          Benchmark Scenarios:
         </span>
 
         {PITCH_CASES.map((c) => {
@@ -20,18 +20,20 @@ export function CaseStudiesBar({ activeCaseId, onSelectCase, isLoading }) {
               onClick={() => onSelectCase(c)}
               className={`flex items-center gap-2 text-xs py-1.5 px-3 rounded-lg border transition-all ${
                 isSelected
-                  ? 'bg-indigo-600/30 border-cyan-500/50 text-white shadow-glow'
-                  : 'bg-slate-800/50 hover:bg-slate-800 border-slate-700/60 text-slate-300 hover:text-white'
+                  ? 'bg-sovereign-800 border-sovereign-900 text-white shadow-sm font-semibold'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:text-slate-900 shadow-sm'
               }`}
             >
-              <Play className={`w-3 h-3 ${isSelected ? 'text-cyan-400 fill-cyan-400' : 'text-slate-500'}`} />
+              <Play className={`w-3 h-3 ${isSelected ? 'text-white fill-white' : 'text-slate-400'}`} />
               <span className="font-medium">{c.name}</span>
-              <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded border ${
-                c.badgeColor === 'emerald'
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                isSelected
+                  ? 'bg-white/20 border-white/40 text-white'
+                  : c.badgeColor === 'emerald'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                   : c.badgeColor === 'rose'
-                  ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                  : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                  ? 'bg-rose-50 border-rose-200 text-rose-800'
+                  : 'bg-amber-50 border-amber-200 text-amber-800'
               }`}>
                 {c.badge}
               </span>
@@ -42,3 +44,4 @@ export function CaseStudiesBar({ activeCaseId, onSelectCase, isLoading }) {
     </div>
   );
 }
+export default CaseStudiesBar;

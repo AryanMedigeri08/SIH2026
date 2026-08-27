@@ -33,11 +33,11 @@ export function ReportDetailPage({ onOpenWizard }) {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto py-24 px-4 text-center">
-        <div className="inline-block p-4 rounded-2xl bg-slate-900 border border-cyan-500/30 shadow-glow mb-4">
-          <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="inline-block p-5 rounded-2xl bg-white border border-slate-200 shadow-card mb-4">
+          <div className="w-10 h-10 border-4 border-sovereign-800 border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
-        <h3 className="text-lg font-bold font-outfit text-white">
-          Retrieving Feasibility Report <code className="font-mono text-cyan-400">{reportId}</code>...
+        <h3 className="text-lg font-bold font-outfit text-slate-900">
+          Retrieving Feasibility Report <code className="font-mono text-sovereign-800 font-bold">{reportId}</code>...
         </h3>
       </div>
     );
@@ -46,24 +46,24 @@ export function ReportDetailPage({ onOpenWizard }) {
   if (error || !reportData) {
     return (
       <div className="max-w-xl mx-auto py-20 px-4 text-center">
-        <div className="glass-panel p-8 space-y-4">
-          <div className="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-400 mx-auto flex items-center justify-center">
+        <div className="glass-panel p-8 space-y-4 bg-white shadow-card border border-slate-200 rounded-2xl">
+          <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 mx-auto flex items-center justify-center">
             <AlertCircle className="w-6 h-6" />
           </div>
-          <h2 className="text-xl font-bold text-white">Report Not Found</h2>
-          <p className="text-xs text-slate-400">
+          <h2 className="text-xl font-bold text-slate-900 font-outfit">Report Not Found</h2>
+          <p className="text-xs text-slate-600 font-medium">
             {error || `Could not find any cached feasibility assessment under ID ${reportId}.`}
           </p>
           <div className="flex justify-center gap-3 pt-2">
             <button
               onClick={() => navigate('/')}
-              className="text-xs font-semibold px-4 py-2 rounded-xl bg-slate-800 text-slate-200 hover:text-white"
+              className="text-xs font-semibold px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300"
             >
               Back to Dashboard
             </button>
             <button
               onClick={() => navigate('/wizard')}
-              className="text-xs font-semibold px-4 py-2 rounded-xl bg-cyan-500 text-black hover:bg-cyan-400 font-bold"
+              className="text-xs font-bold px-4 py-2 rounded-xl bg-sovereign-800 text-white hover:bg-sovereign-700 shadow-sm"
             >
               New Assessment
             </button>
@@ -79,7 +79,7 @@ export function ReportDetailPage({ onOpenWizard }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
         <button
           onClick={() => navigate('/')}
-          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-semibold transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to All Assessments</span>
@@ -101,3 +101,4 @@ export function ReportDetailPage({ onOpenWizard }) {
     </div>
   );
 }
+export default ReportDetailPage;

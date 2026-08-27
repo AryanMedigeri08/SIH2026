@@ -37,7 +37,7 @@ export function CalculatorPage() {
     setParams(prev => ({ ...prev, [key]: value }));
   };
 
-  const dscr = result?.dscr || 2.26;
+  const dscr = result?.dscr?.dscr || 2.26;
   const isViable = dscr >= 1.33;
   const isCaution = dscr >= 1.0 && dscr < 1.33;
 
@@ -45,16 +45,16 @@ export function CalculatorPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       
       {/* Header Banner */}
-      <div className="glass-panel p-6 border-l-4 border-cyan-500 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="glass-panel p-6 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-1 flex items-center gap-1.5">
+          <div className="text-xs font-bold uppercase tracking-wider text-sovereign-700 mb-1 flex items-center gap-1.5">
             <Calculator className="w-4 h-4" />
             <span>Interactive Financial Engineering Engine</span>
           </div>
-          <h1 className="text-2xl font-outfit font-extrabold text-white">
+          <h1 className="text-2xl font-outfit font-extrabold text-slate-900">
             Standalone MSME Loan Sizing & DSCR Sensitivity Tool
           </h1>
-          <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+          <p className="text-xs text-slate-600 mt-1 max-w-2xl font-medium">
             Simulate credit-linked capital subsidies, EMI amortization schedules with moratorium periods, and RBI-compliant Debt Service Coverage Ratios in real-time.
           </p>
         </div>
@@ -62,12 +62,12 @@ export function CalculatorPage() {
         <div className="flex items-center gap-2">
           <span className={`text-xs font-bold px-3 py-1.5 rounded-full border flex items-center gap-1.5 ${
             isViable
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
               : isCaution
-              ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              ? 'bg-amber-50 border-amber-200 text-amber-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
           }`}>
-            <span className={`w-2 h-2 rounded-full ${isViable ? 'bg-emerald-400' : isCaution ? 'bg-amber-400' : 'bg-rose-400'}`} />
+            <span className={`w-2 h-2 rounded-full ${isViable ? 'bg-emerald-600' : isCaution ? 'bg-amber-600' : 'bg-rose-600'}`} />
             <span>DSCR: {dscr.toFixed(2)} ({result?.dscr_verdict || 'VIABLE'})</span>
           </span>
         </div>
@@ -76,16 +76,16 @@ export function CalculatorPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Form Column (Inputs) */}
-        <div className="lg:col-span-5 glass-panel p-6 space-y-5">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">
+        <div className="lg:col-span-5 glass-panel p-6 space-y-5 bg-white shadow-card border border-slate-200">
+          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">
             1. Enterprise Capital & Operating Parameters
           </h3>
 
           {/* Project Cost Slider */}
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs">
-              <label className="text-slate-300 font-semibold">Total Capital Outlay (₹)</label>
-              <span className="text-cyan-400 font-mono font-bold">₹{params.project_cost.toLocaleString('en-IN')}</span>
+              <label className="text-slate-700 font-bold">Total Capital Outlay (₹)</label>
+              <span className="text-sovereign-800 font-mono font-bold">₹{params.project_cost.toLocaleString('en-IN')}</span>
             </div>
             <input
               type="range"
@@ -94,7 +94,7 @@ export function CalculatorPage() {
               step={25000}
               value={params.project_cost}
               onChange={(e) => updateParam('project_cost', Number(e.target.value))}
-              className="w-full accent-cyan-500 cursor-pointer"
+              className="w-full accent-sovereign-800 cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-500 font-mono">
               <span>₹50K</span>
@@ -106,8 +106,8 @@ export function CalculatorPage() {
           {/* Annual Turnover Slider */}
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs">
-              <label className="text-slate-300 font-semibold">Estimated Annual Turnover (₹)</label>
-              <span className="text-emerald-400 font-mono font-bold">₹{params.annual_turnover.toLocaleString('en-IN')}</span>
+              <label className="text-slate-700 font-bold">Estimated Annual Turnover (₹)</label>
+              <span className="text-emerald-700 font-mono font-bold">₹{params.annual_turnover.toLocaleString('en-IN')}</span>
             </div>
             <input
               type="range"
@@ -116,18 +116,18 @@ export function CalculatorPage() {
               step={50000}
               value={params.annual_turnover}
               onChange={(e) => updateParam('annual_turnover', Number(e.target.value))}
-              className="w-full accent-emerald-500 cursor-pointer"
+              className="w-full accent-emerald-700 cursor-pointer"
             />
           </div>
 
           {/* Sector & Category Selection */}
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="space-y-1">
-              <label className="text-slate-400">Sector</label>
+              <label className="text-slate-700 font-bold">Sector</label>
               <select
                 value={params.sector}
                 onChange={(e) => updateParam('sector', e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 font-medium"
               >
                 <option value="dairy">Dairy Processing</option>
                 <option value="food_processing">Food Processing</option>
@@ -139,11 +139,11 @@ export function CalculatorPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-slate-400">Promoter Category</label>
+              <label className="text-slate-700 font-bold">Promoter Category</label>
               <select
                 value={params.promoter_category}
                 onChange={(e) => updateParam('promoter_category', e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 font-medium"
               >
                 <option value="general">General (10% Margin)</option>
                 <option value="women">Women Entrepreneur (5% Margin)</option>
@@ -155,10 +155,10 @@ export function CalculatorPage() {
           </div>
 
           {/* Rural vs Urban Toggle */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
             <div>
-              <span className="font-semibold text-white block">Enterprise Location Type</span>
-              <span className="text-slate-400 text-[11px]">
+              <span className="font-bold text-slate-900 block">Enterprise Location Type</span>
+              <span className="text-slate-500 text-[11px] font-medium">
                 {params.is_rural ? 'Rural (35% Special / 25% Gen Subsidy)' : 'Urban (25% Special / 15% Gen Subsidy)'}
               </span>
             </div>
@@ -167,40 +167,40 @@ export function CalculatorPage() {
               onClick={() => updateParam('is_rural', !params.is_rural)}
               className={`px-3 py-1 rounded-lg font-bold text-xs transition-all ${
                 params.is_rural
-                  ? 'bg-cyan-500 text-black shadow-glow-cyan'
-                  : 'bg-slate-800 text-slate-400'
+                  ? 'bg-sovereign-800 text-white shadow-sm'
+                  : 'bg-slate-200 text-slate-700'
               }`}
             >
               {params.is_rural ? 'Rural' : 'Urban'}
             </button>
           </div>
 
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2 pt-2">
+          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2 pt-2">
             2. Bank Financing & Amortization
           </h3>
 
           {/* Loan Tenure & Moratorium */}
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="space-y-1">
-              <label className="text-slate-400">Tenure ({params.tenure_years} Years)</label>
+              <label className="text-slate-700 font-bold">Tenure ({params.tenure_years} Years)</label>
               <input
                 type="range"
                 min={1}
                 max={10}
                 value={params.tenure_years}
                 onChange={(e) => updateParam('tenure_years', Number(e.target.value))}
-                className="w-full accent-cyan-500"
+                className="w-full accent-sovereign-800"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-slate-400">Moratorium ({params.moratorium_months} Mo.)</label>
+              <label className="text-slate-700 font-bold">Moratorium ({params.moratorium_months} Mo.)</label>
               <input
                 type="range"
                 min={0}
                 max={12}
                 value={params.moratorium_months}
                 onChange={(e) => updateParam('moratorium_months', Number(e.target.value))}
-                className="w-full accent-indigo-500"
+                className="w-full accent-blue-700"
               />
             </div>
           </div>
@@ -208,8 +208,8 @@ export function CalculatorPage() {
           {/* Interest Rate */}
           <div className="space-y-1 text-xs">
             <div className="flex justify-between">
-              <label className="text-slate-400">Bank Interest Rate (% p.a.)</label>
-              <span className="font-mono text-cyan-300">{params.interest_rate_pct}%</span>
+              <label className="text-slate-700 font-bold">Bank Interest Rate (% p.a.)</label>
+              <span className="font-mono text-sovereign-800 font-bold">{params.interest_rate_pct}%</span>
             </div>
             <input
               type="range"
@@ -218,7 +218,7 @@ export function CalculatorPage() {
               step={0.25}
               value={params.interest_rate_pct}
               onChange={(e) => updateParam('interest_rate_pct', Number(e.target.value))}
-              className="w-full accent-cyan-500"
+              className="w-full accent-sovereign-800"
             />
           </div>
 
@@ -228,20 +228,20 @@ export function CalculatorPage() {
         <div className="lg:col-span-7 space-y-4">
           
           {/* Top Matched Scheme Card */}
-          <div className="glass-panel p-6 border-l-4 border-emerald-500 space-y-4">
+          <div className="glass-panel p-6 border-l-4 border-emerald-600 bg-white shadow-card border border-slate-200 space-y-4">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded">
                   Optimal Financing Vehicle
                 </span>
-                <h2 className="text-lg sm:text-xl font-bold font-outfit text-white mt-1">
+                <h2 className="text-lg sm:text-xl font-bold font-outfit text-slate-900 mt-1">
                   {result?.top_scheme_id || 'PMEGP'} — {result?.top_scheme_name || "Prime Minister's Employment Generation Programme"}
                 </h2>
               </div>
 
               <div className="text-right">
-                <span className="text-[10px] text-slate-400 block">Capital Subsidy Grant</span>
-                <strong className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-400">
+                <span className="text-[10px] text-slate-500 font-medium block">Capital Subsidy Grant</span>
+                <strong className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-700">
                   ₹{(result?.subsidy_grant_amount || 225000).toLocaleString('en-IN')}
                 </strong>
               </div>
@@ -249,27 +249,27 @@ export function CalculatorPage() {
 
             {/* Key Metrics Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
-                <span className="text-slate-400 text-[11px] block">Net Bank Loan</span>
-                <strong className="text-white font-mono text-sm mt-0.5 block">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                <span className="text-slate-500 text-[11px] block font-medium">Net Bank Loan</span>
+                <strong className="text-slate-900 font-mono text-sm mt-0.5 block font-bold">
                   ₹{(result?.loan_principal || 585000).toLocaleString('en-IN')}
                 </strong>
               </div>
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
-                <span className="text-slate-400 text-[11px] block">Monthly EMI</span>
-                <strong className="text-cyan-400 font-mono text-sm mt-0.5 block">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                <span className="text-slate-500 text-[11px] block font-medium">Monthly EMI</span>
+                <strong className="text-sovereign-800 font-mono text-sm mt-0.5 block font-bold">
                   ₹{(result?.monthly_emi || 10530).toLocaleString('en-IN')}
                 </strong>
               </div>
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
-                <span className="text-slate-400 text-[11px] block">Working Capital</span>
-                <strong className="text-indigo-300 font-mono text-sm mt-0.5 block">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                <span className="text-slate-500 text-[11px] block font-medium">Working Capital</span>
+                <strong className="text-blue-900 font-mono text-sm mt-0.5 block font-bold">
                   ₹{(result?.working_capital_required || 190000).toLocaleString('en-IN')}
                 </strong>
               </div>
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
-                <span className="text-slate-400 text-[11px] block">Total Interest</span>
-                <strong className="text-slate-300 font-mono text-sm mt-0.5 block">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                <span className="text-slate-500 text-[11px] block font-medium">Total Interest</span>
+                <strong className="text-slate-800 font-mono text-sm mt-0.5 block font-bold">
                   ₹{(result?.total_interest_payable || 230000).toLocaleString('en-IN')}
                 </strong>
               </div>
@@ -277,9 +277,9 @@ export function CalculatorPage() {
           </div>
 
           {/* Scheme Comparison Leaderboard */}
-          <div className="glass-panel p-6 space-y-3">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Award className="w-4 h-4 text-cyan-400" />
+          <div className="glass-panel p-6 space-y-3 bg-white shadow-card border border-slate-200">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Award className="w-4 h-4 text-sovereign-700" />
               <span>Ranked Scheme Options for Selected Outlay</span>
             </h3>
 
@@ -289,33 +289,33 @@ export function CalculatorPage() {
                   key={s.scheme_id || idx}
                   className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-all ${
                     idx === 0
-                      ? 'bg-emerald-950/20 border-emerald-500/30'
+                      ? 'bg-sovereign-50 border-2 border-sovereign-700 shadow-sm'
                       : s.eligible
-                      ? 'bg-slate-900/60 border-slate-800'
-                      : 'bg-slate-950/40 border-slate-800/60 opacity-60'
+                      ? 'bg-white border-slate-200 shadow-subtle'
+                      : 'bg-slate-50 border-slate-200 opacity-60'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-300 font-bold flex items-center justify-center text-xs shrink-0">
+                    <span className="w-6 h-6 rounded-full bg-sovereign-100 text-sovereign-800 font-bold flex items-center justify-center text-xs shrink-0">
                       {idx + 1}
                     </span>
                     <div>
-                      <strong className="text-white font-semibold">{s.scheme_id}</strong>
-                      <span className="text-slate-400 text-[11px] ml-2">({s.scheme_name || s.full_name})</span>
+                      <strong className="text-slate-900 font-bold">{s.scheme_id}</strong>
+                      <span className="text-slate-500 text-[11px] ml-2 font-medium">({s.scheme_name || s.full_name})</span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-4 text-right">
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Grant Subsidy</span>
-                      <strong className="font-mono text-emerald-400">
+                      <span className="text-[10px] text-slate-500 block font-medium">Grant Subsidy</span>
+                      <strong className="font-mono text-emerald-700 font-bold">
                         {s.subsidy_grant_amount > 0 ? `₹${Math.round(s.subsidy_grant_amount).toLocaleString('en-IN')}` : '₹0'}
                       </strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Status</span>
+                      <span className="text-[10px] text-slate-500 block font-medium">Status</span>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                        s.eligible ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-300 border border-rose-500/20'
+                        s.eligible ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
                       }`}>
                         {s.eligible ? 'Eligible' : 'Cap Exceeded'}
                       </span>
@@ -333,3 +333,4 @@ export function CalculatorPage() {
     </div>
   );
 }
+export default CalculatorPage;

@@ -97,34 +97,34 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div className="bg-[#0b1120] border border-indigo-500/25 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-8">
         
         {/* Header */}
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 px-6 py-5 border-b border-indigo-500/20 flex justify-between items-center">
+        <div className="bg-slate-50 px-6 py-5 border-b border-slate-200 flex justify-between items-center">
           <div>
             <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400">
+              <span className="p-1.5 rounded-lg bg-sovereign-50 text-sovereign-800 border border-sovereign-200">
                 <Sparkles className="w-5 h-5" />
               </span>
-              <h2 className="font-outfit text-xl font-bold text-white">
+              <h2 className="font-outfit text-xl font-bold text-slate-900">
                 6-Step Enterprise Feasibility Appraisal Wizard
               </h2>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Multi-Tier LGD demographic mapping, financial solvency & credit synthesis engine.
             </p>
           </div>
           <button 
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition"
+            className="text-slate-400 hover:text-slate-700 p-2 rounded-lg hover:bg-slate-100 transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Stepper Progress Bar */}
-        <div className="bg-slate-900/80 px-6 py-3 border-b border-slate-800 flex justify-between items-center">
+        <div className="bg-slate-100/70 px-6 py-3 border-b border-slate-200 flex justify-between items-center overflow-x-auto">
           {steps.map((s, idx) => {
             const Icon = s.icon;
             const isDone = s.num < currentStep;
@@ -133,20 +133,20 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
               <div key={s.num} className="flex items-center gap-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                   isDone 
-                    ? 'bg-emerald-500 text-white' 
+                    ? 'bg-emerald-600 text-white' 
                     : isCurrent 
-                    ? 'bg-cyan-500 text-black ring-4 ring-cyan-500/20 shadow-glow-cyan' 
-                    : 'bg-slate-800 text-slate-500'
+                    ? 'bg-sovereign-800 text-white ring-4 ring-sovereign-100 shadow-sm' 
+                    : 'bg-slate-200 text-slate-500'
                 }`}>
                   {isDone ? '✓' : <Icon className="w-4 h-4" />}
                 </div>
-                <span className={`text-xs font-medium hidden sm:inline ${
-                  isCurrent ? 'text-cyan-400 font-semibold' : isDone ? 'text-slate-300' : 'text-slate-500'
+                <span className={`text-xs font-semibold hidden sm:inline ${
+                  isCurrent ? 'text-sovereign-900 font-bold' : isDone ? 'text-slate-700' : 'text-slate-400'
                 }`}>
                   {s.title}
                 </span>
                 {idx < steps.length - 1 && (
-                  <div className="w-4 sm:w-8 h-0.5 bg-slate-800 mx-1 hidden md:block" />
+                  <div className="w-4 sm:w-8 h-0.5 bg-slate-200 mx-1 hidden md:block" />
                 )}
               </div>
             );
@@ -159,30 +159,30 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
           {/* Step 1: Enterprise Profile */}
           {currentStep === 1 && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-sovereign-700" />
                 Step 1: Enterprise Identity & Industry Classification
               </h3>
               
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Enterprise Commercial Name</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Enterprise Commercial Name</label>
                 <input
                   type="text"
                   required
                   value={formData.enterprise_name}
                   onChange={e => setFormData({ ...formData, enterprise_name: e.target.value })}
                   placeholder="e.g. Joypur Fresh Dairy Processing Unit"
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400 transition"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Business Type</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Business Type</label>
                   <select
                     value={formData.business_category}
                     onChange={e => setFormData({ ...formData, business_category: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   >
                     <option value="manufacturing">Manufacturing (Production / Processing)</option>
                     <option value="service">Service (Repair, Retail, Digital)</option>
@@ -190,11 +190,11 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Industry Sector</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Industry Sector</label>
                   <select
                     value={formData.sector}
                     onChange={e => setFormData({ ...formData, sector: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   >
                     <option value="dairy">Dairy & Milk Processing</option>
                     <option value="food_processing">Food Processing & Agro Milling</option>
@@ -213,12 +213,12 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
           {currentStep === 2 && (
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="flex justify-between items-center">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-cyan-400" />
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-sovereign-700" />
                   Step 2: Local Government Directory (LGD) Hierarchy
                 </h3>
                 {loadingLgd && (
-                  <span className="text-xs text-cyan-400 flex items-center gap-1.5">
+                  <span className="text-xs text-sovereign-700 flex items-center gap-1.5 font-medium">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" /> Querying Census & LGD...
                   </span>
                 )}
@@ -226,11 +226,11 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">1. State / UT</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">1. State / UT</label>
                   <select
                     value={formData.state_name}
                     onChange={e => setFormData({ ...formData, state_name: e.target.value, district_name: '', block_name: '', village_name: '' })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   >
                     {states.map(s => (
                       <option key={s.state_code || s.state_name} value={s.state_name}>{s.state_name}</option>
@@ -239,11 +239,11 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">2. District</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">2. District</label>
                   <select
                     value={formData.district_name}
                     onChange={e => setFormData({ ...formData, district_name: e.target.value, block_name: '', village_name: '' })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   >
                     <option value="">-- Select District --</option>
                     {districts.map(d => (
@@ -253,11 +253,11 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">3. Development Block</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">3. Development Block</label>
                   <select
                     value={formData.block_name}
                     onChange={e => setFormData({ ...formData, block_name: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   >
                     <option value="">-- Select Block --</option>
                     {blocks.map(b => (
@@ -267,11 +267,11 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">4. Gram Panchayat / Village</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">4. Gram Panchayat / Village</label>
                   <select
                     value={formData.village_name}
                     onChange={e => setFormData({ ...formData, village_name: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   >
                     <option value="">-- Select Village --</option>
                     {villages.map(v => (
@@ -282,25 +282,25 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
               </div>
 
               <div className="pt-2">
-                <label className="block text-xs font-semibold text-slate-300 mb-2">Area Classification (Affects PMEGP 25% vs 35% subsidy)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-2">Area Classification (Affects PMEGP 25% vs 35% subsidy)</label>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer font-medium">
                     <input
                       type="radio"
                       name="is_rural"
                       checked={formData.is_rural === true}
                       onChange={() => setFormData({ ...formData, is_rural: true })}
-                      className="accent-cyan-400"
+                      className="accent-sovereign-700"
                     />
                     <span>Rural Area (Up to 35% PMEGP Subsidy)</span>
                   </label>
-                  <label className="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer font-medium">
                     <input
                       type="radio"
                       name="is_rural"
                       checked={formData.is_rural === false}
                       onChange={() => setFormData({ ...formData, is_rural: false })}
-                      className="accent-cyan-400"
+                      className="accent-sovereign-700"
                     />
                     <span>Urban / Semi-Urban Area (15% Subsidy)</span>
                   </label>
@@ -312,30 +312,30 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
           {/* Step 3: Promoter Details */}
           {currentStep === 3 && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <User className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <User className="w-4 h-4 text-sovereign-700" />
                 Step 3: Promoter Identity & Social Beneficiary Category
               </h3>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Promoter Full Name</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Promoter Full Name</label>
                 <input
                   type="text"
                   required
                   value={formData.promoter_name}
                   onChange={e => setFormData({ ...formData, promoter_name: e.target.value })}
                   placeholder="e.g. Dipankar Ghosh"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Social / Statutory Category</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Social / Statutory Category</label>
                   <select
                     value={formData.promoter_category}
                     onChange={e => setFormData({ ...formData, promoter_category: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   >
                     <option value="general">General Category (10% Margin)</option>
                     <option value="women">Women Entrepreneur (5% Margin • Special Slab)</option>
@@ -347,11 +347,11 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Gender</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Gender</label>
                   <select
                     value={formData.gender}
                     onChange={e => setFormData({ ...formData, gender: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   >
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -365,14 +365,14 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
           {/* Step 4: Capital Outlay & Sales */}
           {currentStep === 4 && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Coins className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Coins className="w-4 h-4 text-sovereign-700" />
                 Step 4: Total Capital Investment & Annual Turnover Target
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Total Project Outlay (₹)</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Total Project Outlay (₹)</label>
                   <input
                     type="number"
                     required
@@ -380,13 +380,13 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                     step={5000}
                     value={formData.project_cost}
                     onChange={e => setFormData({ ...formData, project_cost: Number(e.target.value) })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">Includes Machinery, Civil, Working Capital & Contingency</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Includes Machinery, Civil, Working Capital & Contingency</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Estimated Annual Gross Sales (₹)</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Estimated Annual Gross Sales (₹)</label>
                   <input
                     type="number"
                     required
@@ -394,15 +394,15 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                     step={5000}
                     value={formData.annual_turnover_estimate}
                     onChange={e => setFormData({ ...formData, annual_turnover_estimate: Number(e.target.value) })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">Projected 100% capacity annual sales revenue</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Projected 100% capacity annual sales revenue</p>
                 </div>
               </div>
 
-              <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex justify-between items-center text-xs">
-                <span className="text-slate-300">Turnover to Capital Leverage:</span>
-                <strong className="text-cyan-400 font-mono">
+              <div className="p-3 bg-sovereign-50 border border-sovereign-200 rounded-xl flex justify-between items-center text-xs">
+                <span className="text-slate-700 font-medium">Turnover to Capital Leverage:</span>
+                <strong className="text-sovereign-900 font-mono font-bold">
                   {formData.project_cost > 0 ? (formData.annual_turnover_estimate / formData.project_cost).toFixed(2) : 0}x
                 </strong>
               </div>
@@ -412,14 +412,14 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
           {/* Step 5: Loan Terms & Moratorium */}
           {currentStep === 5 && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Clock className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-sovereign-700" />
                 Step 5: Commercial Bank Loan Repayment & Grace Terms
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Requested Repayment Tenure (Years)</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Requested Repayment Tenure (Years)</label>
                   <input
                     type="number"
                     min={1}
@@ -427,22 +427,22 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                     step={0.5}
                     value={formData.tenure_years}
                     onChange={e => setFormData({ ...formData, tenure_years: Number(e.target.value) })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">Standard MSME bank term loan tenure: 5 to 7 years</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Standard MSME bank term loan tenure: 5 to 7 years</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Moratorium Grace Period (Months)</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Moratorium Grace Period (Months)</label>
                   <input
                     type="number"
                     min={0}
                     max={24}
                     value={formData.moratorium_months}
                     onChange={e => setFormData({ ...formData, moratorium_months: Number(e.target.value) })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">Repayment begins after operational stabilization</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Repayment begins after operational stabilization</p>
                 </div>
               </div>
             </div>
@@ -451,17 +451,17 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
           {/* Step 6: Language & Final Verification */}
           {currentStep === 6 && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-sovereign-700" />
                 Step 6: Target Language & Verification
               </h3>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Credit Appraisal & Synthesis Language</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Credit Appraisal & Synthesis Language</label>
                 <select
                   value={formData.language}
                   onChange={e => setFormData({ ...formData, language: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                 >
                   <option value="en">English (Official Bank Format)</option>
                   <option value="hi">हिंदी (Hindi)</option>
@@ -473,27 +473,27 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
               </div>
 
               {/* Summary card */}
-              <div className="bg-slate-900/90 border border-slate-700/80 rounded-xl p-4 text-xs space-y-2">
-                <div className="font-bold text-cyan-400 uppercase tracking-wider text-[11px]">Assessment Summary:</div>
-                <div className="grid grid-cols-2 gap-2 text-slate-300">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2">
+                <div className="font-bold text-sovereign-900 uppercase tracking-wider text-[11px]">Assessment Summary:</div>
+                <div className="grid grid-cols-2 gap-2 text-slate-700">
                   <div>Enterprise: <strong>{formData.enterprise_name}</strong></div>
                   <div>Sector: <strong className="uppercase">{formData.sector}</strong></div>
                   <div>Location: <strong>{formData.village_name}, {formData.district_name} ({formData.state_name})</strong></div>
                   <div>Promoter: <strong>{formData.promoter_name} ({formData.promoter_category.toUpperCase()})</strong></div>
-                  <div>Project Cost: <strong className="text-emerald-400 font-mono">₹{formData.project_cost.toLocaleString('en-IN')}</strong></div>
-                  <div>Turnover: <strong className="text-cyan-400 font-mono">₹{formData.annual_turnover_estimate.toLocaleString('en-IN')}</strong></div>
+                  <div>Project Cost: <strong className="text-emerald-700 font-mono font-bold">₹{formData.project_cost.toLocaleString('en-IN')}</strong></div>
+                  <div>Turnover: <strong className="text-sovereign-800 font-mono font-bold">₹{formData.annual_turnover_estimate.toLocaleString('en-IN')}</strong></div>
                 </div>
               </div>
             </div>
           )}
 
           {/* Navigation Controls */}
-          <div className="flex justify-between items-center pt-4 border-t border-slate-800">
+          <div className="flex justify-between items-center pt-4 border-t border-slate-200">
             {currentStep > 1 ? (
               <button
                 type="button"
                 onClick={handleBack}
-                className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white px-4 py-2.5 rounded-xl border border-slate-700 hover:bg-slate-800 transition"
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 transition shadow-subtle"
               >
                 <ChevronLeft className="w-4 h-4" /> Back
               </button>
@@ -503,7 +503,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
               <button
                 type="button"
                 onClick={handleNext}
-                className="flex items-center gap-1.5 text-xs font-semibold text-black bg-cyan-400 hover:bg-cyan-300 px-5 py-2.5 rounded-xl shadow-glow-cyan transition"
+                className="flex items-center gap-1.5 text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-5 py-2.5 rounded-xl shadow-sm transition"
               >
                 Next Step <ChevronRight className="w-4 h-4" />
               </button>
@@ -511,7 +511,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex items-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 px-6 py-2.5 rounded-xl shadow-glow-emerald transition disabled:opacity-50"
+                className="flex items-center gap-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-600 px-6 py-2.5 rounded-xl shadow-sm transition disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>
@@ -534,3 +534,4 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
     </div>
   );
 }
+export default FeasibilityWizard;

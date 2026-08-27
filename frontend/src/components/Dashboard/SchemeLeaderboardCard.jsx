@@ -5,14 +5,17 @@ export function SchemeLeaderboardCard({ schemes }) {
   const schemeList = schemes || [];
 
   return (
-    <div className="glass-panel p-6">
+    <div className="glass-panel p-6 bg-white shadow-card border border-slate-200">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Award className="w-4 h-4 text-cyan-400" />
-            Statutory Government Scheme Optimization Leaderboard
+          <div className="text-[11px] font-bold uppercase tracking-wider text-sovereign-700 flex items-center gap-1.5 mb-1">
+            <Award className="w-3.5 h-3.5" />
+            Statutory Incentive Optimization
+          </div>
+          <h3 className="text-lg font-outfit font-bold text-slate-900">
+            Government Scheme Ranking & Subsidy Matrix
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-600 mt-0.5">
             Auto-evaluated against PMEGP, PMFME, MUDRA, Stand-Up India & PM Vishwakarma eligibility rules.
           </p>
         </div>
@@ -28,50 +31,50 @@ export function SchemeLeaderboardCard({ schemes }) {
               key={s.scheme_id || idx}
               className={`p-4 rounded-xl border transition-all ${
                 isTop 
-                  ? 'bg-gradient-to-b from-indigo-950/80 to-slate-900/90 border-cyan-500/40 shadow-glow'
+                  ? 'bg-sovereign-50 border-2 border-sovereign-700 shadow-sm'
                   : isEligible 
-                  ? 'bg-slate-900/60 border-slate-700/80 hover:border-slate-600'
-                  : 'bg-slate-950/40 border-slate-800/60 opacity-60'
+                  ? 'bg-white border-slate-200 hover:border-slate-300 shadow-subtle'
+                  : 'bg-slate-50 border-slate-200 opacity-60'
               }`}
             >
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-outfit font-extrabold text-sm text-white">{s.scheme_id}</span>
+                    <span className="font-outfit font-extrabold text-sm text-slate-900">{s.scheme_id}</span>
                     {isTop && (
-                      <span className="text-[10px] font-bold bg-cyan-500 text-black px-2 py-0.5 rounded-md uppercase tracking-wider">
+                      <span className="text-[10px] font-bold bg-sovereign-800 text-white px-2 py-0.5 rounded-md uppercase tracking-wider">
                         ★ Top Match
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-slate-400 line-clamp-1">{s.full_name || s.scheme_name}</div>
+                  <div className="text-[11px] text-slate-500 line-clamp-1 font-medium">{s.full_name || s.scheme_name}</div>
                 </div>
 
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
                   isEligible 
-                    ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' 
-                    : 'bg-rose-500/10 text-rose-300 border border-rose-500/30'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                    : 'bg-slate-100 text-slate-600 border border-slate-200'
                 }`}>
-                  {isEligible ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                  {isEligible ? <CheckCircle className="w-3 h-3 text-emerald-600" /> : <XCircle className="w-3 h-3 text-slate-400" />}
                   {isEligible ? 'Eligible' : 'Ineligible'}
                 </span>
               </div>
 
               {/* Metrics */}
-              <div className="pt-2 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
+              <div className="pt-2 border-t border-slate-200/80 grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <span className="text-[10px] text-slate-500 block">Subsidy Grant</span>
-                  <strong className="font-mono text-emerald-400">
+                  <span className="text-[10px] text-slate-500 block font-semibold">Subsidy Grant</span>
+                  <strong className="font-mono text-emerald-700 font-bold">
                     {s.subsidy_grant_amount > 0 ? `₹${Math.round(s.subsidy_grant_amount).toLocaleString('en-IN')}` : '₹0 (Interest Subvention)'}
                   </strong>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 block">Effective Interest</span>
-                  <strong className="font-mono text-cyan-300">{s.effective_interest_rate_pct || 9.5}% p.a.</strong>
+                  <span className="text-[10px] text-slate-500 block font-semibold">Effective Interest</span>
+                  <strong className="font-mono text-sovereign-800 font-bold">{s.effective_interest_rate_pct || 9.5}% p.a.</strong>
                 </div>
               </div>
 
-              <div className="text-[11px] text-slate-400 mt-2 line-clamp-1 italic">
+              <div className="text-[11px] text-slate-600 mt-2 line-clamp-1 italic">
                 {s.match_rationale || s.eligibility_notes || "Applicable under current sector & promoter category."}
               </div>
             </div>
@@ -80,11 +83,11 @@ export function SchemeLeaderboardCard({ schemes }) {
       </div>
 
       {/* Grounded Data Source Lineage Tag */}
-      <div className="text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 pt-3 mt-4 border-t border-slate-800/60">
+      <div className="text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 pt-3 mt-4 border-t border-slate-200">
         <span>
-          <strong className="text-slate-400">Data Source:</strong> Central & State Scheme Eligibility Matrix (<code className="font-mono text-cyan-400">government_schemes.json</code>)
+          <strong className="text-slate-700">Data Source:</strong> Central & State Scheme Eligibility Matrix (<code className="font-mono text-sovereign-800 font-semibold">government_schemes.json</code>)
         </span>
-        <span className="font-mono text-slate-400">
+        <span className="font-mono text-slate-600 font-medium">
           Source: Ministry of MSME, MoFPI & RBI Master Circulars
         </span>
       </div>
@@ -92,4 +95,4 @@ export function SchemeLeaderboardCard({ schemes }) {
     </div>
   );
 }
-
+export default SchemeLeaderboardCard;

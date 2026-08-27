@@ -79,7 +79,7 @@ export function AppContent() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#070b14] text-slate-100 selection:bg-cyan-500 selection:text-white">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-sovereign-200 selection:text-sovereign-900">
       
       {/* Global Navigation Header with Active Route Tabs */}
       <Navbar
@@ -145,11 +145,11 @@ export function AppContent() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-950/60 py-6 text-center text-xs text-slate-500">
+      <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-600 shadow-subtle">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>🇮🇳 Udyam Saathi (उद्यम साथी) • Smart India Hackathon 2026</span>
-          <span className="font-mono text-[11px] text-slate-400">
-            Modular Production Architecture • FastAPI • Neon DB • XGBoost • Groq LLM
+          <span className="font-medium">🇮🇳 Udyam Saathi (उद्यम साथी) • Smart India Hackathon 2026</span>
+          <span className="font-mono text-[11px] text-slate-500 font-medium">
+            Modular Production Architecture • FastAPI • Neon DB • XGBoost (TreeSHAP) • Groq LLM
           </span>
         </div>
       </footer>

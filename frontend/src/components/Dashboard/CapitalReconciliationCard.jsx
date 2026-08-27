@@ -19,23 +19,26 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
   const isBalanced = Math.abs(totalMeans - projectCost) < 1.0;
 
   return (
-    <div className="glass-panel p-6">
+    <div className="glass-panel p-6 bg-white shadow-card border border-slate-200">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
         <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Layers className="w-4 h-4 text-cyan-400" />
+          <div className="text-[11px] font-bold uppercase tracking-wider text-sovereign-700 flex items-center gap-1.5 mb-1">
+            <Layers className="w-3.5 h-3.5" />
+            Statutory Capital Sizing
+          </div>
+          <h3 className="text-lg font-outfit font-bold text-slate-900">
             Capital Outlay & Means of Finance Reconciliation
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-600 mt-0.5">
             Balanced capital deployment compliant with standard commercial bank underwriting guidelines.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+          <span className={`text-xs font-bold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
             isBalanced 
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+              : 'bg-rose-50 border-rose-200 text-rose-800'
           }`}>
             <CheckCircle2 className="w-3.5 h-3.5" />
             {isBalanced ? 'Accounting Balanced (₹0 Drift)' : 'Unbalanced Outlay'}
@@ -46,55 +49,55 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Outlay Breakdown */}
-        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-3">
-          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider flex justify-between">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <div className="text-xs font-bold text-slate-900 uppercase tracking-wider flex justify-between">
             <span>A. Capital Outlay Deployment</span>
-            <span className="text-cyan-400 font-mono">₹{projectCost.toLocaleString('en-IN')}</span>
+            <span className="text-sovereign-800 font-mono font-bold">₹{projectCost.toLocaleString('en-IN')}</span>
           </div>
 
           <div className="space-y-2 text-xs">
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-slate-700">
               <span>Plant & Machinery (55%)</span>
-              <strong className="font-mono text-white">₹{Math.round(machinery).toLocaleString('en-IN')}</strong>
+              <strong className="font-mono text-slate-900">₹{Math.round(machinery).toLocaleString('en-IN')}</strong>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-slate-700">
               <span>Civil Works & Shed (20%)</span>
-              <strong className="font-mono text-white">₹{Math.round(civil).toLocaleString('en-IN')}</strong>
+              <strong className="font-mono text-slate-900">₹{Math.round(civil).toLocaleString('en-IN')}</strong>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-slate-700">
               <span>Initial Working Capital (15%)</span>
-              <strong className="font-mono text-white">₹{Math.round(workingCap).toLocaleString('en-IN')}</strong>
+              <strong className="font-mono text-slate-900">₹{Math.round(workingCap).toLocaleString('en-IN')}</strong>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-slate-700">
               <span>Pre-op & Contingency Reserve (10%)</span>
-              <strong className="font-mono text-white">₹{Math.round(contingency).toLocaleString('en-IN')}</strong>
+              <strong className="font-mono text-slate-900">₹{Math.round(contingency).toLocaleString('en-IN')}</strong>
             </div>
           </div>
         </div>
 
         {/* Means of Finance */}
-        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-3">
-          <div className="text-xs font-bold text-slate-300 uppercase tracking-wider flex justify-between">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <div className="text-xs font-bold text-slate-900 uppercase tracking-wider flex justify-between">
             <span>B. Means of Finance (Sources)</span>
-            <span className="text-emerald-400 font-mono">₹{Math.round(totalMeans).toLocaleString('en-IN')}</span>
+            <span className="text-emerald-700 font-mono font-bold">₹{Math.round(totalMeans).toLocaleString('en-IN')}</span>
           </div>
 
           <div className="space-y-2 text-xs">
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-slate-700">
               <span>Promoter Equity Margin ({((promoterMargin / projectCost) * 100).toFixed(0)}%)</span>
-              <strong className="font-mono text-cyan-400">₹{Math.round(promoterMargin).toLocaleString('en-IN')}</strong>
+              <strong className="font-mono text-sovereign-800">₹{Math.round(promoterMargin).toLocaleString('en-IN')}</strong>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-slate-700">
               <span>Govt Capital Subsidy Grant ({((subsidyAmount / projectCost) * 100).toFixed(0)}%)</span>
-              <strong className="font-mono text-emerald-400">₹{Math.round(subsidyAmount).toLocaleString('en-IN')}</strong>
+              <strong className="font-mono text-emerald-700">₹{Math.round(subsidyAmount).toLocaleString('en-IN')}</strong>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-slate-700">
               <span>Bank Term Loan Disbursal ({((loanAmount / projectCost) * 100).toFixed(0)}%)</span>
-              <strong className="font-mono text-indigo-300">₹{Math.round(loanAmount).toLocaleString('en-IN')}</strong>
+              <strong className="font-mono text-blue-800">₹{Math.round(loanAmount).toLocaleString('en-IN')}</strong>
             </div>
-            <div className="pt-2 border-t border-slate-800 flex justify-between text-xs font-bold text-white">
+            <div className="pt-2 border-t border-slate-200 flex justify-between text-xs font-bold text-slate-900">
               <span>Total Finance Secured:</span>
-              <span className="font-mono text-emerald-400">₹{Math.round(totalMeans).toLocaleString('en-IN')}</span>
+              <span className="font-mono text-emerald-700 font-bold">₹{Math.round(totalMeans).toLocaleString('en-IN')}</span>
             </div>
           </div>
         </div>
@@ -102,11 +105,11 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
       </div>
 
       {/* Grounded Data Source Lineage Tag */}
-      <div className="text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 pt-3 mt-4 border-t border-slate-800/60">
+      <div className="text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 pt-3 mt-4 border-t border-slate-200">
         <span>
-          <strong className="text-slate-400">Data Source:</strong> Statutory MSME Credit & Margin Matrix (<code className="font-mono text-cyan-400">government_schemes.json</code>)
+          <strong className="text-slate-700">Data Source:</strong> Statutory MSME Credit & Margin Matrix (<code className="font-mono text-sovereign-800 font-semibold">government_schemes.json</code>)
         </span>
-        <span className="font-mono text-slate-400">
+        <span className="font-mono text-slate-600 font-medium">
           Reconciliation: Balanced (₹0 Residual Drift)
         </span>
       </div>
@@ -114,4 +117,4 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
     </div>
   );
 }
-
+export default CapitalReconciliationCard;

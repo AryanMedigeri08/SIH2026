@@ -25,19 +25,22 @@ export function StatutoryChecklistCard() {
   const completedCount = Object.values(checkedItems).filter(Boolean).length;
 
   return (
-    <div className="glass-panel p-6">
+    <div className="glass-panel p-6 bg-white shadow-card border border-slate-200">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <ClipboardCheck className="w-4 h-4 text-cyan-400" />
-            Statutory Commercial Bank Loan Submission Checklist
+          <div className="text-[11px] font-bold uppercase tracking-wider text-sovereign-700 flex items-center gap-1.5 mb-1">
+            <ClipboardCheck className="w-3.5 h-3.5" />
+            Statutory Banking Compliance
+          </div>
+          <h3 className="text-lg font-outfit font-bold text-slate-900">
+            Commercial Bank Loan Submission Checklist
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-600 mt-0.5">
             Mandatory statutory compliance checklist required prior to formal bank credit sanction.
           </p>
         </div>
 
-        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-cyan-300">
+        <span className="text-xs font-bold px-3 py-1 rounded-full bg-sovereign-50 border border-sovereign-200 text-sovereign-800">
           {completedCount} of {docs.length} Documents Ready
         </span>
       </div>
@@ -51,23 +54,23 @@ export function StatutoryChecklistCard() {
               onClick={() => toggle(d.id)}
               className={`p-3.5 rounded-xl border cursor-pointer select-none transition-all flex items-start gap-3 ${
                 isChecked 
-                  ? 'bg-emerald-950/15 border-emerald-500/30' 
-                  : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                  ? 'bg-emerald-50 border-emerald-200 shadow-subtle' 
+                  : 'bg-white border-slate-200 hover:border-slate-300 shadow-subtle'
               }`}
             >
-              <div className="mt-0.5 text-cyan-400">
+              <div className="mt-0.5">
                 {isChecked ? (
-                  <CheckSquare className="w-4 h-4 text-emerald-400" />
+                  <CheckSquare className="w-4 h-4 text-emerald-600" />
                 ) : (
-                  <Square className="w-4 h-4 text-slate-500" />
+                  <Square className="w-4 h-4 text-slate-400" />
                 )}
               </div>
 
               <div>
-                <div className={`text-xs font-semibold ${isChecked ? 'text-emerald-300' : 'text-white'}`}>
+                <div className={`text-xs font-bold ${isChecked ? 'text-emerald-900' : 'text-slate-900'}`}>
                   {d.title}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
+                <div className="text-[11px] text-slate-500 mt-0.5 font-medium">
                   {d.desc}
                 </div>
               </div>
@@ -78,3 +81,4 @@ export function StatutoryChecklistCard() {
     </div>
   );
 }
+export default StatutoryChecklistCard;
