@@ -1,0 +1,178 @@
+"""
+swot_analyzer.py — Phase 2, Udyam Saathi
+
+Blueprint §5 (DPR section 6). Builds a grounded SWOT matrix: every bullet is
+templated from a concrete upstream number (DSCR, subsidy amount, infra score,
+competition, CPI, weather) with a data_source tag — never freeform LLM text.
+This is the deterministic "skeleton" the Tier 3 Groq call is allowed to
+restyle in Phase 4, but the underlying facts and numbers originate here.
+"""
+
+from __future__ import annotations
+from dataclasses import dataclass, asdict
+
+
+@dataclass
+class SWOTItem:
+    text: str
+    data_source: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class SWOTMatrix:
+    strengths: list[SWOTItem]
+    weaknesses: list[SWOTItem]
+    opportunities: list[SWOTItem]
+    threats: list[SWOTItem]
+
+    def to_dict(self) -> dict:
+        return {
+            "strengths": [i.to_dict() for i in self.strengths],
+            "weaknesses": [i.to_dict() for i in self.weaknesses],
+            "opportunities": [i.to_dict() for i in self.opportunities],
+            "threats": [i.to_dict() for i in self.threats],
+        }
+
+
+def build_swot(
+    dscr: float,
+    subsidy_grant_amount: float,
+    subsidy_scheme_name: str,
+    project_cost: float,
+    infrastructure_score: float,
+    projected_annual_tam: float,
+    annual_turnover_estimate: float,
+    competition_intensity_normalized: float,
+    msme_density_per_10k: float,
+    cpi_inflation_pct: float,
+    weather_risk_score: float,
+    ml_viability_verdict: str,       # SUITABLE | CAUTION | RECONSIDER
+    ml_confidence_pct: float,
+) -> SWOTMatrix:
+
+    strengths: list[SWOTItem] = []
+    weaknesses: list[SWOTItem] = []
+    opportunities: list[SWOTItem] = []
+    threats: list[SWOTItem] = []
+
+    # --- Strengths ---
+    if dscr >= 1.33:
+        strengths.append(SWOTItem(
+            f"Strong debt-servicing capacity: DSCR of {dscr:.2f} clears the RBI benchmark of 1.33.",
+            "financial_calculator.py",
+        ))
+    if subsidy_grant_amount > 0:
+        strengths.append(SWOTItem(
+            f"₹{subsidy_grant_amount:,.0f} capital subsidy secured under {subsidy_scheme_name} "
+            f"({subsidy_grant_amount/project_cost*100:.1f}% of project cost), reducing effective debt burden.",
+            "government_schemes.json",
+        ))
+    if infrastructure_score >= 7.0:
+        strengths.append(SWOTItem(
+            f"High site infrastructure readiness (score {infrastructure_score:.1f}/10): road, power, and "
+            f"market access already in place, lowering setup risk.",
+            "village_amenities_cache",
+        ))
+    if ml_viability_verdict == "SUITABLE":
+        strengths.append(SWOTItem(
+            f"ML viability classifier rates this enterprise SUITABLE with {ml_confidence_pct:.1f}% confidence "
+            f"across 10 weighted factors.",
+            "viability_xgb.joblib",
+        ))
+
+    # --- Weaknesses ---
+    if dscr < 1.33:
+        weaknesses.append(SWOTItem(
+            f"DSCR of {dscr:.2f} is below the RBI-preferred 1.33 threshold, indicating thin debt-servicing headroom.",
+            "financial_calculator.py",
+        ))
+    if ml_viability_verdict == "CAUTION":
+        weaknesses.append(SWOTItem(
+            f"ML viability classifier rates this enterprise CAUTION with {ml_confidence_pct:.1f}% confidence, indicating moderate sensitivity to operating variables.",
+            "viability_xgb.joblib",
+        ))
+    if infrastructure_score < 5.0:
+        weaknesses.append(SWOTItem(
+            f"Low site infrastructure readiness (score {infrastructure_score:.1f}/10): expect added logistics "
+            f"or backup-power cost.",
+            "village_amenities_cache",
+        ))
+    if msme_density_per_10k < 5.0:
+        weaknesses.append(SWOTItem(
+            f"Thin local MSME ecosystem ({msme_density_per_10k:.2f} registered enterprises per 10,000 population) "
+            f"may mean limited ancillary supplier/service support nearby.",
+            "msme_district table",
+        ))
+    if not weaknesses:
+        weaknesses.append(SWOTItem(
+            "No material weaknesses flagged against current thresholds; monitor DSCR and infrastructure "
+            "readiness as project scales.",
+            "financial_calculator.py / village_amenities_cache",
+        ))
+
+    # --- Opportunities ---
+    demand_headroom = max(projected_annual_tam - annual_turnover_estimate, 0)
+    if demand_headroom > 0:
+        opportunities.append(SWOTItem(
+            f"₹{demand_headroom:,.0f}/year of unmet catchment demand (TAM ₹{projected_annual_tam:,.0f} vs "
+            f"projected turnover ₹{annual_turnover_estimate:,.0f}) available for scale-up.",
+            "market_analyzer.py",
+        ))
+    if competition_intensity_normalized < 0.4:
+        opportunities.append(SWOTItem(
+            f"Low competitive saturation (normalized intensity {competition_intensity_normalized:.2f}/1.0) "
+            f"leaves room for first-mover / early-market positioning.",
+            "market_analyzer.py",
+        ))
+    opportunities.append(SWOTItem(
+        "Additional scheme stacking (e.g. state-level top-up subsidies) may further reduce effective "
+        "capital cost — recommend checking state MSME department for local top-ups.",
+        "government_schemes.json (national schemes only)",
+    ))
+
+    # --- Threats ---
+    if cpi_inflation_pct > 6.0:
+        threats.append(SWOTItem(
+            f"Elevated rural CPI inflation ({cpi_inflation_pct:.2f}%) may erode margins unless prices are "
+            f"re-adjusted annually.",
+            "cpi_data (MoSPI)",
+        ))
+    if weather_risk_score > 0.3:
+        threats.append(SWOTItem(
+            f"Meaningful weather-disruption exposure (risk score {weather_risk_score:.2f}/1.0); heavy-rain "
+            f"days could interrupt supply or footfall.",
+            "Open-Meteo weather feed",
+        ))
+    if competition_intensity_normalized >= 0.6:
+        threats.append(SWOTItem(
+            f"High local competition saturation (normalized intensity {competition_intensity_normalized:.2f}/1.0) "
+            f"could compress margins or slow customer acquisition.",
+            "market_analyzer.py",
+        ))
+    if ml_viability_verdict == "RECONSIDER":
+        threats.append(SWOTItem(
+            f"ML viability classifier flags RECONSIDER with {ml_confidence_pct:.1f}% confidence — "
+            f"underlying financial/market ratios should be revisited before proceeding.",
+            "viability_xgb.joblib",
+        ))
+    if not threats:
+        threats.append(SWOTItem(
+            "No high-severity external threats flagged against current inflation, weather, or competition data.",
+            "cpi_data / Open-Meteo / market_analyzer.py",
+        ))
+
+    return SWOTMatrix(strengths=strengths, weaknesses=weaknesses, opportunities=opportunities, threats=threats)
+
+
+if __name__ == "__main__":
+    swot = build_swot(
+        dscr=1.45, subsidy_grant_amount=175000, subsidy_scheme_name="PMEGP", project_cost=500000,
+        infrastructure_score=6.5, projected_annual_tam=1500000, annual_turnover_estimate=600000,
+        competition_intensity_normalized=0.3, msme_density_per_10k=8.2, cpi_inflation_pct=5.2,
+        weather_risk_score=0.2, ml_viability_verdict="SUITABLE", ml_confidence_pct=91.4,
+    )
+    import json
+    print(json.dumps(swot.to_dict(), indent=2))

@@ -1,0 +1,132 @@
+{
+  "model_type": "XGBClassifier",
+  "library_versions": {
+    "xgboost": "2.1.1",
+    "scikit_learn": "1.5.1",
+    "joblib": "1.5.3",
+    "numpy": "1.26.4"
+  },
+  "created_at_utc": "2026-08-27T12:34:42.195660+00:00",
+  "n_samples": 10000,
+  "feature_count": 10,
+  "feature_names": [
+    "dscr",
+    "subsidy_coverage_ratio",
+    "loan_to_income_ratio",
+    "log_projected_population",
+    "msme_density_per_10k",
+    "infrastructure_score",
+    "cpi_inflation_pct",
+    "working_capital_months_buffer",
+    "competition_intensity",
+    "weather_risk_score"
+  ],
+  "class_mapping": {
+    "0": "SUITABLE",
+    "1": "CAUTION",
+    "2": "RECONSIDER"
+  },
+  "cross_validation": {
+    "folds": 5,
+    "mean_accuracy": 0.9799,
+    "std_accuracy": 0.0027,
+    "fold_scores": [
+      0.9805,
+      0.9755,
+      0.982,
+      0.983,
+      0.9785
+    ]
+  },
+  "test_metrics": {
+    "test_accuracy": 0.98,
+    "macro_f1": 0.9772,
+    "confusion_matrix": [
+      [
+        886,
+        0,
+        0
+      ],
+      [
+        15,
+        493,
+        2
+      ],
+      [
+        0,
+        23,
+        581
+      ]
+    ]
+  },
+  "hyperparameters": {
+    "n_estimators": 160,
+    "max_depth": 4,
+    "learning_rate": 0.08,
+    "subsample": 0.85,
+    "colsample_bytree": 0.85,
+    "min_child_weight": 2
+  },
+  "feature_importances_ranked": [
+    {
+      "feature_index": 0,
+      "feature_name": "dscr",
+      "gain": 74.5218276977539,
+      "weight": 1069.0
+    },
+    {
+      "feature_index": 2,
+      "feature_name": "loan_to_income_ratio",
+      "gain": 9.379409790039062,
+      "weight": 596.0
+    },
+    {
+      "feature_index": 5,
+      "feature_name": "infrastructure_score",
+      "gain": 4.728272438049316,
+      "weight": 573.0
+    },
+    {
+      "feature_index": 6,
+      "feature_name": "cpi_inflation_pct",
+      "gain": 3.5461010932922363,
+      "weight": 542.0
+    },
+    {
+      "feature_index": 8,
+      "feature_name": "competition_intensity",
+      "gain": 1.952255368232727,
+      "weight": 314.0
+    },
+    {
+      "feature_index": 9,
+      "feature_name": "weather_risk_score",
+      "gain": 1.73012375831604,
+      "weight": 406.0
+    },
+    {
+      "feature_index": 1,
+      "feature_name": "subsidy_coverage_ratio",
+      "gain": 1.5257641077041626,
+      "weight": 279.0
+    },
+    {
+      "feature_index": 7,
+      "feature_name": "working_capital_months_buffer",
+      "gain": 1.5054670572280884,
+      "weight": 323.0
+    },
+    {
+      "feature_index": 3,
+      "feature_name": "log_projected_population",
+      "gain": 1.2389551401138306,
+      "weight": 277.0
+    },
+    {
+      "feature_index": 4,
+      "feature_name": "msme_density_per_10k",
+      "gain": 0.9325668811798096,
+      "weight": 186.0
+    }
+  ]
+}
