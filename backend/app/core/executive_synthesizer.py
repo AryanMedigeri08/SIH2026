@@ -461,6 +461,15 @@ def generate_executive_synthesis(
         )
         fallback.payload_hash = payload_hash
         fallback.latency_ms = (time.perf_counter() - start_time) * 1000
+        logger.info(
+            f"\n"
+            f"================ [TIER 3 DETERMINISTIC SYNTHESIS RESPONSE] ================\n"
+            f"⚡ ENGINE: deterministic_narrative_engine_v1.0 | LANGUAGE: {lang.upper()}\n"
+            f"📝 EXECUTIVE SUMMARY:\n{fallback.executive_summary}\n"
+            f"💡 STRATEGIC RECOMMENDATIONS:\n" + "\n".join(f"  [{i+1}] {r}" for i, r in enumerate(fallback.strategic_recommendations[:4])) + "\n"
+            f"🏦 BANK CREDIT APPRAISAL NOTES:\n{fallback.bank_appraisal_notes}\n"
+            f"=========================================================================="
+        )
         cache.set(payload_hash, fallback, ttl_seconds=cache_ttl_seconds)
         return fallback
 
@@ -525,8 +534,13 @@ def generate_executive_synthesis(
 
         latency = (time.perf_counter() - start_time) * 1000
         logger.info(
-            f"[LLM RESPONSE SUCCESS] Model: 'groq:{used_model}' | Latency: {latency:.2f}ms | "
-            f"Source: [AI_GENERATED] | Recs: {len(recommendations)}"
+            f"\n"
+            f"==================== [TIER 3 LLM SYNTHESIS RESPONSE] ====================\n"
+            f"🤖 MODEL: groq:{used_model} | LATENCY: {latency:.2f}ms | LANGUAGE: {lang.upper()}\n"
+            f"📝 EXECUTIVE SUMMARY:\n{summary}\n"
+            f"💡 STRATEGIC RECOMMENDATIONS:\n" + "\n".join(f"  [{i+1}] {r}" for i, r in enumerate(recommendations[:4])) + "\n"
+            f"🏦 BANK CREDIT APPRAISAL NOTES:\n{bank_notes}\n"
+            f"=========================================================================="
         )
 
         synthesis = ExecutiveSynthesis(
@@ -569,8 +583,18 @@ def generate_executive_synthesis(
         )
         fallback.payload_hash = payload_hash
         fallback.latency_ms = (time.perf_counter() - start_time) * 1000
+        logger.info(
+            f"\n"
+            f"================ [TIER 3 DETERMINISTIC SYNTHESIS RESPONSE] ================\n"
+            f"⚡ ENGINE: deterministic_narrative_engine_v1.0 | LANGUAGE: {lang.upper()}\n"
+            f"📝 EXECUTIVE SUMMARY:\n{fallback.executive_summary}\n"
+            f"💡 STRATEGIC RECOMMENDATIONS:\n" + "\n".join(f"  [{i+1}] {r}" for i, r in enumerate(fallback.strategic_recommendations[:4])) + "\n"
+            f"🏦 BANK CREDIT APPRAISAL NOTES:\n{fallback.bank_appraisal_notes}\n"
+            f"=========================================================================="
+        )
         cache.set(payload_hash, fallback, ttl_seconds=cache_ttl_seconds)
         return fallback
+
 
 
 
