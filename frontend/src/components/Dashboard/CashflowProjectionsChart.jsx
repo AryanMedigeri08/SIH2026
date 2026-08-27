@@ -79,6 +79,7 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
             <Bar yAxisId="left" dataKey="EBITDA" fill="#06b6d4" radius={[4, 4, 0, 0]} />
             <Bar yAxisId="left" dataKey="PAT" fill="#10b981" radius={[4, 4, 0, 0]} />
             <Line yAxisId="right" type="monotone" dataKey="DSCR" stroke="#38bdf8" strokeWidth={3} dot={{ r: 4, fill: '#0284c7' }} />
+            <ReferenceLine yAxisId="left" y={turnover * 0.62} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: 'Break-Even Threshold (62%)', fill: '#fbbf24', fontSize: 10, position: 'insideBottomRight' }} />
             <ReferenceLine yAxisId="right" y={1.33} stroke="#f43f5e" strokeDasharray="3 3" label={{ value: 'RBI DSCR 1.33', fill: '#fb7185', fontSize: 10, position: 'insideTopLeft' }} />
           </ComposedChart>
         </ResponsiveContainer>

@@ -48,14 +48,17 @@ async def lifespan(app: FastAPI):
     logger.info("📡 Environment: Port 8000 | Docs: /docs | Health: /api/v2/health")
     await db_manager.initialize()
     logger.info("💾 Database & In-Memory Fallback Subsystem Initialized.")
-    # Preload ML model into singleton memory
+    # Preload ML model & SHAP Explainer into singleton memory
     loader = ViabilityModelLoader()
     model = loader.get_model()
     if model is not None:
-        logger.info("🤖 Supervised XGBoost Viability Classifier (viability_xgb.joblib) Loaded.")
+        loader.get_explainer()
+        loader.get_metadata()
+        logger.info("🤖 Supervised XGBoost Viability Classifier & TreeSHAP Explainer Loaded.")
     else:
         logger.warning("⚠️ ML Model binary not found. Deterministic rule-based fallback active.")
     logger.info("=" * 80)
+
     yield
     # Shutdown
     logger.info("🛑 Udyam Saathi Backend Shutting Down...")

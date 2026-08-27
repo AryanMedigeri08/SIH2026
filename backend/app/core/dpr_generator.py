@@ -11,7 +11,7 @@ Official 7-Section Structure:
     2. Capital Outlay & Means of Finance (Exact rupee reconciliation: Outlay == Means of Finance)
     3. Financial & Cash Flow Projections (5-Year Horizon with Capacity Slabs, EBITDA, PAT, DSCR)
     4. Multi-Scheme Optimization & Subsidy Matrix (Top Ranked Schemes by Net Benefit)
-    5. Machine Learning Viability & Risk Assessment (XGBoost 10-D Probabilities & Factor Drivers)
+    5. Machine Learning Viability & Risk Assessment (XGBoost 10-D Probabilities & SHAP Attribution)
     6. Grounded SWOT & 8-Point Quantified Risk Mitigation Table (Rupee buffers & Audited Sources)
     7. Statutory Bank Submission Document Checklist (Category & Sector-specific Mandatory Docs)
 
@@ -131,6 +131,8 @@ class MLViabilitySection(BaseModel):
     top_positive_factors: list[str]
     top_risk_factors: list[str]
     model_version: str
+    shap_explanation: Optional[dict[str, Any]] = None
+    global_feature_importance: Optional[list[dict[str, Any]]] = None
 
 
 class SWOTQuadrantItem(BaseModel):
@@ -594,6 +596,8 @@ def build_bank_dpr(
         top_positive_factors=ml_prediction.top_positive_factors,
         top_risk_factors=ml_prediction.top_risk_factors,
         model_version=ml_prediction.model_version,
+        shap_explanation=getattr(ml_prediction, "shap_explanation", None),
+        global_feature_importance=getattr(ml_prediction, "global_feature_importance", None),
     )
 
     # 6. SWOT & Risk Sections
@@ -737,7 +741,7 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
 
     lines.extend([
         f"\n---\n",
-        f"## SECTION 5: MACHINE LEARNING VIABILITY & RISK ASSESSMENT",
+        f"## SECTION 5: MACHINE LEARNING VIABILITY & SHAP EXPLAINABILITY APPRAISAL",
         f"**Viability Verdict**: **`{s5.verdict}`** | **Model Confidence**: **{s5.confidence_pct:.1f}%** | **Engine**: `{s5.model_version}`\n",
         f"**Class Probabilities**: `SUITABLE`: {s5.class_probabilities.get('SUITABLE', 0)*100:.1f}% | `CAUTION`: {s5.class_probabilities.get('CAUTION', 0)*100:.1f}% | `RECONSIDER`: {s5.class_probabilities.get('RECONSIDER', 0)*100:.1f}%\n",
         f"**Primary Positive Drivers**:",
@@ -748,12 +752,22 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
     for r in s5.top_risk_factors:
         lines.append(f"- {r}")
 
+    if s5.shap_explanation and s5.shap_explanation.get("contributions"):
+        lines.extend([
+            f"\n### SHAP Feature Attribution Waterfall (Margin Impact on '{s5.verdict}'):",
+            f"| Feature Name | Feature Value | SHAP Value | Attribution Direction |",
+            f"| :--- | :---: | :---: | :---: |",
+        ])
+        for c in s5.shap_explanation["contributions"]:
+            dir_str = "🟢 Positive Viability Support" if c["shap_value"] > 0 else "🔴 Negative Risk Drag" if c["shap_value"] < 0 else "⚪ Neutral"
+            lines.append(f"| `{c['feature']}` | {c['feature_value']:.2f} | {c['shap_value']:+.4f} | {dir_str} |")
+
     lines.extend([
         f"\n---\n",
         f"## SECTION 6: QUANTIFIED SWOT & 8-POINT RISK MITIGATION TABLE",
         f"\n### 8-Point Quantified Risk Mitigation Table:",
         f"| ID | Risk Title | Severity | Score (/10) | Contingency Buffer | Actionable Mitigation Procedure |",
-        f"| :---: | :--- | :---: | :---: | :---: | :--- |",
+        f"| :---: | :--- | :---: | :---: | :--- |",
     ])
     for r in s6["risk_matrix"]:
         buf_str = f"₹{r['rupee_buffer']:,.0f}" if r.get("rupee_buffer") else "Policy / Process"
@@ -762,71 +776,65 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
     lines.extend([
         f"\n---\n",
         f"## SECTION 7: STATUTORY BANK SUBMISSION DOCUMENT CHECKLIST",
-        f"| Doc Code | Document Description | Classification | Issuing Authority | Mandatory |",
-        f"| :---: | :--- | :--- | :--- | :---: |",
+        f"| Code | Document Name | Category | Authority | Mandatory | Notes |",
+        f"| :---: | :--- | :--- | :--- | :---: | :--- |",
     ])
-    for doc in s7:
-        lines.append(f"| `{doc.document_code}` | **{doc.document_name}** | {doc.category_requirement} | {doc.issuing_authority} | {'✅ YES' if doc.is_mandatory else 'Optional'} |")
-
+    for d in s7:
+        lines.append(f"| `{d.document_code}` | **{d.document_name}** | {d.category_requirement} | {d.issuing_authority} | {'**YES**' if d.is_mandatory else 'Optional'} | {d.notes} |")
     return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
 # Print-Ready HTML Document Export
 # ---------------------------------------------------------------------------
-def dpr_to_html(dpr: BankDPRDocument) -> str:
-    """
-    Renders the Bank DPR into a styled, professional HTML page ready for browser printing or PDF conversion.
-    """
-    s1 = dpr.section_1_header_and_profile
-    s2 = dpr.section_2_capital_outlay_and_finance
-    outlay = s2["capital_outlay"]
-    finance = s2["means_of_finance"]
-    s3 = dpr.section_3_financial_projections
-    s4 = dpr.section_4_scheme_optimization
-    s5 = dpr.section_5_ml_viability_appraisal
-    s6 = dpr.section_6_swot_and_risk_matrix
-    s7 = dpr.section_7_statutory_checklist
-    ai = dpr.tier_3_ai_synthesis
+def dpr_to_html(doc: BankDPRDocument) -> str:
+    """Renders the Bank DPR into a high-fidelity standalone HTML document."""
+    p = doc.section_1_header_and_profile
+    outlay = doc.section_2_capital_outlay_and_finance["capital_outlay"]
+    finance = doc.section_2_capital_outlay_and_finance["means_of_finance"]
+    s3 = doc.section_3_financial_projections
+    s5 = doc.section_5_ml_viability_appraisal
+    s7 = doc.section_7_statutory_checklist
+
+    shap_rows = ""
+    if s5.shap_explanation and s5.shap_explanation.get("contributions"):
+        for c in s5.shap_explanation["contributions"]:
+            color = "#16a34a" if c["shap_value"] > 0 else "#dc2626" if c["shap_value"] < 0 else "#64748b"
+            shap_rows += f"<tr><td><code>{c['feature']}</code></td><td class='num'>{c['feature_value']:.2f}</td><td class='num' style='color:{color}; font-weight:bold;'>{c['shap_value']:+.4f}</td><td>{'Viability Support' if c['shap_value'] > 0 else 'Risk Drag' if c['shap_value'] < 0 else 'Neutral'}</td></tr>"
+
+    shap_table = f"""
+    <h3>SHAP Feature Attribution Waterfall</h3>
+    <table>
+        <tr><th>Feature</th><th class="num">Input Value</th><th class="num">SHAP Impact</th><th>Attribution Direction</th></tr>
+        {shap_rows}
+    </table>
+    """ if shap_rows else ""
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Bank DPR — {s1.enterprise_name} ({s1.dpr_reference_id})</title>
+<title>Bank DPR — {p.enterprise_name} ({p.dpr_reference_id})</title>
 <style>
-    body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 30px; color: #1e293b; background: #fff; line-height: 1.5; }}
-    h1 {{ color: #0f172a; border-bottom: 2px solid #0284c7; padding-bottom: 8px; font-size: 22px; }}
-    h2 {{ color: #0369a1; font-size: 16px; margin-top: 24px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }}
-    h3 {{ color: #334155; font-size: 14px; margin-top: 14px; }}
-    .header-box {{ background: #f8fafc; border: 1px solid #cbd5e1; padding: 14px; border-radius: 6px; margin-bottom: 20px; }}
-    .badge {{ display: inline-block; padding: 3px 8px; font-size: 11px; font-weight: bold; border-radius: 4px; color: #fff; background: #0284c7; }}
-    .badge-suitable {{ background: #16a34a; }}
-    .badge-caution {{ background: #d97706; }}
-    .badge-reconsider {{ background: #dc2626; }}
-    table {{ width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }}
+    body {{ font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1e293b; line-height: 1.5; margin: 40px; }}
+    h1 {{ color: #0f172a; border-bottom: 2px solid #0284c7; padding-bottom: 8px; }}
+    h2 {{ color: #0369a1; margin-top: 24px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; }}
+    table {{ width: 100%; border-collapse: collapse; margin-top: 12px; margin-bottom: 16px; font-size: 12px; }}
     th, td {{ border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; }}
-    th {{ background: #f1f5f9; color: #0f172a; font-weight: 600; }}
-    .num {{ text-align: right; }}
-    .memo-box {{ background: #eff6ff; border-left: 4px solid #2563eb; padding: 10px 14px; margin: 12px 0; font-size: 12px; }}
-    @media print {{ body {{ margin: 10mm; font-size: 11px; }} h1 {{ font-size: 18px; }} h2 {{ font-size: 14px; page-break-after: avoid; }} }}
+    th {{ background-color: #f1f5f9; font-weight: 600; color: #334155; }}
+    td.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
+    .badge {{ display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px; }}
+    .badge-suitable {{ background: #dcfce7; color: #15803d; }}
+    .badge-caution {{ background: #fef9c3; color: #a16207; }}
+    .badge-reconsider {{ background: #fee2e2; color: #b91c1c; }}
 </style>
 </head>
 <body>
+<h1>DETAILED PROJECT REPORT (DPR)</h1>
+<p><strong>Ref:</strong> {p.dpr_reference_id} | <strong>Enterprise:</strong> {p.enterprise_name} | <strong>Promoter:</strong> {p.promoter_name} ({p.gender.upper()}, {p.promoter_category})</p>
+<p><strong>Location:</strong> {p.target_village}, Block {p.target_block}, {p.target_district}, {p.target_state} (Rural: {p.is_rural})</p>
 
-<div class="header-box">
-    <h1>🏛️ DETAILED PROJECT REPORT (DPR) & CREDIT APPRAISAL MEMORANDUM</h1>
-    <p><strong>DPR Ref</strong>: <code>{s1.dpr_reference_id}</code> | <strong>Date</strong>: {s1.report_date} | <strong>Enterprise</strong>: <strong>{s1.enterprise_name}</strong> ({s1.constitution})</p>
-    <p><strong>Location</strong>: {s1.target_village}, {s1.target_block}, {s1.target_district}, {s1.target_state} | <strong>Promoter</strong>: {s1.promoter_name} ({s1.promoter_category.upper()})</p>
-</div>
-
-<h2>1. EXECUTIVE APPRAISAL & SYNTHESIS</h2>
-<p>{ai.get('executive_summary', '').replace(chr(10), '<br>')}</p>
-<div class="memo-box">
-    <strong>Bank Credit Officer Note:</strong> {ai.get('bank_appraisal_notes', '')}
-</div>
-
-<h2>2. CAPITAL OUTLAY & MEANS OF FINANCE</h2>
+<h2>1. CAPITAL OUTLAY & MEANS OF FINANCE</h2>
 <table>
     <tr><th>Capital Component</th><th class="num">% Outlay</th><th class="num">Amount (₹)</th><th>Description</th></tr>
     <tr><td>Plant & Machinery</td><td class="num">{outlay['plant_and_machinery']['percentage_of_outlay']:.1f}%</td><td class="num">₹{outlay['plant_and_machinery']['amount_inr']:,.2f}</td><td>{outlay['plant_and_machinery']['description']}</td></tr>
@@ -844,7 +852,7 @@ def dpr_to_html(dpr: BankDPRDocument) -> str:
     <tr style="font-weight:bold; background:#f8fafc;"><td>TOTAL MEANS OF FINANCE</td><td class="num">100.0%</td><td class="num">₹{finance['total_means_of_finance']:,.2f}</td><td>Balanced: {finance['reconciliation_balanced']}</td></tr>
 </table>
 
-<h2>3. 5-YEAR FINANCIAL & CASH FLOW PROJECTIONS</h2>
+<h2>2. 5-YEAR FINANCIAL & CASH FLOW PROJECTIONS</h2>
 <p><strong>Average 5-Year DSCR</strong>: <strong>{s3.average_dscr:.2f}</strong> (RBI Solvency Benchmark: {'MET' if s3.dscr_benchmark_met else 'NOT MET'}) | <strong>Break-Even</strong>: {s3.break_even_point_pct:.1f}%</p>
 <table>
     <tr>
@@ -861,10 +869,11 @@ def dpr_to_html(dpr: BankDPRDocument) -> str:
     <tr style="font-weight:bold; background:#f8fafc;"><td>Annual DSCR</td>{" ".join(f"<td class='num'>{y.annual_dscr:.2f}</td>" for y in s3.projection_years)}</tr>
 </table>
 
-<h2>4. MACHINE LEARNING VIABILITY APPRAISAL</h2>
-<p><strong>Viability Rating</strong>: <span class="badge badge-{'suitable' if s5.verdict == 'SUITABLE' else 'caution' if s5.verdict == 'CAUTION' else 'reconsider'}">{s5.verdict} ({s5.confidence_pct:.1f}% Confidence)</span></p>
+<h2>3. MACHINE LEARNING VIABILITY & SHAP EXPLAINABILITY</h2>
+<p><strong>Viability Rating</strong>: <span class="badge badge-{'suitable' if s5.verdict == 'SUITABLE' else 'caution' if s5.verdict == 'CAUTION' else 'reconsider'}">{s5.verdict} ({s5.confidence_pct:.1f}% Confidence)</span> | <strong>Engine:</strong> {s5.model_version}</p>
+{shap_table}
 
-<h2>5. STATUTORY BANK SUBMISSION DOCUMENT CHECKLIST</h2>
+<h2>4. STATUTORY BANK SUBMISSION DOCUMENT CHECKLIST</h2>
 <table>
     <tr><th>Code</th><th>Document Name</th><th>Classification</th><th>Issuing Authority</th><th>Mandatory</th></tr>
     {" ".join(f"<tr><td><code>{d.document_code}</code></td><td><strong>{d.document_name}</strong></td><td>{d.category_requirement}</td><td>{d.issuing_authority}</td><td>{'Yes' if d.is_mandatory else 'Optional'}</td></tr>" for d in s7)}

@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
 import { ViabilityMeterCard } from './ViabilityMeterCard';
+import { FeatureContributionChart } from './FeatureContributionChart';
+import { ViabilityRadarChart } from './ViabilityRadarChart';
+import { DscrGaugeChart } from './DscrGaugeChart';
+import { TamFunnelChart } from './TamFunnelChart';
+import { SchemeComparisonChart } from './SchemeComparisonChart';
 import { ExecutiveNarrativeCard } from './ExecutiveNarrativeCard';
 import { CapitalReconciliationCard } from './CapitalReconciliationCard';
 import { SchemeLeaderboardCard } from './SchemeLeaderboardCard';
@@ -7,7 +12,20 @@ import { CashflowProjectionsChart } from './CashflowProjectionsChart';
 import { SwotMatrixCard } from './SwotMatrixCard';
 import { RiskRadarCard } from './RiskRadarCard';
 import { StatutoryChecklistCard } from './StatutoryChecklistCard';
-import { Building2, MapPin, User, FileText, Sparkles, Database, CheckCircle2, Server, Layers, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Building2,
+  MapPin,
+  User,
+  FileText,
+  Sparkles,
+  Database,
+  CheckCircle2,
+  BrainCircuit,
+  TrendingUp,
+  Landmark,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 
 export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
   const [showLineage, setShowLineage] = useState(true);
@@ -45,12 +63,13 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
   const swot = reportData.swot_matrix || {};
   const risks = reportData.risk_assessment || {};
   const pricing = reportData.pricing_recommendation || {};
+  const demographics = reportData.market_demographics || {};
   const dataSources = reportData.data_sources_used || [
     { layer: "Tier 1: Demographics", logical_source: "Census 2011 Rural Catchment Database", table_or_file: "census_raw", status: "Queried OK", attribution: `${p.village_name || "Village"}, ${p.district_name || "District"}` },
     { layer: "Tier 1: MSME Density", logical_source: "Ministry of MSME Enterprise Registry", table_or_file: "msme_district", status: "Queried OK", attribution: `District MSME registry` },
     { layer: "Tier 1: Schemes", logical_source: "Statutory MSME Scheme Rule Guidelines", table_or_file: "government_schemes.json", status: "Queried OK", attribution: `PMEGP, PMFME, MUDRA, Stand-Up India` },
     { layer: "Tier 2: Infrastructure", logical_source: "Data.gov.in 613 District Amenities", table_or_file: "district_resources.json", status: "Queried OK", attribution: `Site infrastructure & amenities` },
-    { layer: "Tier 2: ML Viability", logical_source: "Supervised 10-D XGBoost Viability Classifier", table_or_file: "viability_xgb.joblib", status: ml.is_fallback ? "Rule Fallback" : "Model Executed", attribution: `Verdict: ${ml.verdict || "SUITABLE"}` },
+    { layer: "Tier 2: ML Viability", logical_source: "Supervised 10-D XGBoost Viability Classifier (TreeSHAP)", table_or_file: "viability_xgb.joblib", status: ml.is_fallback ? "Rule Fallback" : "TreeSHAP Evaluated", attribution: `Verdict: ${ml.verdict || "SUITABLE"}` },
   ];
 
   return (
@@ -144,14 +163,29 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
       {/* Viability Gauge Hero Card */}
       <ViabilityMeterCard mlViability={ml} dscrInfo={fin.dscr} />
 
+      {/* SECTION 1: ML Viability & Lundberg TreeSHAP Explainability Visuals */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <FeatureContributionChart mlViability={ml} />
+        <ViabilityRadarChart mlViability={ml} />
+      </div>
+
+      {/* SECTION 2: Banking Solvency Gauge & Demographics TAM Funnel */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <DscrGaugeChart dscrInfo={fin.dscr} projections={fin.five_year_projections} />
+        <TamFunnelChart demographics={demographics} pricing={pricing} />
+      </div>
+
       {/* Multi-Lingual Executive Synthesis Narrative */}
       <ExecutiveNarrativeCard synthesisData={synth} />
 
       {/* Capital Outlay & Means of Finance Reconciliation */}
       <CapitalReconciliationCard inputData={p} financialData={fin} schemeData={schemes} />
 
-      {/* Government Scheme Optimization Leaderboard */}
-      <SchemeLeaderboardCard schemes={schemes} />
+      {/* Government Scheme Comparison Chart & Leaderboard */}
+      <div className="space-y-6">
+        <SchemeComparisonChart schemes={schemes} />
+        <SchemeLeaderboardCard schemes={schemes} />
+      </div>
 
       {/* 5-Year Cash Flow & Capacity Ramp Schedule */}
       <CashflowProjectionsChart inputData={p} financialData={fin} pricingData={pricing} />
@@ -168,4 +202,4 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
     </div>
   );
 }
-
+export default Dashboard;

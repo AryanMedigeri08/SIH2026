@@ -1,5 +1,5 @@
 # ==============================================================================
-# Udyam Saathi (उद्यम साथी) — Python Backend & ML Dependencies
+# Udyam Saathi - Python Backend & ML Dependencies
 # ==============================================================================
 
 # Core Web Framework & ASGI Server
@@ -20,6 +20,7 @@ scikit-learn>=1.4.0
 xgboost>=2.0.0
 joblib>=1.4.0
 scipy>=1.13.0
+shap>=0.45.0
 
 # Database Connection Pool & Drivers
 asyncpg>=0.29.0
