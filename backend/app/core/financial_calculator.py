@@ -110,6 +110,7 @@ class SchemeRanking:
     net_financial_benefit: float
     collateral_free: bool
     notes: str
+    official_url: Optional[str] = None
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -328,6 +329,7 @@ def rank_eligible_schemes(
                 net_financial_benefit=net_benefit,
                 collateral_free=(s.get("collateral_free_limit", 0) >= loan_principal) if loan_principal else True,
                 notes=s.get("notes", ""),
+                official_url=s.get("official_url"),
             )
         )
 

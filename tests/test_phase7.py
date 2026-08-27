@@ -61,6 +61,9 @@ required_files = [
     FRONTEND_DIR / "src" / "services" / "api.js",
     FRONTEND_DIR / "src" / "data" / "pitchCases.js",
     FRONTEND_DIR / "src" / "components" / "Navbar.jsx",
+    FRONTEND_DIR / "src" / "components" / "Sidebar" / "Sidebar.jsx",
+    FRONTEND_DIR / "src" / "components" / "ReportGenerationLoader.jsx",
+    FRONTEND_DIR / "src" / "components" / "Skeletons" / "CardSkeletons.jsx",
     FRONTEND_DIR / "src" / "components" / "CaseStudiesBar.jsx",
     FRONTEND_DIR / "src" / "components" / "Wizard" / "FeasibilityWizard.jsx",
     FRONTEND_DIR / "src" / "components" / "Dashboard" / "Dashboard.jsx",
@@ -75,6 +78,14 @@ required_files = [
     FRONTEND_DIR / "src" / "components" / "DprModal.jsx",
     FRONTEND_DIR / "src" / "components" / "QuickCalculatorModal.jsx",
     FRONTEND_DIR / "src" / "pages" / "DashboardPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "OverviewPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "ViabilityPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "MarketDemandPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "GovernmentSchemesPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "FinancialsPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "RiskAssessmentPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "SwotAnalysisPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "BankDprPage.jsx",
     FRONTEND_DIR / "src" / "pages" / "WizardPage.jsx",
     FRONTEND_DIR / "src" / "pages" / "CalculatorPage.jsx",
     FRONTEND_DIR / "src" / "pages" / "DataSourcesPage.jsx",
@@ -122,6 +133,9 @@ print("=" * 90)
 
 components_to_test = [
     ("Navbar.jsx", "Navbar"),
+    ("Sidebar/Sidebar.jsx", "Sidebar"),
+    ("ReportGenerationLoader.jsx", "ReportGenerationLoader"),
+    ("Skeletons/CardSkeletons.jsx", "OverviewSkeleton"),
     ("CaseStudiesBar.jsx", "CaseStudiesBar"),
     ("Wizard/FeasibilityWizard.jsx", "FeasibilityWizard"),
     ("Dashboard/Dashboard.jsx", "Dashboard"),
@@ -140,10 +154,18 @@ components_to_test = [
 for rel_path, comp_name in components_to_test:
     path = FRONTEND_DIR / "src" / "components" / rel_path
     code = path.read_text(encoding="utf-8")
-    check(f"{rel_path} exports component '{comp_name}'", f"export function {comp_name}" in code or f"export const {comp_name}" in code)
+    check(f"{rel_path} exports component '{comp_name}'", f"export function {comp_name}" in code or f"export const {comp_name}" in code or f"export {{{comp_name}}}" in code or f"export {{ {comp_name} }}" in code or f"export default {comp_name}" in code or f"export {{ {comp_name}" in code)
 
 pages_to_test = [
     ("DashboardPage.jsx", "DashboardPage"),
+    ("OverviewPage.jsx", "OverviewPage"),
+    ("ViabilityPage.jsx", "ViabilityPage"),
+    ("MarketDemandPage.jsx", "MarketDemandPage"),
+    ("GovernmentSchemesPage.jsx", "GovernmentSchemesPage"),
+    ("FinancialsPage.jsx", "FinancialsPage"),
+    ("RiskAssessmentPage.jsx", "RiskAssessmentPage"),
+    ("SwotAnalysisPage.jsx", "SwotAnalysisPage"),
+    ("BankDprPage.jsx", "BankDprPage"),
     ("WizardPage.jsx", "WizardPage"),
     ("CalculatorPage.jsx", "CalculatorPage"),
     ("DataSourcesPage.jsx", "DataSourcesPage"),
@@ -155,7 +177,7 @@ pages_to_test = [
 for rel_path, comp_name in pages_to_test:
     path = FRONTEND_DIR / "src" / "pages" / rel_path
     code = path.read_text(encoding="utf-8")
-    check(f"pages/{rel_path} exports page component '{comp_name}'", f"export function {comp_name}" in code or f"export const {comp_name}" in code)
+    check(f"pages/{rel_path} exports page component '{comp_name}'", f"export function {comp_name}" in code or f"export const {comp_name}" in code or f"export {{{comp_name}}}" in code or f"export {{ {comp_name} }}" in code or f"export default {comp_name}" in code or f"export {{ {comp_name}" in code)
 
 print(f"\nLayer 3 result: {PASS} passed, {FAIL} failed so far.\n")
 

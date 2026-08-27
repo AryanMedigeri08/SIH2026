@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, CheckCircle, XCircle, Percent, ArrowUpRight } from 'lucide-react';
+import { Award, CheckCircle, XCircle, Percent, ArrowUpRight, ExternalLink } from 'lucide-react';
 
 export function SchemeLeaderboardCard({ schemes }) {
   const schemeList = schemes || [];
@@ -29,7 +29,7 @@ export function SchemeLeaderboardCard({ schemes }) {
           return (
             <div 
               key={s.scheme_id || idx}
-              className={`p-4 rounded-xl border transition-all ${
+              className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
                 isTop 
                   ? 'bg-sovereign-50 border-2 border-sovereign-700 shadow-sm'
                   : isEligible 
@@ -37,46 +37,65 @@ export function SchemeLeaderboardCard({ schemes }) {
                   : 'bg-slate-50 border-slate-200 opacity-60'
               }`}
             >
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-outfit font-extrabold text-sm text-slate-900">{s.scheme_id}</span>
-                    {isTop && (
-                      <span className="text-[10px] font-bold bg-sovereign-800 text-white px-2 py-0.5 rounded-md uppercase tracking-wider">
-                        ★ Top Match
-                      </span>
-                    )}
+              <div>
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-outfit font-extrabold text-sm text-slate-900">{s.scheme_id}</span>
+                      {isTop && (
+                        <span className="text-[10px] font-bold bg-sovereign-800 text-white px-2 py-0.5 rounded-md uppercase tracking-wider">
+                          ★ Top Match
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-slate-500 line-clamp-1 font-medium">{s.full_name || s.scheme_name}</div>
                   </div>
-                  <div className="text-[11px] text-slate-500 line-clamp-1 font-medium">{s.full_name || s.scheme_name}</div>
+
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${
+                    isEligible 
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                      : 'bg-slate-100 text-slate-600 border border-slate-200'
+                  }`}>
+                    {isEligible ? <CheckCircle className="w-3 h-3 text-emerald-600" /> : <XCircle className="w-3 h-3 text-slate-400" />}
+                    {isEligible ? 'Eligible' : 'Ineligible'}
+                  </span>
                 </div>
 
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                  isEligible 
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
-                    : 'bg-slate-100 text-slate-600 border border-slate-200'
-                }`}>
-                  {isEligible ? <CheckCircle className="w-3 h-3 text-emerald-600" /> : <XCircle className="w-3 h-3 text-slate-400" />}
-                  {isEligible ? 'Eligible' : 'Ineligible'}
-                </span>
-              </div>
-
-              {/* Metrics */}
-              <div className="pt-2 border-t border-slate-200/80 grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-500 block font-semibold">Subsidy Grant</span>
-                  <strong className="font-mono text-emerald-700 font-bold">
-                    {s.subsidy_grant_amount > 0 ? `₹${Math.round(s.subsidy_grant_amount).toLocaleString('en-IN')}` : '₹0 (Interest Subvention)'}
-                  </strong>
+                {/* Metrics */}
+                <div className="pt-2 border-t border-slate-200/80 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block font-semibold">Subsidy Grant</span>
+                    <strong className="font-mono text-emerald-700 font-bold">
+                      {s.subsidy_grant_amount > 0 ? `₹${Math.round(s.subsidy_grant_amount).toLocaleString('en-IN')}` : '₹0 (Interest Subvention)'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block font-semibold">Effective Interest</span>
+                    <strong className="font-mono text-sovereign-800 font-bold">{s.effective_interest_rate_pct || 9.5}% p.a.</strong>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] text-slate-500 block font-semibold">Effective Interest</span>
-                  <strong className="font-mono text-sovereign-800 font-bold">{s.effective_interest_rate_pct || 9.5}% p.a.</strong>
+
+                <div className="text-[11px] text-slate-600 mt-2 line-clamp-2 italic">
+                  {s.match_rationale || s.eligibility_notes || "Applicable under current sector & promoter category."}
                 </div>
               </div>
 
-              <div className="text-[11px] text-slate-600 mt-2 line-clamp-1 italic">
-                {s.match_rationale || s.eligibility_notes || "Applicable under current sector & promoter category."}
-              </div>
+              {/* Official Scheme Portal External Link */}
+              {s.official_url && (
+                <div className="pt-2.5 mt-3 border-t border-slate-200/80 flex items-center justify-between">
+                  <a
+                    href={s.official_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-sovereign-800 hover:text-sovereign-950 hover:underline transition group"
+                    title={`Visit official ${s.scheme_id} government portal (opens in new tab)`}
+                  >
+                    <span>Visit official {s.scheme_id} portal</span>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-sovereign-700 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </a>
+                  <span className="text-[9px] text-slate-400 font-mono">official .gov.in</span>
+                </div>
+              )}
             </div>
           );
         })}

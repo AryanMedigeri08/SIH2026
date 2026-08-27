@@ -2,45 +2,57 @@ import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { 
   Sparkles, Calculator, FileText, Activity, ShieldCheck, 
-  LayoutDashboard, Database, Award, CheckCircle2
+  LayoutDashboard, Database, Award, CheckCircle2, Menu
 } from 'lucide-react';
 
-export function Navbar({ health, onOpenWizard, onOpenCalculator, activeTab, setActiveTab }) {
+export function Navbar({ health, onOpenWizard, onOpenCalculator, onToggleMobileSidebar }) {
   const isHealthy = health?.status === 'healthy';
 
   const navLinks = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/wizard', label: 'New Assessment', icon: Sparkles },
-    { to: '/calculator', label: 'Loan Sizing', icon: Calculator },
-    { to: '/schemes', label: 'Scheme Master', icon: Award },
+    { to: '/', label: 'Overview', icon: LayoutDashboard },
+    { to: '/viability', label: 'ML Viability', icon: Activity },
+    { to: '/schemes', label: 'Schemes', icon: Award },
+    { to: '/calculator', label: 'Calculator', icon: Calculator },
     { to: '/data-sources', label: 'Data Lineage', icon: Database },
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         
-        {/* Institutional Brand Logo & Tagline */}
-        <Link to="/" className="flex items-center gap-3 cursor-pointer group">
-          <div className="w-10 h-10 rounded-xl bg-sovereign-800 text-white flex items-center justify-center shadow-subtle text-xl font-bold transition-transform group-hover:scale-105">
-            🏛️
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-outfit font-extrabold text-lg sm:text-xl text-slate-900 tracking-tight">
-                Udyam Saathi
-              </span>
-              <span className="text-xs font-semibold text-sovereign-800 bg-sovereign-50 border border-sovereign-200 px-2 py-0.5 rounded-full font-sans">
-                उद्यम साथी
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500 hidden sm:block">
-              National MSME Credit Appraisal & Bank DPR Portal • SIH 2026
-            </p>
-          </div>
-        </Link>
+        {/* Left Side: Mobile Menu Button & Brand */}
+        <div className="flex items-center gap-3">
+          {/* Hamburger button for mobile/drawer */}
+          <button
+            onClick={onToggleMobileSidebar}
+            className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
+            title="Open navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
 
-        {/* Center Route Navigation Bar */}
+          {/* Institutional Brand Logo & Tagline */}
+          <Link to="/" className="flex items-center gap-2.5 cursor-pointer group">
+            <div className="w-9 h-9 rounded-xl bg-sovereign-800 text-white flex items-center justify-center shadow-subtle text-lg font-bold transition-transform group-hover:scale-105">
+              🏛️
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-outfit font-extrabold text-base sm:text-lg text-slate-900 tracking-tight">
+                  Udyam Saathi
+                </span>
+                <span className="text-[11px] font-semibold text-sovereign-800 bg-sovereign-50 border border-sovereign-200 px-2 py-0.5 rounded-full font-sans">
+                  उद्यम साथी
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 hidden sm:block">
+                National MSME Credit Feasibility & Bank DPR Portal
+              </p>
+            </div>
+          </Link>
+        </div>
+
+        {/* Center Route Navigation Bar (Desktop) */}
         <nav className="hidden lg:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
           {navLinks.map((link) => {
             const Icon = link.icon;

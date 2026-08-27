@@ -157,9 +157,24 @@ export function SchemesPage() {
                     {s.notes}
                   </p>
                 )}
+
+                {s.official_url && (
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <a
+                      href={s.official_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-sovereign-800 hover:text-sovereign-950 hover:underline transition"
+                    >
+                      <span>Visit official portal</span>
+                      <ExternalLink className="w-3 h-3 text-sovereign-700" />
+                    </a>
+                    <span className="text-[9px] text-slate-400 font-mono">official .gov.in</span>
+                  </div>
+                )}
               </div>
 
-              <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between">
+              <div className="pt-3 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center">
                 <span>Rule Matrix Source:</span>
                 <span className="font-mono text-sovereign-800 font-bold">government_schemes.json</span>
               </div>
