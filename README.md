@@ -148,6 +148,7 @@ SIH/
 ├── .env.example                     # Environment Configuration Template
 ├── .gitignore                       # Git Ignore Configuration
 ├── district_resources.json          # 613 District Resource UUID Map (Root Reference)
+├── requirements.txt                 # Python Backend & ML Package Dependencies
 ├── run_tests.py                     # Master Test Suite Runner (325 Tests)
 ├── start_backend.bat                # Windows 1-Click Backend Launcher
 └── start_frontend.bat               # Windows 1-Click Frontend Launcher
@@ -191,7 +192,7 @@ AMENITIES_API_BASE_URL=https://api.data.gov.in/resource
 
 **Backend Dependencies:**
 ```bash
-pip install fastapi uvicorn pydantic python-dotenv asyncpg numpy xgboost joblib scikit-learn requests
+pip install -r requirements.txt
 ```
 
 **Frontend Dependencies:**
