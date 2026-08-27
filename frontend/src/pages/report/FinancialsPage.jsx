@@ -16,15 +16,15 @@ export function FinancialsPage({ reportData }) {
     <div className="space-y-6">
       
       {/* Header Banner */}
-      <div className="glass-panel p-6 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200">
+      <div className="glass-panel p-6 border-l-4 border-sovereign-800 bg-gradient-to-r from-white via-sovereign-50/20 to-white shadow-card border border-slate-200/90">
         <div className="text-xs font-bold uppercase tracking-wider text-sovereign-700 mb-1 flex items-center gap-1.5">
-          <TrendingUp className="w-4 h-4" />
+          <TrendingUp className="w-4 h-4 text-sovereign-700" />
           <span>Dimension 4 • Deterministic Financial Engineering & Solvency Analysis</span>
         </div>
-        <h1 className="text-2xl font-outfit font-extrabold text-slate-900">
+        <h1 className="text-2xl font-outfit font-extrabold text-slate-900 tracking-tight">
           Capital Outlay Deployment, Means of Finance & 5-Year Cash Flow Projections
         </h1>
-        <p className="text-xs text-slate-600 mt-1 max-w-3xl font-medium">
+        <p className="text-xs text-slate-600 mt-1 max-w-3xl font-medium leading-relaxed">
           Zero-drift capital outlay sizing, statutory promoter margin reconciliation, RBI-compliant Debt Service Coverage Ratio (DSCR) testing, and 5-year capacity ramp projections with tax depreciation.
         </p>
       </div>

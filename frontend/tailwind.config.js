@@ -8,13 +8,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Institutional Credit System Tokens (Light-First, High Contrast)
+        // Institutional Credit System Tokens (Rich, High Contrast, Expressive)
         sovereign: {
+          950: '#041523',
           900: '#07243a',
           800: '#0b3b60',
           700: '#0e4c7d',
           600: '#1d639b',
           500: '#257cbd',
+          400: '#38bdf8',
+          300: '#7dd3fc',
+          200: '#bae6fd',
           100: '#e0f0fe',
           50: '#f0f7ff',
         },
@@ -30,11 +34,12 @@ export default {
           navy: '#0b3b60',
           blue: '#1e40af',
           sky: '#0284c7',
-          cyan: '#0284c7',
-          indigo: '#1e40af',
+          cyan: '#06b6d4',
+          indigo: '#4338ca',
           emerald: '#059669',
           amber: '#d97706',
-          rose: '#dc2626',
+          rose: '#e11d48',
+          purple: '#7c3aed',
         },
         // Backward-compatibility token mappings for safety
         cyber: {
@@ -50,12 +55,19 @@ export default {
       },
       boxShadow: {
         subtle: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-        card: '0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
-        'card-elevated': '0 4px 16px -2px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.04)',
-        glow: '0 4px 14px 0 rgba(11, 59, 96, 0.15)',
-        'glow-cyan': '0 4px 14px 0 rgba(2, 132, 199, 0.15)',
-        'glow-emerald': '0 4px 14px 0 rgba(5, 150, 105, 0.15)',
-        'glow-rose': '0 4px 14px 0 rgba(220, 38, 38, 0.15)',
+        card: '0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
+        'card-hover': '0 10px 25px -5px rgb(11 59 96 / 0.10), 0 8px 10px -6px rgb(11 59 96 / 0.05)',
+        'card-elevated': '0 12px 30px -8px rgb(0 0 0 / 0.12), 0 4px 12px -2px rgb(0 0 0 / 0.06)',
+        glow: '0 4px 20px 0 rgba(11, 59, 96, 0.18)',
+        'glow-cyan': '0 4px 16px 0 rgba(2, 132, 199, 0.22)',
+        'glow-emerald': '0 4px 16px 0 rgba(5, 150, 105, 0.20)',
+        'glow-amber': '0 4px 16px 0 rgba(217, 119, 6, 0.20)',
+        'glow-rose': '0 4px 16px 0 rgba(225, 29, 72, 0.20)',
+        'pill-active': '0 2px 8px 0 rgba(11, 59, 96, 0.25)',
+      },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'gradient-mesh': 'radial-gradient(at 0% 0%, rgba(11, 59, 96, 0.06) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(2, 132, 199, 0.05) 0px, transparent 50%), radial-gradient(at 50% 100%, rgba(5, 150, 105, 0.03) 0px, transparent 50%)',
       }
     },
   },

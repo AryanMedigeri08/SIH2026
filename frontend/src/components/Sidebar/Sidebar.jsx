@@ -125,38 +125,34 @@ export function Sidebar({
               to={item.path}
               onClick={onCloseMobile}
               title={isCollapsed ? item.name : undefined}
-              className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all relative ${
-                isActive
-                  ? 'bg-gradient-to-r from-sovereign-800 to-sovereign-900 text-white shadow-sm font-bold'
-                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-medium'
+              className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all duration-200 relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+                isActive ? 'sidebar-item-active font-bold' : 'sidebar-item-inactive font-medium'
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <Icon
-                  className={`w-4 h-4 shrink-0 transition-transform ${
-                    isActive ? 'text-white' : 'text-slate-500 group-hover:text-sovereign-800'
+                  className={`w-4 h-4 shrink-0 transition-all duration-200 sidebar-icon ${
+                    isActive ? 'text-sky-300' : 'text-slate-500'
                   }`}
                 />
                 {!isCollapsed && (
-                  <span className="truncate">{item.name}</span>
+                  <span className={`truncate ${isActive ? 'text-white font-bold' : 'text-slate-700'}`}>
+                    {item.name}
+                  </span>
                 )}
               </div>
 
               {!isCollapsed && item.badge && (
                 <span
-                  className={`text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold shrink-0 ${
-                    isActive
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-100 text-slate-600 border border-slate-200'
-                  }`}
+                  className="sidebar-badge text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold shrink-0 transition-colors"
                 >
                   {item.badge}
                 </span>
               )}
 
-              {/* Active rail indicator */}
+              {/* Glowing active indicator rail */}
               {isActive && (
-                <div className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-sky-400 rounded-r-full" />
+                <div className="absolute left-0 top-1.5 bottom-1.5 w-1.5 bg-gradient-to-b from-cyan-400 to-sky-400 rounded-r-full shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
               )}
             </NavLink>
           );
@@ -170,30 +166,31 @@ export function Sidebar({
       {/* Mobile Backdrop Overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm lg:hidden animate-in fade-in"
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm lg:hidden animate-in fade-in duration-200"
           onClick={onCloseMobile}
         />
       )}
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 bottom-0 z-40 bg-white border-r border-slate-200 flex flex-col justify-between transition-all duration-300 shadow-card lg:static lg:z-auto ${
+        className={`fixed top-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-r border-slate-200 flex flex-col justify-between transition-all duration-300 shadow-card lg:static lg:z-auto ${
           isMobileOpen ? 'left-0 w-72' : '-left-full lg:left-0'
         } ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}`}
       >
         {/* Top Header / Branding */}
         <div>
-          <div className="h-16 px-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="h-16 px-4 border-b border-slate-200/80 flex items-center justify-between bg-gradient-to-b from-slate-50/80 to-white">
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-lg bg-sovereign-800 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sovereign-800 via-sovereign-900 to-indigo-900 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-sovereign-900/20 border border-sovereign-700/50">
                 उ
               </div>
               {!isCollapsed && (
                 <div className="leading-tight truncate">
-                  <div className="font-outfit font-black text-sm text-slate-900 tracking-tight">
-                    Udyam Saathi
+                  <div className="font-outfit font-black text-sm text-slate-900 tracking-tight flex items-center gap-1.5">
+                    <span>Udyam Saathi</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   </div>
-                  <div className="text-[10px] text-sovereign-700 font-semibold uppercase tracking-wider">
+                  <div className="text-[10px] text-sovereign-700 font-bold uppercase tracking-wider">
                     Credit Feasibility
                   </div>
                 </div>
@@ -203,7 +200,8 @@ export function Sidebar({
             {/* Mobile Close Button */}
             <button
               onClick={onCloseMobile}
-              className="lg:hidden text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100"
+              className="lg:hidden text-slate-400 hover:text-slate-800 p-1.5 rounded-xl hover:bg-slate-100 transition"
+              title="Close navigation"
             >
               <X className="w-5 h-5" />
             </button>
@@ -211,7 +209,7 @@ export function Sidebar({
             {/* Desktop Collapse Toggle */}
             <button
               onClick={onToggleCollapse}
-              className="hidden lg:flex text-slate-400 hover:text-slate-800 p-1.5 rounded-lg hover:bg-slate-100 transition"
+              className="hidden lg:flex text-slate-400 hover:text-slate-800 p-1.5 rounded-xl hover:bg-slate-100 transition border border-transparent hover:border-slate-200"
               title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
               {isCollapsed ? (
@@ -226,15 +224,18 @@ export function Sidebar({
           <div className="p-3 space-y-4 overflow-y-auto max-h-[calc(100vh-14rem)]">
             <div>
               {!isCollapsed && (
-                <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                  Appraisal Sections
+                <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center justify-between">
+                  <span>Appraisal Sections</span>
+                  <span className="text-[9px] text-sovereign-700 font-bold bg-sovereign-50 px-1.5 py-0.2 rounded border border-sovereign-200">
+                    8 Views
+                  </span>
                 </div>
               )}
               {renderNavLinks(reportNavItems)}
             </div>
 
             {/* Navigation Section: Standalone Financial & Data Tools */}
-            <div className="pt-2 border-t border-slate-200">
+            <div className="pt-2 border-t border-slate-200/80">
               {!isCollapsed && (
                 <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
                   System Tools
@@ -246,14 +247,14 @@ export function Sidebar({
         </div>
 
         {/* Bottom Callout / Wizard Action */}
-        <div className="p-3 border-t border-slate-200 bg-slate-50/70">
+        <div className="p-3 border-t border-slate-200 bg-gradient-to-b from-slate-50/60 to-slate-100/80">
           {!isCollapsed ? (
             <NavLink
               to="/wizard"
               onClick={onCloseMobile}
-              className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl bg-sovereign-800 hover:bg-sovereign-700 text-white text-xs font-bold shadow-sm transition group"
+              className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-sovereign-800 via-sky-700 to-sovereign-800 hover:from-sovereign-700 hover:to-sky-600 text-white text-xs font-bold shadow-md shadow-sovereign-900/15 border border-sky-400/25 transition-all duration-200 group"
             >
-              <Sparkles className="w-3.5 h-3.5 text-sky-300 group-hover:rotate-12 transition-transform" />
+              <Sparkles className="w-3.5 h-3.5 text-sky-200 group-hover:rotate-12 group-hover:scale-110 transition-transform" />
               <span>New Assessment</span>
             </NavLink>
           ) : (
@@ -261,9 +262,9 @@ export function Sidebar({
               to="/wizard"
               onClick={onCloseMobile}
               title="Launch New Assessment Wizard"
-              className="flex items-center justify-center w-full p-2.5 rounded-xl bg-sovereign-800 hover:bg-sovereign-700 text-white text-xs font-bold shadow-sm transition"
+              className="flex items-center justify-center w-full p-2.5 rounded-xl bg-gradient-to-r from-sovereign-800 to-sky-700 hover:from-sovereign-700 hover:to-sky-600 text-white text-xs font-bold shadow-md shadow-sovereign-900/15 border border-sky-400/25 transition-all duration-200"
             >
-              <Sparkles className="w-4 h-4 text-sky-300" />
+              <Sparkles className="w-4 h-4 text-sky-200" />
             </NavLink>
           )}
         </div>

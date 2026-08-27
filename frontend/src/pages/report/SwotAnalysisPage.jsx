@@ -11,15 +11,15 @@ export function SwotAnalysisPage({ reportData }) {
     <div className="space-y-6">
       
       {/* Header Banner */}
-      <div className="glass-panel p-6 border-l-4 border-amber-600 bg-white shadow-card border border-slate-200">
+      <div className="glass-panel p-6 border-l-4 border-amber-600 bg-gradient-to-r from-white via-amber-50/20 to-white shadow-card border border-slate-200/90">
         <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1 flex items-center gap-1.5">
-          <Grid3X3 className="w-4 h-4" />
+          <Grid3X3 className="w-4 h-4 text-amber-600" />
           <span>Dimension 6 • Domain-Grounded Strategic Evaluation</span>
         </div>
-        <h1 className="text-2xl font-outfit font-extrabold text-slate-900">
+        <h1 className="text-2xl font-outfit font-extrabold text-slate-900 tracking-tight">
           Grounded SWOT Analysis Matrix
         </h1>
-        <p className="text-xs text-slate-600 mt-1 max-w-3xl font-medium">
+        <p className="text-xs text-slate-600 mt-1 max-w-3xl font-medium leading-relaxed">
           Comprehensive strategic appraisal derived from Census 2011 demographic growth, MSME saturation density, and supervised XGBoost viability factors.
         </p>
       </div>
