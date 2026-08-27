@@ -148,8 +148,7 @@ SIH/
 ├── .env.example                     # Environment Configuration Template
 ├── .gitignore                       # Git Ignore Configuration
 ├── district_resources.json          # 613 District Resource UUID Map (Root Reference)
-├── run_platform.py                  # Concurrent Full-Stack Platform Launcher
-├── run_tests.py                     # Master Test Suite Runner (332 Tests)
+├── run_tests.py                     # Master Test Suite Runner (325 Tests)
 ├── start_backend.bat                # Windows 1-Click Backend Launcher
 └── start_frontend.bat               # Windows 1-Click Frontend Launcher
 ```
@@ -160,7 +159,7 @@ SIH/
 
 ### 1. Prerequisites
 * **Python 3.10+**
-* **Node.js** (Optional, for HTTP static serving) or standard Python `http.server`
+* **Node.js 18+ & npm**
 * **PostgreSQL Database** (Neon Serverless PostgreSQL recommended)
 
 ### 2. Environment Setup
@@ -188,20 +187,42 @@ DATA_GOV_IN_API_KEY=579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b
 AMENITIES_API_BASE_URL=https://api.data.gov.in/resource
 ```
 
-### 3. Install Python Dependencies
+### 3. Install Dependencies
+
+**Backend Dependencies:**
 ```bash
 pip install fastapi uvicorn pydantic python-dotenv asyncpg numpy xgboost joblib scikit-learn requests
 ```
 
-### 4. Launch the Complete Platform (Single Command)
-Run the master concurrency launcher:
-
+**Frontend Dependencies:**
 ```bash
-python run_platform.py
+cd frontend
+npm install
+cd ..
 ```
-* **Web Application UI**: [`http://127.0.0.1:3000`](http://127.0.0.1:3000)
+
+### 4. Running the Platform (Decoupled 2-Terminal Workflow)
+
+The system runs as two independent services across dedicated terminal sessions:
+
+#### Terminal 1 — Backend (FastAPI REST API & AI/ML Pipeline)
+```bash
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+*or double-click `start_backend.bat`*
+
 * **REST API & Swagger Docs**: [`http://127.0.0.1:8000/docs`](http://127.0.0.1:8000/docs)
-* **Health Check**: [`http://127.0.0.1:8000/api/v2/health`](http://127.0.0.1:8000/api/v2/health)
+* **System Health Check**: [`http://127.0.0.1:8000/api/v2/health`](http://127.0.0.1:8000/api/v2/health)
+
+#### Terminal 2 — Frontend (Modern React + Vite Single Page Application)
+```bash
+cd frontend
+npm run dev
+```
+*or double-click `start_frontend.bat`*
+
+* **Web Application UI**: [`http://127.0.0.1:3000`](http://127.0.0.1:3000)
+
 
 ---
 

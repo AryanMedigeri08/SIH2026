@@ -74,7 +74,7 @@ def build_risk_matrix(
         basis=f"DSCR = {dscr:.2f} (RBI benchmark >= 1.33)",
         mitigation=f"Maintain a 3-month EMI contingency reserve of ₹{buffer:,.0f} before disbursal; "
                     f"consider extending tenure or applying moratorium if DSCR < 1.33.",
-        rupee_buffer=buffer, data_source="financial_calculator.py",
+        rupee_buffer=buffer, data_source="RBI Solvency Framework & Amortization Ratios",
     ))
 
     # 2. Market Demand Shortfall Risk (TAM vs projected turnover): the closer the
@@ -89,7 +89,7 @@ def build_risk_matrix(
               f"({demand_ratio*100:.1f}% of catchment TAM)",
         mitigation="If turnover assumption exceeds 60% of catchment TAM, diversify product mix or expand "
                     "catchment radius before scaling capacity further.",
-        data_source="market_analyzer.py",
+        data_source="Census 2011 Catchment TAM & Household Demographics (census_raw)",
     ))
 
     # 3. Competition Saturation Risk
@@ -99,7 +99,7 @@ def build_risk_matrix(
         basis=f"Normalized competition intensity = {competition_intensity_normalized:.2f} (0=none, 1=saturated)",
         mitigation="Differentiate via pricing, quality certification (e.g. FSSAI for food units), or "
                     "underserved sub-catchment targeting.",
-        data_source="market_analyzer.py (MSME + demographics)",
+        data_source="Ministry of MSME District Enterprise Registry (msme_district)",
     ))
 
     # 4. Infrastructure Readiness Risk (inverse of infra score, x5 is 0-10)
@@ -111,7 +111,7 @@ def build_risk_matrix(
         mitigation=f"Budget an additional ₹{gap_buffer:,.0f} logistics/backup-power contingency if score < 7; "
                     f"prioritize sites with paved road + grid power access.",
         rupee_buffer=gap_buffer if gap_buffer > 0 else None,
-        data_source="village_amenities_cache (data.gov.in)",
+        data_source="Data.gov.in 613 District Amenities Registry (district_resources.json)",
     ))
 
     # 5. Weather / Climate Risk
@@ -121,7 +121,7 @@ def build_risk_matrix(
         basis=f"Weather risk score = {weather_risk_score:.2f} (0-1, heavy-rain-day fraction)",
         mitigation="Build a monsoon-season buffer stock / covered storage; for weather-exposed sectors "
                     "(dairy, agri-processing) budget 1 extra month of working capital during peak monsoon.",
-        data_source="Open-Meteo (lat/long keyed, see Phase 1 handoff)",
+        data_source="IMD & Open-Meteo Weather Telemetry",
     ))
 
     # 6. Inflation / CPI Risk
@@ -131,7 +131,7 @@ def build_risk_matrix(
         basis=f"State rural CPI inflation = {cpi_inflation_pct:.2f}%",
         mitigation="Re-price product/service annually in line with CPI (see pricing_engine.py); "
                     "lock raw-material supplier contracts for 6-12 months where feasible.",
-        data_source="cpi_data (MoSPI)",
+        data_source="MoSPI State Rural CPI Inflation Series",
     ))
 
     # 7. Scheme / Subsidy Dependency Risk
@@ -141,7 +141,7 @@ def build_risk_matrix(
         basis=f"Subsidy coverage ratio = {subsidy_coverage_ratio:.2f} (subsidy / total project cost)",
         mitigation="Do not sequence machinery procurement solely on subsidy receipt; arrange bridge "
                     "financing or phased procurement so operations aren't stalled by disbursal delays.",
-        data_source="government_schemes.json",
+        data_source="National & State MSME Schemes (government_schemes.json)",
     ))
 
     # 8. Working Capital Buffer / Liquidity Risk
@@ -151,8 +151,9 @@ def build_risk_matrix(
         basis=f"Working capital buffer = {working_capital_months_buffer:.1f} months of promoter margin coverage",
         mitigation="Target a minimum 3-month working capital buffer before launch; renegotiate supplier "
                     "credit terms (30-45 days) to reduce cash-cycle pressure.",
-        data_source="financial_calculator.py",
+        data_source="RBI MSME Working Capital Norms & Nayak Committee Method",
     ))
+
 
     if is_seasonal_sector:
         for r in risks:

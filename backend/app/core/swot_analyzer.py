@@ -62,55 +62,55 @@ def build_swot(
     if dscr >= 1.33:
         strengths.append(SWOTItem(
             f"Strong debt-servicing capacity: DSCR of {dscr:.2f} clears the RBI benchmark of 1.33.",
-            "financial_calculator.py",
+            "RBI Prudential Banking Guidelines & Amortization Ratios",
         ))
     if subsidy_grant_amount > 0:
         strengths.append(SWOTItem(
             f"₹{subsidy_grant_amount:,.0f} capital subsidy secured under {subsidy_scheme_name} "
             f"({subsidy_grant_amount/project_cost*100:.1f}% of project cost), reducing effective debt burden.",
-            "government_schemes.json",
+            "Statutory MSME Scheme Guidelines (government_schemes.json)",
         ))
     if infrastructure_score >= 7.0:
         strengths.append(SWOTItem(
             f"High site infrastructure readiness (score {infrastructure_score:.1f}/10): road, power, and "
             f"market access already in place, lowering setup risk.",
-            "village_amenities_cache",
+            "Data.gov.in 613 District Resource Registry (district_resources.json)",
         ))
     if ml_viability_verdict == "SUITABLE":
         strengths.append(SWOTItem(
             f"ML viability classifier rates this enterprise SUITABLE with {ml_confidence_pct:.1f}% confidence "
             f"across 10 weighted factors.",
-            "viability_xgb.joblib",
+            "Supervised XGBoost Viability Classifier (viability_xgb.joblib)",
         ))
 
     # --- Weaknesses ---
     if dscr < 1.33:
         weaknesses.append(SWOTItem(
             f"DSCR of {dscr:.2f} is below the RBI-preferred 1.33 threshold, indicating thin debt-servicing headroom.",
-            "financial_calculator.py",
+            "RBI Prudential Banking Guidelines & Amortization Ratios",
         ))
     if ml_viability_verdict == "CAUTION":
         weaknesses.append(SWOTItem(
             f"ML viability classifier rates this enterprise CAUTION with {ml_confidence_pct:.1f}% confidence, indicating moderate sensitivity to operating variables.",
-            "viability_xgb.joblib",
+            "Supervised XGBoost Viability Classifier (viability_xgb.joblib)",
         ))
     if infrastructure_score < 5.0:
         weaknesses.append(SWOTItem(
             f"Low site infrastructure readiness (score {infrastructure_score:.1f}/10): expect added logistics "
             f"or backup-power cost.",
-            "village_amenities_cache",
+            "Data.gov.in 613 District Resource Registry (district_resources.json)",
         ))
     if msme_density_per_10k < 5.0:
         weaknesses.append(SWOTItem(
             f"Thin local MSME ecosystem ({msme_density_per_10k:.2f} registered enterprises per 10,000 population) "
             f"may mean limited ancillary supplier/service support nearby.",
-            "msme_district table",
+            "Ministry of MSME District Enterprise Registry (msme_district)",
         ))
     if not weaknesses:
         weaknesses.append(SWOTItem(
             "No material weaknesses flagged against current thresholds; monitor DSCR and infrastructure "
             "readiness as project scales.",
-            "financial_calculator.py / village_amenities_cache",
+            "RBI Banking Guidelines & District Amenities Registry",
         ))
 
     # --- Opportunities ---
@@ -119,18 +119,18 @@ def build_swot(
         opportunities.append(SWOTItem(
             f"₹{demand_headroom:,.0f}/year of unmet catchment demand (TAM ₹{projected_annual_tam:,.0f} vs "
             f"projected turnover ₹{annual_turnover_estimate:,.0f}) available for scale-up.",
-            "market_analyzer.py",
+            "Census 2011 Catchment TAM & Household Demographics (census_raw)",
         ))
     if competition_intensity_normalized < 0.4:
         opportunities.append(SWOTItem(
             f"Low competitive saturation (normalized intensity {competition_intensity_normalized:.2f}/1.0) "
             f"leaves room for first-mover / early-market positioning.",
-            "market_analyzer.py",
+            "Census 2011 Catchment TAM & Household Demographics (census_raw)",
         ))
     opportunities.append(SWOTItem(
         "Additional scheme stacking (e.g. state-level top-up subsidies) may further reduce effective "
         "capital cost — recommend checking state MSME department for local top-ups.",
-        "government_schemes.json (national schemes only)",
+        "National & State MSME Schemes (government_schemes.json)",
     ))
 
     # --- Threats ---
@@ -138,33 +138,34 @@ def build_swot(
         threats.append(SWOTItem(
             f"Elevated rural CPI inflation ({cpi_inflation_pct:.2f}%) may erode margins unless prices are "
             f"re-adjusted annually.",
-            "cpi_data (MoSPI)",
+            "MoSPI State Rural CPI Inflation Series",
         ))
     if weather_risk_score > 0.3:
         threats.append(SWOTItem(
             f"Meaningful weather-disruption exposure (risk score {weather_risk_score:.2f}/1.0); heavy-rain "
             f"days could interrupt supply or footfall.",
-            "Open-Meteo weather feed",
+            "IMD & Open-Meteo Weather Telemetry",
         ))
     if competition_intensity_normalized >= 0.6:
         threats.append(SWOTItem(
             f"High local competition saturation (normalized intensity {competition_intensity_normalized:.2f}/1.0) "
             f"could compress margins or slow customer acquisition.",
-            "market_analyzer.py",
+            "Ministry of MSME District Enterprise Registry (msme_district)",
         ))
     if ml_viability_verdict == "RECONSIDER":
         threats.append(SWOTItem(
             f"ML viability classifier flags RECONSIDER with {ml_confidence_pct:.1f}% confidence — "
             f"underlying financial/market ratios should be revisited before proceeding.",
-            "viability_xgb.joblib",
+            "Supervised XGBoost Viability Classifier (viability_xgb.joblib)",
         ))
     if not threats:
         threats.append(SWOTItem(
             "No high-severity external threats flagged against current inflation, weather, or competition data.",
-            "cpi_data / Open-Meteo / market_analyzer.py",
+            "MoSPI CPI / IMD Weather / MSME Registry",
         ))
 
     return SWOTMatrix(strengths=strengths, weaknesses=weaknesses, opportunities=opportunities, threats=threats)
+
 
 
 if __name__ == "__main__":

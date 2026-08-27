@@ -131,6 +131,17 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
         </table>
       </div>
 
+      {/* Grounded Data Source Lineage Tag */}
+      <div className="text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 pt-3 mt-2 border-t border-slate-800/60">
+        <span>
+          <strong className="text-slate-400">Data Source:</strong> Statutory 5-Year Amortization Schedule & Indian Income Tax WDV Depreciation Slabs
+        </span>
+        <span className="font-mono text-slate-400">
+          Financial Math: Deterministic Banking Formulae
+        </span>
+      </div>
+
     </div>
   );
 }
+

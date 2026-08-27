@@ -92,6 +92,8 @@ class FeasibilityReport(BaseModel):
     swot_matrix: dict[str, Any]
     pricing_recommendation: dict[str, Any]
     executive_synthesis: dict[str, Any]
+    data_sources_used: Optional[list[dict[str, Any]]] = Field(default_factory=list, description="Audit lineage of database tables, APIs and ML models queried")
+
 
 
 # ---------------------------------------------------------------------------

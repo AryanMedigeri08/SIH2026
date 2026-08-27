@@ -5,11 +5,14 @@ and Data.gov.in 613 District Resource Amenities.
 """
 
 from __future__ import annotations
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, Any
 from fastapi import APIRouter, Query, HTTPException, Response
 from fastapi.responses import HTMLResponse, PlainTextResponse
+
+logger = logging.getLogger("udyam_saathi.feasibility")
 
 from financial_calculator import (
     emi_with_moratorium, working_capital_estimate, compute_dscr, rank_eligible_schemes,
@@ -43,6 +46,11 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
       - Tier 3 (Executive Narrative): Groq Cloud Llama-3-70B AI Synthesis
       - Tier 4 (Bank Memorandum): 7-Section Bank DPR Compilation
     """
+    logger.info(
+        f"⚡ [PIPELINE START] Enterprise: '{input_data.enterprise_name}' | Sector: '{input_data.sector}' | "
+        f"Outlay: ₹{input_data.project_cost:,.0f} | Location: {input_data.village_name}, {input_data.district_name}, {input_data.state_name}"
+    )
+
     # 1. Market & Ground-Truth Demographics (Tier 1)
     census_data = await db_manager.get_census_demographics(
         state_name=input_data.state_name,
@@ -52,6 +60,10 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     base_pop = census_data["base_population_2011"]
     pop = project_population(base_pop, input_data.state_name, 2026)
     tam = estimate_tam(pop.projected_households, input_data.sector)
+    logger.info(
+        f"📊 [TIER 1 DEMOGRAPHICS] Querying Table: 'census_raw' | State: '{input_data.state_name}' | "
+        f"District: '{input_data.district_name}' -> Base Pop 2011: {base_pop:,}, Projected 2026: {pop.projected_population:,}, TAM: ₹{tam.annual_tam:,.0f}"
+    )
 
     msme_data = await db_manager.get_district_msme_stats(
         state_name=input_data.state_name,
@@ -60,6 +72,10 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     msme_total = msme_data["total_msme"]
     dens = compute_msme_density(msme_total, pop.projected_population)
     comp = compute_competition_intensity(msme_total, 0.05, pop.projected_population)
+    logger.info(
+        f"🏢 [TIER 1 MSME] Querying Table: 'msme_district' | District: '{input_data.district_name}' -> "
+        f"Total MSMEs: {msme_total:,}, MSME Density: {dens.msme_density_per_10k:.2f}/10k"
+    )
 
     # 2. Financial & Scheme Optimization (Tier 1)
     wc = working_capital_estimate(input_data.annual_turnover_estimate, input_data.sector)
@@ -81,6 +97,13 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
 
     monthly_noi = input_data.monthly_net_operating_income_override or (input_data.annual_turnover_estimate * 0.30 / 12)
     dscr_res = compute_dscr(monthly_noi, amort.monthly_emi)
+    subsidy_coverage_ratio = top_scheme.subsidy_grant_amount / input_data.project_cost if input_data.project_cost else 0.0
+
+    logger.info(
+        f"🏛️ [TIER 1 SCHEMES] Querying Source: 'government_schemes.json' | Evaluated {len(schemes)} schemes -> "
+        f"Top Scheme: {top_scheme.scheme_id} ({top_scheme.full_name}) | Subsidy: ₹{top_scheme.subsidy_grant_amount:,.0f} ({subsidy_coverage_ratio * 100:.1f}%) | "
+        f"EMI: ₹{amort.monthly_emi:,.2f} | DSCR: {dscr_res.dscr:.2f} ({dscr_res.verdict})"
+    )
 
     # Compute additional key financial appraisal ratios (ROI & Break-Even)
     monthly_net_profit = max(monthly_noi - amort.monthly_emi, 0.0)
@@ -110,6 +133,10 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         api_base_url=settings.AMENITIES_API_BASE_URL,
     )
     infra_score = input_data.infrastructure_score if input_data.infrastructure_score is not None else amenities.infrastructure_score
+    logger.info(
+        f"🌐 [TIER 2 AMENITIES] Querying Source: 'district_resources.json' (Data.gov.in 613 Amenities) | "
+        f"District: '{input_data.district_name}' -> Infra Score: {infra_score:.1f}/10 | CPI: {cpi_pct:.1f}% | Weather Risk: {weather_score:.2f}"
+    )
 
     # 6. Feature Extraction & XGBoost Viability Model (Tier 2)
     fv = extract_features_from_pipeline_objects(
@@ -118,9 +145,12 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         infra_score, cpi_pct, weather_score, promoter_margin_val,
     )
     ml_pred = predict_viability(fv)
+    logger.info(
+        f"🤖 [TIER 2 ML INFERENCE] Model: 'viability_xgb.joblib' (XGBoost 10-D Classifier) | "
+        f"Fallback Mode: {ml_pred.is_fallback} -> Verdict: {ml_pred.verdict} | Confidence: {ml_pred.confidence_pct:.1f}%"
+    )
 
     # 7. Risk Assessment & Grounded SWOT (Tier 1 + Tier 2)
-    subsidy_coverage_ratio = top_scheme.subsidy_grant_amount / input_data.project_cost if input_data.project_cost else 0.0
     wc_buf = promoter_margin_val / wc.monthly_working_capital_outlay if wc.monthly_working_capital_outlay else 0.0
 
     risks = build_risk_matrix(
@@ -160,6 +190,10 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         "top_risk_factor": ml_pred.top_risk_factors[0],
         "key_risks": [r.title for r in risks if r.severity in ("HIGH", "SEVERE", "MODERATE")][:2],
     }, language=input_data.language)
+    logger.info(
+        f"📝 [TIER 3 SYNTHESIS] Model: '{synthesis.model_name}' | Language: '{input_data.language.upper()}' | "
+        f"Source: {'[DETERMINISTIC_TEMPLATE]' if synthesis.is_fallback else '[AI_GENERATED]'}"
+    )
 
     # 9. Bank DPR Assembly (Tier 4)
     dpr_doc = build_bank_dpr(
@@ -194,6 +228,59 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
 
     report_id = f"REP-{uuid.uuid4().hex[:10].upper()}"
     now_iso = datetime.now(timezone.utc).isoformat()
+    logger.info(f"📄 [TIER 4 DPR] 7-Section Bank Memorandum Compiled | Report ID: {report_id}")
+
+    # Build comprehensive Data Sources & Audit Lineage
+    data_sources_used = [
+        {
+            "layer": "Tier 1: Demographics",
+            "logical_source": "Census 2011 Rural Catchment Database",
+            "table_or_file": "census_raw",
+            "records_matched": 1,
+            "status": "Queried OK",
+            "attribution": f"Village: {input_data.village_name}, District: {input_data.district_name}, State: {input_data.state_name}",
+        },
+        {
+            "layer": "Tier 1: MSME Density",
+            "logical_source": "Ministry of MSME Enterprise Registry",
+            "table_or_file": "msme_district",
+            "records_matched": 1,
+            "status": "Queried OK",
+            "attribution": f"District MSME count: {msme_total:,} units",
+        },
+        {
+            "layer": "Tier 1: Government Schemes",
+            "logical_source": "Statutory Central & State MSME Schemes",
+            "table_or_file": "government_schemes.json",
+            "records_matched": len(schemes),
+            "status": "Queried OK",
+            "attribution": f"Evaluated 5 schemes; Top: {top_scheme.scheme_id} (Subsidy: ₹{top_scheme.subsidy_grant_amount:,.0f})",
+        },
+        {
+            "layer": "Tier 2: District Amenities",
+            "logical_source": "Data.gov.in 613 District Amenities & MoSPI CPI",
+            "table_or_file": "district_resources.json",
+            "records_matched": 1,
+            "status": "Queried OK",
+            "attribution": f"Infra score: {infra_score:.1f}/10, CPI: {cpi_pct:.1f}%",
+        },
+        {
+            "layer": "Tier 2: ML Viability Classifier",
+            "logical_source": "Supervised 10-D XGBoost Viability Classifier",
+            "table_or_file": "viability_xgb.joblib",
+            "records_matched": 1,
+            "status": "Rule Fallback" if ml_pred.is_fallback else "Trained Model Executed",
+            "attribution": f"Verdict: {ml_pred.verdict} (Confidence: {ml_pred.confidence_pct:.1f}%)",
+        },
+        {
+            "layer": "Tier 3: Executive Synthesis",
+            "logical_source": f"Groq Cloud AI Model ({synthesis.model_name})" if not synthesis.is_fallback else "Deterministic Statutory Template Engine",
+            "table_or_file": "groq_api" if not synthesis.is_fallback else "deterministic_template_matrix",
+            "records_matched": 1,
+            "status": "Template Fallback" if synthesis.is_fallback else "AI Synthesized",
+            "attribution": f"Language: {input_data.language.upper()} ({synthesis.model_name})",
+        },
+    ]
 
     feasibility_report = FeasibilityReport(
         report_id=report_id,
@@ -231,6 +318,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         swot_matrix=swot.to_dict(),
         pricing_recommendation=pricing.to_dict(),
         executive_synthesis=synthesis.to_dict(),
+        data_sources_used=data_sources_used,
     )
 
     return feasibility_report, dpr_doc

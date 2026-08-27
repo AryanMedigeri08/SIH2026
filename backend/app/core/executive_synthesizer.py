@@ -32,6 +32,10 @@ from dataclasses import dataclass, asdict
 from typing import Optional, Union, Any
 from pathlib import Path
 
+import logging
+
+logger = logging.getLogger("udyam_saathi.synthesizer")
+
 # Supported regional languages
 SUPPORTED_LANGUAGES = {
     "en": "English",
@@ -67,10 +71,17 @@ class ExecutiveSynthesis:
             "language_name": SUPPORTED_LANGUAGES.get(self.language, "English"),
             "is_cached": self.is_cached,
             "is_fallback": self.is_fallback,
+            "source_type": "DETERMINISTIC_TEMPLATE" if self.is_fallback else "AI_GENERATED",
+            "source_description": (
+                f"Predefined Domain Template ({self.model_name})"
+                if self.is_fallback
+                else f"AI Synthesized via Groq ({self.model_name})"
+            ),
             "latency_ms": round(self.latency_ms, 2),
             "model_name": self.model_name,
             "payload_hash": self.payload_hash,
         }
+
 
 
 class SynthesisCache:
@@ -399,6 +410,10 @@ def generate_executive_synthesis(
     # 1. Cache Lookup
     cached = cache.get(payload_hash)
     if cached is not None and not force_fallback:
+        logger.info(
+            f"[SYNTHESIS CACHE HIT] SHA-256: {payload_hash[:12]}... | Model: {cached.model_name} | "
+            f"Source: {'[DETERMINISTIC_TEMPLATE]' if cached.is_fallback else '[AI_GENERATED]'}"
+        )
         return cached
 
     # 2. Extract standard variables for prompt & fallback
@@ -422,6 +437,10 @@ def generate_executive_synthesis(
     api_key = groq_api_key or os.environ.get("GROQ_API_KEY")
 
     if force_fallback or not api_key:
+        logger.info(
+            f"[SYNTHESIS: DETERMINISTIC TEMPLATE] Language: '{lang}' ({SUPPORTED_LANGUAGES.get(lang, 'English')}) | "
+            f"Enterprise: '{enterprise_name}' | Source: [DETERMINISTIC_TEMPLATE]"
+        )
         fallback = get_deterministic_narrative(
             enterprise_name=enterprise_name,
             business_category=business_category,
@@ -449,6 +468,11 @@ def generate_executive_synthesis(
     try:
         from groq import Groq
 
+        logger.info(
+            f"[LLM REQUEST START] Invoking Groq Cloud LLM | Language: '{lang}' | "
+            f"Context: Outlay ₹{project_cost:,.0f}, Subsidy ₹{subsidy_amount:,.0f}, "
+            f"DSCR {dscr:.2f}, ML {ml_verdict} ({ml_confidence_pct:.1f}%)"
+        )
         client = Groq(api_key=api_key)
         system_prompt, user_prompt = _build_synthesis_prompt(payload, lang)
 
@@ -483,7 +507,8 @@ def generate_executive_synthesis(
                 response_content = chat_completion.choices[0].message.content
                 used_model = model_name
                 break
-            except Exception:
+            except Exception as e:
+                logger.warning(f"[LLM RETRY] Model '{model_name}' failed ({str(e)}), trying next candidate...")
                 continue
 
         if not response_content:
@@ -499,6 +524,10 @@ def generate_executive_synthesis(
             raise ValueError("Incomplete JSON schema returned by LLM")
 
         latency = (time.perf_counter() - start_time) * 1000
+        logger.info(
+            f"[LLM RESPONSE SUCCESS] Model: 'groq:{used_model}' | Latency: {latency:.2f}ms | "
+            f"Source: [AI_GENERATED] | Recs: {len(recommendations)}"
+        )
 
         synthesis = ExecutiveSynthesis(
             executive_summary=summary,
@@ -515,8 +544,11 @@ def generate_executive_synthesis(
         cache.set(payload_hash, synthesis, ttl_seconds=cache_ttl_seconds)
         return synthesis
 
-    except Exception:
-        # Graceful fallback on any network, rate limit, or JSON parse failure
+    except Exception as e:
+        logger.warning(
+            f"[LLM FALLBACK ENGAGED] Groq LLM synthesis failed ({str(e)}). "
+            f"Seamlessly using deterministic domain template | Source: [DETERMINISTIC_TEMPLATE]"
+        )
         fallback = get_deterministic_narrative(
             enterprise_name=enterprise_name,
             business_category=business_category,
@@ -539,6 +571,7 @@ def generate_executive_synthesis(
         fallback.latency_ms = (time.perf_counter() - start_time) * 1000
         cache.set(payload_hash, fallback, ttl_seconds=cache_ttl_seconds)
         return fallback
+
 
 
 if __name__ == "__main__":

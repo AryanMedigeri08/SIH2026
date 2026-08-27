@@ -17,6 +17,17 @@ for p in (str(CORE_DIR), str(BACKEND_DIR), str(ROOT_DIR)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
+import logging
+import time
+import uuid
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("udyam_saathi.api")
+
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -31,13 +42,24 @@ from inference import ViabilityModelLoader
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    logger.info("=" * 80)
+    logger.info("🚀 Udyam Saathi (उद्यम साथी) REST API Backend Starting...")
+    logger.info("📡 Environment: Port 8000 | Docs: /docs | Health: /api/v2/health")
     await db_manager.initialize()
+    logger.info("💾 Database & In-Memory Fallback Subsystem Initialized.")
     # Preload ML model into singleton memory
     loader = ViabilityModelLoader()
-    loader.get_model()
+    model = loader.get_model()
+    if model is not None:
+        logger.info("🤖 Supervised XGBoost Viability Classifier (viability_xgb.joblib) Loaded.")
+    else:
+        logger.warning("⚠️ ML Model binary not found. Deterministic rule-based fallback active.")
+    logger.info("=" * 80)
     yield
     # Shutdown
+    logger.info("🛑 Udyam Saathi Backend Shutting Down...")
     await db_manager.close()
+    logger.info("✅ Database connections closed cleanly.")
 
 
 app = FastAPI(
@@ -50,6 +72,26 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Request Tracing & Structured Logging Middleware
+@app.middleware("http")
+async def log_requests_middleware(request: Request, call_next):
+    req_id = f"REQ-{uuid.uuid4().hex[:8].upper()}"
+    request.state.request_id = req_id
+    start_time = time.perf_counter()
+    client_host = request.client.host if request.client else "unknown"
+    logger.info(f"[{req_id}] ➡️ INCOMING {request.method} {request.url.path} from {client_host}")
+
+    try:
+        response = await call_next(request)
+        latency = (time.perf_counter() - start_time) * 1000
+        logger.info(f"[{req_id}] ⬅️ RESPONSE {response.status_code} in {latency:.2f}ms")
+        response.headers["X-Request-ID"] = req_id
+        return response
+    except Exception as e:
+        latency = (time.perf_counter() - start_time) * 1000
+        logger.error(f"[{req_id}] ❌ ERROR in {latency:.2f}ms: {str(e)}", exc_info=True)
+        raise
+
 # Configure CORS Middleware
 app.add_middleware(
     CORSMiddleware,
@@ -58,6 +100,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 @app.get("/", tags=["System"])
