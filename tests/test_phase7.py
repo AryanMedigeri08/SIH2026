@@ -74,6 +74,13 @@ required_files = [
     FRONTEND_DIR / "src" / "components" / "Dashboard" / "ExecutiveNarrativeCard.jsx",
     FRONTEND_DIR / "src" / "components" / "DprModal.jsx",
     FRONTEND_DIR / "src" / "components" / "QuickCalculatorModal.jsx",
+    FRONTEND_DIR / "src" / "pages" / "DashboardPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "WizardPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "CalculatorPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "DataSourcesPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "SchemesPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "ReportDetailPage.jsx",
+    FRONTEND_DIR / "src" / "pages" / "NotFoundPage.jsx",
 ]
 
 for f in required_files:
@@ -81,6 +88,7 @@ for f in required_files:
     check(f"File exists & non-empty: {f.relative_to(FRONTEND_DIR.parent)}", exists)
 
 print(f"\nLayer 1 result: {PASS} passed, {FAIL} failed so far.\n")
+
 
 
 # ============================================================================
@@ -134,6 +142,21 @@ for rel_path, comp_name in components_to_test:
     code = path.read_text(encoding="utf-8")
     check(f"{rel_path} exports component '{comp_name}'", f"export function {comp_name}" in code or f"export const {comp_name}" in code)
 
+pages_to_test = [
+    ("DashboardPage.jsx", "DashboardPage"),
+    ("WizardPage.jsx", "WizardPage"),
+    ("CalculatorPage.jsx", "CalculatorPage"),
+    ("DataSourcesPage.jsx", "DataSourcesPage"),
+    ("SchemesPage.jsx", "SchemesPage"),
+    ("ReportDetailPage.jsx", "ReportDetailPage"),
+    ("NotFoundPage.jsx", "NotFoundPage"),
+]
+
+for rel_path, comp_name in pages_to_test:
+    path = FRONTEND_DIR / "src" / "pages" / rel_path
+    code = path.read_text(encoding="utf-8")
+    check(f"pages/{rel_path} exports page component '{comp_name}'", f"export function {comp_name}" in code or f"export const {comp_name}" in code)
+
 print(f"\nLayer 3 result: {PASS} passed, {FAIL} failed so far.\n")
 
 
@@ -149,6 +172,8 @@ check("api.js maps /feasibility/generate endpoint", "/feasibility/generate" in a
 check("api.js maps /feasibility/{reportId}/dpr endpoint", "/feasibility/${reportId}/dpr" in api_content or "dpr?format=" in api_content)
 check("api.js maps /locations/states and districts", "/locations/states" in api_content and "/locations/districts" in api_content)
 check("api.js maps /financial/calculate endpoint", "/financial/calculate" in api_content)
+check("api.js maps /data-sources discovery endpoint", "/data-sources" in api_content)
+check("api.js maps /data-sources/schemes catalog endpoint", "/data-sources/schemes" in api_content)
 
 case_data_content = (FRONTEND_DIR / "src" / "data" / "pitchCases.js").read_text(encoding="utf-8")
 check("pitchCases.js exports PITCH_CASES array", "export const PITCH_CASES" in case_data_content)
@@ -161,6 +186,7 @@ check("PITCH_CASES contains Case 5: Artisan Pottery (UP)", "Khurja Traditional C
 print("\n" + "=" * 90)
 print(f"PHASE 7 VERIFICATION SUMMARY: {PASS} passed, {FAIL} failed")
 print("=" * 90)
+
 
 if FAIL > 0:
     sys.exit(1)

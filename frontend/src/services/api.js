@@ -125,3 +125,30 @@ export async function calculateFinancials(payload) {
   } catch (e) {}
   return null;
 }
+
+// --- Data Source & Schemes Catalog Endpoints ---
+
+export async function fetchDataSources() {
+  try {
+    const res = await fetch(`${API_BASE}/data-sources`);
+    if (res.ok) return await res.json();
+  } catch (e) {}
+  return [];
+}
+
+export async function fetchSchemesCatalog() {
+  try {
+    const res = await fetch(`${API_BASE}/data-sources/schemes`);
+    if (res.ok) return await res.json();
+  } catch (e) {}
+  return [];
+}
+
+export async function fetchSystemStats() {
+  try {
+    const res = await fetch(`${API_BASE}/data-sources/stats`);
+    if (res.ok) return await res.json();
+  } catch (e) {}
+  return null;
+}
+

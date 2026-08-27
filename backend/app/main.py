@@ -35,8 +35,9 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.database import db_manager
 from app.models.schemas import HealthStatus
-from app.routers import locations_router, financial_router, feasibility_router, projects_router
+from app.routers import locations_router, financial_router, feasibility_router, projects_router, data_sources_router
 from inference import ViabilityModelLoader
+
 
 
 @asynccontextmanager
@@ -149,6 +150,7 @@ app.include_router(locations_router, prefix=settings.API_V2_STR)
 app.include_router(financial_router, prefix=settings.API_V2_STR)
 app.include_router(feasibility_router, prefix=settings.API_V2_STR)
 app.include_router(projects_router, prefix=settings.API_V2_STR)
+app.include_router(data_sources_router, prefix=settings.API_V2_STR)
 
 
 if __name__ == "__main__":
