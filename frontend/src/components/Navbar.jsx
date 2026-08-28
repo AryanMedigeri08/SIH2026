@@ -1,8 +1,7 @@
 import React from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
-  Sparkles, Calculator, Activity, LayoutDashboard, Database, Award, 
-  Menu, User, LogOut, LogIn, UserPlus, Landmark, PlusCircle 
+  Sparkles, Menu, Landmark, PlusCircle, LogOut 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useBusiness } from '../context/BusinessContext';
@@ -11,16 +10,7 @@ import { BusinessSwitcher } from './BusinessSwitcher';
 export function Navbar({ health, onToggleMobileSidebar }) {
   const isHealthy = health?.status === 'healthy';
   const { isAuthenticated, userProfile, logout } = useAuth();
-  const { businesses } = useBusiness();
   const navigate = useNavigate();
-
-  const navLinks = [
-    { to: '/', label: 'Overview', icon: LayoutDashboard },
-    { to: '/viability', label: 'ML Viability', icon: Activity },
-    { to: '/schemes', label: 'Schemes', icon: Award },
-    { to: '/calculator', label: 'Calculator', icon: Calculator },
-    { to: '/data-sources', label: 'Data Lineage', icon: Database },
-  ];
 
   const handleLogout = async () => {
     await logout();
@@ -28,14 +18,14 @@ export function Navbar({ health, onToggleMobileSidebar }) {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm transition-all">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-all">
       {/* Sovereign Top Gradient Accent Line */}
       <div className="h-[3px] w-full bg-gradient-to-r from-sovereign-900 via-sky-500 via-indigo-600 to-emerald-500" />
       
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         
         {/* Left: Mobile Toggle & Brand Logo */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           {/* Mobile Sidebar Hamburger Toggle */}
           <button
             type="button"
@@ -57,52 +47,24 @@ export function Navbar({ health, onToggleMobileSidebar }) {
                 <span className="font-outfit font-extrabold text-base sm:text-lg text-slate-900 tracking-tight group-hover:text-sovereign-800 transition-colors">
                   Udyam Saathi
                 </span>
-                <span className="text-[10px] font-bold text-sovereign-800 bg-gradient-to-r from-sovereign-50 to-sky-50 border border-sovereign-200/80 px-2 py-0.5 rounded-full font-sans shadow-subtle">
+                <span className="text-[10px] font-bold text-sovereign-800 bg-gradient-to-r from-sovereign-50 to-sky-50 border border-sovereign-200/80 px-2 py-0.5 rounded-full font-sans shadow-subtle hidden sm:inline-block">
                   उद्यम साथी
                 </span>
               </div>
-              <p className="text-[10px] text-slate-500 hidden sm:block font-medium">
+              <p className="text-[10px] text-slate-500 hidden md:block font-medium">
                 National MSME Credit Feasibility & Bank DPR Portal
               </p>
             </div>
           </Link>
         </div>
 
-        {/* Center: Active Business Switcher & Route Navigation Bar */}
-        <div className="flex items-center gap-3">
-          {/* Persistent Multi-Business Switcher with Real Data Status Indicators */}
-          {isAuthenticated && (
-            <div className="hidden sm:block">
-              <BusinessSwitcher />
-            </div>
-          )}
-
-          {/* Center Route Navigation Bar (Desktop) */}
-          <nav className="hidden xl:flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 shadow-inner">
-            {navLinks.map((link) => {
-              const Icon = link.icon;
-              return (
-                <NavLink
-                  key={link.to}
-                  to={link.to}
-                  className={({ isActive }) =>
-                    `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                      isActive
-                        ? 'bg-gradient-to-r from-sovereign-800 to-indigo-900 text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
-                    }`
-                  }
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{link.label}</span>
-                </NavLink>
-              );
-            })}
-          </nav>
+        {/* Center: Persistent Multi-Business Switcher with Real Data Status Indicators */}
+        <div className="flex-1 max-w-md mx-2 hidden sm:flex justify-center">
+          {isAuthenticated && <BusinessSwitcher />}
         </div>
 
-        {/* Action Controls & User Identity */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Right: Action Controls & User Identity */}
+        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           
           {/* Live System Status Pill */}
           <Link 
@@ -138,26 +100,32 @@ export function Navbar({ health, onToggleMobileSidebar }) {
                 <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-700 text-white flex items-center justify-center text-[10px] font-bold">
                   {userProfile?.name?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
-                <span className="text-xs font-semibold text-slate-800 hidden md:inline max-w-[120px] truncate">
-                  {userProfile?.name || 'Promoter'}
+                <span className="text-xs font-bold text-slate-800 hidden md:inline truncate max-w-[120px]">
+                  {userProfile?.name || 'User'}
                 </span>
               </div>
+
               <button
                 onClick={handleLogout}
-                className="p-1.5 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                title="Sign out of sovereign workspace"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
+                title="Logout"
               >
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+            <div className="flex items-center gap-2">
               <Link
                 to="/login"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl transition-colors shadow-sm"
+                className="text-xs font-bold text-sovereign-800 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition"
               >
-                <LogIn className="w-3.5 h-3.5 text-cyan-600" />
-                <span>Log In</span>
+                Login
+              </Link>
+              <Link
+                to="/register"
+                className="text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-3 py-1.5 rounded-xl transition shadow-sm"
+              >
+                Register
               </Link>
             </div>
           )}

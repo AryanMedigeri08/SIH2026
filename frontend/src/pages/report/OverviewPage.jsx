@@ -270,14 +270,14 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
       </div>
 
       {/* Row 1: ML Viability Card & AI Executive Synthesis Narrative */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <div className="lg:col-span-5">
           <ViabilityMeterCard 
-            viabilityData={reportData.ml_viability} 
+            mlViability={reportData.ml_viability} 
             confidenceScore={reportData.ml_viability?.confidence_pct} 
           />
         </div>
-        <div className="lg:col-span-8">
+        <div className="lg:col-span-7">
           <ExecutiveNarrativeCard 
             synthesisData={reportData.executive_synthesis} 
           />

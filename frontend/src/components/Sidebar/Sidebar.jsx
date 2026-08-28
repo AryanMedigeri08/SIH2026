@@ -39,7 +39,6 @@ export function Sidebar({
       id: 'overview',
       name: 'Overview & Synthesis',
       path: reportId ? `/reports/${reportId}` : '/',
-      exact: true,
       icon: LayoutDashboard,
       badge: null,
     },
@@ -109,14 +108,25 @@ export function Sidebar({
     },
   ];
 
+  const checkIsActive = (itemId, itemPath) => {
+    const current = location.pathname;
+    if (itemId === 'overview') {
+      return (
+        current === '/' ||
+        current === '/dashboard' ||
+        current === `/reports/${reportId}` ||
+        (/^\/reports\/[^\/]+$/.test(current) && !current.includes('/viability') && !current.includes('/market') && !current.includes('/schemes') && !current.includes('/financials') && !current.includes('/risk') && !current.includes('/swot') && !current.includes('/dpr'))
+      );
+    }
+    return current === itemPath || current === `/${itemId}` || current.endsWith(`/${itemId}`);
+  };
+
   const renderNavLinks = (items) => {
     return (
       <div className="space-y-1">
         {items.map((item) => {
           const Icon = item.icon;
-          const isActive = item.exact
-            ? location.pathname === item.path || (item.id === 'overview' && (location.pathname === '/' || location.pathname.startsWith('/reports/')))
-            : location.pathname === item.path;
+          const isActive = checkIsActive(item.id, item.path);
 
           return (
             <NavLink
@@ -185,7 +195,7 @@ export function Sidebar({
           <div className="h-16 px-4 border-b border-slate-200/80 flex items-center justify-between bg-gradient-to-b from-slate-50/80 to-white">
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sovereign-800 via-sovereign-900 to-indigo-900 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-sovereign-900/20 border border-sovereign-700/50">
-                उ
+                🏛️
               </div>
               {!isCollapsed && (
                 <div className="leading-tight truncate">
@@ -194,7 +204,7 @@ export function Sidebar({
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   </div>
                   <div className="text-[10px] text-sovereign-700 font-bold uppercase tracking-wider">
-                    Credit Feasibility
+                    Credit Appraisal
                   </div>
                 </div>
               )}
@@ -238,62 +248,63 @@ export function Sidebar({
               <div className="font-outfit font-extrabold text-xs text-slate-900 truncate">
                 {activeBusiness.business_name}
               </div>
-              <div className="pt-0.5">
-                <BusinessStatusPill status={activeStatus} size="xs" showReason={false} />
+              <div className="pt-1">
+                <BusinessStatusPill status={activeStatus} size="xs" />
               </div>
             </div>
           )}
 
-          {/* Navigation Section: Feasibility Assessment Pages */}
-          <div className="p-3 space-y-4 overflow-y-auto max-h-[calc(100vh-16rem)]">
-            <div>
+          {/* Nav Section: 8 Dedicated Report Views */}
+          <div className="px-3 py-3">
+            <div className="flex items-center justify-between px-2 mb-2">
+              <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-500">
+                {isCollapsed ? 'Views' : 'Appraisal Sections'}
+              </span>
               {!isCollapsed && (
-                <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center justify-between">
-                  <span>Appraisal Sections</span>
-                  <span className="text-[9px] text-sovereign-700 font-bold bg-sovereign-50 px-1.5 py-0.2 rounded border border-sovereign-200">
-                    8 Views
-                  </span>
-                </div>
+                <span className="text-[9px] font-mono font-bold bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.2 rounded">
+                  8 Views
+                </span>
               )}
-              {renderNavLinks(reportNavItems)}
             </div>
+            {renderNavLinks(reportNavItems)}
+          </div>
 
-            {/* Navigation Section: Standalone Financial & Data Tools */}
-            <div className="pt-2 border-t border-slate-200/80">
-              {!isCollapsed && (
-                <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                  System Tools
-                </div>
-              )}
-              {renderNavLinks(utilityNavItems)}
+          {/* Nav Section: System Utilities */}
+          <div className="px-3 py-1 border-t border-slate-100">
+            <div className="flex items-center justify-between px-2 mb-2 mt-2">
+              <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-500">
+                {isCollapsed ? 'Tools' : 'System Tools'}
+              </span>
             </div>
+            {renderNavLinks(utilityNavItems)}
           </div>
         </div>
 
-        {/* Bottom Callout / Wizard Action */}
-        <div className="p-3 border-t border-slate-200 bg-gradient-to-b from-slate-50/60 to-slate-100/80">
+        {/* Bottom Bar / Quick Action */}
+        <div className="p-3 border-t border-slate-200/80 bg-slate-50/50">
           {!isCollapsed ? (
-            <NavLink
+            <Link
               to="/wizard"
               onClick={onCloseMobile}
-              className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-sovereign-800 via-sky-700 to-sovereign-800 hover:from-sovereign-700 hover:to-sky-600 text-white text-xs font-bold shadow-md shadow-sovereign-900/15 border border-sky-400/25 transition-all duration-200 group"
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-sovereign-800 to-sky-700 hover:from-sovereign-700 hover:to-sky-600 text-white text-xs font-bold shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition-all group"
             >
               <PlusCircle className="w-3.5 h-3.5 text-sky-200 group-hover:rotate-90 transition-transform" />
               <span>+ New Enterprise</span>
-            </NavLink>
+            </Link>
           ) : (
-            <NavLink
+            <Link
               to="/wizard"
               onClick={onCloseMobile}
-              title="Create New Enterprise Wizard"
-              className="flex items-center justify-center w-full p-2.5 rounded-xl bg-gradient-to-r from-sovereign-800 to-sky-700 hover:from-sovereign-700 hover:to-sky-600 text-white text-xs font-bold shadow-md shadow-sovereign-900/15 border border-sky-400/25 transition-all duration-200"
+              title="Create New Enterprise"
+              className="w-full flex items-center justify-center p-2 rounded-xl bg-sovereign-800 text-white hover:bg-sovereign-700 transition shadow-sm"
             >
-              <PlusCircle className="w-4 h-4 text-sky-200" />
-            </NavLink>
+              <PlusCircle className="w-4 h-4" />
+            </Link>
           )}
         </div>
       </aside>
     </>
   );
 }
+
 export default Sidebar;

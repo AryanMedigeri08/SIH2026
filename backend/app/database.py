@@ -199,11 +199,19 @@ class DatabaseManager:
                         moratorium_months            INT DEFAULT 6,
                         language                     TEXT DEFAULT 'en',
                         additional_business_details TEXT,
+                        monthly_net_operating_income_override NUMERIC(15, 2),
                         status                       TEXT DEFAULT 'draft',
                         analysis_result              JSONB,
                         created_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
                         updated_at                   TIMESTAMPTZ NOT NULL DEFAULT now()
                     );
+
+                    -- Safe column migrations for existing PostgreSQL tables
+                    ALTER TABLE projects ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'draft';
+                    ALTER TABLE projects ADD COLUMN IF NOT EXISTS analysis_result JSONB;
+                    ALTER TABLE projects ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'en';
+                    ALTER TABLE projects ADD COLUMN IF NOT EXISTS additional_business_details TEXT;
+                    ALTER TABLE projects ADD COLUMN IF NOT EXISTS monthly_net_operating_income_override NUMERIC(15, 2);
                 """)
 
                 # 3. Index for user projects query

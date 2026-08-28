@@ -46,7 +46,7 @@ import {
 // Modals & Services
 import { DprModal } from './components/DprModal';
 import { QuickCalculatorModal } from './components/QuickCalculatorModal';
-import { checkHealth, generateFeasibility } from './services/api';
+import { checkHealth, generateFeasibility, fetchFeasibilityReport } from './services/api';
 import { PITCH_CASES } from './data/pitchCases';
 import confetti from 'canvas-confetti';
 
@@ -121,6 +121,30 @@ export function AppContent() {
     }
     init();
   }, [isAuthenticated, reportData, setReportData]);
+
+  // URL reportId synchronization: If route is /reports/:reportId/..., auto-load that specific report from API
+  useEffect(() => {
+    const match = location.pathname.match(/\/reports\/([^\/]+)/);
+    if (match && match[1]) {
+      const urlReportId = match[1];
+      if (urlReportId !== 'full' && reportData?.report_id !== urlReportId) {
+        async function loadReportFromUrl() {
+          try {
+            setIsLoadingInitial(true);
+            const rep = await fetchFeasibilityReport(urlReportId, token);
+            if (rep && rep.report_id) {
+              setReportData(rep);
+            }
+          } catch (e) {
+            console.warn(`Could not load report ${urlReportId} from URL:`, e);
+          } finally {
+            setIsLoadingInitial(false);
+          }
+        }
+        loadReportFromUrl();
+      }
+    }
+  }, [location.pathname, reportData?.report_id, token, setReportData]);
 
   const handleSelectCase = async (pitchCase) => {
     setActiveCaseId(pitchCase.id);
@@ -260,11 +284,7 @@ export function AppContent() {
                 path="/viability"
                 element={
                   <AppraisalSectionWrapper skeleton={ViabilitySkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <ViabilityPage
-                      viabilityData={reportData?.ml_viability}
-                      shapValues={reportData?.ml_viability?.shap_contributions}
-                      featureVector={reportData?.ml_viability?.feature_vector}
-                    />
+                    <ViabilityPage reportData={reportData} />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -272,11 +292,7 @@ export function AppContent() {
                 path="/reports/:reportId/viability"
                 element={
                   <AppraisalSectionWrapper skeleton={ViabilitySkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <ViabilityPage
-                      viabilityData={reportData?.ml_viability}
-                      shapValues={reportData?.ml_viability?.shap_contributions}
-                      featureVector={reportData?.ml_viability?.feature_vector}
-                    />
+                    <ViabilityPage reportData={reportData} />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -286,10 +302,7 @@ export function AppContent() {
                 path="/market"
                 element={
                   <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <MarketDemandPage
-                      demographicsData={reportData?.market_demographics}
-                      inputParameters={reportData?.input_parameters}
-                    />
+                    <MarketDemandPage reportData={reportData} />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -297,10 +310,7 @@ export function AppContent() {
                 path="/reports/:reportId/market"
                 element={
                   <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <MarketDemandPage
-                      demographicsData={reportData?.market_demographics}
-                      inputParameters={reportData?.input_parameters}
-                    />
+                    <MarketDemandPage reportData={reportData} />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -310,9 +320,7 @@ export function AppContent() {
                 path="/schemes"
                 element={
                   <AppraisalSectionWrapper skeleton={SchemesSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <GovernmentSchemesPage
-                      schemesData={reportData?.scheme_optimization}
-                    />
+                    <GovernmentSchemesPage reportData={reportData} />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -320,9 +328,7 @@ export function AppContent() {
                 path="/reports/:reportId/schemes"
                 element={
                   <AppraisalSectionWrapper skeleton={SchemesSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <GovernmentSchemesPage
-                      schemesData={reportData?.scheme_optimization}
-                    />
+                    <GovernmentSchemesPage reportData={reportData} />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -332,10 +338,7 @@ export function AppContent() {
                 path="/financials"
                 element={
                   <AppraisalSectionWrapper skeleton={FinancialsSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <FinancialsPage
-                      financialsData={reportData?.financial_analysis}
-                      pricingData={reportData?.pricing_recommendation}
-                    />
+                    <FinancialsPage reportData={reportData} />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -343,10 +346,7 @@ export function AppContent() {
                 path="/reports/:reportId/financials"
                 element={
                   <AppraisalSectionWrapper skeleton={FinancialsSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <FinancialsPage
-                      financialsData={reportData?.financial_analysis}
-                      pricingData={reportData?.pricing_recommendation}
-                    />
+                    <FinancialsPage reportData={reportData} />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -356,9 +356,7 @@ export function AppContent() {
                 path="/risk"
                 element={
                   <AppraisalSectionWrapper skeleton={RiskSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <RiskAssessmentPage
-                      riskData={reportData?.risk_assessment}
-                    />
+                    <RiskAssessmentPage reportData={reportData} />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -366,9 +364,7 @@ export function AppContent() {
                 path="/reports/:reportId/risk"
                 element={
                   <AppraisalSectionWrapper skeleton={RiskSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <RiskAssessmentPage
-                      riskData={reportData?.risk_assessment}
-                    />
+                    <RiskAssessmentPage reportData={reportData} />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -378,9 +374,7 @@ export function AppContent() {
                 path="/swot"
                 element={
                   <AppraisalSectionWrapper skeleton={SwotSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <SwotAnalysisPage
-                      swotData={reportData?.swot_matrix}
-                    />
+                    <SwotAnalysisPage reportData={reportData} />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -388,9 +382,7 @@ export function AppContent() {
                 path="/reports/:reportId/swot"
                 element={
                   <AppraisalSectionWrapper skeleton={SwotSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <SwotAnalysisPage
-                      swotData={reportData?.swot_matrix}
-                    />
+                    <SwotAnalysisPage reportData={reportData} />
                   </AppraisalSectionWrapper>
                 }
               />
