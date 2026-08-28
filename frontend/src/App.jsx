@@ -153,12 +153,18 @@ export function AppContent() {
     init();
   }, []);
 
+  const lastLoadedReportUrlRef = useRef(null);
+  const isSelectingCaseRef = useRef(false);
+
   // URL reportId synchronization: If route is /reports/:reportId/..., auto-load that specific report from API
   useEffect(() => {
+    if (isSelectingCaseRef.current) return;
+
     const match = location.pathname.match(/\/reports\/([^\/]+)/);
     if (match && match[1]) {
       const urlReportId = match[1];
-      if (urlReportId !== 'full' && reportData?.report_id !== urlReportId && token) {
+      if (urlReportId !== 'full' && lastLoadedReportUrlRef.current !== urlReportId && token) {
+        lastLoadedReportUrlRef.current = urlReportId;
         async function loadReportFromUrl() {
           try {
             setIsLoadingInitial(true);
@@ -174,10 +180,13 @@ export function AppContent() {
         }
         loadReportFromUrl();
       }
+    } else {
+      lastLoadedReportUrlRef.current = null;
     }
-  }, [location.pathname, reportData?.report_id, token, setReportData]);
+  }, [location.pathname, token, setReportData]);
 
   const handleSelectCase = async (pitchCase) => {
+    isSelectingCaseRef.current = true;
     setActiveCaseId(pitchCase.id);
     setIsGenerating(true);
     setGeneratingMeta({
@@ -185,6 +194,11 @@ export function AppContent() {
       districtName: pitchCase.formData?.district_name,
       sector: pitchCase.formData?.sector,
     });
+
+    // If currently on a /reports/:id path, immediately switch to root to prevent stale URL sync
+    if (location.pathname.startsWith('/reports/')) {
+      navigate('/', { replace: true });
+    }
 
     try {
       const rep = await loadBenchmarkCase(pitchCase);
@@ -196,6 +210,10 @@ export function AppContent() {
       alert(`Feasibility error: ${err.message}`);
     } finally {
       setIsGenerating(false);
+      // Give React router microtask a tick before re-enabling URL auto-watcher
+      setTimeout(() => {
+        isSelectingCaseRef.current = false;
+      }, 100);
     }
   };
 

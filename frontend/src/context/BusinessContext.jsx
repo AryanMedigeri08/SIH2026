@@ -270,6 +270,20 @@ export const BusinessProvider = ({ children }) => {
     async (pitchCase) => {
       const rep = await generateFeasibility(pitchCase.formData, token);
       setReportData(rep);
+      if (rep) {
+        setActiveBusiness({
+          project_id: `preset-${pitchCase.id}`,
+          project_name: rep.input_parameters?.enterprise_name || pitchCase.name,
+          business_category: rep.input_parameters?.business_category,
+          sector: rep.input_parameters?.sector,
+          state_name: rep.input_parameters?.state_name,
+          district_name: rep.input_parameters?.district_name,
+          project_cost: rep.input_parameters?.project_cost,
+          status: rep.ml_viability?.verdict === "SUITABLE" ? "healthy" : rep.ml_viability?.verdict === "CAUTION" ? "reconsideration" : "critical",
+          analysis_result: { report: rep },
+          is_preset: true,
+        });
+      }
       return rep;
     },
     [token]
