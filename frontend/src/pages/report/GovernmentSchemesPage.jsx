@@ -88,45 +88,45 @@ export function GovernmentSchemesPage({ reportData }) {
       </div>
 
       {/* Top Scheme Recommendation Hero Banner */}
-      <div className="glass-panel p-6 bg-gradient-to-r from-emerald-900 via-sovereign-900 to-slate-900 text-white rounded-2xl shadow-xl border border-emerald-500/30">
+      <div className="p-6 bg-white rounded-2xl shadow-card border border-slate-200/90 border-l-4 border-emerald-600">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold font-mono">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold font-mono">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
               <span>Rank 1 Recommended Statutory Match</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-outfit font-extrabold text-white">
+            <h2 className="text-2xl sm:text-3xl font-outfit font-extrabold text-slate-900 tracking-tight">
               {topScheme.scheme_id}: {topScheme.full_name}
             </h2>
-            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+            <p className="text-xs text-slate-600 max-w-2xl font-medium leading-relaxed">
               Provides the highest Net Financial Benefit by maximizing upfront non-repayable capital subsidy and minimizing debt service burden.
             </p>
           </div>
 
           {/* Quick Metrics Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 shrink-0">
-            <div className="p-3 rounded-xl bg-white/10 backdrop-blur-md border border-white/10">
-              <div className="text-[10px] text-emerald-300 font-bold uppercase">Subsidy Grant</div>
-              <div className="text-lg font-outfit font-black text-white mt-0.5">
+            <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200">
+              <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">Subsidy Grant</div>
+              <div className="text-xl font-mono font-black text-emerald-700 mt-0.5">
                 ₹{Math.round(subsidyAmount).toLocaleString('en-IN')}
               </div>
-              <div className="text-[10px] text-emerald-200">{subsidyPct}% Capital Subsidy</div>
+              <div className="text-[10px] text-emerald-700 font-semibold">{subsidyPct}% Capital Subsidy</div>
             </div>
 
-            <div className="p-3 rounded-xl bg-white/10 backdrop-blur-md border border-white/10">
-              <div className="text-[10px] text-sky-300 font-bold uppercase">Promoter Margin</div>
-              <div className="text-lg font-outfit font-black text-white mt-0.5">
+            <div className="p-3.5 rounded-xl bg-sky-50/60 border border-sky-200">
+              <div className="text-[10px] text-sky-800 font-bold uppercase tracking-wider">Promoter Margin</div>
+              <div className="text-xl font-mono font-black text-sky-900 mt-0.5">
                 ₹{Math.round(promoterMargin).toLocaleString('en-IN')}
               </div>
-              <div className="text-[10px] text-sky-200">{p.promoter_category === 'general' ? '10%' : '5%'} Own Equity</div>
+              <div className="text-[10px] text-sky-700 font-semibold">{p.promoter_category === 'general' ? '10%' : '5%'} Own Equity</div>
             </div>
 
-            <div className="p-3 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 col-span-2 sm:col-span-1">
-              <div className="text-[10px] text-amber-300 font-bold uppercase">Net Bank Loan</div>
-              <div className="text-lg font-outfit font-black text-white mt-0.5">
+            <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 col-span-2 sm:col-span-1">
+              <div className="text-[10px] text-amber-800 font-bold uppercase tracking-wider">Net Bank Loan</div>
+              <div className="text-xl font-mono font-black text-amber-900 mt-0.5">
                 ₹{Math.round(termLoan).toLocaleString('en-IN')}
               </div>
-              <div className="text-[10px] text-amber-200">@ {topScheme.effective_interest_rate_pct || 11}% p.a.</div>
+              <div className="text-[10px] text-amber-700 font-semibold">@ {topScheme.effective_interest_rate_pct || 11}% p.a.</div>
             </div>
           </div>
         </div>
