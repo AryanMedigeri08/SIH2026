@@ -8,6 +8,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBusiness } from "../context/BusinessContext";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import {
   Building2,
   ChevronDown,
@@ -73,6 +74,7 @@ export function BusinessStatusPill({ status, showReason = false, size = "sm" }) 
 export function BusinessSwitcher({ compact = false }) {
   const { businesses, activeBusiness, switchBusiness } = useBusiness();
   const { isAuthenticated } = useAuth();
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -162,11 +164,11 @@ export function BusinessSwitcher({ compact = false }) {
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-sovereign-700" />
               <span className="text-xs font-bold font-outfit text-slate-800 uppercase tracking-wider">
-                Your Enterprises ({businesses.length})
+              {t('yourEnterprises')} ({businesses.length})
               </span>
             </div>
             <span className="text-[10px] font-semibold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-full">
-              Multi-Business Mode
+              {t('dashboard')}
             </span>
           </div>
 
@@ -233,7 +235,7 @@ export function BusinessSwitcher({ compact = false }) {
               className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-sovereign-800 to-sky-700 hover:from-sovereign-700 hover:to-sky-600 text-white font-bold text-xs shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition group"
             >
               <PlusCircle className="w-4 h-4 text-sky-200 group-hover:rotate-90 transition-transform" />
-              <span>+ Create & Analyze New Enterprise</span>
+              <span>+ {t('createEnterprise')}</span>
             </button>
           </div>
         </div>

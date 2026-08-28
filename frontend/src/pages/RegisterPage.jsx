@@ -6,6 +6,8 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useBusiness } from "../context/BusinessContext";
+import { LanguageSelector } from "../components/LanguageSelector";
+import { useLanguage } from "../context/LanguageContext";
 import {
   Lock,
   Mail,
@@ -29,6 +31,7 @@ export const RegisterPage = () => {
   const [localError, setLocalError] = useState(null);
 
   const { registerWithEmail, loginWithGoogle, loginAsDemo, authError } = useAuth();
+  const { t } = useLanguage();
   const { loadUserBusinesses } = useBusiness();
   const navigate = useNavigate();
 
@@ -101,6 +104,7 @@ export const RegisterPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-200">
+      <div className="absolute right-4 top-4 z-20"><LanguageSelector /></div>
       {/* Background ambient lighting */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[32rem] h-[32rem] bg-cyan-500/10 blur-[140px] rounded-full pointer-events-none" />
 
@@ -114,7 +118,7 @@ export const RegisterPage = () => {
             <span className="text-xl font-bold font-display text-white">Udyam Saathi</span>
           </Link>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-display">
-            Create Entrepreneur Account
+            {t('createAccount')}
           </h1>
           <p className="mt-2 text-xs sm:text-sm text-slate-400">
             Set up your verified profile for AI-driven feasibility appraisals and institutional bank DPR generation.

@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import { BusinessStatusPill, BusinessSwitcher } from '../BusinessSwitcher';
+import { LanguageSelector } from '../LanguageSelector';
+import { useLanguage } from '../../context/LanguageContext';
 
 export function Sidebar({
   isCollapsed,
@@ -33,60 +35,61 @@ export function Sidebar({
 }) {
   const location = useLocation();
   const { activeBusiness, businesses } = useBusiness();
+  const { t } = useLanguage();
 
   const reportNavItems = [
     {
       id: 'overview',
-      name: 'Overview & Synthesis',
+      name: t('overview'),
       path: reportId ? `/reports/${reportId}` : '/',
       icon: LayoutDashboard,
       badge: null,
     },
     {
       id: 'viability',
-      name: 'ML Viability & SHAP',
+      name: t('viability'),
       path: reportId ? `/reports/${reportId}/viability` : '/viability',
       icon: BrainCircuit,
       badge: 'TreeSHAP',
     },
     {
       id: 'market',
-      name: 'Market & Demand',
+      name: t('market'),
       path: reportId ? `/reports/${reportId}/market` : '/market',
       icon: Target,
       badge: 'Census 2011',
     },
     {
       id: 'schemes',
-      name: 'Government Schemes',
+      name: t('schemes'),
       path: reportId ? `/reports/${reportId}/schemes` : '/schemes',
       icon: Award,
       badge: '10 Slabs',
     },
     {
       id: 'financials',
-      name: 'Financials & Cash Flow',
+      name: t('financials'),
       path: reportId ? `/reports/${reportId}/financials` : '/financials',
       icon: TrendingUp,
       badge: '5-Yr Horiz.',
     },
     {
       id: 'risk',
-      name: 'Risk Assessment',
+      name: t('risk'),
       path: reportId ? `/reports/${reportId}/risk` : '/risk',
       icon: ShieldAlert,
       badge: '8 Pillars',
     },
     {
       id: 'swot',
-      name: 'SWOT Analysis',
+      name: t('swot'),
       path: reportId ? `/reports/${reportId}/swot` : '/swot',
       icon: Grid3X3,
       badge: null,
     },
     {
       id: 'dpr',
-      name: 'Bank DPR & Documents',
+      name: t('dpr'),
       path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
       icon: FileText,
       badge: '7-Section',
@@ -96,13 +99,13 @@ export function Sidebar({
   const utilityNavItems = [
     {
       id: 'calculator',
-      name: 'Loan Sizing Calculator',
+      name: t('calculator'),
       path: '/calculator',
       icon: Calculator,
     },
     {
       id: 'data-sources',
-      name: 'Data Lineage & Schemas',
+      name: t('dataSources'),
       path: '/data-sources',
       icon: Database,
     },
@@ -239,7 +242,7 @@ export function Sidebar({
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 font-mono flex items-center gap-1">
                   <Building2 className="w-3 h-3 text-sovereign-700" />
-                  Active Enterprise
+                  {t('activeEnterprise')}
                 </span>
                 <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded bg-white border border-slate-200 text-slate-700">
                   {activeBusiness.sector}
@@ -253,7 +256,7 @@ export function Sidebar({
               </div>
               <div className="pt-1.5 border-t border-slate-200/70">
                 <div className="mb-1.5 text-[9px] uppercase font-bold tracking-wider text-slate-500">
-                  Your enterprises ({businesses.length})
+                  {t('yourEnterprises')} ({businesses.length})
                 </div>
                 <BusinessSwitcher compact />
               </div>
@@ -283,6 +286,7 @@ export function Sidebar({
               </span>
             </div>
             {renderNavLinks(utilityNavItems)}
+            {!isCollapsed && <div className="px-2 pt-3"><LanguageSelector compact /></div>}
           </div>
         </div>
 

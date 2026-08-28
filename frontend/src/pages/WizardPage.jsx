@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { FeasibilityWizard } from '../components/Wizard/FeasibilityWizard';
 import { Sparkles, ArrowLeft, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { PITCH_CASES } from '../data/pitchCases';
+import { useLanguage } from '../context/LanguageContext';
 
 export function WizardPage({ onWizardSubmit, isLoading }) {
   const navigate = useNavigate();
   const [selectedTemplateIndex, setSelectedTemplateIndex] = useState(0);
+  const { language, t } = useLanguage();
 
   const handleSubmit = async (formData) => {
     await onWizardSubmit(formData);
@@ -24,7 +26,7 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
             className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 font-semibold mb-2 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Dashboard</span>
+            <span>{t('backToDashboard')}</span>
           </button>
           <h1 className="text-2xl font-outfit font-extrabold text-slate-900 flex items-center gap-2.5">
             <span className="p-2 rounded-xl bg-sovereign-50 text-sovereign-800 border border-sovereign-200">
@@ -63,7 +65,7 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
           onClose={() => navigate('/')}
           onSubmit={handleSubmit}
           isSubmitting={isLoading}
-          initialData={PITCH_CASES[selectedTemplateIndex]?.formData}
+          initialData={{ ...PITCH_CASES[selectedTemplateIndex]?.formData, language }}
         />
       </div>
 

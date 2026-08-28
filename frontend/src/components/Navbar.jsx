@@ -6,10 +6,13 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useBusiness } from '../context/BusinessContext';
 import { BusinessSwitcher } from './BusinessSwitcher';
+import { LanguageSelector } from './LanguageSelector';
+import { useLanguage } from '../context/LanguageContext';
 
 export function Navbar({ health, onToggleMobileSidebar }) {
   const isHealthy = health?.status === 'healthy';
   const { isAuthenticated, userProfile, logout } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -87,10 +90,10 @@ export function Navbar({ health, onToggleMobileSidebar }) {
           <Link
             to="/wizard"
             className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-sovereign-800 via-sky-700 to-sovereign-800 hover:from-sovereign-700 hover:to-sky-600 px-3.5 py-1.5 rounded-xl shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition-all group"
-            title="Launch 7-Step Feasibility Wizard to create a new enterprise"
+            title={t('newEnterprise')}
           >
             <PlusCircle className="w-3.5 h-3.5 text-sky-200 group-hover:rotate-90 transition-transform" />
-            <span className="hidden sm:inline">New Enterprise</span>
+            <span className="hidden sm:inline">{t('newEnterprise')}</span>
           </Link>
 
           {/* User Auth Section */}
@@ -108,7 +111,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
               <button
                 onClick={handleLogout}
                 className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
-                title="Logout"
+                title={t('logout')}
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -119,16 +122,20 @@ export function Navbar({ health, onToggleMobileSidebar }) {
                 to="/login"
                 className="text-xs font-bold text-sovereign-800 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition"
               >
-                Login
+                {t('login')}
               </Link>
               <Link
                 to="/register"
                 className="text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-3 py-1.5 rounded-xl transition shadow-sm"
               >
-                Register
+                {t('register')}
               </Link>
             </div>
           )}
+
+          <div className="hidden md:block">
+            <LanguageSelector />
+          </div>
 
         </div>
 

@@ -21,9 +21,12 @@ import {
   Layers,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { LanguageSelector } from "../components/LanguageSelector";
+import { useLanguage } from "../context/LanguageContext";
 
 export const LandingPage = () => {
   const { isAuthenticated, userProfile } = useAuth();
+  const { t } = useLanguage();
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
@@ -37,6 +40,7 @@ export const LandingPage = () => {
 
       {/* Main Hero Section */}
       <section className="relative overflow-hidden pt-16 pb-20 md:pt-24 md:pb-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        <div className="absolute right-4 top-4 z-10"><LanguageSelector /></div>
         {/* Ambient Glows */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 blur-[120px] rounded-full pointer-events-none" />
         <div className="absolute top-1/3 left-1/4 w-80 h-80 bg-blue-600/10 blur-[140px] rounded-full pointer-events-none" />
@@ -83,7 +87,7 @@ export const LandingPage = () => {
                   to="/login"
                   className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-base transition-colors"
                 >
-                  <span>Log In</span>
+                  <span>{t('login')}</span>
                 </Link>
               </>
             )}

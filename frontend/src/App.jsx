@@ -6,6 +6,7 @@ import { CaseStudiesBar } from './components/CaseStudiesBar';
 import { ReportGenerationLoader } from './components/ReportGenerationLoader';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { BusinessProvider, useBusiness } from './context/BusinessContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Public & Auth Pages
@@ -505,11 +506,13 @@ export function AppContent() {
 export function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <BusinessProvider>
-          <AppContent />
-        </BusinessProvider>
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <BusinessProvider>
+            <AppContent />
+          </BusinessProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </BrowserRouter>
   );
 }

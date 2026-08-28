@@ -6,6 +6,8 @@ import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useBusiness } from "../context/BusinessContext";
+import { LanguageSelector } from "../components/LanguageSelector";
+import { useLanguage } from "../context/LanguageContext";
 import {
   Lock,
   Mail,
@@ -25,6 +27,7 @@ export const LoginPage = () => {
   const [localError, setLocalError] = useState(null);
 
   const { loginWithEmail, loginWithGoogle, loginAsDemo, authError } = useAuth();
+  const { t } = useLanguage();
   const { loadUserBusinesses } = useBusiness();
   const navigate = useNavigate();
   const location = useLocation();
@@ -100,6 +103,7 @@ export const LoginPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-200">
+      <div className="absolute right-4 top-4 z-20"><LanguageSelector /></div>
       {/* Background ambient lighting */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 blur-[130px] rounded-full pointer-events-none" />
 
@@ -114,7 +118,7 @@ export const LoginPage = () => {
           Sovereign Entrepreneur Portal
         </h2>
         <p className="mt-2 text-xs sm:text-sm text-slate-400">
-          Sign in to access your bank feasibility appraisals and saved DPR projects.
+          {t('signIn')} to access your bank feasibility appraisals and saved DPR projects.
         </p>
       </div>
 
