@@ -157,12 +157,15 @@ class DatabaseManager:
         self.sqlite.row_factory = sqlite3.Row
         self.sqlite.executescript("""
             PRAGMA foreign_keys = ON;
-            CREATE TABLE IF NOT EXISTS users (firebase_uid TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, gender TEXT, auth_provider TEXT, phone TEXT, additional_business_details TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, last_login_at TEXT);
+            CREATE TABLE IF NOT EXISTS users (firebase_uid TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, gender TEXT, auth_provider TEXT, phone TEXT, additional_business_details TEXT, language TEXT NOT NULL DEFAULT 'en', created_at TEXT NOT NULL, updated_at TEXT NOT NULL, last_login_at TEXT);
             CREATE TABLE IF NOT EXISTS projects (project_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(firebase_uid) ON DELETE CASCADE);
             CREATE INDEX IF NOT EXISTS idx_projects_user_id_sqlite ON projects(user_id);
             CREATE TABLE IF NOT EXISTS feasibility_reports (report_id TEXT PRIMARY KEY, user_id TEXT, payload TEXT NOT NULL, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS revoked_sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, revoked_at TEXT NOT NULL);
         """)
+        existing_columns = {row[1] for row in self.sqlite.execute("PRAGMA table_info(users)")}
+        if "language" not in existing_columns:
+            self.sqlite.execute("ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'en'")
         self.sqlite.commit()
         logger.info("DATABASE_URL not set; using durable SQLite fallback at %s.", db_path)
 
@@ -176,22 +179,18 @@ class DatabaseManager:
                     CREATE TABLE IF NOT EXISTS users (
                         firebase_uid                TEXT PRIMARY KEY,
                         name                         TEXT NOT NULL,
-                        email                        TEXT UNIQUE NOT NULL,
-                        gender                       TEXT DEFAULT 'Unspecified',
-                        auth_provider                TEXT NOT NULL DEFAULT 'email',
+                        email                        TEXT NOT NULL,
                         phone                        TEXT,
-                        additional_business_details TEXT,
-                        created_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
-                        updated_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
-                        last_login_at                TIMESTAMPTZ
+                        language                     TEXT DEFAULT 'en',
+                        created_at                   TIMESTAMPTZ NOT NULL DEFAULT now()
                     );
                 """)
 
                 # Ensure default guest / demo user exists for foreign key references
                 try:
                     await conn.execute("""
-                        INSERT INTO users (firebase_uid, name, email, gender, auth_provider)
-                        VALUES ('guest_user', 'Guest Entrepreneur', 'guest@udyam.gov.in', 'Unspecified', 'email')
+                        INSERT INTO users (firebase_uid, name, email, language)
+                        VALUES ('guest_user', 'Guest Entrepreneur', 'guest@udyam.gov.in', 'en')
                         ON CONFLICT (firebase_uid) DO NOTHING;
                     """)
                 except Exception:
@@ -204,34 +203,18 @@ class DatabaseManager:
                         user_id                      TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
                         business_name                TEXT NOT NULL,
                         business_category            TEXT NOT NULL,
-                        sector                       TEXT NOT NULL,
                         investment_amount            NUMERIC(15, 2) NOT NULL,
-                        annual_turnover_estimate     NUMERIC(15, 2) NOT NULL,
                         state_name                   TEXT NOT NULL,
                         district_name                TEXT NOT NULL,
                         block_name                   TEXT,
                         village_name                 TEXT,
-                        promoter_name                TEXT,
-                        promoter_category            TEXT,
-                        gender                       TEXT,
-                        is_rural                     BOOLEAN DEFAULT true,
-                        tenure_years                 NUMERIC(4, 1) DEFAULT 5.0,
-                        moratorium_months            INT DEFAULT 6,
                         language                     TEXT DEFAULT 'en',
                         additional_business_details TEXT,
                         monthly_net_operating_income_override NUMERIC(15, 2),
                         status                       TEXT DEFAULT 'draft',
                         analysis_result              JSONB,
-                        created_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
-                        updated_at                   TIMESTAMPTZ NOT NULL DEFAULT now()
+                        created_at                   TIMESTAMPTZ NOT NULL DEFAULT now()
                     );
-
-                    -- Safe column migrations for existing PostgreSQL tables
-                    ALTER TABLE projects ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'draft';
-                    ALTER TABLE projects ADD COLUMN IF NOT EXISTS analysis_result JSONB;
-                    ALTER TABLE projects ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'en';
-                    ALTER TABLE projects ADD COLUMN IF NOT EXISTS additional_business_details TEXT;
-                    ALTER TABLE projects ADD COLUMN IF NOT EXISTS monthly_net_operating_income_override NUMERIC(15, 2);
                 """)
 
                 # 3. Index for user projects query
@@ -248,7 +231,6 @@ class DatabaseManager:
                         dpr_payload JSONB,
                         created_at TIMESTAMPTZ DEFAULT NOW()
                     );
-                    ALTER TABLE feasibility_reports ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(firebase_uid) ON DELETE CASCADE;
                     CREATE INDEX IF NOT EXISTS idx_feasibility_reports_user_id ON feasibility_reports(user_id);
                 """)
 
@@ -305,6 +287,7 @@ class DatabaseManager:
         auth_provider: str = "email",
         phone: Optional[str] = None,
         additional_business_details: Optional[str] = None,
+        language: Optional[str] = None,
     ) -> dict[str, Any]:
         now = datetime.now(timezone.utc).isoformat()
         user_record = {
@@ -315,6 +298,7 @@ class DatabaseManager:
             "auth_provider": auth_provider,
             "phone": phone,
             "additional_business_details": additional_business_details,
+            "language": language or "en",
             "created_at": now,
             "updated_at": now,
             "last_login_at": now,
@@ -328,6 +312,8 @@ class DatabaseManager:
                 user_record["phone"] = existing["phone"]
             if not additional_business_details and existing.get("additional_business_details"):
                 user_record["additional_business_details"] = existing["additional_business_details"]
+            if not language and existing.get("language"):
+                user_record["language"] = existing["language"]
 
         self.in_memory_users[firebase_uid] = user_record
 
@@ -335,28 +321,26 @@ class DatabaseManager:
             existing = self.sqlite.execute("SELECT created_at FROM users WHERE firebase_uid = ?", (firebase_uid,)).fetchone()
             if existing:
                 user_record["created_at"] = existing["created_at"]
-            self.sqlite.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(firebase_uid) DO UPDATE SET email=excluded.email, name=excluded.name, gender=excluded.gender, auth_provider=excluded.auth_provider, phone=COALESCE(excluded.phone, users.phone), additional_business_details=COALESCE(excluded.additional_business_details, users.additional_business_details), updated_at=excluded.updated_at, last_login_at=excluded.last_login_at", (firebase_uid, user_record["email"], user_record["name"], user_record["gender"], user_record["auth_provider"], user_record["phone"], user_record["additional_business_details"], user_record["created_at"], now, now))
+            self.sqlite.execute("INSERT INTO users (firebase_uid, email, name, gender, auth_provider, phone, additional_business_details, language, created_at, updated_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(firebase_uid) DO UPDATE SET email=excluded.email, name=excluded.name, gender=excluded.gender, auth_provider=excluded.auth_provider, phone=COALESCE(excluded.phone, users.phone), additional_business_details=COALESCE(excluded.additional_business_details, users.additional_business_details), language=COALESCE(excluded.language, users.language), updated_at=excluded.updated_at, last_login_at=excluded.last_login_at", (firebase_uid, user_record["email"], user_record["name"], user_record["gender"], user_record["auth_provider"], user_record["phone"], user_record["additional_business_details"], user_record["language"], user_record["created_at"], now, now))
             self.sqlite.commit()
             return user_record
 
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
+                    # Neon already owns this compact user schema.  Keep the
+                    # persistence layer compatible with it instead of relying
+                    # on uncommitted, process-only fallbacks or migrations.
                     row = await conn.fetchrow("""
-                        INSERT INTO users (
-                            firebase_uid, email, name, gender, auth_provider, phone, additional_business_details, last_login_at, updated_at
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+                        INSERT INTO users (firebase_uid, name, email, phone, language, created_at)
+                        VALUES ($1, $2, $3, $4, COALESCE($5, 'en'), NOW())
                         ON CONFLICT (firebase_uid) DO UPDATE SET
                             name = COALESCE(NULLIF(EXCLUDED.name, ''), users.name),
                             email = EXCLUDED.email,
-                            gender = COALESCE(NULLIF(EXCLUDED.gender, ''), users.gender),
-                            auth_provider = EXCLUDED.auth_provider,
                             phone = COALESCE(EXCLUDED.phone, users.phone),
-                            additional_business_details = COALESCE(EXCLUDED.additional_business_details, users.additional_business_details),
-                            last_login_at = NOW(),
-                            updated_at = NOW()
+                            language = COALESCE(EXCLUDED.language, users.language)
                         RETURNING *;
-                    """, firebase_uid, email, name, gender or "Unspecified", auth_provider, phone, additional_business_details)
+                    """, firebase_uid, name, email, phone, language)
                     if row:
                         rec = dict(row)
                         for k in ("created_at", "updated_at", "last_login_at"):
@@ -394,9 +378,19 @@ class DatabaseManager:
 
     async def update_user(self, firebase_uid: str, fields: dict[str, Any]) -> Optional[dict[str, Any]]:
         now = datetime.now(timezone.utc).isoformat()
+        allowed_fields = {"name", "phone", "language"}
+        fields = {key: value for key, value in fields.items() if key in allowed_fields}
         if firebase_uid in self.in_memory_users:
             self.in_memory_users[firebase_uid].update(fields)
             self.in_memory_users[firebase_uid]["updated_at"] = now
+
+        if self.sqlite:
+            if not fields:
+                return await self.get_user(firebase_uid)
+            assignments = ", ".join(f"{key} = ?" for key in fields)
+            self.sqlite.execute(f"UPDATE users SET {assignments}, updated_at = ? WHERE firebase_uid = ?", (*fields.values(), now, firebase_uid))
+            self.sqlite.commit()
+            return await self.get_user(firebase_uid)
 
         if self.pool:
             try:
@@ -404,13 +398,12 @@ class DatabaseManager:
                 values = [firebase_uid]
                 idx = 2
                 for k, v in fields.items():
-                    if k in ("name", "gender", "phone", "additional_business_details", "last_login_at"):
+                    if k in allowed_fields:
                         set_clauses.append(f"{k} = ${idx}")
                         values.append(v)
                         idx += 1
 
                 if set_clauses:
-                    set_clauses.append("updated_at = NOW()")
                     query = f"UPDATE users SET {', '.join(set_clauses)} WHERE firebase_uid = $1 RETURNING *"
                     async with self.pool.acquire() as conn:
                         row = await conn.fetchrow(query, *values)
@@ -749,6 +742,33 @@ class DatabaseManager:
         return 0.20
 
     # --- Project Persistence CRUD ---
+    @staticmethod
+    def _hydrate_project_record(row: dict[str, Any]) -> dict[str, Any]:
+        """Reconstruct the complete project model from Neon index columns + JSONB context."""
+        persisted = dict(row)
+        stored_analysis = persisted.get("analysis_result") or {}
+        if isinstance(stored_analysis, str):
+            stored_analysis = json.loads(stored_analysis)
+        snapshot = stored_analysis.pop("_project", {}) if isinstance(stored_analysis, dict) else {}
+        rec = {**snapshot, **persisted}
+        rec["analysis_result"] = stored_analysis or None
+        rec["enterprise_name"] = rec.get("business_name") or rec.get("enterprise_name", "Enterprise Unit")
+        rec["project_cost"] = float(rec.get("investment_amount") or rec.get("project_cost") or 0.0)
+        rec["investment_amount"] = float(rec.get("investment_amount") or 0.0)
+        rec["annual_turnover_estimate"] = float(rec.get("annual_turnover_estimate") or 0.0)
+        rec["tenure_years"] = float(rec.get("tenure_years") or 5.0)
+        rec["moratorium_months"] = int(rec.get("moratorium_months") or 6)
+        rec["sector"] = rec.get("sector", "general")
+        rec["promoter_name"] = rec.get("promoter_name", "Enterprise Promoter")
+        rec["promoter_category"] = rec.get("promoter_category", "general")
+        rec["gender"] = rec.get("gender", "Unspecified")
+        rec["is_rural"] = bool(rec.get("is_rural", True))
+        for key in ("created_at", "updated_at"):
+            if rec.get(key) and hasattr(rec[key], "isoformat"):
+                rec[key] = rec[key].isoformat()
+        rec["updated_at"] = rec.get("updated_at") or rec.get("created_at") or datetime.now(timezone.utc).isoformat()
+        return rec
+
     async def create_project(self, project_dict: dict[str, Any]) -> dict[str, Any]:
         project_id = project_dict.get("project_id") or f"proj_{uuid.uuid4().hex[:12]}"
         now = datetime.now(timezone.utc).isoformat()
@@ -829,58 +849,50 @@ class DatabaseManager:
                     name=promoter_name or "Entrepreneur",
                 )
                 async with self.pool.acquire() as conn:
+                    # The deployed Neon projects table deliberately keeps its
+                    # relational index fields compact.  Preserve the complete
+                    # enterprise submission inside its existing JSONB column
+                    # so none of the owner's context is lost on a re-login.
+                    storage_analysis = {
+                        **(analysis_result or {}),
+                        "_project": {key: value for key, value in record.items() if key not in {"analysis_result", "created_at", "updated_at"}},
+                    }
                     await conn.execute("""
                         INSERT INTO projects (
-                            project_id, user_id, business_name, business_category, sector,
-                            investment_amount, annual_turnover_estimate,
-                            state_name, district_name, block_name, village_name,
-                            promoter_name, promoter_category, gender, is_rural,
-                            tenure_years, moratorium_months, language,
-                            additional_business_details, status, analysis_result, created_at, updated_at
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW(), NOW())
+                            project_id, user_id, business_name, business_category,
+                            investment_amount, state_name, district_name, block_name,
+                            village_name, analysis_result, status, language,
+                            additional_business_details, monthly_net_operating_income_override, created_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
                         ON CONFLICT (project_id) DO UPDATE SET
+                            user_id = EXCLUDED.user_id,
                             business_name = EXCLUDED.business_name,
                             business_category = EXCLUDED.business_category,
-                            sector = EXCLUDED.sector,
                             investment_amount = EXCLUDED.investment_amount,
-                            annual_turnover_estimate = EXCLUDED.annual_turnover_estimate,
                             state_name = EXCLUDED.state_name,
                             district_name = EXCLUDED.district_name,
                             block_name = EXCLUDED.block_name,
                             village_name = EXCLUDED.village_name,
-                            promoter_name = EXCLUDED.promoter_name,
-                            promoter_category = EXCLUDED.promoter_category,
-                            gender = EXCLUDED.gender,
-                            is_rural = EXCLUDED.is_rural,
-                            tenure_years = EXCLUDED.tenure_years,
-                            moratorium_months = EXCLUDED.moratorium_months,
                             language = EXCLUDED.language,
                             additional_business_details = EXCLUDED.additional_business_details,
                             status = EXCLUDED.status,
                             analysis_result = EXCLUDED.analysis_result,
-                            updated_at = NOW()
+                            monthly_net_operating_income_override = EXCLUDED.monthly_net_operating_income_override
                     """,
                     project_id,
                     user_id,
                     business_name,
                     business_category,
-                    project_dict.get("sector", "general"),
                     investment_amount,
-                    annual_turnover,
                     state_name,
                     district_name,
                     block_name,
                     village_name,
-                    promoter_name,
-                    promoter_category,
-                    gender,
-                    is_rural,
-                    tenure_years,
-                    moratorium_months,
+                    json.dumps(storage_analysis),
+                    record["status"],
                     language,
                     additional_business_details,
-                    record["status"],
-                    json.dumps(analysis_result) if analysis_result is not None else None,
+                    project_dict.get("monthly_net_operating_income_override"),
                     )
             except Exception as e:
                 logger.warning(f"Could not persist project to PostgreSQL: {e}")
@@ -899,17 +911,7 @@ class DatabaseManager:
                 async with self.pool.acquire() as conn:
                     row = await conn.fetchrow("SELECT * FROM projects WHERE project_id = $1", project_id)
                     if row:
-                        rec = dict(row)
-                        if isinstance(rec.get("analysis_result"), str):
-                            rec["analysis_result"] = json.loads(rec["analysis_result"])
-                        rec["enterprise_name"] = rec.get("business_name")
-                        rec["project_cost"] = float(rec.get("investment_amount") or 0.0)
-                        rec["investment_amount"] = float(rec.get("investment_amount") or 0.0)
-                        rec["annual_turnover_estimate"] = float(rec.get("annual_turnover_estimate") or 0.0)
-                        rec["tenure_years"] = float(rec.get("tenure_years") or 5.0)
-                        for k in ("created_at", "updated_at"):
-                            if rec.get(k) and hasattr(rec[k], "isoformat"):
-                                rec[k] = rec[k].isoformat()
+                        rec = self._hydrate_project_record(dict(row))
                         self.in_memory_projects[project_id] = rec
                         return rec
             except Exception as e:
@@ -936,17 +938,7 @@ class DatabaseManager:
                         rows = await conn.fetch("SELECT * FROM projects WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50", user_id)
                     results = []
                     for r in rows:
-                        rec = dict(r)
-                        if isinstance(rec.get("analysis_result"), str):
-                            rec["analysis_result"] = json.loads(rec["analysis_result"])
-                        rec["enterprise_name"] = rec.get("business_name")
-                        rec["project_cost"] = float(rec.get("investment_amount") or 0.0)
-                        rec["investment_amount"] = float(rec.get("investment_amount") or 0.0)
-                        rec["annual_turnover_estimate"] = float(rec.get("annual_turnover_estimate") or 0.0)
-                        rec["tenure_years"] = float(rec.get("tenure_years") or 5.0)
-                        for k in ("created_at", "updated_at"):
-                            if rec.get(k) and hasattr(rec[k], "isoformat"):
-                                rec[k] = rec[k].isoformat()
+                        rec = self._hydrate_project_record(dict(r))
                         self.in_memory_projects[rec["project_id"]] = rec
                         results.append(rec)
                     if results:
@@ -977,12 +969,23 @@ class DatabaseManager:
 
         if self.pool:
             try:
+                current = await self.get_project(project_id)
+                if not current:
+                    return None
+                storage_analysis = {
+                    **analysis_result,
+                    "_project": {key: value for key, value in current.items() if key not in {"analysis_result", "created_at", "updated_at", "enterprise_name", "project_cost"}},
+                }
                 async with self.pool.acquire() as conn:
                     await conn.execute("""
                         UPDATE projects
-                        SET analysis_result = $1, status = 'analyzed', updated_at = NOW()
+                        SET analysis_result = $1, status = 'analyzed'
                         WHERE project_id = $2
-                    """, json.dumps(analysis_result), project_id)
+                    """, json.dumps(storage_analysis), project_id)
+                current["analysis_result"] = analysis_result
+                current["status"] = "analyzed"
+                self.in_memory_projects[project_id] = current
+                return current
             except Exception as e:
                 logger.warning(f"Could not update project analysis in PostgreSQL: {e}")
 
@@ -1034,13 +1037,12 @@ class DatabaseManager:
 
                 async with self.pool.acquire() as conn:
                     await conn.execute("""
-                        INSERT INTO feasibility_reports (report_id, user_id, report_payload, dpr_payload, updated_at)
+                        INSERT INTO feasibility_reports (report_id, user_id, report_payload, dpr_payload, created_at)
                         VALUES ($1, $2, $3, $4, NOW())
                         ON CONFLICT (report_id) DO UPDATE SET
                             user_id = EXCLUDED.user_id,
                             report_payload = EXCLUDED.report_payload,
-                            dpr_payload = EXCLUDED.dpr_payload,
-                            updated_at = NOW()
+                            dpr_payload = EXCLUDED.dpr_payload
                     """,
                     report_id,
                     user_id,

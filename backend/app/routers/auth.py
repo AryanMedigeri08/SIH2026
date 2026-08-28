@@ -49,6 +49,7 @@ async def register_user_profile(
         auth_provider=user_record.get("auth_provider", "email"),
         phone=user_record.get("phone"),
         additional_business_details=user_record.get("additional_business_details"),
+        preferred_language=user_record.get("language", "en"),
         projects_count=projects_count,
         created_at=user_record.get("created_at", ""),
         updated_at=user_record.get("updated_at", ""),
@@ -77,6 +78,7 @@ async def sync_user_session(
         auth_provider=current_user.auth_provider,
         phone=existing.get("phone") if existing else None,
         additional_business_details=existing.get("additional_business_details") if existing else None,
+        language=existing.get("language") if existing else None,
     )
 
     projects_count = await db_manager.get_user_projects_count(current_user.uid)
@@ -88,6 +90,7 @@ async def sync_user_session(
         auth_provider=user_record.get("auth_provider", "email"),
         phone=user_record.get("phone"),
         additional_business_details=user_record.get("additional_business_details"),
+        preferred_language=user_record.get("language", "en"),
         projects_count=projects_count,
         created_at=user_record.get("created_at", ""),
         updated_at=user_record.get("updated_at", ""),
@@ -121,6 +124,7 @@ async def get_my_profile(
         auth_provider=user_record.get("auth_provider", "email"),
         phone=user_record.get("phone"),
         additional_business_details=user_record.get("additional_business_details"),
+        preferred_language=user_record.get("language", "en"),
         projects_count=projects_count,
         created_at=user_record.get("created_at", ""),
         updated_at=user_record.get("updated_at", ""),
@@ -134,7 +138,7 @@ async def update_my_profile(
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
-    Updates editable profile fields: name, gender, phone, additional_business_details.
+    Updates editable profile fields, including the user's application language.
     """
     fields_to_update = {}
     if update_in.name is not None and update_in.name.strip():
@@ -145,6 +149,8 @@ async def update_my_profile(
         fields_to_update["phone"] = update_in.phone
     if update_in.additional_business_details is not None:
         fields_to_update["additional_business_details"] = update_in.additional_business_details
+    if update_in.preferred_language is not None:
+        fields_to_update["language"] = update_in.preferred_language
 
     updated = await db_manager.update_user(current_user.uid, fields_to_update)
     if not updated:
@@ -159,6 +165,7 @@ async def update_my_profile(
         auth_provider=updated.get("auth_provider", "email"),
         phone=updated.get("phone"),
         additional_business_details=updated.get("additional_business_details"),
+        preferred_language=updated.get("language", "en"),
         projects_count=projects_count,
         created_at=updated.get("created_at", ""),
         updated_at=updated.get("updated_at", ""),

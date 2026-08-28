@@ -72,7 +72,7 @@ export const RegisterPage = () => {
       const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
       try {
         const res = await loadUserBusinesses(userToken);
-        navigate(res?.hasBusinesses ? "/" : "/wizard", { replace: true });
+        navigate(res?.hasBusinesses ? "/dashboard" : "/wizard", { replace: true });
       } catch (_) {
         navigate("/wizard", { replace: true });
       }
@@ -91,7 +91,7 @@ export const RegisterPage = () => {
       const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
       try {
         const res = await loadUserBusinesses(userToken);
-        navigate(res?.hasBusinesses ? "/" : "/wizard", { replace: true });
+        navigate(res?.hasBusinesses ? "/dashboard" : "/wizard", { replace: true });
       } catch (_) {
         navigate("/wizard", { replace: true });
       }

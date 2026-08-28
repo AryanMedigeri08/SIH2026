@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { CaseStudiesBar } from './components/CaseStudiesBar';
@@ -143,7 +143,7 @@ export function AppContent() {
   } = useBusiness();
   const { language } = useLanguage();
 
-  const isAuthOrLanding = ['/landing', '/login', '/register'].includes(location.pathname);
+  const isAuthOrLanding = ['/', '/landing', '/login', '/register'].includes(location.pathname);
 
   // Health check on app start
   useEffect(() => {
@@ -198,7 +198,7 @@ export function AppContent() {
 
     // If currently on a /reports/:id path, immediately switch to root to prevent stale URL sync
     if (location.pathname.startsWith('/reports/')) {
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
 
     try {
@@ -206,7 +206,7 @@ export function AppContent() {
       if (rep?.ml_viability?.verdict === 'SUITABLE') {
         confetti({ particleCount: 50, spread: 60, origin: { y: 0.85 } });
       }
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
       alert(`Feasibility error: ${err.message}`);
     } finally {
@@ -230,7 +230,7 @@ export function AppContent() {
       const created = await createAndSaveBusiness(formData);
       setActiveCaseId(null);
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.8 } });
-      navigate('/');
+      navigate('/dashboard');
       return created;
     } catch (err) {
       alert(`Enterprise appraisal error: ${err.message}`);
@@ -244,7 +244,8 @@ export function AppContent() {
   if (isAuthOrLanding) {
     return (
       <Routes>
-        <Route path="/landing" element={<LandingPage />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/landing" element={<Navigate to="/" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
       </Routes>
@@ -292,20 +293,6 @@ export function AppContent() {
           ) : (
             <Routes>
               {/* Protected Overview & Core Synthesis Dashboard */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses} onOpenWizard={() => navigate('/wizard')}>
-                      <OverviewPage
-                        reportData={reportData}
-                        onOpenDpr={() => setIsDprOpen(true)}
-                        onOpenWizard={() => navigate('/wizard')}
-                      />
-                    </AppraisalSectionWrapper>
-                  </ProtectedRoute>
-                }
-              />
               <Route
                 path="/dashboard"
                 element={
@@ -568,13 +555,13 @@ export function AppContent() {
 export function App() {
   return (
     <BrowserRouter>
-      <LanguageProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <LanguageProvider>
           <BusinessProvider>
             <AppContent />
           </BusinessProvider>
-        </AuthProvider>
-      </LanguageProvider>
+        </LanguageProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

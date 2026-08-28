@@ -42,14 +42,14 @@ export const LoginPage = () => {
     // project count.  Using it avoids starting a competing business restore
     // request while BusinessContext hydrates the full enterprise list.
     if (typeof authSession?.profile?.projects_count === "number") {
-      return authSession.profile.projects_count > 0 ? "/" : "/wizard";
+      return authSession.profile.projects_count > 0 ? "/dashboard" : "/wizard";
     }
 
     try {
       const res = await loadUserBusinesses(authSession?.token);
-      return res?.hasBusinesses ? "/" : "/wizard";
+      return res?.hasBusinesses ? "/dashboard" : "/wizard";
     } catch (e) {
-      return "/";
+      return "/dashboard";
     }
   };
 

@@ -56,7 +56,7 @@ export function ReportDetailPage({ onOpenWizard }) {
           </p>
           <div className="flex justify-center gap-3 pt-2">
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/dashboard')}
               className="text-xs font-semibold px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300"
             >
               Back to Dashboard
@@ -78,7 +78,7 @@ export function ReportDetailPage({ onOpenWizard }) {
       {/* Return navigation bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/dashboard')}
           className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-semibold transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />

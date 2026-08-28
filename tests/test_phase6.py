@@ -38,6 +38,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 client = TestClient(app)
+feasibility_headers = {"Authorization": "Bearer test-token-feasibility_suite_606:feasibility@example.com"}
 
 PASS = 0
 FAIL = 0
@@ -193,7 +194,10 @@ feas_payload = {
     "language": "en",
 }
 
-r_feas = client.post("/api/v2/feasibility/generate", json=feas_payload)
+# Feasibility reports are user-owned protected resources.  Establish the
+# authenticated profile once and use the same bearer for generation/retrieval.
+client.post("/api/v2/auth/session", headers=feasibility_headers)
+r_feas = client.post("/api/v2/feasibility/generate", json=feas_payload, headers=feasibility_headers)
 check("POST /api/v2/feasibility/generate returns HTTP 200 OK", r_feas.status_code == 200)
 feas_data = r_feas.json()
 report_id = feas_data.get("report_id")
@@ -202,25 +206,25 @@ check("Contains ML viability verdict (SUITABLE)", feas_data.get("ml_viability", 
 check("Contains grounded executive synthesis", len(feas_data.get("executive_synthesis", {}).get("executive_summary", "")) > 50)
 
 # GET /api/v2/feasibility/{report_id}
-r_get_feas = client.get(f"/api/v2/feasibility/{report_id}")
+r_get_feas = client.get(f"/api/v2/feasibility/{report_id}", headers=feasibility_headers)
 check(f"GET /api/v2/feasibility/{report_id} returns HTTP 200 OK", r_get_feas.status_code == 200)
 check("Retrieved report matches generated report ID", r_get_feas.json().get("report_id") == report_id)
 
 # DPR Exports: JSON, Markdown, HTML
-r_dpr_json = client.get(f"/api/v2/feasibility/{report_id}/dpr?format=json")
+r_dpr_json = client.get(f"/api/v2/feasibility/{report_id}/dpr?format=json", headers=feasibility_headers)
 check("GET .../dpr?format=json returns HTTP 200 OK", r_dpr_json.status_code == 200)
 check("DPR JSON contains 7 sections", "section_1_header_and_profile" in r_dpr_json.json() and "section_7_statutory_checklist" in r_dpr_json.json())
 
-r_dpr_md = client.get(f"/api/v2/feasibility/{report_id}/dpr?format=markdown")
+r_dpr_md = client.get(f"/api/v2/feasibility/{report_id}/dpr?format=markdown", headers=feasibility_headers)
 check("GET .../dpr?format=markdown returns HTTP 200 OK", r_dpr_md.status_code == 200)
 check("DPR Markdown contains DETAILED PROJECT REPORT header", "DETAILED PROJECT REPORT" in r_dpr_md.text)
 
-r_dpr_html = client.get(f"/api/v2/feasibility/{report_id}/dpr?format=html")
+r_dpr_html = client.get(f"/api/v2/feasibility/{report_id}/dpr?format=html", headers=feasibility_headers)
 check("GET .../dpr?format=html returns HTTP 200 OK", r_dpr_html.status_code == 200)
 check("DPR HTML contains closing html tag", "</html>" in r_dpr_html.text)
 
 # Direct POST /api/v2/feasibility/dpr?format=html
-r_direct_dpr = client.post("/api/v2/feasibility/dpr?format=html", json=feas_payload)
+r_direct_dpr = client.post("/api/v2/feasibility/dpr?format=html", json=feas_payload, headers=feasibility_headers)
 check("POST /api/v2/feasibility/dpr?format=html returns HTTP 200 OK", r_direct_dpr.status_code == 200)
 check("Direct DPR returns HTML content", "<!DOCTYPE html>" in r_direct_dpr.text)
 
@@ -396,7 +400,7 @@ for case in CASES_API:
     print(f"Testing API Pipeline: {case['name']}")
     print("-" * 90)
 
-    res = client.post("/api/v2/feasibility/generate", json=case["payload"])
+    res = client.post("/api/v2/feasibility/generate", json=case["payload"], headers=feasibility_headers)
     check(f"[{case['name']}] POST /api/v2/feasibility/generate returns HTTP 200 OK", res.status_code == 200)
     rep = res.json()
 

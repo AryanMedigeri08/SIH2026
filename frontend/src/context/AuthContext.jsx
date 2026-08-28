@@ -273,25 +273,27 @@ export const AuthProvider = ({ children }) => {
 
   // Sign Out Flow
   const logout = async () => {
-    setLoading(true);
+    const sessionToken = token;
+    // Clear client authentication first.  The server call below is important
+    // for token revocation, but a slow or unavailable network must never keep
+    // protected enterprise state on screen.
+    localStorage.removeItem(LOCAL_SESSION_KEY);
+    setFirebaseUser(null);
+    setUserProfile(null);
+    setToken(null);
+    setIsDemoMode(false);
+    setLoading(false);
     try {
-      if (token) {
+      if (sessionToken) {
         try {
-          await authApi.logout(token);
+          await authApi.logout(sessionToken);
         } catch (_) {}
       }
-      localStorage.removeItem(LOCAL_SESSION_KEY);
       try {
         await firebaseSignOut(auth);
       } catch (_) {}
-      setFirebaseUser(null);
-      setUserProfile(null);
-      setToken(null);
-      setIsDemoMode(false);
     } catch (err) {
       console.error("Sign out error:", err);
-    } finally {
-      setLoading(false);
     }
   };
 

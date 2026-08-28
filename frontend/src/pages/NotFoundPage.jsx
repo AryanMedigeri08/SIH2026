@@ -16,7 +16,7 @@ export function NotFoundPage() {
           The requested page or route does not exist.
         </p>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/dashboard')}
           className="inline-flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl bg-sovereign-800 text-white hover:bg-sovereign-700 shadow-sm transition"
         >
           <Home className="w-4 h-4" />

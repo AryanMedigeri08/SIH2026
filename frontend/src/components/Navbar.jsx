@@ -15,9 +15,9 @@ export function Navbar({ health, onToggleMobileSidebar }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    await logout();
+  const handleLogout = () => {
     navigate('/login', { replace: true });
+    void logout();
   };
 
   return (
@@ -41,7 +41,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
           </button>
 
           {/* Institutional Brand Logo & Tagline */}
-          <Link to="/" className="flex items-center gap-2.5 cursor-pointer group">
+          <Link to={isAuthenticated ? "/dashboard" : "/"} className="flex items-center gap-2.5 cursor-pointer group">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sovereign-800 via-sovereign-900 to-indigo-950 text-white flex items-center justify-center shadow-md shadow-sovereign-900/20 text-lg font-bold border border-sovereign-700/50 transition-transform group-hover:scale-105">
               <Landmark className="w-5 h-5 text-sky-400" />
             </div>
@@ -109,6 +109,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
               </div>
 
               <button
+                type="button"
                 onClick={handleLogout}
                 className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
                 title={t('logout')}

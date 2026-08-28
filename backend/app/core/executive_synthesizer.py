@@ -82,7 +82,7 @@ class ExecutiveSynthesis:
             "is_fallback": self.is_fallback,
             "source_type": "DETERMINISTIC_TEMPLATE" if self.is_fallback else "AI_GENERATED",
             "source_description": (
-                f"Predefined Domain Template ({self.model_name})"
+                f"Deterministic Approach ({self.model_name})"
                 if self.is_fallback
                 else f"AI Synthesized via Groq ({self.model_name})"
             ),

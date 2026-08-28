@@ -40,7 +40,7 @@ export function Sidebar({
     {
       id: 'overview',
       name: t('overview'),
-      path: reportId ? `/reports/${reportId}` : '/',
+      path: reportId ? `/reports/${reportId}` : '/dashboard',
       icon: LayoutDashboard,
       badge: null,
     },
@@ -114,7 +114,6 @@ export function Sidebar({
     const current = location.pathname;
     if (itemId === 'overview') {
       return (
-        current === '/' ||
         current === '/dashboard' ||
         current === `/reports/${reportId}` ||
         (/^\/reports\/[^\/]+$/.test(current) && !current.includes('/viability') && !current.includes('/market') && !current.includes('/schemes') && !current.includes('/financials') && !current.includes('/risk') && !current.includes('/swot') && !current.includes('/dpr'))

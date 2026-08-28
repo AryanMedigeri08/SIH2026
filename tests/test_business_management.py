@@ -382,6 +382,31 @@ def test_8_durable_backend_fallback_persistence():
     print("  ✓ Enterprise reloaded from durable SQLite backend after memory cache removal")
 
 
+def test_9_user_language_preference_persists():
+    """The selected interface/LLM language is persisted in the user profile."""
+    print("\n--- TEST 9: User Language Preference Persistence ---")
+    uid = "usr_language_preference_505"
+    email = "language@udyam.gov.in"
+    headers = {"Authorization": f"Bearer test-token-{uid}:{email}:session-1"}
+
+    initial = client.post("/api/v2/auth/session", headers=headers)
+    assert initial.status_code == 200
+    assert initial.json()["preferred_language"] == "en"
+
+    saved = client.patch("/api/v2/auth/me", json={"preferred_language": "hi"}, headers=headers)
+    assert saved.status_code == 200
+    assert saved.json()["preferred_language"] == "hi"
+
+    relogin_headers = {"Authorization": f"Bearer test-token-{uid}:{email}:session-2"}
+    restored = client.post("/api/v2/auth/session", headers=relogin_headers)
+    assert restored.status_code == 200
+    assert restored.json()["preferred_language"] == "hi"
+
+    invalid = client.patch("/api/v2/auth/me", json={"preferred_language": "es"}, headers=relogin_headers)
+    assert invalid.status_code == 422
+    print("  ✓ Preferred language survives a fresh login and invalid language codes are rejected")
+
+
 if __name__ == "__main__":
     print("=" * 80)
     print("RUNNING ENTERPRISE PERSISTENCE, AUTHENTICATION & ACCESS CONTROL TEST SUITE")
@@ -395,7 +420,8 @@ if __name__ == "__main__":
     test_6_cross_user_data_isolation(id_1)
     test_7_direct_resource_access_enforcement()
     test_8_durable_backend_fallback_persistence()
+    test_9_user_language_preference_persists()
     
     print("\n" + "=" * 80)
-    print("ALL 8 REQUIRED TESTS PASSED WITH 100% SUCCESS!")
+    print("ALL 9 REQUIRED TESTS PASSED WITH 100% SUCCESS!")
     print("=" * 80)

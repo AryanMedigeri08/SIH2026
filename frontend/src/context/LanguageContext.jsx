@@ -4,6 +4,7 @@
  * language: changing navigation labels never mutates an already issued DPR.
  */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 const LANGUAGE_STORAGE_KEY = "udyam_saathi_ui_language";
 
@@ -29,12 +30,28 @@ const LanguageContext = createContext(null);
 
 export function LanguageProvider({ children }) {
   const [language, setLanguageState] = useState(() => localStorage.getItem(LANGUAGE_STORAGE_KEY) || "en");
+  const { isAuthenticated, userProfile, updateProfile } = useAuth();
 
   const setLanguage = useCallback((nextLanguage) => {
     const valid = LANGUAGES.some(({ code }) => code === nextLanguage) ? nextLanguage : "en";
     localStorage.setItem(LANGUAGE_STORAGE_KEY, valid);
     setLanguageState(valid);
-  }, []);
+    // Browser storage keeps the pre-login experience responsive, while the
+    // authenticated profile is the durable, cross-device source of truth.
+    if (isAuthenticated && userProfile?.firebase_uid && valid !== userProfile.preferred_language) {
+      updateProfile({ preferred_language: valid }).catch((error) => {
+        console.warn("Could not persist the preferred language:", error);
+      });
+    }
+  }, [isAuthenticated, updateProfile, userProfile?.firebase_uid, userProfile?.preferred_language]);
+
+  useEffect(() => {
+    const preferred = userProfile?.preferred_language;
+    if (isAuthenticated && LANGUAGES.some(({ code }) => code === preferred) && preferred !== language) {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, preferred);
+      setLanguageState(preferred);
+    }
+  }, [isAuthenticated, language, userProfile?.preferred_language]);
 
   useEffect(() => {
     document.documentElement.lang = language;

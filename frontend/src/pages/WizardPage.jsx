@@ -12,7 +12,7 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
 
   const handleSubmit = async (formData) => {
     await onWizardSubmit(formData);
-    navigate('/');
+    navigate('/dashboard');
   };
 
   return (
@@ -22,7 +22,7 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
       <div className="glass-panel p-6 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/dashboard')}
             className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 font-semibold mb-2 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -62,7 +62,7 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
       <div className="relative">
         <FeasibilityWizard
           isOpen={true}
-          onClose={() => navigate('/')}
+          onClose={() => navigate('/dashboard')}
           onSubmit={handleSubmit}
           isSubmitting={isLoading}
           initialData={{ ...PITCH_CASES[selectedTemplateIndex]?.formData, language }}

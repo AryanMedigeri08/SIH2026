@@ -35,6 +35,7 @@ class UserUpdateRequest(BaseModel):
     gender: Optional[str] = None
     phone: Optional[str] = None
     additional_business_details: Optional[str] = Field(None, max_length=1000)
+    preferred_language: Optional[str] = Field(None, pattern="^(en|hi|mr|ta|te|kn)$")
 
 
 class UserProfileResponse(BaseModel):
@@ -45,6 +46,7 @@ class UserProfileResponse(BaseModel):
     auth_provider: str = "email"
     phone: Optional[str] = None
     additional_business_details: Optional[str] = None
+    preferred_language: str = "en"
     projects_count: int = 0
     created_at: str
     updated_at: str

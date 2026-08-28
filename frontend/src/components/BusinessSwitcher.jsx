@@ -98,7 +98,7 @@ export function BusinessSwitcher({ compact = false }) {
   const handleSelectBusiness = async (biz) => {
     setIsOpen(false);
     await switchBusiness(biz.project_id);
-    navigate("/");
+    navigate("/dashboard");
   };
 
   if (!isAuthenticated) {

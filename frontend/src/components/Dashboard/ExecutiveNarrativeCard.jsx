@@ -52,7 +52,7 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
           {isFallback ? (
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 flex items-center gap-1.5" title="Rule-based deterministic template based on statutory MSME guidelines">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-              Predefined Domain Template
+              Deterministic Approach
             </span>
           ) : (
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-1.5" title="Live LLM generation via Groq Cloud">
@@ -124,7 +124,7 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
           <strong className="text-slate-700">Data Source:</strong> {isFallback ? "Deterministic Statutory Narrative Matrix (deterministic_narrative_engine_v1.0)" : `Groq Cloud AI Model (${modelName})`}
         </span>
         <span className="font-mono text-slate-600 font-medium">
-          Source Type: {isFallback ? "Predefined Domain Template" : "AI Generated"}
+          Source Type: {isFallback ? "Deterministic Approach" : "AI Generated"}
         </span>
       </div>
 
