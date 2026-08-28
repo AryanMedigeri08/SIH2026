@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { StatutoryChecklistCard } from '../../components/Dashboard/StatutoryChecklistCard';
 import { fetchDprDocument } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { FileText, Printer, Download, Loader2, CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react';
 
 export function BankDprPage({ reportData }) {
+  const { token } = useAuth();
   const [format, setFormat] = useState('html');
   const [dprContent, setDprContent] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,7 +18,7 @@ export function BankDprPage({ reportData }) {
     async function loadDpr() {
       setLoading(true);
       try {
-        const res = await fetchDprDocument(reportId, format);
+        const res = await fetchDprDocument(reportId, format, token);
         setDprContent(res);
       } catch (err) {
         setDprContent(`<div style="padding:20px; color:#dc2626;">Could not load Bank DPR: ${err.message}</div>`);
@@ -25,7 +27,7 @@ export function BankDprPage({ reportData }) {
       }
     }
     loadDpr();
-  }, [reportId, format]);
+  }, [reportId, format, token]);
 
   if (!reportData) return null;
 

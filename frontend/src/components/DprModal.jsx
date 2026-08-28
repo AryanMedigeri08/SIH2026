@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Printer, Download, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { fetchDprDocument } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export function DprModal({ isOpen, onClose, reportId, reportData }) {
+  const { token } = useAuth();
   const [format, setFormat] = useState('html');
   const [dprContent, setDprContent] = useState('');
   const [loading, setLoading] = useState(false);
@@ -13,7 +15,7 @@ export function DprModal({ isOpen, onClose, reportId, reportData }) {
     async function loadDpr() {
       setLoading(true);
       try {
-        const res = await fetchDprDocument(reportId, format);
+        const res = await fetchDprDocument(reportId, format, token);
         setDprContent(res);
       } catch (err) {
         setDprContent(`<div style="padding:20px; color:#dc2626;">Could not load Bank DPR: ${err.message}</div>`);
@@ -22,7 +24,7 @@ export function DprModal({ isOpen, onClose, reportId, reportData }) {
       }
     }
     loadDpr();
-  }, [isOpen, reportId, format]);
+  }, [isOpen, reportId, format, token]);
 
   if (!isOpen) return null;
 
