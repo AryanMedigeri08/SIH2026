@@ -89,6 +89,13 @@ export const projectsApi = {
     });
   },
 
+  async createAndAnalyze(token, projectData) {
+    return await authFetch(`${API_BASE}/projects/create-and-analyze`, token, {
+      method: 'POST',
+      body: JSON.stringify(projectData),
+    });
+  },
+
   async listProjects(token) {
     return await authFetch(`${API_BASE}/projects`, token, {
       method: 'GET',
@@ -101,9 +108,22 @@ export const projectsApi = {
     });
   },
 
+  async getStatus(token, projectId) {
+    return await authFetch(`${API_BASE}/projects/${projectId}/status`, token, {
+      method: 'GET',
+    });
+  },
+
   async analyzeProject(token, projectId) {
     return await authFetch(`${API_BASE}/projects/${projectId}/analyze`, token, {
       method: 'POST',
+    });
+  },
+
+  async updateProject(token, projectId, updateData) {
+    return await authFetch(`${API_BASE}/projects/${projectId}`, token, {
+      method: 'PATCH',
+      body: JSON.stringify(updateData),
     });
   },
 

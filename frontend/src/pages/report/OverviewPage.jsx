@@ -19,24 +19,30 @@ import {
   User,
   Sparkles,
   Layers,
+  BarChart3,
+  Building2,
+  AlertTriangle,
 } from 'lucide-react';
+import { useBusiness } from '../../context/BusinessContext';
+import { BusinessStatusPill } from '../../components/BusinessSwitcher';
 
 export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   const navigate = useNavigate();
   const [showLineage, setShowLineage] = React.useState(true);
+  const { activeBusiness } = useBusiness();
 
   if (!reportData) {
     return (
       <div className="py-16 text-center">
         <div className="glass-panel-elevated p-10 max-w-lg mx-auto space-y-4 bg-white border border-slate-200 rounded-2xl shadow-card-elevated">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-sovereign-100 to-sky-100 border border-sovereign-200 text-sovereign-800 mx-auto flex items-center justify-center text-3xl shadow-subtle">
-            📊
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-sovereign-100 to-sky-100 border border-sovereign-200 text-sovereign-800 mx-auto flex items-center justify-center shadow-subtle">
+            <BarChart3 className="w-8 h-8 text-sovereign-800" />
           </div>
           <h3 className="text-xl font-bold font-outfit text-slate-900">
             No Active Feasibility Assessment
           </h3>
           <p className="text-xs text-slate-600 leading-relaxed font-medium">
-            Select a benchmark scenario from the top bar or launch the 6-Step Feasibility Wizard to generate an instant bank-ready credit appraisal.
+            Select a benchmark scenario from the top bar or launch the 7-Step Feasibility Wizard to generate an instant bank-ready credit appraisal.
           </p>
           <button
             onClick={onOpenWizard}
@@ -68,6 +74,12 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   const avgRisk = risks.verdict?.average_risk_score || 3.2;
   const riskSeverity = risks.verdict?.overall_severity || 'MODERATE';
   const reportId = reportData.report_id;
+
+  const currentBusinessStatus = activeBusiness?.business_status || {
+    code: dscr >= 1.33 && ml.verdict === 'SUITABLE' ? 'healthy' : (dscr < 1.0 || ml.verdict === 'RECONSIDER' ? 'critical' : 'reconsideration'),
+    label: dscr >= 1.33 && ml.verdict === 'SUITABLE' ? 'Healthy / Bank Viable' : (dscr < 1.0 ? 'Critical Solvency Risk' : 'Requires Reconsideration'),
+    reason: dscr >= 1.33 ? `DSCR ${dscr.toFixed(2)} clears RBI benchmark (1.33)` : `DSCR ${dscr.toFixed(2)} requires capital restructuring`,
+  };
 
   const dataSources = reportData.data_sources_used || [
     { layer: "Tier 1: Demographics", logical_source: "Census 2011 Rural Catchment Database", table_or_file: "census_raw", status: "Queried OK", attribution: `${p.village_name || "Village"}, ${p.district_name || "District"}` },
@@ -119,42 +131,42 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
       color: 'sovereign',
       iconBg: 'bg-sovereign-50 text-sovereign-800 border-sovereign-200 group-hover:bg-sovereign-800 group-hover:text-white',
       accentTop: 'border-t-2 border-sovereign-700',
-      primaryMetric: `${dscr.toFixed(2)}x DSCR Coverage`,
-      teaserText: '₹0 Outlay Drift · 5-Year Amortization Schedule',
+      primaryMetric: `DSCR ${dscr.toFixed(2)}`,
+      teaserText: `₹${Math.round(emi).toLocaleString('en-IN')}/mo EMI · 5-Yr Projections`,
       badge: '5-Yr Horiz.',
     },
     {
-      title: 'Operational Risk Radar',
+      title: 'Comprehensive Risk Matrix',
       path: reportId ? `/reports/${reportId}/risk` : '/risk',
       icon: ShieldAlert,
       color: 'rose',
       iconBg: 'bg-rose-50 text-rose-700 border-rose-200 group-hover:bg-rose-600 group-hover:text-white',
       accentTop: 'border-t-2 border-rose-500',
       primaryMetric: `${avgRisk.toFixed(1)}/10 (${riskSeverity})`,
-      teaserText: '8 Quantified Risk Pillars + Suggested Rupee Buffers',
+      teaserText: '8-Pillar Prudential Risk Assessment',
       badge: '8 Pillars',
     },
     {
-      title: 'Grounded SWOT Analysis',
+      title: 'Grounded SWOT Matrix',
       path: reportId ? `/reports/${reportId}/swot` : '/swot',
       icon: Grid3X3,
-      color: 'amber',
-      iconBg: 'bg-amber-50 text-amber-700 border-amber-200 group-hover:bg-amber-600 group-hover:text-white',
-      accentTop: 'border-t-2 border-amber-500',
-      primaryMetric: `${(swot.strengths || []).length} Strengths Identified`,
-      teaserText: 'Multi-signal strategic matrix grounded in Census telemetry',
-      badge: 'Strategic',
+      color: 'teal',
+      iconBg: 'bg-teal-50 text-teal-700 border-teal-200 group-hover:bg-teal-600 group-hover:text-white',
+      accentTop: 'border-t-2 border-teal-500',
+      primaryMetric: '4 Quadrants',
+      teaserText: 'AI + Deterministic Domain Grounding',
+      badge: 'Grounded',
     },
     {
-      title: 'Bank DPR & Compliance',
+      title: 'Official Bank DPR Package',
       path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
       icon: FileText,
-      color: 'purple',
-      iconBg: 'bg-purple-50 text-purple-700 border-purple-200 group-hover:bg-purple-600 group-hover:text-white',
-      accentTop: 'border-t-2 border-purple-500',
-      primaryMetric: '7-Section Memorandum',
-      teaserText: 'Official statutory credit report ready for bank sanction',
-      badge: 'Sanction-Ready',
+      color: 'indigo',
+      iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-700 group-hover:text-white',
+      accentTop: 'border-t-2 border-indigo-600',
+      primaryMetric: '7 Sections',
+      teaserText: 'Bank Memorandum · HTML / Markdown / JSON',
+      badge: 'Statutory',
     },
   ];
 
@@ -166,14 +178,16 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
         <div>
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-xl sm:text-2xl font-outfit font-extrabold text-slate-900 tracking-tight">
-              {p.enterprise_name || 'Enterprise Unit'}
+              {p.enterprise_name || activeBusiness?.business_name || 'Enterprise Unit'}
             </h1>
             <span className="text-[11px] font-bold uppercase tracking-wider bg-gradient-to-r from-sovereign-50 to-sky-50 border border-sovereign-200 text-sovereign-900 px-2.5 py-0.5 rounded-full shadow-subtle">
-              {p.sector ? p.sector.toUpperCase() : 'MSME'}
+              {p.sector ? p.sector.toUpperCase() : (activeBusiness?.sector?.toUpperCase() || 'MSME')}
             </span>
             <span className="text-[11px] font-bold uppercase tracking-wider bg-slate-100 border border-slate-200 text-slate-800 px-2.5 py-0.5 rounded-full shadow-subtle">
               {p.business_category ? p.business_category.toUpperCase() : 'MANUFACTURING'}
             </span>
+            {/* Real Data-Driven Status Badge */}
+            <BusinessStatusPill status={currentBusinessStatus} size="sm" />
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 mt-2">
@@ -191,6 +205,23 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
               Ref: <code className="font-mono text-sovereign-900 font-bold bg-white px-1.5 py-0.5 rounded border border-slate-200">{reportData.report_id}</code>
             </span>
           </div>
+
+          {/* If Status is Reconsideration or Critical, display explanatory warning banner */}
+          {currentBusinessStatus.code !== 'healthy' && currentBusinessStatus.code !== 'draft' && (
+            <div className={`mt-3 p-3 rounded-xl border flex items-start gap-2.5 text-xs font-medium ${
+              currentBusinessStatus.code === 'critical'
+                ? 'bg-rose-50 border-rose-300 text-rose-950'
+                : 'bg-amber-50 border-amber-300 text-amber-950'
+            }`}>
+              <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${
+                currentBusinessStatus.code === 'critical' ? 'text-rose-600' : 'text-amber-600'
+              }`} />
+              <div>
+                <strong className="font-bold">{currentBusinessStatus.label}: </strong>
+                <span>{currentBusinessStatus.reason}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <button
@@ -221,128 +252,86 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
         </div>
 
         {showLineage && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2 border-t border-slate-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2 border-t border-slate-100 animate-in fade-in duration-200">
             {dataSources.map((ds, idx) => (
-              <div key={idx} className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200 text-xs flex flex-col justify-between gap-1.5 shadow-subtle hover:bg-white hover:border-slate-300 transition-all">
+              <div key={idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] space-y-0.5 hover:bg-slate-100 transition-colors">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-bold text-slate-500">{ds.layer}</span>
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
-                    {ds.status || "OK"}
+                  <span className="font-bold text-sovereign-800 truncate">{ds.logical_source}</span>
+                  <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold shrink-0">
+                    {ds.status}
                   </span>
                 </div>
-                <div>
-                  <div className="font-bold text-slate-900">{ds.logical_source}</div>
-                  <div className="text-[10px] font-mono text-slate-600 mt-0.5">
-                    Source: <code className="bg-white border border-slate-200 px-1 py-0.5 rounded text-sovereign-900 font-bold">{ds.table_or_file}</code>
-                  </div>
-                </div>
-                {ds.attribution && (
-                  <div className="text-[10px] text-slate-600 truncate font-medium">
-                    {ds.attribution}
-                  </div>
-                )}
+                <div className="text-slate-600 font-mono text-[10px] truncate">{ds.table_or_file}</div>
+                <div className="text-slate-500 text-[10px] line-clamp-1">{ds.attribution}</div>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Viability Gauge Hero Card */}
-      <ViabilityMeterCard mlViability={ml} dscrInfo={fin.dscr} />
-
-      {/* 4 Key Metric Summary Tiles with Colored Accent Tops & Subtle Wash */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        
-        {/* Metric 1: Monthly EMI Liability */}
-        <div className="glass-panel p-4 bg-gradient-to-b from-indigo-50/40 via-white to-white border border-slate-200/90 border-t-4 border-t-indigo-600 shadow-card hover:shadow-card-hover transition-all">
-          <span className="text-[10px] font-bold text-indigo-900 uppercase tracking-wider block">Monthly EMI Liability</span>
-          <strong className="text-xl sm:text-2xl font-mono font-extrabold text-indigo-950 block mt-1">
-            ₹{Math.round(emi).toLocaleString('en-IN')}
-          </strong>
-          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">5-Yr Tenure @ 9.5% p.a.</span>
+      {/* Row 1: ML Viability Card & AI Executive Synthesis Narrative */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-4">
+          <ViabilityMeterCard 
+            viabilityData={reportData.ml_viability} 
+            confidenceScore={reportData.ml_viability?.confidence_pct} 
+          />
         </div>
-
-        {/* Metric 2: Capital Subsidy Grant */}
-        <div className="glass-panel p-4 bg-gradient-to-b from-emerald-50/40 via-white to-white border border-slate-200/90 border-t-4 border-t-emerald-600 shadow-card hover:shadow-card-hover transition-all">
-          <span className="text-[10px] font-bold text-emerald-900 uppercase tracking-wider block">Capital Subsidy Grant</span>
-          <strong className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-700 block mt-1">
-            ₹{Math.round(subsidyAmount).toLocaleString('en-IN')}
-          </strong>
-          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">{topScheme.scheme_id || 'PMEGP'} Incentive</span>
-        </div>
-
-        {/* Metric 3: Debt Coverage (DSCR) */}
-        <div className="glass-panel p-4 bg-gradient-to-b from-sovereign-50/40 via-white to-white border border-slate-200/90 border-t-4 border-t-sovereign-700 shadow-card hover:shadow-card-hover transition-all">
-          <span className="text-[10px] font-bold text-sovereign-900 uppercase tracking-wider block">Debt Coverage (DSCR)</span>
-          <strong className="text-xl sm:text-2xl font-mono font-extrabold text-sovereign-900 block mt-1">
-            {dscr.toFixed(2)}x
-          </strong>
-          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">RBI Benchmark: 1.33x</span>
-        </div>
-
-        {/* Metric 4: Break-Even Capacity */}
-        <div className="glass-panel p-4 bg-gradient-to-b from-sky-50/40 via-white to-white border border-slate-200/90 border-t-4 border-t-sky-600 shadow-card hover:shadow-card-hover transition-all">
-          <span className="text-[10px] font-bold text-sky-900 uppercase tracking-wider block">Break-Even Sizing</span>
-          <strong className="text-xl sm:text-2xl font-mono font-extrabold text-sky-900 block mt-1">
-            {bep}
-          </strong>
-          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">Plant Capacity Threshold</span>
+        <div className="lg:col-span-8">
+          <ExecutiveNarrativeCard 
+            synthesisData={reportData.executive_synthesis} 
+          />
         </div>
       </div>
 
-      {/* Executive Feasibility & Credit Narrative */}
-      <ExecutiveNarrativeCard synthesisData={synth} />
-
-      {/* Deep-Dive Section Teaser Cards */}
-      <div className="space-y-3 pt-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-bold font-outfit text-slate-900 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-sovereign-700" />
-              <span>Detailed Credit Appraisal Sections</span>
-            </h3>
-            <p className="text-xs text-slate-600 font-medium">
-              Jump directly to specific underwriting dimensions with complete interactive charts & statutory data.
-            </p>
+      {/* Row 2: Appraisal Module Cards Grid with Colored Accents */}
+      <div>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <div className="flex items-center gap-2 text-xs font-bold font-outfit uppercase tracking-wider text-slate-500 font-mono">
+            <Layers className="w-4 h-4 text-sovereign-700" />
+            <span>Dedicated Appraisal Modules</span>
           </div>
+          <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+            Click any card to deep-dive into detailed telemetry
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {sectionTeasers.map((sec, idx) => {
             const Icon = sec.icon;
             return (
               <Link
                 key={idx}
                 to={sec.path}
-                className={`glass-panel p-4 bg-white border border-slate-200/90 ${sec.accentTop} shadow-card hover:shadow-card-hover hover:border-slate-300 transition-all duration-200 group flex flex-col justify-between`}
+                className={`glass-panel p-5 flex flex-col justify-between rounded-2xl bg-white border border-slate-200 hover:border-slate-300 shadow-card hover:shadow-card-elevated transition-all duration-200 hover:-translate-y-0.5 group ${sec.accentTop}`}
               >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className={`p-2 rounded-xl border transition-colors ${sec.iconBg}`}>
-                      <Icon className="w-4 h-4" />
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`p-2.5 rounded-xl border transition-all duration-200 ${sec.iconBg}`}>
+                      <Icon className="w-5 h-5" />
                     </div>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-mono">
-                      {sec.badge}
-                    </span>
+                    {sec.badge && (
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                        {sec.badge}
+                      </span>
+                    )}
                   </div>
 
-                  <div>
-                    <h4 className="font-bold text-xs text-slate-900 group-hover:text-sovereign-800 transition-colors">
-                      {sec.title}
-                    </h4>
-                    <strong className="font-mono text-sm font-bold text-slate-900 block mt-0.5">
-                      {sec.primaryMetric}
-                    </strong>
+                  <h3 className="text-sm font-outfit font-extrabold text-slate-900 group-hover:text-sovereign-800 transition-colors">
+                    {sec.title}
+                  </h3>
+
+                  <div className="mt-2.5 font-outfit font-black text-lg text-slate-900">
+                    {sec.primaryMetric}
                   </div>
 
-                  <p className="text-[11px] text-slate-500 leading-snug">
+                  <p className="mt-1 text-[11px] text-slate-500 font-medium line-clamp-2">
                     {sec.teaserText}
                   </p>
                 </div>
 
-                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-sovereign-800 group-hover:text-sovereign-950">
-                  <span>Explore section</span>
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-sovereign-800 group-hover:text-sky-700 transition-colors">
+                  <span>Explore Section</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>
@@ -354,4 +343,5 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
     </div>
   );
 }
+
 export default OverviewPage;

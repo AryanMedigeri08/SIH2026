@@ -8,7 +8,7 @@ import {
   Radar,
   Tooltip,
 } from 'recharts';
-import { ShieldAlert, AlertTriangle, ShieldCheck, Database } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, ShieldCheck, Database, Coins } from 'lucide-react';
 
 const CustomRadarTooltip = ({ active, payload }) => {
   if (!active || !payload || !payload.length) return null;
@@ -188,8 +188,9 @@ export function RiskRadarCard({ riskData }) {
               <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-800">
                 <strong className="text-sovereign-800">Mitigation:</strong> {r.mitigation}
                 {r.rupee_buffer > 0 && (
-                  <div className="mt-1 text-emerald-800 font-mono font-bold">
-                    💰 Suggested Contingency Buffer: ₹{Math.round(r.rupee_buffer).toLocaleString('en-IN')}
+                  <div className="mt-1 text-emerald-800 font-mono font-bold flex items-center gap-1.5">
+                    <Coins className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Suggested Contingency Buffer: ₹{Math.round(r.rupee_buffer).toLocaleString('en-IN')}</span>
                   </div>
                 )}
               </div>

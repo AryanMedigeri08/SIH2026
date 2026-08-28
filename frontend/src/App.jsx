@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useTransition } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { CaseStudiesBar } from './components/CaseStudiesBar';
 import { ReportGenerationLoader } from './components/ReportGenerationLoader';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { BusinessProvider, useBusiness } from './context/BusinessContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Public & Auth Pages
@@ -69,7 +70,6 @@ function AppraisalSectionWrapper({
 
 export function AppContent() {
   const [health, setHealth] = useState(null);
-  const [reportData, setReportData] = useState(null);
   const [activeCaseId, setActiveCaseId] = useState('case-1');
   const [isLoadingInitial, setIsLoadingInitial] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -85,29 +85,42 @@ export function AppContent() {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { token } = useAuth();
+  const { isAuthenticated, token } = useAuth();
+  const {
+    reportData,
+    dprData,
+    activeBusiness,
+    businesses,
+    loadingBusinesses,
+    hasBusinesses,
+    createAndSaveBusiness,
+    loadBenchmarkCase,
+    setReportData,
+  } = useBusiness();
 
   const isAuthOrLanding = ['/landing', '/login', '/register'].includes(location.pathname);
 
-  // Initial Health check and benchmark load
+  // Health check and guest fallback initial load
   useEffect(() => {
     async function init() {
       const h = await checkHealth();
       setHealth(h);
       
-      // Auto-load Case 1 on initial start
-      try {
-        setIsLoadingInitial(true);
-        const rep = await generateFeasibility(PITCH_CASES[0].formData);
-        setReportData(rep);
-      } catch (e) {
-        console.error("Initial load fallback:", e);
-      } finally {
-        setIsLoadingInitial(false);
+      // If not authenticated and no report data yet, auto-load Pitch Case 1
+      if (!isAuthenticated && !reportData) {
+        try {
+          setIsLoadingInitial(true);
+          const rep = await generateFeasibility(PITCH_CASES[0].formData);
+          setReportData(rep);
+        } catch (e) {
+          console.error("Initial load fallback:", e);
+        } finally {
+          setIsLoadingInitial(false);
+        }
       }
     }
     init();
-  }, []);
+  }, [isAuthenticated, reportData, setReportData]);
 
   const handleSelectCase = async (pitchCase) => {
     setActiveCaseId(pitchCase.id);
@@ -119,11 +132,11 @@ export function AppContent() {
     });
 
     try {
-      const rep = await generateFeasibility(pitchCase.formData, token);
-      setReportData(rep);
+      const rep = await loadBenchmarkCase(pitchCase);
       if (rep?.ml_viability?.verdict === 'SUITABLE') {
         confetti({ particleCount: 50, spread: 60, origin: { y: 0.85 } });
       }
+      navigate('/');
     } catch (err) {
       alert(`Feasibility error: ${err.message}`);
     } finally {
@@ -140,15 +153,13 @@ export function AppContent() {
     });
 
     try {
-      const rep = await generateFeasibility(formData, token);
-      setReportData(rep);
+      const created = await createAndSaveBusiness(formData);
       setActiveCaseId(null);
-      if (rep?.ml_viability?.verdict === 'SUITABLE') {
-        confetti({ particleCount: 80, spread: 70, origin: { y: 0.8 } });
-      }
-      return rep;
+      confetti({ particleCount: 80, spread: 70, origin: { y: 0.8 } });
+      navigate('/');
+      return created;
     } catch (err) {
-      alert(`Feasibility pipeline error: ${err.message}`);
+      alert(`Enterprise appraisal error: ${err.message}`);
       throw err;
     } finally {
       setIsGenerating(false);
@@ -169,7 +180,7 @@ export function AppContent() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-sovereign-200 selection:text-sovereign-900">
       
-      {/* Top Navbar */}
+      {/* Top Navbar with Multi-Business Switcher */}
       <Navbar
         health={health}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
@@ -194,7 +205,7 @@ export function AppContent() {
           <CaseStudiesBar
             activeCaseId={activeCaseId}
             onSelectCase={handleSelectCase}
-            isLoading={isGenerating || isLoadingInitial}
+            isLoading={isGenerating || isLoadingInitial || loadingBusinesses}
           />
 
           {/* Staged Full-Page Loader for New Assessment Generation */}
@@ -210,7 +221,7 @@ export function AppContent() {
               <Route
                 path="/"
                 element={
-                  <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
+                  <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
                     <OverviewPage
                       reportData={reportData}
                       onOpenDpr={() => setIsDprOpen(true)}
@@ -222,7 +233,7 @@ export function AppContent() {
               <Route
                 path="/dashboard"
                 element={
-                  <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
+                  <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
                     <OverviewPage
                       reportData={reportData}
                       onOpenDpr={() => setIsDprOpen(true)}
@@ -234,7 +245,7 @@ export function AppContent() {
               <Route
                 path="/reports/:reportId"
                 element={
-                  <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
+                  <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
                     <OverviewPage
                       reportData={reportData}
                       onOpenDpr={() => setIsDprOpen(true)}
@@ -248,16 +259,24 @@ export function AppContent() {
               <Route
                 path="/viability"
                 element={
-                  <AppraisalSectionWrapper skeleton={ViabilitySkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <ViabilityPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={ViabilitySkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <ViabilityPage
+                      viabilityData={reportData?.ml_viability}
+                      shapValues={reportData?.ml_viability?.shap_contributions}
+                      featureVector={reportData?.ml_viability?.feature_vector}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
               <Route
                 path="/reports/:reportId/viability"
                 element={
-                  <AppraisalSectionWrapper skeleton={ViabilitySkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <ViabilityPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={ViabilitySkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <ViabilityPage
+                      viabilityData={reportData?.ml_viability}
+                      shapValues={reportData?.ml_viability?.shap_contributions}
+                      featureVector={reportData?.ml_viability?.feature_vector}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -266,34 +285,44 @@ export function AppContent() {
               <Route
                 path="/market"
                 element={
-                  <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <MarketDemandPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <MarketDemandPage
+                      demographicsData={reportData?.market_demographics}
+                      inputParameters={reportData?.input_parameters}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
               <Route
                 path="/reports/:reportId/market"
                 element={
-                  <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <MarketDemandPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <MarketDemandPage
+                      demographicsData={reportData?.market_demographics}
+                      inputParameters={reportData?.input_parameters}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
 
-              {/* 3. Government Schemes */}
+              {/* 3. Government Scheme Optimizer */}
               <Route
                 path="/schemes"
                 element={
-                  <AppraisalSectionWrapper skeleton={SchemesSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <GovernmentSchemesPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={SchemesSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <GovernmentSchemesPage
+                      schemesData={reportData?.scheme_optimization}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
               <Route
                 path="/reports/:reportId/schemes"
                 element={
-                  <AppraisalSectionWrapper skeleton={SchemesSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <GovernmentSchemesPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={SchemesSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <GovernmentSchemesPage
+                      schemesData={reportData?.scheme_optimization}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
@@ -302,75 +331,95 @@ export function AppContent() {
               <Route
                 path="/financials"
                 element={
-                  <AppraisalSectionWrapper skeleton={FinancialsSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <FinancialsPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={FinancialsSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <FinancialsPage
+                      financialsData={reportData?.financial_analysis}
+                      pricingData={reportData?.pricing_recommendation}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
               <Route
                 path="/reports/:reportId/financials"
                 element={
-                  <AppraisalSectionWrapper skeleton={FinancialsSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <FinancialsPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={FinancialsSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <FinancialsPage
+                      financialsData={reportData?.financial_analysis}
+                      pricingData={reportData?.pricing_recommendation}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
 
-              {/* 5. Risk Assessment */}
+              {/* 5. Comprehensive Risk Assessment */}
               <Route
                 path="/risk"
                 element={
-                  <AppraisalSectionWrapper skeleton={RiskSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <RiskAssessmentPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={RiskSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <RiskAssessmentPage
+                      riskData={reportData?.risk_assessment}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
               <Route
                 path="/reports/:reportId/risk"
                 element={
-                  <AppraisalSectionWrapper skeleton={RiskSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <RiskAssessmentPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={RiskSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <RiskAssessmentPage
+                      riskData={reportData?.risk_assessment}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
 
-              {/* 6. SWOT Analysis */}
+              {/* 6. Grounded SWOT Matrix */}
               <Route
                 path="/swot"
                 element={
-                  <AppraisalSectionWrapper skeleton={SwotSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <SwotAnalysisPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={SwotSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <SwotAnalysisPage
+                      swotData={reportData?.swot_matrix}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
               <Route
                 path="/reports/:reportId/swot"
                 element={
-                  <AppraisalSectionWrapper skeleton={SwotSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <SwotAnalysisPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={SwotSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <SwotAnalysisPage
+                      swotData={reportData?.swot_matrix}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
 
-              {/* 7. Bank DPR & Documents */}
+              {/* 7. Official Bank DPR Package */}
               <Route
                 path="/dpr"
                 element={
-                  <AppraisalSectionWrapper skeleton={DprSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <BankDprPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={DprSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <BankDprPage
+                      reportData={reportData}
+                      onOpenModal={() => setIsDprOpen(true)}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
               <Route
                 path="/reports/:reportId/dpr"
                 element={
-                  <AppraisalSectionWrapper skeleton={DprSkeleton} reportData={reportData} isLoading={isLoadingInitial}>
-                    <BankDprPage reportData={reportData} />
+                  <AppraisalSectionWrapper skeleton={DprSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <BankDprPage
+                      reportData={reportData}
+                      onOpenModal={() => setIsDprOpen(true)}
+                    />
                   </AppraisalSectionWrapper>
                 }
               />
 
-              {/* Protected System Pages */}
+              {/* 7-Step Feasibility Wizard */}
               <Route
                 path="/wizard"
                 element={
@@ -414,7 +463,7 @@ export function AppContent() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="font-medium">🇮🇳 Udyam Saathi (उद्यम साथी) • Smart India Hackathon 2026</span>
           <span className="font-mono text-[11px] text-slate-500 font-medium">
-            Multi-Page Institutional Architecture • FastAPI • Neon DB • XGBoost (TreeSHAP) • Groq LLM
+            Multi-Page Institutional Architecture • Multi-Business State Persistence • FastAPI • PostgreSQL • XGBoost • Groq LLM
           </span>
         </div>
       </footer>
@@ -440,7 +489,9 @@ export function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppContent />
+        <BusinessProvider>
+          <AppContent />
+        </BusinessProvider>
       </AuthProvider>
     </BrowserRouter>
   );

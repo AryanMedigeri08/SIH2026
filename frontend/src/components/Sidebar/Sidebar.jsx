@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   BrainCircuit,
@@ -17,7 +17,12 @@ import {
   Sparkles,
   X,
   Building2,
+  PlusCircle,
+  MapPin,
+  Coins,
 } from 'lucide-react';
+import { useBusiness } from '../../context/BusinessContext';
+import { BusinessStatusPill } from '../BusinessSwitcher';
 
 export function Sidebar({
   isCollapsed,
@@ -27,6 +32,7 @@ export function Sidebar({
   reportId,
 }) {
   const location = useLocation();
+  const { activeBusiness, businesses } = useBusiness();
 
   const reportNavItems = [
     {
@@ -101,12 +107,6 @@ export function Sidebar({
       path: '/data-sources',
       icon: Database,
     },
-    {
-      id: 'master-schemes',
-      name: 'Master Schemes Catalog',
-      path: '/master-schemes',
-      icon: Landmark,
-    },
   ];
 
   const renderNavLinks = (items) => {
@@ -114,10 +114,9 @@ export function Sidebar({
       <div className="space-y-1">
         {items.map((item) => {
           const Icon = item.icon;
-          // Determine active status accurately
-          const isActive = item.exact 
-            ? location.pathname === item.path || (item.id === 'overview' && (location.pathname === '/' || location.pathname === '/dashboard'))
-            : location.pathname === item.path || (location.pathname.startsWith(item.path) && item.path !== '/');
+          const isActive = item.exact
+            ? location.pathname === item.path || (item.id === 'overview' && (location.pathname === '/' || location.pathname.startsWith('/reports/')))
+            : location.pathname === item.path;
 
           return (
             <NavLink
@@ -125,8 +124,10 @@ export function Sidebar({
               to={item.path}
               onClick={onCloseMobile}
               title={isCollapsed ? item.name : undefined}
-              className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all duration-200 relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
-                isActive ? 'sidebar-item-active font-bold' : 'sidebar-item-inactive font-medium'
+              className={`group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ${
+                isActive
+                  ? 'sidebar-item-active font-bold shadow-md shadow-sovereign-900/20'
+                  : 'sidebar-item-inactive hover:bg-slate-100/90'
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -160,6 +161,8 @@ export function Sidebar({
       </div>
     );
   };
+
+  const activeStatus = activeBusiness?.business_status || { code: "draft", label: "Draft" };
 
   return (
     <>
@@ -220,8 +223,29 @@ export function Sidebar({
             </button>
           </div>
 
+          {/* Active Enterprise Banner Card in Sidebar */}
+          {!isCollapsed && activeBusiness && (
+            <div className="p-3 mx-3 mt-3 rounded-2xl bg-gradient-to-br from-slate-50 to-sky-50/50 border border-slate-200/90 shadow-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 font-mono flex items-center gap-1">
+                  <Building2 className="w-3 h-3 text-sovereign-700" />
+                  Active Enterprise
+                </span>
+                <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded bg-white border border-slate-200 text-slate-700">
+                  {activeBusiness.sector}
+                </span>
+              </div>
+              <div className="font-outfit font-extrabold text-xs text-slate-900 truncate">
+                {activeBusiness.business_name}
+              </div>
+              <div className="pt-0.5">
+                <BusinessStatusPill status={activeStatus} size="xs" showReason={false} />
+              </div>
+            </div>
+          )}
+
           {/* Navigation Section: Feasibility Assessment Pages */}
-          <div className="p-3 space-y-4 overflow-y-auto max-h-[calc(100vh-14rem)]">
+          <div className="p-3 space-y-4 overflow-y-auto max-h-[calc(100vh-16rem)]">
             <div>
               {!isCollapsed && (
                 <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center justify-between">
@@ -254,17 +278,17 @@ export function Sidebar({
               onClick={onCloseMobile}
               className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-sovereign-800 via-sky-700 to-sovereign-800 hover:from-sovereign-700 hover:to-sky-600 text-white text-xs font-bold shadow-md shadow-sovereign-900/15 border border-sky-400/25 transition-all duration-200 group"
             >
-              <Sparkles className="w-3.5 h-3.5 text-sky-200 group-hover:rotate-12 group-hover:scale-110 transition-transform" />
-              <span>New Assessment</span>
+              <PlusCircle className="w-3.5 h-3.5 text-sky-200 group-hover:rotate-90 transition-transform" />
+              <span>+ New Enterprise</span>
             </NavLink>
           ) : (
             <NavLink
               to="/wizard"
               onClick={onCloseMobile}
-              title="Launch New Assessment Wizard"
+              title="Create New Enterprise Wizard"
               className="flex items-center justify-center w-full p-2.5 rounded-xl bg-gradient-to-r from-sovereign-800 to-sky-700 hover:from-sovereign-700 hover:to-sky-600 text-white text-xs font-bold shadow-md shadow-sovereign-900/15 border border-sky-400/25 transition-all duration-200"
             >
-              <Sparkles className="w-4 h-4 text-sky-200" />
+              <PlusCircle className="w-4 h-4 text-sky-200" />
             </NavLink>
           )}
         </div>

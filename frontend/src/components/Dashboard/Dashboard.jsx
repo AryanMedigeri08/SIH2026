@@ -25,6 +25,7 @@ import {
   Landmark,
   ChevronDown,
   ChevronUp,
+  BarChart3,
 } from 'lucide-react';
 
 export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
@@ -34,14 +35,14 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
     return (
       <div className="max-w-4xl mx-auto py-16 px-4 text-center">
         <div className="glass-panel p-10 max-w-lg mx-auto space-y-4 bg-white shadow-card border border-slate-200 rounded-2xl">
-          <div className="w-16 h-16 rounded-2xl bg-sovereign-50 border border-sovereign-200 text-sovereign-800 mx-auto flex items-center justify-center text-3xl">
-            📊
+          <div className="w-16 h-16 rounded-2xl bg-sovereign-50 border border-sovereign-200 text-sovereign-800 mx-auto flex items-center justify-center shadow-subtle">
+            <BarChart3 className="w-8 h-8 text-sovereign-800" />
           </div>
           <h3 className="text-xl font-bold font-outfit text-slate-900">
             No Active Feasibility Assessment
           </h3>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Click any of the SIH Benchmark Scenarios above, or launch the 6-Step Feasibility Wizard to generate an instant bank-ready credit appraisal.
+          <p className="text-xs text-slate-600 leading-relaxed font-medium">
+            Click any of the SIH Benchmark Scenarios above, or launch the 7-Step Feasibility Wizard to generate an instant bank-ready credit appraisal.
           </p>
           <button
             onClick={onOpenWizard}

@@ -10,13 +10,12 @@ import {
   Mail,
   User,
   Phone,
-  Building2,
   ArrowRight,
   ShieldCheck,
   AlertCircle,
   Loader2,
   Zap,
-  Info,
+  Sparkles,
 } from "lucide-react";
 
 export const RegisterPage = () => {
@@ -25,7 +24,6 @@ export const RegisterPage = () => {
   const [name, setName] = useState("");
   const [gender, setGender] = useState("Unspecified");
   const [phone, setPhone] = useState("");
-  const [additionalDetails, setAdditionalDetails] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState(null);
 
@@ -51,8 +49,8 @@ export const RegisterPage = () => {
         name: name.trim(),
         gender,
         phone: phone.trim() || null,
-        additional_business_details: additionalDetails.trim() || null,
       });
+      // Direct user into the 7-Step Feasibility Wizard to input business details & supplementary context
       navigate("/wizard", { replace: true });
     } catch (err) {
       setLocalError(err.message || "Failed to create promoter account.");
@@ -66,6 +64,7 @@ export const RegisterPage = () => {
     setIsSubmitting(true);
     try {
       await loginWithGoogle();
+      // Direct OAuth user into the 7-Step Feasibility Wizard
       navigate("/wizard", { replace: true });
     } catch (err) {
       setLocalError(err.message || "Google signup was cancelled or failed.");
@@ -92,11 +91,11 @@ export const RegisterPage = () => {
       {/* Background ambient lighting */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[32rem] h-[32rem] bg-cyan-500/10 blur-[140px] rounded-full pointer-events-none" />
 
-      <div className="max-w-2xl mx-auto relative z-10">
+      <div className="max-w-xl mx-auto relative z-10">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-black text-lg shadow-lg shadow-cyan-500/30">
+          <Link to="/" className="inline-flex items-center gap-2 mb-4 group">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-black text-lg shadow-lg shadow-cyan-500/30 group-hover:scale-105 transition-transform">
               उ
             </div>
             <span className="text-xl font-bold font-display text-white">Udyam Saathi</span>
@@ -120,7 +119,7 @@ export const RegisterPage = () => {
               className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-cyan-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs shadow-lg shadow-emerald-950/40 transition-all duration-200 group"
             >
               <Zap className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-              <span>⚡ Skip & Instant Access as Demo Evaluator</span>
+              <span>Skip & Instant Access as Demo Evaluator</span>
             </button>
           </div>
 
@@ -143,10 +142,10 @@ export const RegisterPage = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Section 1: Security & Identity */}
             <div>
-              <div className="flex items-center gap-2 pb-2 mb-4 border-b border-slate-800 text-cyan-400 text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2 pb-2 mb-3.5 border-b border-slate-800 text-cyan-400 text-xs font-bold uppercase tracking-wider">
                 <ShieldCheck className="w-4 h-4" />
                 <span>1. Account Credentials</span>
               </div>
@@ -195,9 +194,9 @@ export const RegisterPage = () => {
 
             {/* Section 2: Promoter Profile */}
             <div>
-              <div className="flex items-center gap-2 pb-2 mb-4 border-b border-slate-800 text-teal-400 text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2 pb-2 mb-3.5 border-b border-slate-800 text-teal-400 text-xs font-bold uppercase tracking-wider">
                 <User className="w-4 h-4" />
-                <span>2. Promoter Profile Details</span>
+                <span>2. Promoter Profile</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -237,7 +236,7 @@ export const RegisterPage = () => {
                 </div>
               </div>
 
-              <div className="mt-4">
+              <div className="mt-3.5">
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Mobile / Phone Number (Optional)
                 </label>
@@ -256,39 +255,19 @@ export const RegisterPage = () => {
               </div>
             </div>
 
-            {/* Section 3: Optional Narrative Background */}
-            <div>
-              <div className="flex items-center gap-2 pb-2 mb-2 border-b border-slate-800 text-blue-400 text-xs font-bold uppercase tracking-wider">
-                <Building2 className="w-4 h-4" />
-                <span>3. Supplementary Business Context (Optional)</span>
-              </div>
-
-              <div className="p-3 mb-3 rounded-xl bg-blue-950/30 border border-blue-500/20 text-xs text-blue-300 flex items-start gap-2">
-                <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                <p>
-                  This free-text background provides supplementary narrative color in your generated DPR. It will{" "}
-                  <strong>never alter or recalculate</strong> deterministic ₹ figures, loan amounts, or DSCR ratios.
-                </p>
-              </div>
-
-              <textarea
-                value={additionalDetails}
-                onChange={(e) => setAdditionalDetails(e.target.value)}
-                maxLength={1000}
-                rows={3}
-                placeholder="e.g. 5 years of family experience in artisanal pottery; tie-up with local cooperative for raw clay procurement..."
-                className="block w-full p-3 bg-slate-950/80 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-colors"
-              />
-              <div className="text-right text-[10px] text-slate-500 mt-1">
-                {additionalDetails.length} / 1000 characters
-              </div>
+            {/* Note on Step-by-Step Business Details */}
+            <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700 text-xs text-slate-300 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+              <span>
+                Business details & supplementary context are seamlessly entered in the 7-Step Feasibility Wizard next.
+              </span>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm shadow-xl shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-200 disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm shadow-xl shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-200 disabled:opacity-50 group"
             >
               {isSubmitting ? (
                 <>
@@ -297,8 +276,8 @@ export const RegisterPage = () => {
                 </>
               ) : (
                 <>
-                  <span>Create Account & Launch Appraisal</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>Create Account & Start Feasibility Wizard</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </button>

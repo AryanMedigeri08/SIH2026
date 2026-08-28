@@ -577,7 +577,7 @@ def generate_executive_synthesis(
             f"Context: Outlay ₹{project_cost:,.0f}, Subsidy ₹{subsidy_amount:,.0f}, "
             f"DSCR {dscr:.2f}, ML {ml_verdict} ({ml_confidence_pct:.1f}%)"
         )
-        client = Groq(api_key=api_key, max_retries=1, timeout=8.0)
+        client = Groq(api_key=api_key, max_retries=0, timeout=6.0)
         system_prompt, user_prompt = _build_synthesis_prompt(payload, lang)
 
         configured_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")

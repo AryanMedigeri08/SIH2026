@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, Sparkles, Languages, CheckCircle2, BookmarkCheck, Cpu, FileCheck } from 'lucide-react';
+import { Bot, Sparkles, Languages, CheckCircle2, BookmarkCheck, Cpu, FileCheck, Zap } from 'lucide-react';
 
 export function ExecutiveNarrativeCard({ synthesisData }) {
   const synth = synthesisData || {};
@@ -67,8 +67,15 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
           </span>
 
           {/* Model / Latency Badge */}
-          <span className="text-[10px] font-mono px-2 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-600 font-medium">
-            {isCached ? "⚡ Cached (<1ms)" : `${latencyMs.toFixed(0)}ms`}
+          <span className="text-[10px] font-mono px-2 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-600 font-medium inline-flex items-center gap-1">
+            {isCached ? (
+              <>
+                <Zap className="w-3 h-3 text-amber-500 fill-amber-400 shrink-0" />
+                <span>Cached (&lt;1ms)</span>
+              </>
+            ) : (
+              <span>{latencyMs.toFixed(0)}ms</span>
+            )}
           </span>
         </div>
       </div>

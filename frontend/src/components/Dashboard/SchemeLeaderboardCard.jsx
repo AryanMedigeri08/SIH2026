@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, CheckCircle, XCircle, Percent, ArrowUpRight, ExternalLink } from 'lucide-react';
+import { Award, CheckCircle, XCircle, Percent, ArrowUpRight, ExternalLink, Sparkles } from 'lucide-react';
 
 export function SchemeLeaderboardCard({ schemes }) {
   const schemeList = schemes || [];
@@ -21,20 +21,20 @@ export function SchemeLeaderboardCard({ schemes }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+      <div className="space-y-3">
         {schemeList.map((s, idx) => {
-          const isEligible = s.eligible;
+          const isEligible = s.is_eligible;
           const isTop = idx === 0 && isEligible;
 
           return (
             <div 
               key={s.scheme_id || idx}
-              className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+              className={`p-4 rounded-xl border transition-all duration-200 ${
                 isTop 
-                  ? 'bg-sovereign-50 border-2 border-sovereign-700 shadow-sm'
-                  : isEligible 
-                  ? 'bg-white border-slate-200 hover:border-slate-300 shadow-subtle'
-                  : 'bg-slate-50 border-slate-200 opacity-60'
+                  ? 'bg-sovereign-50/50 border-sovereign-300 shadow-sm' 
+                  : isEligible
+                  ? 'bg-white border-slate-200 hover:border-slate-300'
+                  : 'bg-slate-50/50 border-slate-200 opacity-60'
               }`}
             >
               <div>
@@ -43,8 +43,9 @@ export function SchemeLeaderboardCard({ schemes }) {
                     <div className="flex items-center gap-2">
                       <span className="font-outfit font-extrabold text-sm text-slate-900">{s.scheme_id}</span>
                       {isTop && (
-                        <span className="text-[10px] font-bold bg-sovereign-800 text-white px-2 py-0.5 rounded-md uppercase tracking-wider">
-                          ★ Top Match
+                        <span className="text-[10px] font-bold bg-sovereign-800 text-white px-2 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-1 shadow-xs">
+                          <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" />
+                          <span>Top Match</span>
                         </span>
                       )}
                     </div>

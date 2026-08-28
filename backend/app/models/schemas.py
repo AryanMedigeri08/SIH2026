@@ -128,8 +128,104 @@ class FeasibilityReport(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Project Persistence Schemas
+# Project Persistence & Business Status Schemas
 # ---------------------------------------------------------------------------
+class BusinessStatus(BaseModel):
+    code: str = Field("draft", description="Status code: healthy | reconsideration | critical | draft")
+    label: str = Field("Draft Assessment", description="Human-readable business status label")
+    severity: str = Field("neutral", description="Severity level: positive | warning | critical | neutral")
+    color: str = Field("slate", description="Color token: emerald | amber | rose | slate")
+    dscr: Optional[float] = None
+    ml_verdict: Optional[str] = None
+    ml_confidence_pct: Optional[float] = None
+    reason: str = ""
+
+
+def compute_business_status(analysis_result: Optional[dict[str, Any]]) -> BusinessStatus:
+    """
+    Computes institutional health, solvency, and viability status for a business
+    based on deterministic DSCR math, supervised ML inference, and risk matrix.
+    """
+    if not analysis_result or not isinstance(analysis_result, dict):
+        return BusinessStatus(
+            code="draft",
+            label="Draft Assessment",
+            severity="neutral",
+            color="slate",
+            reason="Enterprise parameters recorded; credit feasibility appraisal pending.",
+        )
+
+    report = analysis_result.get("report", {})
+    fin = report.get("financial_analysis", {})
+    dscr_data = fin.get("dscr", {})
+    dscr_val = dscr_data.get("dscr")
+    dscr_verdict = str(dscr_data.get("verdict", "")).upper()
+
+    ml = report.get("ml_viability", {})
+    ml_verdict = str(ml.get("verdict", "")).upper()
+    ml_conf = ml.get("confidence_pct", 0.0)
+
+    risks = report.get("risk_assessment", {})
+    avg_risk = risks.get("average_risk_score", 3.0)
+
+    # 1. Critical Solvency / Default Risk Check
+    if (dscr_val is not None and dscr_val < 1.0) or ml_verdict in ["RECONSIDER", "UNSUITABLE"] or dscr_verdict in ["UNVIABLE", "CRITICAL"] or avg_risk >= 7.5:
+        reason_parts = []
+        if dscr_val is not None and dscr_val < 1.0:
+            reason_parts.append(f"DSCR {dscr_val:.2f} is below 1.0 (Debt obligations exceed operating surplus)")
+        if ml_verdict in ["RECONSIDER", "UNSUITABLE"]:
+            reason_parts.append(f"ML Viability model rated enterprise as {ml_verdict} ({ml_conf:.1f}% confidence)")
+        if avg_risk >= 7.5:
+            reason_parts.append(f"High composite risk score ({avg_risk:.1f}/10)")
+        
+        reason_str = " • ".join(reason_parts) if reason_parts else "Elevated credit risk requiring structural restructuring."
+        return BusinessStatus(
+            code="critical",
+            label="Critical / Solvency Risk",
+            severity="critical",
+            color="rose",
+            dscr=dscr_val,
+            ml_verdict=ml_verdict or "RECONSIDER",
+            ml_confidence_pct=ml_conf,
+            reason=reason_str,
+        )
+
+    # 2. Reconsideration / Attention Required Check
+    if (dscr_val is not None and 1.0 <= dscr_val < 1.33) or ml_verdict in ["CAUTION", "MARGINAL"] or (5.0 <= avg_risk < 7.5):
+        reason_parts = []
+        if dscr_val is not None and dscr_val < 1.33:
+            reason_parts.append(f"DSCR {dscr_val:.2f} satisfies break-even but is below the RBI 1.33 benchmark")
+        if ml_verdict in ["CAUTION", "MARGINAL"]:
+            reason_parts.append(f"ML Viability flagged CAUTION ({ml_conf:.1f}% confidence)")
+        if 5.0 <= avg_risk < 7.5:
+            reason_parts.append(f"Moderate operational/market risk ({avg_risk:.1f}/10)")
+
+        reason_str = " • ".join(reason_parts) if reason_parts else "Requires operational review & contingency capital before credit submission."
+        return BusinessStatus(
+            code="reconsideration",
+            label="Requires Reconsideration",
+            severity="warning",
+            color="amber",
+            dscr=dscr_val,
+            ml_verdict=ml_verdict or "CAUTION",
+            ml_confidence_pct=ml_conf,
+            reason=reason_str,
+        )
+
+    # 3. Healthy / Bank Viable Check
+    reason_str = f"Bank Viable: DSCR of {dscr_val:.2f} clears RBI benchmark (1.33) with {ml_conf:.1f}% ML SUITABLE confidence." if dscr_val is not None else "Enterprise satisfies statutory credit criteria."
+    return BusinessStatus(
+        code="healthy",
+        label="Healthy / Bank Viable",
+        severity="positive",
+        color="emerald",
+        dscr=dscr_val,
+        ml_verdict=ml_verdict or "SUITABLE",
+        ml_confidence_pct=ml_conf,
+        reason=reason_str,
+    )
+
+
 class ProjectCreate(BaseModel):
     business_name: str
     business_category: str
@@ -148,6 +244,8 @@ class ProjectCreate(BaseModel):
     moratorium_months: int = 6
     language: str = "en"
     additional_business_details: Optional[str] = None
+    monthly_net_operating_income_override: Optional[float] = None
+    auto_analyze: bool = False
 
 
 class ProjectUpdate(BaseModel):
@@ -158,6 +256,7 @@ class ProjectUpdate(BaseModel):
     moratorium_months: Optional[int] = None
     language: Optional[str] = None
     additional_business_details: Optional[str] = None
+    monthly_net_operating_income_override: Optional[float] = None
 
 
 class ProjectModel(BaseModel):
@@ -180,10 +279,17 @@ class ProjectModel(BaseModel):
     moratorium_months: int
     language: str
     additional_business_details: Optional[str] = None
+    monthly_net_operating_income_override: Optional[float] = None
     status: str = "draft"  # draft | analyzed
+    business_status: Optional[BusinessStatus] = None
     analysis_result: Optional[dict[str, Any]] = None
     created_at: str
     updated_at: str
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+        if self.business_status is None:
+            self.business_status = compute_business_status(self.analysis_result)
 
 
 # ---------------------------------------------------------------------------

@@ -2,13 +2,16 @@ import React from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { 
   Sparkles, Calculator, Activity, LayoutDashboard, Database, Award, 
-  Menu, User, LogOut, LogIn, UserPlus 
+  Menu, User, LogOut, LogIn, UserPlus, Landmark, PlusCircle 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useBusiness } from '../context/BusinessContext';
+import { BusinessSwitcher } from './BusinessSwitcher';
 
 export function Navbar({ health, onToggleMobileSidebar }) {
   const isHealthy = health?.status === 'healthy';
   const { isAuthenticated, userProfile, logout } = useAuth();
+  const { businesses } = useBusiness();
   const navigate = useNavigate();
 
   const navLinks = [
@@ -28,15 +31,17 @@ export function Navbar({ health, onToggleMobileSidebar }) {
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm transition-all">
       {/* Sovereign Top Gradient Accent Line */}
       <div className="h-[3px] w-full bg-gradient-to-r from-sovereign-900 via-sky-500 via-indigo-600 to-emerald-500" />
-
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         
-        {/* Left Side: Mobile Menu Button & Brand */}
+        {/* Left: Mobile Toggle & Brand Logo */}
         <div className="flex items-center gap-3">
-          {/* Hamburger button for mobile drawer */}
+          {/* Mobile Sidebar Hamburger Toggle */}
           <button
+            type="button"
             onClick={onToggleMobileSidebar}
-            className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-950 hover:bg-slate-100 transition border border-transparent hover:border-slate-200"
+            className="md:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors"
+            aria-label="Toggle navigation menu"
             title="Open navigation menu"
           >
             <Menu className="w-5 h-5" />
@@ -45,7 +50,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
           {/* Institutional Brand Logo & Tagline */}
           <Link to="/" className="flex items-center gap-2.5 cursor-pointer group">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sovereign-800 via-sovereign-900 to-indigo-950 text-white flex items-center justify-center shadow-md shadow-sovereign-900/20 text-lg font-bold border border-sovereign-700/50 transition-transform group-hover:scale-105">
-              🏛️
+              <Landmark className="w-5 h-5 text-sky-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -63,28 +68,38 @@ export function Navbar({ health, onToggleMobileSidebar }) {
           </Link>
         </div>
 
-        {/* Center Route Navigation Bar (Desktop) */}
-        <nav className="hidden lg:flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 shadow-inner">
-          {navLinks.map((link) => {
-            const Icon = link.icon;
-            return (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) =>
-                  `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-sovereign-800 to-indigo-900 text-white shadow-sm font-bold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
-                  }`
-                }
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{link.label}</span>
-              </NavLink>
-            );
-          })}
-        </nav>
+        {/* Center: Active Business Switcher & Route Navigation Bar */}
+        <div className="flex items-center gap-3">
+          {/* Persistent Multi-Business Switcher with Real Data Status Indicators */}
+          {isAuthenticated && (
+            <div className="hidden sm:block">
+              <BusinessSwitcher />
+            </div>
+          )}
+
+          {/* Center Route Navigation Bar (Desktop) */}
+          <nav className="hidden xl:flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 shadow-inner">
+            {navLinks.map((link) => {
+              const Icon = link.icon;
+              return (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-sovereign-800 to-indigo-900 text-white shadow-sm font-bold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                    }`
+                  }
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{link.label}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
+        </div>
 
         {/* Action Controls & User Identity */}
         <div className="flex items-center gap-2 sm:gap-3">
@@ -92,7 +107,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
           {/* Live System Status Pill */}
           <Link 
             to="/data-sources" 
-            className={`hidden sm:flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border transition-all ${
+            className={`hidden lg:flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border transition-all ${
               isHealthy 
                 ? 'bg-emerald-50/90 border-emerald-200 text-emerald-800 hover:bg-emerald-100 shadow-subtle' 
                 : 'bg-amber-50/90 border-amber-200 text-amber-800 hover:bg-amber-100 shadow-subtle'
@@ -106,13 +121,14 @@ export function Navbar({ health, onToggleMobileSidebar }) {
             <span className="font-semibold">{isHealthy ? 'Live Telemetry' : 'Connecting...'}</span>
           </Link>
 
-          {/* Launch 6-Step Feasibility Wizard */}
+          {/* + Create New Business / Assessment */}
           <Link
             to="/wizard"
             className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-sovereign-800 via-sky-700 to-sovereign-800 hover:from-sovereign-700 hover:to-sky-600 px-3.5 py-1.5 rounded-xl shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition-all group"
+            title="Launch 7-Step Feasibility Wizard to create a new enterprise"
           >
-            <Sparkles className="w-3.5 h-3.5 text-sky-200 group-hover:rotate-12 transition-transform" />
-            <span className="hidden sm:inline">New Assessment</span>
+            <PlusCircle className="w-3.5 h-3.5 text-sky-200 group-hover:rotate-90 transition-transform" />
+            <span className="hidden sm:inline">New Enterprise</span>
           </Link>
 
           {/* User Auth Section */}
@@ -152,4 +168,5 @@ export function Navbar({ health, onToggleMobileSidebar }) {
     </header>
   );
 }
+
 export default Navbar;

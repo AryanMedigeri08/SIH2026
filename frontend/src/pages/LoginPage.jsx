@@ -105,7 +105,7 @@ export const LoginPage = () => {
               className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-cyan-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs shadow-lg shadow-emerald-950/40 transition-all duration-200 group"
             >
               <Zap className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-              <span>⚡ One-Click Evaluator Sign In (Instant Access)</span>
+              <span>One-Click Evaluator Sign In (Instant Access)</span>
             </button>
           </div>
 
