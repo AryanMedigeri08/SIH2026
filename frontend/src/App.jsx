@@ -44,22 +44,65 @@ import {
   DprSkeleton,
 } from './components/Skeletons/CardSkeletons';
 
-// Modals & Services
+import { BarChart3, Sparkles, ArrowRight } from 'lucide-react';
 import { DprModal } from './components/DprModal';
 import { QuickCalculatorModal } from './components/QuickCalculatorModal';
 import { checkHealth, generateFeasibility, fetchFeasibilityReport } from './services/api';
 import { PITCH_CASES } from './data/pitchCases';
 import confetti from 'canvas-confetti';
 
-// Route Wrapper Component for Page-Switch Skeletons & Layout Shell
+// Empty State View when no enterprise appraisal is loaded
+function EmptyAppraisalState({ onOpenWizard }) {
+  const navigate = useNavigate();
+  return (
+    <div className="py-12 sm:py-16 px-4 text-center">
+      <div className="bg-white/90 backdrop-blur-md border border-slate-200/90 rounded-3xl p-8 sm:p-12 max-w-xl mx-auto shadow-xl space-y-6 relative overflow-hidden">
+        {/* Ambient Background Glow */}
+        <div className="absolute -top-16 -right-16 w-36 h-36 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sovereign-900 to-indigo-900 border border-sovereign-700 text-cyan-300 mx-auto flex items-center justify-center shadow-lg shadow-sovereign-950/20">
+          <BarChart3 className="w-8 h-8 text-cyan-300" />
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="text-xl sm:text-2xl font-bold font-display text-slate-900 tracking-tight">
+            No Active Enterprise Assessment Loaded
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-md mx-auto">
+            Select one of the benchmark scenarios from the <span className="font-semibold text-sovereign-900">Preset Scenarios</span> bar above, or launch a new enterprise appraisal.
+          </p>
+        </div>
+
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button
+            onClick={() => onOpenWizard ? onOpenWizard() : navigate('/wizard')}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-sovereign-900 via-sovereign-800 to-indigo-950 hover:from-sovereign-800 hover:to-indigo-900 px-6 py-3 rounded-xl shadow-md shadow-sovereign-950/20 border border-sovereign-700 transition-all duration-200 group"
+          >
+            <Sparkles className="w-4 h-4 text-cyan-300 group-hover:scale-110 transition-transform" />
+            <span>Launch Feasibility Wizard</span>
+            <ArrowRight className="w-4 h-4 text-slate-300 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Route Wrapper Component for Page-Switch Skeletons & Empty State Handling
 function AppraisalSectionWrapper({ 
   children, 
   skeleton: SkeletonComponent, 
   reportData, 
-  isLoading 
+  isLoading,
+  onOpenWizard
 }) {
-  if (isLoading || !reportData) {
+  if (isLoading) {
     return <SkeletonComponent />;
+  }
+
+  if (!reportData) {
+    return <EmptyAppraisalState onOpenWizard={onOpenWizard} />;
   }
 
   return (
@@ -71,7 +114,7 @@ function AppraisalSectionWrapper({
 
 export function AppContent() {
   const [health, setHealth] = useState(null);
-  const [activeCaseId, setActiveCaseId] = useState('case-1');
+  const [activeCaseId, setActiveCaseId] = useState(null);
   const [isLoadingInitial, setIsLoadingInitial] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingMeta, setGeneratingMeta] = useState({});
@@ -234,7 +277,7 @@ export function AppContent() {
                 path="/"
                 element={
                   <ProtectedRoute>
-                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses} onOpenWizard={() => navigate('/wizard')}>
                       <OverviewPage
                         reportData={reportData}
                         onOpenDpr={() => setIsDprOpen(true)}
@@ -248,7 +291,7 @@ export function AppContent() {
                 path="/dashboard"
                 element={
                   <ProtectedRoute>
-                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses} onOpenWizard={() => navigate('/wizard')}>
                       <OverviewPage
                         reportData={reportData}
                         onOpenDpr={() => setIsDprOpen(true)}
@@ -262,7 +305,7 @@ export function AppContent() {
                 path="/reports/:reportId"
                 element={
                   <ProtectedRoute>
-                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses} onOpenWizard={() => navigate('/wizard')}>
                       <OverviewPage
                         reportData={reportData}
                         onOpenDpr={() => setIsDprOpen(true)}
