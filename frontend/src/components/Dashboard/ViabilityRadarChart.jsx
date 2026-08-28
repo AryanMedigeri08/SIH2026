@@ -12,15 +12,15 @@ import { Activity, Shield } from 'lucide-react';
 
 const FEATURE_CONFIG = [
   { key: 'dscr', label: 'DSCR Solvency', max: 3.0, normalize: (v) => Math.min((v / 2.5) * 100, 100) },
-  { key: 'subsidy_coverage_ratio', label: 'Subsidy Support', max: 0.5, normalize: (v) => Math.min((v / 0.45) * 100, 100) },
-  { key: 'loan_to_income_ratio', label: 'Debt Repayability', max: 2.0, normalize: (v) => Math.max(0, 100 - (v / 1.5) * 100) },
-  { key: 'log_projected_population', label: 'Catchment Scale', max: 15.0, normalize: (v) => Math.min((v / 14.0) * 100, 100) },
-  { key: 'msme_density_per_10k', label: 'Cluster Density', max: 100.0, normalize: (v) => Math.min((v / 80.0) * 100, 100) },
-  { key: 'infrastructure_score', label: 'Infrastructure', max: 100.0, normalize: (v) => Math.min(v, 100) },
+  { key: 'subsidy_coverage_ratio', label: 'Subsidy Support', max: 0.5, normalize: (v) => Math.min((v / 0.35) * 100, 100) },
+  { key: 'loan_to_income_ratio', label: 'Debt Repayability', max: 2.0, normalize: (v) => Math.max(0, 100 - (v / 2.0) * 100) },
+  { key: 'log_projected_population', label: 'Catchment Scale', max: 6.0, normalize: (v) => Math.min((v / 5.0) * 100, 100) },
+  { key: 'msme_density_per_10k', label: 'Cluster Density', max: 150.0, normalize: (v) => Math.min((v / 100.0) * 100, 100) },
+  { key: 'infrastructure_score', label: 'Infrastructure', max: 10.0, normalize: (v) => Math.min((v / 10.0) * 100, 100) },
   { key: 'cpi_inflation_pct', label: 'Inflation Buffer', max: 12.0, normalize: (v) => Math.max(0, 100 - (v / 10.0) * 100) },
   { key: 'working_capital_months_buffer', label: 'Liquidity Buffer', max: 6.0, normalize: (v) => Math.min((v / 4.0) * 100, 100) },
   { key: 'competition_intensity', label: 'Market Room', max: 1.0, normalize: (v) => Math.max(0, 100 - v * 100) },
-  { key: 'weather_risk_score', label: 'Climate Resilience', max: 100.0, normalize: (v) => Math.max(0, 100 - v) },
+  { key: 'weather_risk_score', label: 'Climate Resilience', max: 1.0, normalize: (v) => Math.max(0, 100 - (v * 100)) },
 ];
 
 const CustomTooltip = ({ active, payload }) => {
