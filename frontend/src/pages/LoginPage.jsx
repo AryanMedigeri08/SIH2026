@@ -24,10 +24,23 @@ export const LoginPage = () => {
   const [localError, setLocalError] = useState(null);
 
   const { loginWithEmail, loginWithGoogle, loginAsDemo, authError } = useAuth();
+  const { loadUserBusinesses } = useBusiness();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || "/wizard";
+  const resolveTargetRoute = async (authToken) => {
+    const explicitFrom = location.state?.from?.pathname;
+    if (explicitFrom && explicitFrom !== "/login" && explicitFrom !== "/register" && explicitFrom !== "/wizard") {
+      return explicitFrom;
+    }
+
+    try {
+      const res = await loadUserBusinesses(authToken);
+      return res?.hasBusinesses ? "/" : "/wizard";
+    } catch (e) {
+      return "/";
+    }
+  };
 
   const handleEmailLogin = async (e) => {
     e.preventDefault();
@@ -39,8 +52,10 @@ export const LoginPage = () => {
     setIsSubmitting(true);
 
     try {
-      await loginWithEmail(email.trim(), password);
-      navigate(from, { replace: true });
+      const authRes = await loginWithEmail(email.trim(), password);
+      const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
+      const target = await resolveTargetRoute(userToken);
+      navigate(target, { replace: true });
     } catch (err) {
       setLocalError(err.message || "Failed to authenticate credentials.");
     } finally {
@@ -52,8 +67,10 @@ export const LoginPage = () => {
     setLocalError(null);
     setIsSubmitting(true);
     try {
-      await loginWithGoogle();
-      navigate(from, { replace: true });
+      const authRes = await loginWithGoogle();
+      const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
+      const target = await resolveTargetRoute(userToken);
+      navigate(target, { replace: true });
     } catch (err) {
       setLocalError(err.message || "Google authentication was cancelled or failed.");
     } finally {
@@ -65,8 +82,10 @@ export const LoginPage = () => {
     setLocalError(null);
     setIsSubmitting(true);
     try {
-      await loginAsDemo("evaluator@sih.gov.in", "SIH Jury Evaluator");
-      navigate(from, { replace: true });
+      const authRes = await loginAsDemo("evaluator@sih.gov.in", "SIH Jury Evaluator");
+      const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
+      const target = await resolveTargetRoute(userToken);
+      navigate(target, { replace: true });
     } catch (err) {
       setLocalError(err.message || "Demo login failed.");
     } finally {

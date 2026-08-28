@@ -5,6 +5,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useBusiness } from "../context/BusinessContext";
 import {
   Lock,
   Mail,
@@ -28,6 +29,7 @@ export const RegisterPage = () => {
   const [localError, setLocalError] = useState(null);
 
   const { registerWithEmail, loginWithGoogle, loginAsDemo, authError } = useAuth();
+  const { loadUserBusinesses } = useBusiness();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -63,9 +65,14 @@ export const RegisterPage = () => {
     setLocalError(null);
     setIsSubmitting(true);
     try {
-      await loginWithGoogle();
-      // Direct OAuth user into the 7-Step Feasibility Wizard
-      navigate("/wizard", { replace: true });
+      const authRes = await loginWithGoogle();
+      const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
+      try {
+        const res = await loadUserBusinesses(userToken);
+        navigate(res?.hasBusinesses ? "/" : "/wizard", { replace: true });
+      } catch (_) {
+        navigate("/wizard", { replace: true });
+      }
     } catch (err) {
       setLocalError(err.message || "Google signup was cancelled or failed.");
     } finally {
@@ -77,8 +84,14 @@ export const RegisterPage = () => {
     setLocalError(null);
     setIsSubmitting(true);
     try {
-      await loginAsDemo("evaluator@sih.gov.in", "SIH Jury Evaluator");
-      navigate("/wizard", { replace: true });
+      const authRes = await loginAsDemo("evaluator@sih.gov.in", "SIH Jury Evaluator");
+      const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
+      try {
+        const res = await loadUserBusinesses(userToken);
+        navigate(res?.hasBusinesses ? "/" : "/wizard", { replace: true });
+      } catch (_) {
+        navigate("/wizard", { replace: true });
+      }
     } catch (err) {
       setLocalError(err.message || "Demo access failed.");
     } finally {

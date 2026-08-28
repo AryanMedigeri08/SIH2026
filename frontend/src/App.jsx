@@ -100,34 +100,21 @@ export function AppContent() {
 
   const isAuthOrLanding = ['/landing', '/login', '/register'].includes(location.pathname);
 
-  // Health check and guest fallback initial load
+  // Health check on app start
   useEffect(() => {
     async function init() {
       const h = await checkHealth();
       setHealth(h);
-      
-      // If not authenticated and no report data yet, auto-load Pitch Case 1
-      if (!isAuthenticated && !reportData) {
-        try {
-          setIsLoadingInitial(true);
-          const rep = await generateFeasibility(PITCH_CASES[0].formData);
-          setReportData(rep);
-        } catch (e) {
-          console.error("Initial load fallback:", e);
-        } finally {
-          setIsLoadingInitial(false);
-        }
-      }
     }
     init();
-  }, [isAuthenticated, reportData, setReportData]);
+  }, []);
 
   // URL reportId synchronization: If route is /reports/:reportId/..., auto-load that specific report from API
   useEffect(() => {
     const match = location.pathname.match(/\/reports\/([^\/]+)/);
     if (match && match[1]) {
       const urlReportId = match[1];
-      if (urlReportId !== 'full' && reportData?.report_id !== urlReportId) {
+      if (urlReportId !== 'full' && reportData?.report_id !== urlReportId && token) {
         async function loadReportFromUrl() {
           try {
             setIsLoadingInitial(true);
@@ -241,41 +228,47 @@ export function AppContent() {
             />
           ) : (
             <Routes>
-              {/* Overview & Core Synthesis */}
+              {/* Protected Overview & Core Synthesis Dashboard */}
               <Route
                 path="/"
                 element={
-                  <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <OverviewPage
-                      reportData={reportData}
-                      onOpenDpr={() => setIsDprOpen(true)}
-                      onOpenWizard={() => navigate('/wizard')}
-                    />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <OverviewPage
+                        reportData={reportData}
+                        onOpenDpr={() => setIsDprOpen(true)}
+                        onOpenWizard={() => navigate('/wizard')}
+                      />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/dashboard"
                 element={
-                  <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <OverviewPage
-                      reportData={reportData}
-                      onOpenDpr={() => setIsDprOpen(true)}
-                      onOpenWizard={() => navigate('/wizard')}
-                    />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <OverviewPage
+                        reportData={reportData}
+                        onOpenDpr={() => setIsDprOpen(true)}
+                        onOpenWizard={() => navigate('/wizard')}
+                      />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/reports/:reportId"
                 element={
-                  <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <OverviewPage
-                      reportData={reportData}
-                      onOpenDpr={() => setIsDprOpen(true)}
-                      onOpenWizard={() => navigate('/wizard')}
-                    />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <OverviewPage
+                        reportData={reportData}
+                        onOpenDpr={() => setIsDprOpen(true)}
+                        onOpenWizard={() => navigate('/wizard')}
+                      />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
 
@@ -283,17 +276,21 @@ export function AppContent() {
               <Route
                 path="/viability"
                 element={
-                  <AppraisalSectionWrapper skeleton={ViabilitySkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <ViabilityPage reportData={reportData} />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={ViabilitySkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <ViabilityPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/reports/:reportId/viability"
                 element={
-                  <AppraisalSectionWrapper skeleton={ViabilitySkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <ViabilityPage reportData={reportData} />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={ViabilitySkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <ViabilityPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
 
@@ -301,17 +298,21 @@ export function AppContent() {
               <Route
                 path="/market"
                 element={
-                  <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <MarketDemandPage reportData={reportData} />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <MarketDemandPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/reports/:reportId/market"
                 element={
-                  <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <MarketDemandPage reportData={reportData} />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <MarketDemandPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
 
@@ -319,17 +320,21 @@ export function AppContent() {
               <Route
                 path="/schemes"
                 element={
-                  <AppraisalSectionWrapper skeleton={SchemesSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <GovernmentSchemesPage reportData={reportData} />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={SchemesSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <GovernmentSchemesPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/reports/:reportId/schemes"
                 element={
-                  <AppraisalSectionWrapper skeleton={SchemesSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <GovernmentSchemesPage reportData={reportData} />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={SchemesSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <GovernmentSchemesPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
 
@@ -337,17 +342,21 @@ export function AppContent() {
               <Route
                 path="/financials"
                 element={
-                  <AppraisalSectionWrapper skeleton={FinancialsSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <FinancialsPage reportData={reportData} />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={FinancialsSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <FinancialsPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/reports/:reportId/financials"
                 element={
-                  <AppraisalSectionWrapper skeleton={FinancialsSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <FinancialsPage reportData={reportData} />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={FinancialsSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <FinancialsPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
 
@@ -355,17 +364,21 @@ export function AppContent() {
               <Route
                 path="/risk"
                 element={
-                  <AppraisalSectionWrapper skeleton={RiskSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <RiskAssessmentPage reportData={reportData} />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={RiskSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <RiskAssessmentPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/reports/:reportId/risk"
                 element={
-                  <AppraisalSectionWrapper skeleton={RiskSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <RiskAssessmentPage reportData={reportData} />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={RiskSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <RiskAssessmentPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
 
@@ -373,17 +386,21 @@ export function AppContent() {
               <Route
                 path="/swot"
                 element={
-                  <AppraisalSectionWrapper skeleton={SwotSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <SwotAnalysisPage reportData={reportData} />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={SwotSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <SwotAnalysisPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/reports/:reportId/swot"
                 element={
-                  <AppraisalSectionWrapper skeleton={SwotSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <SwotAnalysisPage reportData={reportData} />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={SwotSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <SwotAnalysisPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
 
@@ -391,23 +408,27 @@ export function AppContent() {
               <Route
                 path="/dpr"
                 element={
-                  <AppraisalSectionWrapper skeleton={DprSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <BankDprPage
-                      reportData={reportData}
-                      onOpenModal={() => setIsDprOpen(true)}
-                    />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={DprSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <BankDprPage
+                        reportData={reportData}
+                        onOpenModal={() => setIsDprOpen(true)}
+                      />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/reports/:reportId/dpr"
                 element={
-                  <AppraisalSectionWrapper skeleton={DprSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
-                    <BankDprPage
-                      reportData={reportData}
-                      onOpenModal={() => setIsDprOpen(true)}
-                    />
-                  </AppraisalSectionWrapper>
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={DprSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <BankDprPage
+                        reportData={reportData}
+                        onOpenModal={() => setIsDprOpen(true)}
+                      />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
                 }
               />
 
@@ -441,7 +462,11 @@ export function AppContent() {
               <Route path="/master-schemes" element={<SchemesPage />} />
               <Route
                 path="/reports/:reportId/full"
-                element={<ReportDetailPage onOpenWizard={() => navigate('/wizard')} />}
+                element={
+                  <ProtectedRoute>
+                    <ReportDetailPage onOpenWizard={() => navigate('/wizard')} />
+                  </ProtectedRoute>
+                }
               />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

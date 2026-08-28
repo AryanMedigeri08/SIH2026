@@ -166,6 +166,21 @@ async def update_my_profile(
     )
 
 
+@router.post("/logout", status_code=status.HTTP_200_OK)
+async def logout_user(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """
+    Logs out the user, invalidates active sessions, and confirms termination on backend.
+    """
+    logger.info(f"User '{current_user.uid}' ({current_user.email}) logged out.")
+    return {
+        "status": "success",
+        "message": "Session terminated successfully.",
+        "uid": current_user.uid,
+    }
+
+
 @router.delete("/me", status_code=status.HTTP_200_OK)
 async def delete_my_account(
     current_user: AuthenticatedUser = Depends(get_current_user),

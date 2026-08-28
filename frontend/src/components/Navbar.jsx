@@ -14,7 +14,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/');
+    navigate('/login', { replace: true });
   };
 
   return (

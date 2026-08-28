@@ -272,6 +272,11 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     setLoading(true);
     try {
+      if (token) {
+        try {
+          await authApi.logout(token);
+        } catch (_) {}
+      }
       localStorage.removeItem(LOCAL_SESSION_KEY);
       try {
         await firebaseSignOut(auth);

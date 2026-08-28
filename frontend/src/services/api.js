@@ -73,6 +73,16 @@ export const authApi = {
     });
   },
 
+  async logout(token) {
+    try {
+      return await authFetch(`${API_BASE}/auth/logout`, token, {
+        method: 'POST',
+      });
+    } catch (e) {
+      return null;
+    }
+  },
+
   async deleteAccount(token) {
     return await authFetch(`${API_BASE}/auth/me`, token, {
       method: 'DELETE',

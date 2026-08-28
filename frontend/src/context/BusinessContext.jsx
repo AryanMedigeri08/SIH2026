@@ -7,13 +7,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 import { projectsApi, generateFeasibility } from "../services/api";
-import { PITCH_CASES } from "../data/pitchCases";
 
 const BusinessContext = createContext(null);
 const ACTIVE_BIZ_KEY_PREFIX = "udyam_saathi_active_biz_";
 
 export const BusinessProvider = ({ children }) => {
-  const { token, isAuthenticated, userProfile, isDemoMode } = useAuth();
+  const { token, isAuthenticated, userProfile } = useAuth();
 
   const [businesses, setBusinesses] = useState([]);
   const [activeBusiness, setActiveBusiness] = useState(null);
@@ -28,37 +27,61 @@ export const BusinessProvider = ({ children }) => {
     return `${ACTIVE_BIZ_KEY_PREFIX}${uid}`;
   }, [userProfile?.firebase_uid]);
 
+  // Complete cleanup of enterprise state on logout
+  const clearBusinessState = useCallback(() => {
+    setBusinesses([]);
+    setActiveBusiness(null);
+    setReportData(null);
+    setDprData(null);
+    setBusinessError(null);
+    setLoadingBusinesses(false);
+
+    // Remove any user-specific active business keys from localStorage
+    try {
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith(ACTIVE_BIZ_KEY_PREFIX)) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (e) {
+      console.warn("Could not clean localStorage business keys:", e);
+    }
+  }, []);
+
   // Load user's persistent businesses from backend API
-  const loadUserBusinesses = useCallback(async () => {
-    if (!token && !isAuthenticated) {
-      setBusinesses([]);
-      setActiveBusiness(null);
-      return [];
+  const loadUserBusinesses = useCallback(async (explicitToken = null) => {
+    const authToken = explicitToken || token;
+    if (!authToken) {
+      clearBusinessState();
+      return { list: [], hasBusinesses: false, activeBusiness: null };
     }
 
     setLoadingBusinesses(true);
     setBusinessError(null);
     try {
-      const list = await projectsApi.listProjects(token);
-      setBusinesses(list || []);
+      const list = await projectsApi.listProjects(authToken);
+      const projectList = Array.isArray(list) ? list : [];
+      setBusinesses(projectList);
 
-      if (list && list.length > 0) {
-        // Restore previously active business from localStorage or select the latest
+      if (projectList.length > 0) {
+        // Restore previously active business from localStorage or select the first
         const savedActiveId = localStorage.getItem(getStorageKey());
-        const matched = list.find((b) => b.project_id === savedActiveId);
-        const selected = matched || list[0];
+        const matched = projectList.find((b) => b.project_id === savedActiveId);
+        const selected = matched || projectList[0];
 
         setActiveBusiness(selected);
-        localStorage.setItem(getStorageKey(), selected.project_id);
+        try {
+          localStorage.setItem(getStorageKey(), selected.project_id);
+        } catch (_) {}
 
         // Restore analysis and DPR payload if available
         if (selected.analysis_result && selected.analysis_result.report) {
           setReportData(selected.analysis_result.report);
           setDprData(selected.analysis_result.dpr || null);
         } else if (selected.status === "draft") {
-          // If draft, run analysis to populate data
+          // If draft, trigger analysis to populate data
           try {
-            const analyzed = await projectsApi.analyzeProject(token, selected.project_id);
+            const analyzed = await projectsApi.analyzeProject(authToken, selected.project_id);
             setActiveBusiness(analyzed);
             if (analyzed.analysis_result?.report) {
               setReportData(analyzed.analysis_result.report);
@@ -68,32 +91,31 @@ export const BusinessProvider = ({ children }) => {
             console.warn("Could not auto-analyze draft project:", analyzeErr);
           }
         }
+        return { list: projectList, hasBusinesses: true, activeBusiness: selected };
       } else {
         // User has 0 businesses
         setActiveBusiness(null);
         setReportData(null);
         setDprData(null);
+        return { list: [], hasBusinesses: false, activeBusiness: null };
       }
-      return list;
     } catch (err) {
       console.error("Failed to load user businesses:", err);
       setBusinessError(err.message || "Failed to load businesses.");
-      return [];
+      return { list: [], hasBusinesses: false, activeBusiness: null };
     } finally {
       setLoadingBusinesses(false);
     }
-  }, [token, isAuthenticated, getStorageKey]);
+  }, [token, getStorageKey, clearBusinessState]);
 
-  // Trigger business load on auth change
+  // Trigger business load or clear on auth state change
   useEffect(() => {
     if (isAuthenticated && token) {
-      loadUserBusinesses();
+      loadUserBusinesses(token);
     } else {
-      // Unauthenticated fallback: start with empty or demo state
-      setBusinesses([]);
-      setActiveBusiness(null);
+      clearBusinessState();
     }
-  }, [isAuthenticated, token, loadUserBusinesses]);
+  }, [isAuthenticated, token, loadUserBusinesses, clearBusinessState]);
 
   // Switch Active Business
   const switchBusiness = useCallback(
@@ -113,7 +135,9 @@ export const BusinessProvider = ({ children }) => {
       if (!target) return false;
 
       setActiveBusiness(target);
-      localStorage.setItem(getStorageKey(), target.project_id);
+      try {
+        localStorage.setItem(getStorageKey(), target.project_id);
+      } catch (_) {}
 
       if (target.analysis_result && target.analysis_result.report) {
         setReportData(target.analysis_result.report);
@@ -166,7 +190,9 @@ export const BusinessProvider = ({ children }) => {
         const createdProject = await projectsApi.createAndAnalyze(token, projectPayload);
         setBusinesses((prev) => [createdProject, ...prev.filter((p) => p.project_id !== createdProject.project_id)]);
         setActiveBusiness(createdProject);
-        localStorage.setItem(getStorageKey(), createdProject.project_id);
+        try {
+          localStorage.setItem(getStorageKey(), createdProject.project_id);
+        } catch (_) {}
 
         if (createdProject.analysis_result?.report) {
           setReportData(createdProject.analysis_result.report);
@@ -205,7 +231,9 @@ export const BusinessProvider = ({ children }) => {
             setActiveBusiness(null);
             setReportData(null);
             setDprData(null);
-            localStorage.removeItem(getStorageKey());
+            try {
+              localStorage.removeItem(getStorageKey());
+            } catch (_) {}
           }
         }
         return true;
@@ -236,6 +264,7 @@ export const BusinessProvider = ({ children }) => {
     businessError,
     hasBusinesses: businesses.length > 0,
     loadUserBusinesses,
+    clearBusinessState,
     switchBusiness,
     createAndSaveBusiness,
     deleteBusiness,
