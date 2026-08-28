@@ -23,8 +23,11 @@ export function SchemeLeaderboardCard({ schemes }) {
 
       <div className="space-y-3">
         {schemeList.map((s, idx) => {
-          const isEligible = s.is_eligible;
+          const isEligible = s.eligible ?? s.is_eligible ?? (idx === 0);
           const isTop = idx === 0 && isEligible;
+          const rationale = isEligible 
+            ? (s.notes || s.match_rationale || s.eligibility_notes || "Applicable under current sector outlay & promoter category.") 
+            : (s.ineligibility_reason || s.notes || "Ineligible under current parameters.");
 
           return (
             <div 
@@ -76,8 +79,8 @@ export function SchemeLeaderboardCard({ schemes }) {
                   </div>
                 </div>
 
-                <div className="text-[11px] text-slate-600 mt-2 line-clamp-2 italic">
-                  {s.match_rationale || s.eligibility_notes || "Applicable under current sector & promoter category."}
+                <div className={`text-[11px] mt-2 line-clamp-2 italic ${isEligible ? 'text-slate-600' : 'text-rose-700'}`}>
+                  {rationale}
                 </div>
               </div>
 
