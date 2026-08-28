@@ -1,11 +1,15 @@
 import React from 'react';
 import { SwotMatrixCard } from '../../components/Dashboard/SwotMatrixCard';
-import { Grid3X3, Target, ShieldCheck } from 'lucide-react';
+import { Grid3X3, CheckCircle2, AlertTriangle, Lightbulb, ShieldAlert, Sparkles } from 'lucide-react';
 
 export function SwotAnalysisPage({ reportData }) {
   if (!reportData) return null;
 
   const swot = reportData.swot_matrix || {};
+  const s = swot.strengths || [];
+  const w = swot.weaknesses || [];
+  const o = swot.opportunities || [];
+  const t = swot.threats || [];
 
   return (
     <div className="space-y-6">
@@ -22,6 +26,53 @@ export function SwotAnalysisPage({ reportData }) {
         <p className="text-xs text-slate-600 mt-1 max-w-3xl font-medium leading-relaxed">
           Comprehensive strategic appraisal derived from Census 2011 demographic growth, MSME saturation density, and supervised XGBoost viability factors.
         </p>
+      </div>
+
+      {/* Strategic SWOT Intelligence Ribbon */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="glass-panel p-4 bg-emerald-50/40 border border-emerald-200/90 shadow-card hover:shadow-card-hover transition-all">
+          <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-bold uppercase tracking-wider">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Strengths</span>
+          </div>
+          <strong className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-900 block mt-1">
+            {s.length} Identified
+          </strong>
+          <span className="text-[10px] text-emerald-700 mt-0.5 block font-medium">Internal Core Drivers</span>
+        </div>
+
+        <div className="glass-panel p-4 bg-amber-50/40 border border-amber-200/90 shadow-card hover:shadow-card-hover transition-all">
+          <div className="flex items-center gap-1.5 text-xs text-amber-800 font-bold uppercase tracking-wider">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+            <span>Weaknesses</span>
+          </div>
+          <strong className="text-xl sm:text-2xl font-mono font-extrabold text-amber-900 block mt-1">
+            {w.length} Identified
+          </strong>
+          <span className="text-[10px] text-amber-700 mt-0.5 block font-medium">Internal Bottlenecks</span>
+        </div>
+
+        <div className="glass-panel p-4 bg-sky-50/40 border border-sky-200/90 shadow-card hover:shadow-card-hover transition-all">
+          <div className="flex items-center gap-1.5 text-xs text-sky-800 font-bold uppercase tracking-wider">
+            <Lightbulb className="w-3.5 h-3.5 text-sky-600" />
+            <span>Opportunities</span>
+          </div>
+          <strong className="text-xl sm:text-2xl font-mono font-extrabold text-sky-900 block mt-1">
+            {o.length} Identified
+          </strong>
+          <span className="text-[10px] text-sky-700 mt-0.5 block font-medium">Market Growth Vectors</span>
+        </div>
+
+        <div className="glass-panel p-4 bg-rose-50/40 border border-rose-200/90 shadow-card hover:shadow-card-hover transition-all">
+          <div className="flex items-center gap-1.5 text-xs text-rose-800 font-bold uppercase tracking-wider">
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+            <span>Threats</span>
+          </div>
+          <strong className="text-xl sm:text-2xl font-mono font-extrabold text-rose-900 block mt-1">
+            {t.length} Identified
+          </strong>
+          <span className="text-[10px] text-rose-700 mt-0.5 block font-medium">External Risk Factors</span>
+        </div>
       </div>
 
       {/* SWOT 4-Quadrant Card Component */}
