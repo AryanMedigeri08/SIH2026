@@ -22,7 +22,7 @@ import {
   Coins,
 } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
-import { BusinessStatusPill } from '../BusinessSwitcher';
+import { BusinessStatusPill, BusinessSwitcher } from '../BusinessSwitcher';
 
 export function Sidebar({
   isCollapsed,
@@ -250,6 +250,12 @@ export function Sidebar({
               </div>
               <div className="pt-1">
                 <BusinessStatusPill status={activeStatus} size="xs" />
+              </div>
+              <div className="pt-1.5 border-t border-slate-200/70">
+                <div className="mb-1.5 text-[9px] uppercase font-bold tracking-wider text-slate-500">
+                  Your enterprises ({businesses.length})
+                </div>
+                <BusinessSwitcher compact />
               </div>
             </div>
           )}

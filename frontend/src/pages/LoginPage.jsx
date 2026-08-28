@@ -29,14 +29,21 @@ export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const resolveTargetRoute = async (authToken) => {
+  const resolveTargetRoute = async (authSession) => {
     const explicitFrom = location.state?.from?.pathname;
     if (explicitFrom && explicitFrom !== "/login" && explicitFrom !== "/register" && explicitFrom !== "/wizard") {
       return explicitFrom;
     }
 
+    // The authenticated session sync already returns the server-authoritative
+    // project count.  Using it avoids starting a competing business restore
+    // request while BusinessContext hydrates the full enterprise list.
+    if (typeof authSession?.profile?.projects_count === "number") {
+      return authSession.profile.projects_count > 0 ? "/" : "/wizard";
+    }
+
     try {
-      const res = await loadUserBusinesses(authToken);
+      const res = await loadUserBusinesses(authSession?.token);
       return res?.hasBusinesses ? "/" : "/wizard";
     } catch (e) {
       return "/";
@@ -54,8 +61,7 @@ export const LoginPage = () => {
 
     try {
       const authRes = await loginWithEmail(email.trim(), password);
-      const userToken = authRes?.token || (authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null);
-      const target = await resolveTargetRoute(userToken);
+      const target = await resolveTargetRoute(authRes);
       navigate(target, { replace: true });
     } catch (err) {
       setLocalError(err.message || "Failed to authenticate credentials.");
@@ -69,8 +75,7 @@ export const LoginPage = () => {
     setIsSubmitting(true);
     try {
       const authRes = await loginWithGoogle();
-      const userToken = authRes?.token || (authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null);
-      const target = await resolveTargetRoute(userToken);
+      const target = await resolveTargetRoute(authRes);
       navigate(target, { replace: true });
     } catch (err) {
       setLocalError(err.message || "Google authentication was cancelled or failed.");
@@ -84,8 +89,7 @@ export const LoginPage = () => {
     setIsSubmitting(true);
     try {
       const authRes = await loginAsDemo("evaluator@sih.gov.in", "SIH Jury Evaluator");
-      const userToken = authRes?.token || (authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null);
-      const target = await resolveTargetRoute(userToken);
+      const target = await resolveTargetRoute(authRes);
       navigate(target, { replace: true });
     } catch (err) {
       setLocalError(err.message || "Demo login failed.");

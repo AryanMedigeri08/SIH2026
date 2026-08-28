@@ -128,7 +128,7 @@ export function BusinessSwitcher({ compact = false }) {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="group inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 shadow-subtle text-xs text-slate-800 transition-all"
+        className={`group inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 shadow-subtle text-xs text-slate-800 transition-all ${compact ? "w-full justify-between" : ""}`}
         aria-expanded={isOpen}
       >
         <div className="w-6 h-6 rounded-lg bg-sovereign-100 border border-sovereign-200 flex items-center justify-center text-sovereign-800 shrink-0">

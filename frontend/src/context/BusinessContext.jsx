@@ -4,7 +4,7 @@
  * status indicators (Healthy / Reconsideration / Critical), and business switching.
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./AuthContext";
 import { projectsApi, generateFeasibility } from "../services/api";
 
@@ -20,6 +20,9 @@ export const BusinessProvider = ({ children }) => {
   const [dprData, setDprData] = useState(null);
   const [loadingBusinesses, setLoadingBusinesses] = useState(false);
   const [businessError, setBusinessError] = useState(null);
+  // Login/profile synchronization can start more than one fetch.  Only the
+  // newest response is allowed to update protected enterprise state.
+  const loadRequestSequence = useRef(0);
 
   // Helper to get active storage key per user
   const getStorageKey = useCallback(() => {
@@ -29,6 +32,7 @@ export const BusinessProvider = ({ children }) => {
 
   // Complete cleanup of enterprise state on logout
   const clearBusinessState = useCallback(() => {
+    loadRequestSequence.current += 1;
     setBusinesses([]);
     setActiveBusiness(null);
     setReportData(null);
@@ -57,11 +61,15 @@ export const BusinessProvider = ({ children }) => {
       return { list: [], hasBusinesses: false, activeBusiness: null };
     }
 
+    const requestSequence = ++loadRequestSequence.current;
     setLoadingBusinesses(true);
     setBusinessError(null);
     try {
       const list = await projectsApi.listProjects(authToken);
       const projectList = Array.isArray(list) ? list : [];
+      if (requestSequence !== loadRequestSequence.current) {
+        return { list: projectList, hasBusinesses: projectList.length > 0, activeBusiness: null };
+      }
       setBusinesses(projectList);
 
       if (projectList.length > 0) {
@@ -83,6 +91,9 @@ export const BusinessProvider = ({ children }) => {
           // If draft, trigger analysis to populate data
           try {
             const analyzed = await projectsApi.analyzeProject(authToken, selected.project_id);
+            if (requestSequence !== loadRequestSequence.current) {
+              return { list: projectList, hasBusinesses: true, activeBusiness: selected };
+            }
             setActiveBusiness(analyzed);
             if (analyzed.analysis_result?.report) {
               setReportData(analyzed.analysis_result.report);
@@ -102,13 +113,18 @@ export const BusinessProvider = ({ children }) => {
       }
     } catch (err) {
       console.error("Failed to load user businesses:", err);
+      if (requestSequence !== loadRequestSequence.current) {
+        return { list: [], hasBusinesses: false, activeBusiness: null };
+      }
       // A 401 means the session ended remotely/revoked.  Do not leave stale
       // business, report, or DPR content rendered while the route guard reacts.
       if (err.status === 401) clearBusinessState();
       setBusinessError(err.message || "Failed to load businesses.");
       return { list: [], hasBusinesses: false, activeBusiness: null };
     } finally {
-      setLoadingBusinesses(false);
+      if (requestSequence === loadRequestSequence.current) {
+        setLoadingBusinesses(false);
+      }
     }
   }, [token, getStorageKey, clearBusinessState]);
 
