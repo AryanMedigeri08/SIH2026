@@ -307,17 +307,31 @@ export function CalculatorPage() {
 
                   <div className="flex items-center gap-4 text-right">
                     <div>
-                      <span className="text-[10px] text-slate-500 block font-medium">Grant Subsidy</span>
-                      <strong className="font-mono text-emerald-700 font-bold">
-                        {s.subsidy_grant_amount > 0 ? `₹${Math.round(s.subsidy_grant_amount).toLocaleString('en-IN')}` : '₹0'}
+                      <span className="text-[10px] text-slate-500 block font-medium">Financial Incentive</span>
+                      <strong className="font-mono text-emerald-700 font-bold block text-xs">
+                        {s.subsidy_grant_amount > 0 
+                          ? `₹${Math.round(s.subsidy_grant_amount).toLocaleString('en-IN')} Grant` 
+                          : s.interest_savings_amount > 0 || s.benefit_type === 'INTEREST_SUBVENTION'
+                          ? `${(11.0 - (s.effective_interest_rate_pct || 11.0)).toFixed(1)}% Subvention`
+                          : s.eligible
+                          ? 'Collateral-Free Credit'
+                          : '₹0 (Ineligible)'}
                       </strong>
                     </div>
-                    <div>
+                    <div className="shrink-0 min-w-[80px]">
                       <span className="text-[10px] text-slate-500 block font-medium">Status</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                        s.eligible ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap inline-block ${
+                        s.eligible 
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                          : 'bg-slate-100 text-slate-600 border border-slate-200'
                       }`}>
-                        {s.eligible ? 'Eligible' : 'Cap Exceeded'}
+                        {s.eligible 
+                          ? 'Eligible' 
+                          : s.ineligibility_reason?.toLowerCase().includes('exceeds')
+                          ? 'Cap Exceeded'
+                          : s.ineligibility_reason?.toLowerCase().includes('category')
+                          ? 'Category Limit'
+                          : 'Ineligible'}
                       </span>
                     </div>
                   </div>

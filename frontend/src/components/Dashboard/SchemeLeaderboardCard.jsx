@@ -70,9 +70,15 @@ export function SchemeLeaderboardCard({ schemes, isReconsider = false }) {
                 {/* Metrics */}
                 <div className="pt-2 border-t border-slate-200/80 grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-[10px] text-slate-500 block font-semibold">Subsidy Grant</span>
+                    <span className="text-[10px] text-slate-500 block font-semibold">Government Incentive</span>
                     <strong className="font-mono text-emerald-700 font-bold">
-                      {s.subsidy_grant_amount > 0 ? `₹${Math.round(s.subsidy_grant_amount).toLocaleString('en-IN')}` : '₹0 (Interest Subvention)'}
+                      {s.subsidy_grant_amount > 0 
+                        ? `₹${Math.round(s.subsidy_grant_amount).toLocaleString('en-IN')} (Capital Grant)`
+                        : (s.benefit_type === 'INTEREST_SUBVENTION' || (s.effective_interest_rate_pct < 11.0 && isEligible))
+                        ? `${(11.0 - (s.effective_interest_rate_pct || 11.0)).toFixed(1)}% p.a. Interest Subvention`
+                        : isEligible
+                        ? 'Collateral-Free Concessional Credit'
+                        : '₹0 (Ineligible)'}
                     </strong>
                   </div>
                   <div>

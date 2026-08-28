@@ -111,10 +111,13 @@ class SchemeRanking:
     collateral_free: bool
     notes: str
     official_url: Optional[str] = None
+    benefit_type: str = "CAPITAL_GRANT"  # "CAPITAL_GRANT" | "INTEREST_SUBVENTION" | "CONCESSIONAL_CREDIT" | "INELIGIBLE"
+    interest_savings_amount: float = 0.0
+    benefit_summary: str = ""
 
     def to_dict(self) -> dict:
         d = asdict(self)
-        for k in ("subsidy_grant_amount", "effective_interest_rate_pct", "total_interest_payable", "net_financial_benefit"):
+        for k in ("subsidy_grant_amount", "effective_interest_rate_pct", "total_interest_payable", "net_financial_benefit", "interest_savings_amount"):
             d[k] = round(d[k], 2)
         return d
 
@@ -265,14 +268,16 @@ def rank_eligible_schemes(
             eligible = False
             reasons.append(f"project cost ₹{project_cost:,.0f} below scheme minimum ₹{min_cost:,.0f}")
 
-        # --- compute subsidy grant amount ---
+        # --- compute potential subsidy grant amount ---
         slabs = s["subsidy_slabs"]
-        subsidy = 0.0
+        raw_subsidy = 0.0
+        pct = 0.0
         if "flat_pct" in slabs and slabs["flat_pct"] > 0:
-            subsidy = project_cost * slabs["flat_pct"]
+            pct = slabs["flat_pct"]
+            raw_subsidy = project_cost * pct
             cap = slabs.get("cap_amount", 0)
             if cap:
-                subsidy = min(subsidy, cap)
+                raw_subsidy = min(raw_subsidy, cap)
         elif "general_urban_pct" in slabs:
             # PMEGP-style location + category dependent slab
             special = _category_is_special(promoter_category)
@@ -284,37 +289,65 @@ def rank_eligible_schemes(
                 pct = slabs["general_rural_pct"]
             else:
                 pct = slabs["general_urban_pct"]
-            subsidy = project_cost * pct
+            raw_subsidy = project_cost * pct
+
+        # Actual subsidy receivable is strictly 0 if the scheme is ineligible
+        actual_subsidy = raw_subsidy if eligible else 0.0
 
         # --- effective interest rate (accounting for subvention / fixed rate schemes) ---
+        subvention = s.get("interest_subvention_pct", 0.0)
         if "fixed_interest_rate_pct" in s:
             eff_rate = s["fixed_interest_rate_pct"] * 100
         elif "effective_interest_rate_pct" in s:
             eff_rate = s["effective_interest_rate_pct"] * 100
         else:
-            subvention = s.get("interest_subvention_pct", 0.0)
             eff_rate = max(default_bank_interest_rate_pct - (subvention * 100), 0.0)
 
         # --- loan principal financed under this scheme ---
-        # Stand-Up India: composite loan coverage; others: project cost minus subsidy minus promoter contribution
         if "composite_loan_coverage_pct" in s:
             loan_principal = project_cost * s["composite_loan_coverage_pct"]
         else:
             promoter_pct = s["promoter_contribution_pct"].get(
                 "special" if _category_is_special(promoter_category) else "general", 0.10
             )
-            loan_principal = max(project_cost - subsidy - (project_cost * promoter_pct), 0.0)
+            loan_principal = max(project_cost - actual_subsidy - (project_cost * promoter_pct), 0.0)
 
-        # --- total interest payable over tenure, via the same amortization engine ---
+        # --- total interest payable over tenure under this scheme ---
         total_interest = 0.0
+        base_interest = 0.0
         if loan_principal > 0:
             try:
                 amort = emi_with_moratorium(loan_principal, eff_rate, tenure_years, moratorium_months)
                 total_interest = amort.total_interest_payable
             except ValueError:
                 total_interest = 0.0
+            
+            try:
+                base_amort = emi_with_moratorium(loan_principal, default_bank_interest_rate_pct, tenure_years, moratorium_months)
+                base_interest = base_amort.total_interest_payable
+            except ValueError:
+                base_interest = total_interest
 
-        net_benefit = subsidy - total_interest
+        interest_savings = max(base_interest - total_interest, 0.0)
+
+        # --- Classify Benefit Type & Summary ---
+        if not eligible:
+            benefit_type = "INELIGIBLE"
+            benefit_summary = f"₹0 (Ineligible)"
+            net_benefit = -999999.0
+        elif actual_subsidy > 0:
+            benefit_type = "CAPITAL_GRANT"
+            benefit_summary = f"₹{actual_subsidy:,.0f} Direct Capital Grant ({pct*100:.0f}%)"
+            net_benefit = actual_subsidy + interest_savings - total_interest
+        elif (subvention > 0 or eff_rate < default_bank_interest_rate_pct):
+            benefit_type = "INTEREST_SUBVENTION"
+            subv_diff = default_bank_interest_rate_pct - eff_rate
+            benefit_summary = f"{subv_diff:.1f}% p.a. Interest Subvention (₹{interest_savings:,.0f} Saved)"
+            net_benefit = interest_savings - total_interest
+        else:
+            benefit_type = "CONCESSIONAL_CREDIT"
+            benefit_summary = "100% Collateral-Free Refinanced Loan"
+            net_benefit = -total_interest
 
         results.append(
             SchemeRanking(
@@ -323,13 +356,16 @@ def rank_eligible_schemes(
                 full_name=s["full_name"],
                 eligible=eligible,
                 ineligibility_reason="; ".join(reasons) if reasons else None,
-                subsidy_grant_amount=subsidy,
+                subsidy_grant_amount=actual_subsidy,
                 effective_interest_rate_pct=eff_rate,
                 total_interest_payable=total_interest,
                 net_financial_benefit=net_benefit,
                 collateral_free=(s.get("collateral_free_limit", 0) >= loan_principal) if loan_principal else True,
                 notes=s.get("notes", ""),
                 official_url=s.get("official_url"),
+                benefit_type=benefit_type,
+                interest_savings_amount=interest_savings,
+                benefit_summary=benefit_summary,
             )
         )
 
