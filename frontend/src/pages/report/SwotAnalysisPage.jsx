@@ -76,7 +76,7 @@ export function SwotAnalysisPage({ reportData }) {
       </div>
 
       {/* SWOT 4-Quadrant Card Component */}
-      <SwotMatrixCard swotData={swot} />
+      <SwotMatrixCard swotData={swot} synthesisData={reportData.executive_synthesis} />
 
     </div>
   );

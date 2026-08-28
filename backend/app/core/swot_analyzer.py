@@ -28,17 +28,21 @@ class SWOTMatrix:
     weaknesses: list[SWOTItem]
     opportunities: list[SWOTItem]
     threats: list[SWOTItem]
+    generation_source: str = "DETERMINISTIC_FALLBACK"
+    is_fallback: bool = True
 
-    def to_dict(self) -> dict[str, list[dict[str, str]]]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "strengths": [i.to_dict() for i in self.strengths],
             "weaknesses": [i.to_dict() for i in self.weaknesses],
             "opportunities": [i.to_dict() for i in self.opportunities],
             "threats": [i.to_dict() for i in self.threats],
+            "generation_source": self.generation_source,
+            "is_fallback": self.is_fallback,
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> SWOTMatrix:
+    def from_dict(cls, data: dict[str, Any], generation_source: str = "AI_GROQ", is_fallback: bool = False) -> SWOTMatrix:
         def _parse_list(items: Any, default_src: str) -> list[SWOTItem]:
             if not isinstance(items, list):
                 return []
@@ -60,6 +64,8 @@ class SWOTMatrix:
             weaknesses=_parse_list(data.get("weaknesses"), "Data.gov.in District Amenities Registry"),
             opportunities=_parse_list(data.get("opportunities"), "Census 2011 Catchment Demographics"),
             threats=_parse_list(data.get("threats"), "MoSPI CPI Inflation & Weather Telemetry"),
+            generation_source=str(data.get("generation_source", generation_source)),
+            is_fallback=bool(data.get("is_fallback", is_fallback)),
         )
 
 

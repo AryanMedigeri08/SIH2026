@@ -206,8 +206,14 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
 
     # Use LLM-generated SWOT if available, fallback to deterministic
     if synthesis.swot_matrix and isinstance(synthesis.swot_matrix, dict):
-        final_swot = SWOTMatrix.from_dict(synthesis.swot_matrix)
+        final_swot = SWOTMatrix.from_dict(
+            synthesis.swot_matrix,
+            generation_source=f"AI_GROQ ({synthesis.model_name})" if not synthesis.is_fallback else "DETERMINISTIC_FALLBACK",
+            is_fallback=synthesis.is_fallback,
+        )
     else:
+        deterministic_swot.generation_source = "DETERMINISTIC_FALLBACK"
+        deterministic_swot.is_fallback = True
         final_swot = deterministic_swot
 
     # 9. Bank DPR Assembly (Tier 4)
