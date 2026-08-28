@@ -128,14 +128,18 @@ export function RiskRadarCard({ riskData }) {
               The polygon outlines exposure across raw material volatility, power interruptions, debt pressure, and climate shock.
               Smaller area indicates lower systemic credit risk.
             </p>
-            <div className="grid grid-cols-2 gap-2 pt-2">
-              <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-mono flex items-center gap-1.5 font-bold">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{risks.filter((r) => r.severity === 'LOW').length} Low Risk Pillars</span>
+            <div className="grid grid-cols-3 gap-2 pt-2">
+              <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-[10px] text-emerald-800 font-mono flex items-center gap-1.5 font-bold">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>{risks.filter((r) => r.severity === 'LOW').length} Low Risk</span>
               </div>
-              <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-[11px] text-rose-800 font-mono flex items-center gap-1.5 font-bold">
-                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                <span>{risks.filter((r) => r.severity === 'HIGH' || r.severity === 'SEVERE').length} Attention Items</span>
+              <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-mono flex items-center gap-1.5 font-bold">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>{risks.filter((r) => r.severity === 'MODERATE').length} Moderate</span>
+              </div>
+              <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-[10px] text-rose-800 font-mono flex items-center gap-1.5 font-bold">
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <span>{risks.filter((r) => r.severity === 'HIGH' || r.severity === 'SEVERE').length} Attention</span>
               </div>
             </div>
           </div>
@@ -156,7 +160,7 @@ export function RiskRadarCard({ riskData }) {
                   ? 'bg-rose-50/70 border-rose-200 hover:border-rose-300'
                   : isMod
                   ? 'bg-amber-50/70 border-amber-200 hover:border-amber-300'
-                  : 'bg-white border-slate-200 hover:border-slate-300 shadow-subtle'
+                  : 'bg-emerald-50/50 border-emerald-200 hover:border-emerald-300'
               }`}
             >
               <div className="flex justify-between items-start mb-2">
@@ -185,7 +189,13 @@ export function RiskRadarCard({ riskData }) {
                 <strong className="text-slate-800 font-medium">Grounding Basis:</strong> {r.basis}
               </div>
 
-              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-800">
+              <div className={`p-2.5 rounded-lg border text-[11px] text-slate-800 ${
+                isHigh 
+                  ? 'bg-white/80 border-rose-200' 
+                  : isMod 
+                  ? 'bg-white/80 border-amber-200' 
+                  : 'bg-white/80 border-emerald-200'
+              }`}>
                 <strong className="text-sovereign-800">Mitigation:</strong> {r.mitigation}
                 {r.rupee_buffer > 0 && (
                   <div className="mt-1 text-emerald-800 font-mono font-bold flex items-center gap-1.5">
