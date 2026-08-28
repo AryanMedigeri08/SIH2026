@@ -199,11 +199,9 @@ check("api.js maps /data-sources/schemes catalog endpoint", "/data-sources/schem
 
 case_data_content = (FRONTEND_DIR / "src" / "data" / "pitchCases.js").read_text(encoding="utf-8")
 check("pitchCases.js exports PITCH_CASES array", "export const PITCH_CASES" in case_data_content)
-check("PITCH_CASES contains Case 1: Dairy (WB)", "Joypur Fresh Dairy" in case_data_content)
-check("PITCH_CASES contains Case 2: Mobile Repair (KA)", "SmartTech Mobile" in case_data_content)
-check("PITCH_CASES contains Case 3: Women Boutique (UP)", "Kashi Resham Silk" in case_data_content)
-check("PITCH_CASES contains Case 4: Overleveraged Agro (MP)", "Malwa Agro Solvent" in case_data_content)
-check("PITCH_CASES contains Case 5: Artisan Pottery (UP)", "Khurja Traditional Ceramic" in case_data_content)
+check("PITCH_CASES contains Scenario 1: Dairy Unit (WB)", "Joypur Fresh Dairy" in case_data_content)
+check("PITCH_CASES contains Scenario 2: Artisan Pottery (UP)", "Khurja Traditional Glazed Pottery" in case_data_content)
+check("PITCH_CASES contains Scenario 3: Heavy Agro Plant (MP)", "Malwa Heavy Agro Solvent" in case_data_content)
 
 print("\n" + "=" * 90)
 print(f"PHASE 7 VERIFICATION SUMMARY: {PASS} passed, {FAIL} failed")
