@@ -23,7 +23,6 @@ import {
 } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import { BusinessStatusPill, BusinessSwitcher } from '../BusinessSwitcher';
-import { LanguageSelector } from '../LanguageSelector';
 import { useLanguage } from '../../context/LanguageContext';
 
 export function Sidebar({
@@ -286,7 +285,6 @@ export function Sidebar({
               </span>
             </div>
             {renderNavLinks(utilityNavItems)}
-            {!isCollapsed && <div className="px-2 pt-3"><LanguageSelector compact /></div>}
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 /**
  * pitchCases.js — 3 Institutional Benchmark Solvency & Viability Scenarios.
  * Calibrated against Census 2011 demographics, statutory scheme rules, and supervised XGBoost model.
+ * Language is dynamically governed by the platform's global language selector.
  */
 
 export const PITCH_CASES = [
@@ -26,7 +27,6 @@ export const PITCH_CASES = [
       annual_turnover_estimate: 1200000,
       tenure_years: 5,
       moratorium_months: 6,
-      language: "en",
     }
   },
   {
@@ -51,7 +51,6 @@ export const PITCH_CASES = [
       annual_turnover_estimate: 320000,
       tenure_years: 5,
       moratorium_months: 3,
-      language: "hi",
     }
   },
   {
@@ -76,7 +75,6 @@ export const PITCH_CASES = [
       annual_turnover_estimate: 350000,
       tenure_years: 5,
       moratorium_months: 6,
-      language: "en",
     }
   }
 ];

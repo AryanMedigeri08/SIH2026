@@ -6,6 +6,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./AuthContext";
+import { useLanguage } from "./LanguageContext";
 import { projectsApi, generateFeasibility } from "../services/api";
 
 const BusinessContext = createContext(null);
@@ -13,6 +14,7 @@ const ACTIVE_BIZ_KEY_PREFIX = "udyam_saathi_active_biz_";
 
 export const BusinessProvider = ({ children }) => {
   const { token, isAuthenticated, userProfile } = useAuth();
+  const { language: globalLanguage } = useLanguage();
 
   const [businesses, setBusinesses] = useState([]);
   const [activeBusiness, setActiveBusiness] = useState(null);
@@ -198,7 +200,7 @@ export const BusinessProvider = ({ children }) => {
         is_rural: formData.is_rural ?? true,
         tenure_years: Number(formData.tenure_years || 5.0),
         moratorium_months: Number(formData.moratorium_months || 6),
-        language: formData.language || "en",
+        language: formData.language || globalLanguage || "en",
         additional_business_details: formData.additional_business_details || null,
         monthly_net_operating_income_override: formData.monthly_net_operating_income_override
           ? Number(formData.monthly_net_operating_income_override)
@@ -221,7 +223,10 @@ export const BusinessProvider = ({ children }) => {
         return createdProject;
       } else {
         // Fallback for demo unauthenticated flow
-        const rep = await generateFeasibility(formData);
+        const rep = await generateFeasibility({
+          ...formData,
+          language: globalLanguage || "en",
+        });
         setReportData(rep);
         return {
           project_id: rep.report_id || `demo_${Date.now()}`,
@@ -232,7 +237,7 @@ export const BusinessProvider = ({ children }) => {
         };
       }
     },
-    [token, userProfile, getStorageKey]
+    [token, userProfile, getStorageKey, globalLanguage]
   );
 
   // Delete Business
@@ -268,7 +273,10 @@ export const BusinessProvider = ({ children }) => {
   // Helper for quick pitch benchmark selection
   const loadBenchmarkCase = useCallback(
     async (pitchCase) => {
-      const rep = await generateFeasibility(pitchCase.formData, token);
+      const rep = await generateFeasibility({
+        ...pitchCase.formData,
+        language: globalLanguage || "en",
+      }, token);
       setReportData(rep);
       if (rep) {
         setActiveBusiness({
@@ -286,7 +294,7 @@ export const BusinessProvider = ({ children }) => {
       }
       return rep;
     },
-    [token]
+    [token, globalLanguage]
   );
 
   const value = {

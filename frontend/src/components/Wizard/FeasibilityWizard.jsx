@@ -721,16 +721,11 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                     <Languages className="w-3.5 h-3.5 text-sovereign-700" />
                     {t('appraisalLanguage')}
                   </label>
-                  <select
-                    value={formData.language}
-                    onChange={e => setFormData({ ...formData, language: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle font-medium"
-                  >
-                    {languages.map(({ code, label }) => (
-                      <option key={code} value={code}>{label}</option>
-                    ))}
-                  </select>
-                  <p className="text-[10px] text-slate-500 mt-1">Localizes executive summary & bank credit memorandum</p>
+                  <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-semibold flex items-center justify-between shadow-xs">
+                    <span>{languages.find(l => l.code === (formData.language || language))?.label || 'English'} ({(formData.language || language).toUpperCase()})</span>
+                    <span className="text-[10px] font-bold text-sovereign-800 bg-sovereign-100/80 px-2 py-0.5 rounded-md font-mono">Global Default</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">Synchronized with platform language selector in top navbar</p>
                 </div>
               </div>
             </div>
