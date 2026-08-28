@@ -4,6 +4,7 @@ auth_dependency.py — FastAPI Authentication Dependency for Firebase ID Token V
 
 from __future__ import annotations
 import logging
+import hashlib
 from typing import Optional, Any
 from dataclasses import dataclass, field
 from fastapi import Header, HTTPException, status
@@ -11,10 +12,17 @@ from pydantic import BaseModel
 
 try:
     from app.core.firebase_admin_client import firebase_auth
+    from app.database import db_manager
 except ImportError:
     from backend.app.core.firebase_admin_client import firebase_auth
+    from backend.app.database import db_manager
 
 logger = logging.getLogger("udyam_saathi.auth.dependency")
+
+
+def token_fingerprint(token: str) -> str:
+    """Return a non-reversible identifier suitable for a revoked-session store."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 class AuthenticatedUser(BaseModel):
@@ -66,7 +74,7 @@ def _verify_token_claims(token: str) -> dict[str, Any]:
 
     # 2. Real Firebase ID Token Verification
     try:
-        decoded_claims = firebase_auth.verify_id_token(token)
+        decoded_claims = firebase_auth.verify_id_token(token, check_revoked=True)
         return decoded_claims
     except Exception as e:
         err_msg = str(e)
@@ -86,6 +94,12 @@ async def get_current_user(
     Extracts Bearer token, verifies signature and claims, and returns an AuthenticatedUser.
     """
     token = _extract_bearer_token(authorization)
+    if await db_manager.is_session_revoked(token_fingerprint(token)):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication session has been revoked. Please sign in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     claims = _verify_token_claims(token)
 
     uid = claims.get("uid") or claims.get("user_id") or claims.get("sub")

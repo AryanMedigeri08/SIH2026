@@ -36,7 +36,8 @@ export const BusinessProvider = ({ children }) => {
     setBusinessError(null);
     setLoadingBusinesses(false);
 
-    // Remove any user-specific active business keys from localStorage
+    // Active selection is only a convenience; remove it on logout so no
+    // previous enterprise can be restored in a later user's UI.
     try {
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith(ACTIVE_BIZ_KEY_PREFIX)) {
@@ -101,6 +102,9 @@ export const BusinessProvider = ({ children }) => {
       }
     } catch (err) {
       console.error("Failed to load user businesses:", err);
+      // A 401 means the session ended remotely/revoked.  Do not leave stale
+      // business, report, or DPR content rendered while the route guard reacts.
+      if (err.status === 401) clearBusinessState();
       setBusinessError(err.message || "Failed to load businesses.");
       return { list: [], hasBusinesses: false, activeBusiness: null };
     } finally {

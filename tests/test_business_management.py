@@ -24,6 +24,7 @@ for p in (str(CORE_DIR), str(BACKEND_DIR), str(ROOT_DIR)):
 
 from fastapi.testclient import TestClient
 from backend.app.main import app
+from backend.app.database import db_manager
 from backend.app.models.schemas import compute_business_status, BusinessStatus
 
 client = TestClient(app)
@@ -128,6 +129,7 @@ ENTERPRISE_B1_PAYLOAD = {
 
 def test_1_enterprise_persistence_across_logout_and_login():
     """REQUIRED TEST 1: Enterprise Persistence After Logout and Login."""
+    global USER_A_HEADERS
     print("\n--- TEST 1: Enterprise Persistence Across Logout and Login ---")
     
     # 1. User A creates Enterprise A1 & A2
@@ -151,12 +153,17 @@ def test_1_enterprise_persistence_across_logout_and_login():
     assert logout_resp.status_code == 200
     print("  ✓ User A successfully logged out (session terminated on backend)")
 
-    # 3. Unauthenticated access fails
+    # 3. The logged-out token and unauthenticated calls both fail.
     unauth_resp = client.get("/api/v2/projects")
     assert unauth_resp.status_code == 401
+    revoked_resp = client.get("/api/v2/projects", headers=USER_A_HEADERS)
+    assert revoked_resp.status_code == 401
     print("  ✓ Unauthenticated access after logout correctly returns 401 Unauthorized")
 
     # 4. User A logs in again with the same credentials
+    # A real Firebase sign-in obtains a fresh ID token.  The test-token suffix
+    # models that newly issued session rather than reusing the revoked bearer.
+    USER_A_HEADERS = {"Authorization": f"Bearer test-token-{USER_A_UID}:{USER_A_EMAIL}:relogin-1"}
     session_sync = client.post("/api/v2/auth/session", headers=USER_A_HEADERS)
     assert session_sync.status_code == 200
 
@@ -200,6 +207,7 @@ def test_2_returning_user_vs_new_user_flow(id_1: str):
 
 def test_3_logout_clears_authenticated_state():
     """REQUIRED TEST 3: Logout Invalidation and State Clearing."""
+    global USER_A_HEADERS
     print("\n--- TEST 3: Logout Invalidation and Session Cleanup ---")
     
     # 1. User A logs out
@@ -211,7 +219,13 @@ def test_3_logout_clears_authenticated_state():
     # 2. Subsequent requests with empty authorization fail
     resp_empty = client.get("/api/v2/projects", headers={"Authorization": ""})
     assert resp_empty.status_code == 401
+    revoked = client.get("/api/v2/projects", headers=USER_A_HEADERS)
+    assert revoked.status_code == 401
     print("  ✓ Empty authorization header returns 401 Unauthorized")
+
+    # Restore a new session for the remaining authorized tests.
+    USER_A_HEADERS = {"Authorization": f"Bearer test-token-{USER_A_UID}:{USER_A_EMAIL}:relogin-2"}
+    assert client.post("/api/v2/auth/session", headers=USER_A_HEADERS).status_code == 200
 
 
 def test_4_protected_api_access_after_logout(id_1: str):
@@ -287,6 +301,7 @@ def test_6_cross_user_data_isolation(id_1: str):
     assert resp_b.status_code == 201
     p_b1 = resp_b.json()
     id_b1 = p_b1["project_id"]
+    report_b1 = p_b1["analysis_result"]["report"]["report_id"]
     print(f"  ✓ User B created Enterprise B1 ({id_b1})")
 
     # 2. User A cannot view User B's enterprise list
@@ -320,6 +335,13 @@ def test_6_cross_user_data_isolation(id_1: str):
     assert idor_del.status_code == 403
     print("  ✓ User A DELETE User B's enterprise -> 403 Forbidden")
 
+    # Generated report URLs are also protected and owner-scoped; a known ID
+    # cannot be used to bypass the project ownership boundary.
+    assert client.get(f"/api/v2/feasibility/{report_b1}").status_code == 401
+    report_idor = client.get(f"/api/v2/feasibility/{report_b1}", headers=USER_A_HEADERS)
+    assert report_idor.status_code == 404
+    print("  ✓ User A cannot retrieve User B's generated report by manipulated report ID")
+
     # 8. User B CAN delete their own enterprise
     del_b = client.delete(f"/api/v2/projects/{id_b1}", headers=USER_B_HEADERS)
     assert del_b.status_code == 200
@@ -339,6 +361,27 @@ def test_7_direct_resource_access_enforcement():
     print("  ✓ Non-existent status query returns 404 Not Found")
 
 
+def test_8_durable_backend_fallback_persistence():
+    """Proves offline persistence is durable, not merely an in-process dictionary."""
+    print("\n--- TEST 8: Durable Backend Persistence Without PostgreSQL ---")
+    uid = "usr_durable_store_404"
+    headers = {"Authorization": f"Bearer test-token-{uid}:durable@udyam.gov.in:session-1"}
+    payload = {**ENTERPRISE_A1_PAYLOAD, "business_name": "Durable SQLite Enterprise"}
+
+    # Entering TestClient executes FastAPI lifespan, which selects SQLite when
+    # DATABASE_URL is absent. Remove the process cache after creation and prove
+    # that the API reloads the enterprise from the backend store.
+    with TestClient(app) as persistent_client:
+        created = persistent_client.post("/api/v2/projects", json=payload, headers=headers)
+        assert created.status_code == 201
+        project_id = created.json()["project_id"]
+        db_manager.in_memory_projects.clear()
+        restored = persistent_client.get(f"/api/v2/projects/{project_id}", headers=headers)
+        assert restored.status_code == 200
+        assert restored.json()["business_name"] == "Durable SQLite Enterprise"
+    print("  ✓ Enterprise reloaded from durable SQLite backend after memory cache removal")
+
+
 if __name__ == "__main__":
     print("=" * 80)
     print("RUNNING ENTERPRISE PERSISTENCE, AUTHENTICATION & ACCESS CONTROL TEST SUITE")
@@ -351,7 +394,8 @@ if __name__ == "__main__":
     id_3 = test_5_multiple_enterprise_restoration_and_switching(id_1, id_2)
     test_6_cross_user_data_isolation(id_1)
     test_7_direct_resource_access_enforcement()
+    test_8_durable_backend_fallback_persistence()
     
     print("\n" + "=" * 80)
-    print("ALL 7 REQUIRED TESTS PASSED WITH 100% SUCCESS!")
+    print("ALL 8 REQUIRED TESTS PASSED WITH 100% SUCCESS!")
     print("=" * 80)

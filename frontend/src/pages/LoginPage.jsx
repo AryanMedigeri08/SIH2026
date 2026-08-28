@@ -54,7 +54,7 @@ export const LoginPage = () => {
 
     try {
       const authRes = await loginWithEmail(email.trim(), password);
-      const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
+      const userToken = authRes?.token || (authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null);
       const target = await resolveTargetRoute(userToken);
       navigate(target, { replace: true });
     } catch (err) {
@@ -69,7 +69,7 @@ export const LoginPage = () => {
     setIsSubmitting(true);
     try {
       const authRes = await loginWithGoogle();
-      const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
+      const userToken = authRes?.token || (authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null);
       const target = await resolveTargetRoute(userToken);
       navigate(target, { replace: true });
     } catch (err) {
@@ -84,7 +84,7 @@ export const LoginPage = () => {
     setIsSubmitting(true);
     try {
       const authRes = await loginAsDemo("evaluator@sih.gov.in", "SIH Jury Evaluator");
-      const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
+      const userToken = authRes?.token || (authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null);
       const target = await resolveTargetRoute(userToken);
       navigate(target, { replace: true });
     } catch (err) {

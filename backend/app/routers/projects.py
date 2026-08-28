@@ -145,7 +145,7 @@ async def create_and_analyze_project(
         "dpr": dpr_doc.to_dict(),
     }
 
-    await db_manager.save_feasibility_report(report.report_id, analysis_payload)
+    await db_manager.save_feasibility_report(report.report_id, analysis_payload, current_user.uid)
     updated = await db_manager.update_project_analysis(record["project_id"], analysis_payload)
     if not updated:
         raise HTTPException(status_code=500, detail="Failed to persist analysis result.")
@@ -234,7 +234,7 @@ async def analyze_and_persist_project(
         "dpr": dpr_doc.to_dict(),
     }
 
-    await db_manager.save_feasibility_report(report.report_id, analysis_payload)
+    await db_manager.save_feasibility_report(report.report_id, analysis_payload, current_user.uid)
     updated = await db_manager.update_project_analysis(project_id, analysis_payload)
     if not updated:
         raise HTTPException(status_code=500, detail="Failed to update project analysis state.")

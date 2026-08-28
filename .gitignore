@@ -78,5 +78,6 @@ Desktop.ini
 
 # Logs & Temporary Media Storage
 *.log
+*.sqlite3
 .tempmediaStorage/
 browser/scratchpad_*.md

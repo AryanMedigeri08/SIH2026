@@ -9,7 +9,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, Any
-from fastapi import APIRouter, Query, HTTPException, Response
+from fastapi import APIRouter, Query, HTTPException, Response, Depends
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 logger = logging.getLogger("udyam_saathi.feasibility")
@@ -31,6 +31,7 @@ from amenities_client import fetch_village_amenities
 
 from app.config import settings
 from app.database import db_manager
+from app.core.auth_dependency import get_current_user, AuthenticatedUser
 from app.models.schemas import UserInput, FeasibilityReport
 
 router = APIRouter(prefix="/feasibility", tags=["Feasibility Analysis & DPR"])
@@ -339,7 +340,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
 
 
 @router.post("/generate", response_model=FeasibilityReport)
-async def generate_feasibility(input_data: UserInput):
+async def generate_feasibility(input_data: UserInput, current_user: AuthenticatedUser = Depends(get_current_user)):
     """
     Executes full multi-tier enterprise feasibility pipeline.
     Stores and returns the complete FeasibilityReport payload.
@@ -350,16 +351,16 @@ async def generate_feasibility(input_data: UserInput):
         await db_manager.save_feasibility_report(report.report_id, {
             "report": report.model_dump(mode="json"),
             "dpr": dpr.to_dict(),
-        })
+        }, current_user.uid)
         return report
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Feasibility pipeline error: {str(e)}")
 
 
 @router.get("/{report_id}", response_model=FeasibilityReport)
-async def get_feasibility(report_id: str):
+async def get_feasibility(report_id: str, current_user: AuthenticatedUser = Depends(get_current_user)):
     """Retrieves cached feasibility report by ID."""
-    cached = await db_manager.get_feasibility_report(report_id)
+    cached = await db_manager.get_feasibility_report(report_id, current_user.uid)
     if not cached:
         raise HTTPException(status_code=404, detail=f"Feasibility report '{report_id}' not found.")
     return FeasibilityReport(**cached["report"])
@@ -369,6 +370,7 @@ async def get_feasibility(report_id: str):
 async def generate_direct_dpr(
     input_data: UserInput,
     format: str = Query("json", description="Output format: json | markdown | html"),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Directly transforms user input into official 7-Section Bank DPR."""
     try:
@@ -387,9 +389,10 @@ async def generate_direct_dpr(
 async def get_report_dpr(
     report_id: str,
     format: str = Query("json", description="Output format: json | markdown | html"),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Retrieves 7-Section Bank DPR for an existing feasibility report."""
-    cached = await db_manager.get_feasibility_report(report_id)
+    cached = await db_manager.get_feasibility_report(report_id, current_user.uid)
     if not cached:
         raise HTTPException(status_code=404, detail=f"Report '{report_id}' not found.")
 

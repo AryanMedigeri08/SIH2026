@@ -5,12 +5,12 @@ auth.py — REST API Router for User Authentication, Firebase Session Sync, and 
 from __future__ import annotations
 import logging
 from typing import Optional, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from fastapi.responses import JSONResponse
 
 from app.database import db_manager
 from app.models.schemas import UserRegisterRequest, UserUpdateRequest, UserProfileResponse
-from app.core.auth_dependency import get_current_user, AuthenticatedUser
+from app.core.auth_dependency import get_current_user, AuthenticatedUser, token_fingerprint
 from app.core.firebase_admin_client import firebase_auth
 
 logger = logging.getLogger("udyam_saathi.routers.auth")
@@ -169,11 +169,25 @@ async def update_my_profile(
 @router.post("/logout", status_code=status.HTTP_200_OK)
 async def logout_user(
     current_user: AuthenticatedUser = Depends(get_current_user),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ):
     """
     Logs out the user, invalidates active sessions, and confirms termination on backend.
     """
-    logger.info(f"User '{current_user.uid}' ({current_user.email}) logged out.")
+    # Firebase ID tokens are otherwise stateless.  Record this exact bearer token
+    # as revoked so it cannot continue to read protected enterprise data after
+    # logout (the client receives a newly issued token on the next sign-in).
+    token = authorization.strip().split(" ", 1)[1].strip() if authorization and " " in authorization else ""
+    if token:
+        await db_manager.revoke_session(token_fingerprint(token), current_user.uid)
+    try:
+        # Firebase refresh-token revocation protects real deployments.  The
+        # local deterministic test-token flow is covered by the session store.
+        if not token.startswith(("test-token-", "mock-token-")):
+            firebase_auth.revoke_refresh_tokens(current_user.uid)
+    except Exception as exc:
+        logger.warning("Firebase refresh-token revocation failed for %s: %s", current_user.uid, exc)
+    logger.info(f"User '{current_user.uid}' ({current_user.email}) logged out and session revoked.")
     return {
         "status": "success",
         "message": "Session terminated successfully.",

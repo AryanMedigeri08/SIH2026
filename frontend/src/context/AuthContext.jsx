@@ -30,11 +30,11 @@ export const AuthProvider = ({ children }) => {
   const [isDemoMode, setIsDemoMode] = useState(false);
 
   // Helper to create sovereign mock user
-  const createSovereignUser = (uid, email, name) => ({
+  const createSovereignUser = (uid, email, name, sessionToken = null) => ({
     uid,
     email,
     displayName: name || email?.split("@")[0] || "Entrepreneur",
-    getIdToken: async () => `test-token-${uid}:${email}`,
+    getIdToken: async () => sessionToken || `test-token-${uid}:${email}`,
   });
 
   // Sync session with backend
@@ -72,7 +72,7 @@ export const AuthProvider = ({ children }) => {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          const devUser = createSovereignUser(parsed.uid, parsed.email, parsed.name);
+          const devUser = createSovereignUser(parsed.uid, parsed.email, parsed.name, parsed.token);
           setFirebaseUser(devUser);
           setToken(parsed.token);
           setIsDemoMode(true);
@@ -113,10 +113,13 @@ export const AuthProvider = ({ children }) => {
     // Deterministic slug UID from email
     const safeSlug = cleanEmail.replace(/[^a-z0-9]/g, "_").slice(0, 24);
     const uid = `usr_${safeSlug}`;
-    const devToken = `test-token-${uid}:${cleanEmail}`;
+    // A fresh opaque suffix makes a new local sign-in distinguishable from a
+    // previously logged-out session. It is authentication state, not business
+    // data, and is revoked by the backend on logout.
+    const devToken = `test-token-${uid}:${cleanEmail}:${crypto.randomUUID()}`;
     const displayName = name || profileData.name || cleanEmail.split("@")[0] || "Entrepreneur";
 
-    const devUser = createSovereignUser(uid, cleanEmail, displayName);
+    const devUser = createSovereignUser(uid, cleanEmail, displayName, devToken);
     setFirebaseUser(devUser);
     setToken(devToken);
     setIsDemoMode(true);
@@ -140,12 +143,12 @@ export const AuthProvider = ({ children }) => {
         additional_business_details: profileData.additional_business_details || null,
       });
       setUserProfile(profile);
-      return { user: devUser, profile };
+      return { user: devUser, profile, token: devToken };
     } catch (e) {
       // If already registered, call syncSession
       const profile = await authApi.syncSession(devToken);
       setUserProfile(profile);
-      return { user: devUser, profile };
+      return { user: devUser, profile, token: devToken };
     }
   };
 
@@ -170,7 +173,7 @@ export const AuthProvider = ({ children }) => {
         additional_business_details: profileData.additional_business_details || null,
       });
       setUserProfile(profile);
-      return { user: cred.user, profile };
+      return { user: cred.user, profile, token: idToken };
     } catch (err) {
       // If API key is not valid or network/quota error, automatically use sovereign token auth
       const isApiKeyError =
@@ -204,7 +207,7 @@ export const AuthProvider = ({ children }) => {
 
       const profile = await authApi.syncSession(idToken);
       setUserProfile(profile);
-      return { user: cred.user, profile };
+      return { user: cred.user, profile, token: idToken };
     } catch (err) {
       const isApiKeyError =
         err.code === "auth/api-key-not-valid" ||

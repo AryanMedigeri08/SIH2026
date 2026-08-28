@@ -7,6 +7,7 @@ import json
 import logging
 import time
 import uuid
+import sqlite3
 from datetime import datetime, timezone
 from typing import Optional, Union, Any
 from pathlib import Path
@@ -103,6 +104,7 @@ class DatabaseManager:
 
     def __init__(self):
         self.pool = None
+        self.sqlite: Optional[sqlite3.Connection] = None
         self.in_memory_users: dict[str, dict[str, Any]] = {}
         self.in_memory_projects: dict[str, dict[str, Any]] = {}
         self.in_memory_reports: dict[str, dict[str, Any]] = {}
@@ -140,11 +142,29 @@ class DatabaseManager:
                 logger.info("Connected to Neon PostgreSQL pool successfully.")
                 await self._init_tables()
             except Exception as e:
-                logger.warning(f"PostgreSQL connection failed ({e}); operating in in-memory mode.")
+                logger.warning(f"PostgreSQL connection failed ({e}); falling back to durable SQLite storage.")
                 self.pool = None
+                self._initialize_sqlite()
         else:
-            logger.info("DATABASE_URL not set; running with fast in-memory store.")
-            self.pool = None
+            # A durable local fallback is required for development/offline use;
+            # enterprise records must never be tied only to process memory.
+            self._initialize_sqlite()
+
+    def _initialize_sqlite(self):
+        db_path = Path(__file__).resolve().parent / "data" / "udyam_saathi.sqlite3"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.sqlite = sqlite3.connect(str(db_path), check_same_thread=False)
+        self.sqlite.row_factory = sqlite3.Row
+        self.sqlite.executescript("""
+            PRAGMA foreign_keys = ON;
+            CREATE TABLE IF NOT EXISTS users (firebase_uid TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, gender TEXT, auth_provider TEXT, phone TEXT, additional_business_details TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, last_login_at TEXT);
+            CREATE TABLE IF NOT EXISTS projects (project_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(firebase_uid) ON DELETE CASCADE);
+            CREATE INDEX IF NOT EXISTS idx_projects_user_id_sqlite ON projects(user_id);
+            CREATE TABLE IF NOT EXISTS feasibility_reports (report_id TEXT PRIMARY KEY, user_id TEXT, payload TEXT NOT NULL, created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS revoked_sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, revoked_at TEXT NOT NULL);
+        """)
+        self.sqlite.commit()
+        logger.info("DATABASE_URL not set; using durable SQLite fallback at %s.", db_path)
 
     async def _init_tables(self):
         if not self.pool:
@@ -223,9 +243,22 @@ class DatabaseManager:
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS feasibility_reports (
                         report_id VARCHAR(64) PRIMARY KEY,
+                        user_id TEXT REFERENCES users(firebase_uid) ON DELETE CASCADE,
                         report_payload JSONB NOT NULL,
                         dpr_payload JSONB,
                         created_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                    ALTER TABLE feasibility_reports ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(firebase_uid) ON DELETE CASCADE;
+                    CREATE INDEX IF NOT EXISTS idx_feasibility_reports_user_id ON feasibility_reports(user_id);
+                """)
+
+                # Revoked bearer fingerprints make server-side logout effective
+                # for both Firebase sessions and the local test-token flow.
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS revoked_sessions (
+                        token_hash TEXT PRIMARY KEY,
+                        user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+                        revoked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     );
                 """)
                 logger.info("PostgreSQL schema & tables (users, projects, reports) verified/initialized successfully.")
@@ -236,6 +269,31 @@ class DatabaseManager:
         if self.pool:
             await self.pool.close()
             self.pool = None
+        if self.sqlite:
+            self.sqlite.close()
+            self.sqlite = None
+
+    async def revoke_session(self, token_hash: str, user_id: str) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        if not hasattr(self, "revoked_sessions"):
+            self.revoked_sessions: set[str] = set()
+        self.revoked_sessions.add(token_hash)
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                await conn.execute("INSERT INTO revoked_sessions (token_hash, user_id) VALUES ($1, $2) ON CONFLICT (token_hash) DO NOTHING", token_hash, user_id)
+        elif self.sqlite:
+            self.sqlite.execute("INSERT OR IGNORE INTO revoked_sessions (token_hash, user_id, revoked_at) VALUES (?, ?, ?)", (token_hash, user_id, now))
+            self.sqlite.commit()
+
+    async def is_session_revoked(self, token_hash: str) -> bool:
+        if token_hash in getattr(self, "revoked_sessions", set()):
+            return True
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                return bool(await conn.fetchval("SELECT 1 FROM revoked_sessions WHERE token_hash = $1", token_hash))
+        if self.sqlite:
+            return self.sqlite.execute("SELECT 1 FROM revoked_sessions WHERE token_hash = ?", (token_hash,)).fetchone() is not None
+        return False
 
     # --- User Management CRUD ---
     async def upsert_user(
@@ -273,6 +331,14 @@ class DatabaseManager:
 
         self.in_memory_users[firebase_uid] = user_record
 
+        if self.sqlite:
+            existing = self.sqlite.execute("SELECT created_at FROM users WHERE firebase_uid = ?", (firebase_uid,)).fetchone()
+            if existing:
+                user_record["created_at"] = existing["created_at"]
+            self.sqlite.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(firebase_uid) DO UPDATE SET email=excluded.email, name=excluded.name, gender=excluded.gender, auth_provider=excluded.auth_provider, phone=COALESCE(excluded.phone, users.phone), additional_business_details=COALESCE(excluded.additional_business_details, users.additional_business_details), updated_at=excluded.updated_at, last_login_at=excluded.last_login_at", (firebase_uid, user_record["email"], user_record["name"], user_record["gender"], user_record["auth_provider"], user_record["phone"], user_record["additional_business_details"], user_record["created_at"], now, now))
+            self.sqlite.commit()
+            return user_record
+
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
@@ -304,6 +370,12 @@ class DatabaseManager:
         return user_record
 
     async def get_user(self, firebase_uid: str) -> Optional[dict[str, Any]]:
+        if self.sqlite:
+            row = self.sqlite.execute("SELECT * FROM users WHERE firebase_uid = ?", (firebase_uid,)).fetchone()
+            if row:
+                rec = dict(row)
+                self.in_memory_users[firebase_uid] = rec
+                return rec
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
@@ -372,6 +444,8 @@ class DatabaseManager:
         return True
 
     async def get_user_projects_count(self, firebase_uid: str) -> int:
+        if self.sqlite:
+            return int(self.sqlite.execute("SELECT COUNT(*) FROM projects WHERE user_id = ?", (firebase_uid,)).fetchone()[0])
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
@@ -728,6 +802,24 @@ class DatabaseManager:
         }
         self.in_memory_projects[project_id] = record
 
+        if self.sqlite:
+            # Keep the complete enterprise and generated analysis payload in a
+            # transactionally durable store when PostgreSQL is unavailable.
+            await self.upsert_user(
+                firebase_uid=user_id,
+                email=f"{user_id}@udyam.gov.in" if "@" not in user_id else user_id,
+                name=promoter_name or "Entrepreneur",
+            )
+            existing = self.sqlite.execute("SELECT created_at FROM projects WHERE project_id = ?", (project_id,)).fetchone()
+            if existing:
+                record["created_at"] = existing["created_at"]
+            self.sqlite.execute(
+                "INSERT INTO projects (project_id, user_id, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(project_id) DO UPDATE SET user_id=excluded.user_id, payload=excluded.payload, updated_at=excluded.updated_at",
+                (project_id, user_id, json.dumps(record), record["created_at"], now),
+            )
+            self.sqlite.commit()
+            return record
+
         if self.pool:
             try:
                 # Ensure user exists before inserting foreign key
@@ -796,6 +888,12 @@ class DatabaseManager:
         return record
 
     async def get_project(self, project_id: str) -> Optional[dict[str, Any]]:
+        if self.sqlite:
+            row = self.sqlite.execute("SELECT payload FROM projects WHERE project_id = ?", (project_id,)).fetchone()
+            if row:
+                rec = json.loads(row["payload"])
+                self.in_memory_projects[project_id] = rec
+                return rec
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
@@ -820,6 +918,15 @@ class DatabaseManager:
         return self.in_memory_projects.get(project_id)
 
     async def list_projects(self, user_id: str = "guest_user") -> list[dict[str, Any]]:
+        if self.sqlite:
+            if user_id == "all":
+                rows = self.sqlite.execute("SELECT payload FROM projects ORDER BY created_at DESC LIMIT 50").fetchall()
+            else:
+                rows = self.sqlite.execute("SELECT payload FROM projects WHERE user_id = ? ORDER BY created_at DESC LIMIT 50", (user_id,)).fetchall()
+            results = [json.loads(row["payload"]) for row in rows]
+            for rec in results:
+                self.in_memory_projects[rec["project_id"]] = rec
+            return results
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
@@ -856,6 +963,18 @@ class DatabaseManager:
             self.in_memory_projects[project_id]["status"] = "analyzed"
             self.in_memory_projects[project_id]["updated_at"] = now
 
+        if self.sqlite:
+            current = await self.get_project(project_id)
+            if not current:
+                return None
+            current["analysis_result"] = analysis_result
+            current["status"] = "analyzed"
+            current["updated_at"] = now
+            self.in_memory_projects[project_id] = current
+            self.sqlite.execute("UPDATE projects SET payload = ?, updated_at = ? WHERE project_id = ?", (json.dumps(current), now, project_id))
+            self.sqlite.commit()
+            return current
+
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
@@ -874,6 +993,14 @@ class DatabaseManager:
             if user_id is None or self.in_memory_projects[project_id].get("user_id") == user_id:
                 del self.in_memory_projects[project_id]
 
+        if self.sqlite:
+            if user_id:
+                self.sqlite.execute("DELETE FROM projects WHERE project_id = ? AND user_id = ?", (project_id, user_id))
+            else:
+                self.sqlite.execute("DELETE FROM projects WHERE project_id = ?", (project_id,))
+            self.sqlite.commit()
+            return True
+
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
@@ -887,34 +1014,56 @@ class DatabaseManager:
         return True
 
     # --- Feasibility Report Cache Store ---
-    async def save_feasibility_report(self, report_id: str, report_data: dict[str, Any]) -> None:
+    async def save_feasibility_report(self, report_id: str, report_data: dict[str, Any], user_id: Optional[str] = None) -> None:
         self.in_memory_reports[report_id] = report_data
+
+        if self.sqlite:
+            self.sqlite.execute("INSERT INTO feasibility_reports (report_id, user_id, payload, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(report_id) DO UPDATE SET user_id=excluded.user_id, payload=excluded.payload", (report_id, user_id, json.dumps(report_data), datetime.now(timezone.utc).isoformat()))
+            self.sqlite.commit()
+            return
 
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
                     await conn.execute("""
-                        INSERT INTO feasibility_reports (report_id, report_payload, dpr_payload)
-                        VALUES ($1, $2, $3)
+                        INSERT INTO feasibility_reports (report_id, user_id, report_payload, dpr_payload)
+                        VALUES ($1, $2, $3, $4)
                         ON CONFLICT (report_id) DO UPDATE SET
+                            user_id = EXCLUDED.user_id,
                             report_payload = EXCLUDED.report_payload,
                             dpr_payload = EXCLUDED.dpr_payload
                     """,
                     report_id,
+                    user_id,
                     json.dumps(report_data.get("report", {})),
                     json.dumps(report_data.get("dpr", {})),
                     )
             except Exception as e:
                 logger.warning(f"Could not save feasibility report to PostgreSQL: {e}")
 
-    async def get_feasibility_report(self, report_id: str) -> Optional[dict[str, Any]]:
+    async def get_feasibility_report(self, report_id: str, user_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         if report_id in self.in_memory_reports:
-            return self.in_memory_reports[report_id]
+            payload = self.in_memory_reports[report_id]
+            if user_id is None or payload.get("_owner_id") == user_id:
+                return payload
+
+        if self.sqlite:
+            row = self.sqlite.execute("SELECT user_id, payload FROM feasibility_reports WHERE report_id = ?", (report_id,)).fetchone()
+            if row:
+                if user_id is not None and row["user_id"] != user_id:
+                    return None
+                payload = json.loads(row["payload"])
+                payload["_owner_id"] = row["user_id"]
+                self.in_memory_reports[report_id] = payload
+                return payload
 
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
-                    row = await conn.fetchrow("SELECT report_payload, dpr_payload FROM feasibility_reports WHERE report_id = $1", report_id)
+                    if user_id is None:
+                        row = await conn.fetchrow("SELECT report_payload, dpr_payload FROM feasibility_reports WHERE report_id = $1", report_id)
+                    else:
+                        row = await conn.fetchrow("SELECT report_payload, dpr_payload FROM feasibility_reports WHERE report_id = $1 AND user_id = $2", report_id, user_id)
                     if row:
                         rep = json.loads(row["report_payload"]) if isinstance(row["report_payload"], str) else row["report_payload"]
                         dpr = json.loads(row["dpr_payload"]) if isinstance(row["dpr_payload"], str) else row["dpr_payload"]
