@@ -74,6 +74,12 @@ def _verify_token_claims(token: str) -> dict[str, Any]:
 
     # 2. Real Firebase ID Token Verification
     try:
+        try:
+            from app.core.firebase_admin_client import init_firebase_admin
+        except ImportError:
+            from backend.app.core.firebase_admin_client import init_firebase_admin
+        init_firebase_admin()
+
         decoded_claims = firebase_auth.verify_id_token(token, check_revoked=True)
         return decoded_claims
     except Exception as e:

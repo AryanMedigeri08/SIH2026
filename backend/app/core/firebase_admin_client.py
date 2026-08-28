@@ -50,16 +50,30 @@ def init_firebase_admin() -> Optional[firebase_admin.App]:
             raise ValueError(f"Invalid FIREBASE_SERVICE_ACCOUNT_JSON: {e}")
 
     elif path_str and path_str.strip():
-        resolved_path = Path(path_str.strip())
-        if resolved_path.exists():
+        raw_path = Path(path_str.strip())
+        candidates = [
+            raw_path,
+            Path.cwd() / raw_path,
+            Path.cwd().parent / raw_path,
+            Path(__file__).resolve().parent.parent.parent.parent / raw_path,
+            Path(__file__).resolve().parent.parent.parent / raw_path,
+            Path(__file__).resolve().parent / raw_path,
+        ]
+        resolved_path = None
+        for candidate in candidates:
+            if candidate.exists() and candidate.is_file():
+                resolved_path = candidate
+                break
+
+        if resolved_path is not None:
             try:
                 cred = credentials.Certificate(str(resolved_path))
                 logger.info(f"🔐 Initializing Firebase Admin via service account file: {resolved_path}")
             except Exception as e:
-                logger.error(f"❌ Failed to load credentials from {path_str}: {e}")
+                logger.error(f"❌ Failed to load credentials from {resolved_path}: {e}")
                 raise ValueError(f"Invalid FIREBASE_SERVICE_ACCOUNT_PATH: {e}")
         else:
-            logger.error(f"❌ Service account file not found at path: {path_str}")
+            logger.error(f"❌ Service account file not found at any candidate path for: {path_str}")
             raise FileNotFoundError(f"Firebase service account file not found: {path_str}")
 
     if cred is not None:

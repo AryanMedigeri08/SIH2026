@@ -146,19 +146,19 @@ def test_1_enterprise_persistence_across_logout_and_login():
     # Verify both exist
     list_before = client.get("/api/v2/projects", headers=USER_A_HEADERS).json()
     assert len(list_before) >= 2
-    print(f"  ✓ User A created 2 enterprises: '{p1['business_name']}' ({id_1}) & '{p2['business_name']}' ({id_2})")
+    print(f"  [PASS] User A created 2 enterprises: '{p1['business_name']}' ({id_1}) & '{p2['business_name']}' ({id_2})")
 
     # 2. User A logs out
     logout_resp = client.post("/api/v2/auth/logout", headers=USER_A_HEADERS)
     assert logout_resp.status_code == 200
-    print("  ✓ User A successfully logged out (session terminated on backend)")
+    print("  [PASS] User A successfully logged out (session terminated on backend)")
 
     # 3. The logged-out token and unauthenticated calls both fail.
     unauth_resp = client.get("/api/v2/projects")
     assert unauth_resp.status_code == 401
     revoked_resp = client.get("/api/v2/projects", headers=USER_A_HEADERS)
     assert revoked_resp.status_code == 401
-    print("  ✓ Unauthenticated access after logout correctly returns 401 Unauthorized")
+    print("  [PASS] Unauthenticated access after logout correctly returns 401 Unauthorized")
 
     # 4. User A logs in again with the same credentials
     # A real Firebase sign-in obtains a fresh ID token.  The test-token suffix
@@ -179,7 +179,7 @@ def test_1_enterprise_persistence_across_logout_and_login():
     assert restored_1["business_name"] == ENTERPRISE_A1_PAYLOAD["business_name"]
     assert restored_1["analysis_result"]["report"]["report_id"] is not None
     assert restored_1["business_status"]["code"] in ["healthy", "reconsideration", "critical"]
-    print("  ✓ Both enterprises and complete generated analytical data restored after re-login")
+    print("  [PASS] Both enterprises and complete generated analytical data restored after re-login")
 
     return id_1, id_2
 
@@ -194,7 +194,7 @@ def test_2_returning_user_vs_new_user_flow(id_1: str):
     projects_returning = resp_returning.json()
     assert len(projects_returning) > 0
     # Expected UI action: Load Dashboard with existing enterprises; DO NOT show wizard
-    print(f"  ✓ Returning User identified with {len(projects_returning)} enterprise(s) -> Dashboard Selected (No Wizard)")
+    print(f"  [PASS] Returning User identified with {len(projects_returning)} enterprise(s) -> Dashboard Selected (No Wizard)")
 
     # 2. Brand new user with 0 enterprises
     resp_new = client.get("/api/v2/projects", headers=USER_NEW_HEADERS)
@@ -202,7 +202,7 @@ def test_2_returning_user_vs_new_user_flow(id_1: str):
     projects_new = resp_new.json()
     assert len(projects_new) == 0
     # Expected UI action: Guide new user into Wizard creation flow
-    print("  ✓ New User identified with 0 enterprises -> Wizard / Registration Flow Available")
+    print("  [PASS] New User identified with 0 enterprises -> Wizard / Registration Flow Available")
 
 
 def test_3_logout_clears_authenticated_state():
@@ -214,14 +214,14 @@ def test_3_logout_clears_authenticated_state():
     logout_resp = client.post("/api/v2/auth/logout", headers=USER_A_HEADERS)
     assert logout_resp.status_code == 200
     assert logout_resp.json()["status"] == "success"
-    print("  ✓ Logout endpoint executed with success status")
+    print("  [PASS] Logout endpoint executed with success status")
 
     # 2. Subsequent requests with empty authorization fail
     resp_empty = client.get("/api/v2/projects", headers={"Authorization": ""})
     assert resp_empty.status_code == 401
     revoked = client.get("/api/v2/projects", headers=USER_A_HEADERS)
     assert revoked.status_code == 401
-    print("  ✓ Empty authorization header returns 401 Unauthorized")
+    print("  [PASS] Empty authorization header returns 401 Unauthorized")
 
     # Restore a new session for the remaining authorized tests.
     USER_A_HEADERS = {"Authorization": f"Bearer test-token-{USER_A_UID}:{USER_A_EMAIL}:relogin-2"}
@@ -252,7 +252,7 @@ def test_4_protected_api_access_after_logout(id_1: str):
             resp = client.delete(url)
         
         assert resp.status_code == 401, f"Expected 401 for {method} {url}, got {resp.status_code}"
-        print(f"  ✓ {method} {url} without credentials -> 401 Unauthorized (Protected)")
+        print(f"  [PASS] {method} {url} without credentials -> 401 Unauthorized (Protected)")
 
 
 def test_5_multiple_enterprise_restoration_and_switching(id_1: str, id_2: str):
@@ -270,7 +270,7 @@ def test_5_multiple_enterprise_restoration_and_switching(id_1: str, id_2: str):
     assert list_resp.status_code == 200
     all_3 = list_resp.json()
     assert len(all_3) >= 3
-    print(f"  ✓ User A successfully retrieved all {len(all_3)} enterprises")
+    print(f"  [PASS] User A successfully retrieved all {len(all_3)} enterprises")
 
     # 3. Verify switching: Fetch Enterprise 1 vs Enterprise 2 vs Enterprise 3
     e1 = client.get(f"/api/v2/projects/{id_1}", headers=USER_A_HEADERS).json()
@@ -281,13 +281,13 @@ def test_5_multiple_enterprise_restoration_and_switching(id_1: str, id_2: str):
     assert e2["sector"] == "agro_logistics"
     assert e3["sector"] == "heavy_engineering"
     assert e3["business_status"]["code"] == "critical"
-    print("  ✓ Switching between enterprises returns isolated, exact enterprise-specific data")
+    print("  [PASS] Switching between enterprises returns isolated, exact enterprise-specific data")
 
     # 4. Mutate Enterprise 2 and verify Enterprise 1 is untouched
     client.patch(f"/api/v2/projects/{id_2}", json={"annual_turnover_estimate": 3000000.0}, headers=USER_A_HEADERS)
     e1_check = client.get(f"/api/v2/projects/{id_1}", headers=USER_A_HEADERS).json()
     assert e1_check["annual_turnover_estimate"] == 720000.0
-    print("  ✓ Updating Enterprise 2 has zero side-effects on Enterprise 1")
+    print("  [PASS] Updating Enterprise 2 has zero side-effects on Enterprise 1")
 
     return id_3
 
@@ -302,50 +302,50 @@ def test_6_cross_user_data_isolation(id_1: str):
     p_b1 = resp_b.json()
     id_b1 = p_b1["project_id"]
     report_b1 = p_b1["analysis_result"]["report"]["report_id"]
-    print(f"  ✓ User B created Enterprise B1 ({id_b1})")
+    print(f"  [PASS] User B created Enterprise B1 ({id_b1})")
 
     # 2. User A cannot view User B's enterprise list
     list_a = client.get("/api/v2/projects", headers=USER_A_HEADERS).json()
     ids_a = [p["project_id"] for p in list_a]
     assert id_b1 not in ids_a
-    print("  ✓ User B's enterprise B1 is not visible in User A's enterprise list")
+    print("  [PASS] User B's enterprise B1 is not visible in User A's enterprise list")
 
     # 3. User A cannot GET User B's enterprise directly
     idor_get = client.get(f"/api/v2/projects/{id_b1}", headers=USER_A_HEADERS)
     assert idor_get.status_code == 403
-    print("  ✓ User A GET User B's enterprise -> 403 Forbidden")
+    print("  [PASS] User A GET User B's enterprise -> 403 Forbidden")
 
     # 4. User A cannot GET User B's status
     idor_status = client.get(f"/api/v2/projects/{id_b1}/status", headers=USER_A_HEADERS)
     assert idor_status.status_code == 403
-    print("  ✓ User A GET User B's status -> 403 Forbidden")
+    print("  [PASS] User A GET User B's status -> 403 Forbidden")
 
     # 5. User A cannot GET User B's DPR
     idor_dpr = client.get(f"/api/v2/projects/{id_b1}/dpr", headers=USER_A_HEADERS)
     assert idor_dpr.status_code == 403
-    print("  ✓ User A GET User B's DPR -> 403 Forbidden")
+    print("  [PASS] User A GET User B's DPR -> 403 Forbidden")
 
     # 6. User A cannot PATCH User B's enterprise
     idor_patch = client.patch(f"/api/v2/projects/{id_b1}", json={"investment_amount": 1.0}, headers=USER_A_HEADERS)
     assert idor_patch.status_code == 403
-    print("  ✓ User A PATCH User B's enterprise -> 403 Forbidden")
+    print("  [PASS] User A PATCH User B's enterprise -> 403 Forbidden")
 
     # 7. User A cannot DELETE User B's enterprise
     idor_del = client.delete(f"/api/v2/projects/{id_b1}", headers=USER_A_HEADERS)
     assert idor_del.status_code == 403
-    print("  ✓ User A DELETE User B's enterprise -> 403 Forbidden")
+    print("  [PASS] User A DELETE User B's enterprise -> 403 Forbidden")
 
     # Generated report URLs are also protected and owner-scoped; a known ID
     # cannot be used to bypass the project ownership boundary.
     assert client.get(f"/api/v2/feasibility/{report_b1}").status_code == 401
     report_idor = client.get(f"/api/v2/feasibility/{report_b1}", headers=USER_A_HEADERS)
     assert report_idor.status_code == 404
-    print("  ✓ User A cannot retrieve User B's generated report by manipulated report ID")
+    print("  [PASS] User A cannot retrieve User B's generated report by manipulated report ID")
 
     # 8. User B CAN delete their own enterprise
     del_b = client.delete(f"/api/v2/projects/{id_b1}", headers=USER_B_HEADERS)
     assert del_b.status_code == 200
-    print("  ✓ User B authorized deletion of enterprise B1 -> 200 OK")
+    print("  [PASS] User B authorized deletion of enterprise B1 -> 200 OK")
 
 
 def test_7_direct_resource_access_enforcement():
@@ -354,11 +354,11 @@ def test_7_direct_resource_access_enforcement():
     
     resp_404 = client.get("/api/v2/projects/non_existent_project_xyz", headers=USER_A_HEADERS)
     assert resp_404.status_code == 404
-    print("  ✓ Non-existent project query returns 404 Not Found")
+    print("  [PASS] Non-existent project query returns 404 Not Found")
 
     resp_404_status = client.get("/api/v2/projects/non_existent_project_xyz/status", headers=USER_A_HEADERS)
     assert resp_404_status.status_code == 404
-    print("  ✓ Non-existent status query returns 404 Not Found")
+    print("  [PASS] Non-existent status query returns 404 Not Found")
 
 
 def test_8_durable_backend_fallback_persistence():
@@ -379,7 +379,7 @@ def test_8_durable_backend_fallback_persistence():
         restored = persistent_client.get(f"/api/v2/projects/{project_id}", headers=headers)
         assert restored.status_code == 200
         assert restored.json()["business_name"] == "Durable SQLite Enterprise"
-    print("  ✓ Enterprise reloaded from durable SQLite backend after memory cache removal")
+    print("  [PASS] Enterprise reloaded from durable SQLite backend after memory cache removal")
 
 
 def test_9_user_language_preference_persists():
@@ -404,7 +404,7 @@ def test_9_user_language_preference_persists():
 
     invalid = client.patch("/api/v2/auth/me", json={"preferred_language": "es"}, headers=relogin_headers)
     assert invalid.status_code == 422
-    print("  ✓ Preferred language survives a fresh login and invalid language codes are rejected")
+    print("  [PASS] Preferred language survives a fresh login and invalid language codes are rejected")
 
 
 if __name__ == "__main__":
