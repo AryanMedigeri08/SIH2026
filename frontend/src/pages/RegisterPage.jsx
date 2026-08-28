@@ -15,7 +15,7 @@ import {
   ShieldCheck,
   AlertCircle,
   Loader2,
-  Sparkles,
+  Zap,
   Info,
 } from "lucide-react";
 
@@ -29,7 +29,7 @@ export const RegisterPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState(null);
 
-  const { registerWithEmail, loginWithGoogle, authError } = useAuth();
+  const { registerWithEmail, loginWithGoogle, loginAsDemo, authError } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -74,6 +74,19 @@ export const RegisterPage = () => {
     }
   };
 
+  const handleDemoAccess = async () => {
+    setLocalError(null);
+    setIsSubmitting(true);
+    try {
+      await loginAsDemo("evaluator@sih.gov.in", "SIH Jury Evaluator");
+      navigate("/wizard", { replace: true });
+    } catch (err) {
+      setLocalError(err.message || "Demo access failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-200">
       {/* Background ambient lighting */}
@@ -98,6 +111,30 @@ export const RegisterPage = () => {
 
         {/* Form Container */}
         <div className="bg-slate-900/90 py-8 px-6 sm:px-10 shadow-2xl rounded-2xl border border-slate-800 backdrop-blur-xl">
+          {/* Quick Demo One-Click Access Button */}
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={handleDemoAccess}
+              disabled={isSubmitting}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-cyan-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs shadow-lg shadow-emerald-950/40 transition-all duration-200 group"
+            >
+              <Zap className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <span>⚡ Skip & Instant Access as Demo Evaluator</span>
+            </button>
+          </div>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-800" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-slate-900 px-3 text-slate-500 font-medium tracking-wider">
+                Or create new profile
+              </span>
+            </div>
+          </div>
+
           {/* Error Banner */}
           {(localError || authError) && (
             <div className="mb-6 p-4 rounded-xl bg-rose-950/40 border border-rose-500/30 flex items-start gap-3 text-rose-300 text-xs">

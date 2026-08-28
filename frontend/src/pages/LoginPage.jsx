@@ -13,7 +13,8 @@ import {
   AlertCircle,
   Loader2,
   Sparkles,
-  UserCheck,
+  Zap,
+  Info,
 } from "lucide-react";
 
 export const LoginPage = () => {
@@ -22,7 +23,7 @@ export const LoginPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState(null);
 
-  const { loginWithEmail, loginWithGoogle, authError } = useAuth();
+  const { loginWithEmail, loginWithGoogle, loginAsDemo, authError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -60,9 +61,17 @@ export const LoginPage = () => {
     }
   };
 
-  const handleFillDemoCredentials = () => {
-    setEmail("guest@udyam.gov.in");
-    setPassword("UdyamSaathi@2026");
+  const handleDemoLogin = async () => {
+    setLocalError(null);
+    setIsSubmitting(true);
+    try {
+      await loginAsDemo("evaluator@sih.gov.in", "SIH Jury Evaluator");
+      navigate(from, { replace: true });
+    } catch (err) {
+      setLocalError(err.message || "Demo login failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -87,6 +96,30 @@ export const LoginPage = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4 sm:px-0">
         <div className="bg-slate-900/90 py-8 px-6 sm:px-10 shadow-2xl rounded-2xl border border-slate-800 backdrop-blur-xl">
+          {/* Quick Demo One-Click Access Button */}
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              disabled={isSubmitting}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-cyan-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs shadow-lg shadow-emerald-950/40 transition-all duration-200 group"
+            >
+              <Zap className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <span>⚡ One-Click Evaluator Sign In (Instant Access)</span>
+            </button>
+          </div>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-800" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-slate-900 px-3 text-slate-500 font-medium tracking-wider">
+                Or enter credentials
+              </span>
+            </div>
+          </div>
+
           {/* Error Banner */}
           {(localError || authError) && (
             <div className="mb-6 p-4 rounded-xl bg-rose-950/40 border border-rose-500/30 flex items-start gap-3 text-rose-300 text-xs">
@@ -197,18 +230,6 @@ export const LoginPage = () => {
                 <span>Google Enterprise SSO</span>
               </button>
             </div>
-          </div>
-
-          {/* Quick Demo Pre-fill for Judges & Evaluators */}
-          <div className="mt-6 pt-5 border-t border-slate-800 text-center">
-            <button
-              type="button"
-              onClick={handleFillDemoCredentials}
-              className="inline-flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Fill Test / Evaluator Credentials</span>
-            </button>
           </div>
         </div>
 

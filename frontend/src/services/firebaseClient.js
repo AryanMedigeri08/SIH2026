@@ -17,11 +17,11 @@ import {
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDemoDummyKeyForBuildAndDevMode123",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "udyam-saathi-sih2026.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "udyam-saathi-sih2026",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "udyam-saathi-sih2026.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789012",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789012:web:abcdef1234567890abcdef",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "sihhhhhh.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "sihhhhhh",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "sihhhhhh.appspot.com",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "114385947287",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:114385947287:web:sihhhhhh1234567890",
 };
 
 // Initialize Firebase App Singleton
