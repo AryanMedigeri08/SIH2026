@@ -1,6 +1,6 @@
 import React from 'react';
 import { TamFunnelChart } from '../../components/Dashboard/TamFunnelChart';
-import { Target, Users, MapPin, Building2, TrendingUp, ShieldCheck } from 'lucide-react';
+import { Target, Users, MapPin, Building2, TrendingUp, ShieldCheck, ShoppingCart, IndianRupee, Store, Gauge, Tag } from 'lucide-react';
 
 export function MarketDemandPage({ reportData }) {
   if (!reportData) return null;
@@ -9,11 +9,36 @@ export function MarketDemandPage({ reportData }) {
   const demographics = reportData.market_demographics || {};
   const pricing = reportData.pricing_recommendation || {};
 
-  const pop2011 = demographics.catchment_population_2011 || 3850;
-  const pop2026 = demographics.catchment_population_2026 || 4639;
-  const growthPct = demographics.population_growth_pct || 20.5;
-  const annualTam = demographics.annual_tam || 9493848;
-  const density = demographics.msme_density_per_10k || 2694.55;
+  const popProj = demographics.population_projection || {};
+  const tam = demographics.tam || {};
+  const msmeDens = demographics.msme_density || {};
+  const msmeDet = demographics.msme_details || {};
+  const comp = demographics.competition || {};
+
+  const pop2011 = popProj.base_population_2011 || demographics.census_details?.base_population_2011 || 0;
+  const pop2026 = popProj.projected_population || demographics.catchment_population_2026 || 0;
+  const growthRate = popProj.growth_rate_used ? (popProj.growth_rate_used * 100).toFixed(2) : '1.35';
+  const totalGrowthPct = pop2011 > 0 ? (((pop2026 - pop2011) / pop2011) * 100).toFixed(1) : '21.7';
+  const households2026 = popProj.projected_households || Math.round(pop2026 / 4.8);
+
+  const annualTam = tam.annual_tam || demographics.annual_tam || 0;
+  const monthlyTam = tam.monthly_tam || (annualTam / 12);
+  const penetrationRate = tam.penetration_rate ? (tam.penetration_rate * 100).toFixed(0) : '25';
+  const monthlyFrequency = tam.monthly_frequency || 4;
+  const avgTicketSize = tam.avg_ticket_size || 100;
+  const monthlyUnits = tam.monthly_units || 0;
+
+  const density = msmeDens.msme_density_per_10k || demographics.msme_density_per_10k || 0;
+  const totalMsmes = msmeDet.total_msme || msmeDens.district_msme_total || 0;
+  const competitorsCount = comp.estimated_local_competitors || 0;
+  const competitionNormalized = comp.competition_intensity_normalized ? (comp.competition_intensity_normalized * 100).toFixed(1) : '30.0';
+
+  // Pricing Engine Numbers
+  const unitFloor = pricing.unit_cost_floor || 0;
+  const cpiFloor = pricing.cpi_adjusted_unit_price_floor || 0;
+  const bandLow = pricing.recommended_selling_price_band_low || cpiFloor;
+  const bandHigh = pricing.recommended_selling_price_band_high || (cpiFloor * 1.20);
+  const cpiPct = pricing.cpi_inflation_pct || 4.25;
 
   return (
     <div className="space-y-6">
@@ -43,7 +68,7 @@ export function MarketDemandPage({ reportData }) {
             {pop2026.toLocaleString('en-IN')}
           </strong>
           <span className="text-[10px] text-emerald-700 font-semibold mt-0.5 block">
-            +{growthPct}% growth from {pop2011.toLocaleString('en-IN')} (2011)
+            +{totalGrowthPct}% ({growthRate}% CAGR) from {pop2011.toLocaleString('en-IN')}
           </span>
         </div>
 
@@ -55,7 +80,9 @@ export function MarketDemandPage({ reportData }) {
           <strong className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-700 block mt-1">
             ₹{(annualTam / 100000).toFixed(2)} Lakhs
           </strong>
-          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">Total Addressable Market</span>
+          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">
+            ₹{Math.round(monthlyTam).toLocaleString('en-IN')}/mo Spending
+          </span>
         </div>
 
         <div className="glass-panel p-4 bg-gradient-to-b from-sovereign-50/30 via-white to-white border border-slate-200/90 border-t-2 border-t-sovereign-600 shadow-card hover:shadow-card-hover transition-all">
@@ -66,7 +93,9 @@ export function MarketDemandPage({ reportData }) {
           <strong className="text-xl sm:text-2xl font-mono font-extrabold text-sovereign-900 block mt-1">
             {density.toFixed(1)} / 10k
           </strong>
-          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">District Registry Benchmark</span>
+          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">
+            {totalMsmes.toLocaleString('en-IN')} Total District Units
+          </span>
         </div>
 
         <div className="glass-panel p-4 bg-gradient-to-b from-amber-50/30 via-white to-white border border-slate-200/90 border-t-2 border-t-amber-500 shadow-card hover:shadow-card-hover transition-all">
@@ -83,6 +112,107 @@ export function MarketDemandPage({ reportData }) {
 
       {/* Conversion Funnel & Stage Cards */}
       <TamFunnelChart demographics={demographics} pricing={pricing} />
+
+      {/* Deep-Dive Grid: Micro-Demand Parameters + Competition Saturation + CPI Pricing Guidance */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        
+        {/* Card 1: Sector Micro-Demand Parameters */}
+        <div className="glass-panel p-5 bg-white border border-slate-200 rounded-2xl shadow-card space-y-3">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+            <div className="p-2 rounded-xl bg-sky-50 text-sky-700 border border-sky-200">
+              <ShoppingCart className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Sector Micro-Demand Model</h3>
+              <p className="text-[11px] text-slate-500 font-medium">Catchment Consumer Behavior</p>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 text-xs">
+            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-slate-600">Catchment Households:</span>
+              <span className="font-mono font-bold text-slate-900">{households2026.toLocaleString('en-IN')}</span>
+            </div>
+            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-slate-600">Sector Penetration Rate:</span>
+              <span className="font-mono font-bold text-sky-800">{penetrationRate}%</span>
+            </div>
+            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-slate-600">Purchase Frequency:</span>
+              <span className="font-mono font-bold text-slate-900">{monthlyFrequency} cycles / month</span>
+            </div>
+            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-slate-600">Average Ticket Size:</span>
+              <span className="font-mono font-bold text-emerald-800">₹{avgTicketSize} / purchase</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: District MSME Competition & Cluster Analysis */}
+        <div className="glass-panel p-5 bg-white border border-slate-200 rounded-2xl shadow-card space-y-3">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+            <div className="p-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
+              <Store className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Competition & Cluster Density</h3>
+              <p className="text-[11px] text-slate-500 font-medium">Udyam Registration Registry</p>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 text-xs">
+            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-slate-600">District Registered MSMEs:</span>
+              <span className="font-mono font-bold text-slate-900">{totalMsmes.toLocaleString('en-IN')}</span>
+            </div>
+            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-slate-600">MSME Density per 10k:</span>
+              <span className="font-mono font-bold text-sovereign-900">{density.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-slate-600">Est. Local Competitors:</span>
+              <span className="font-mono font-bold text-amber-800">{Math.round(competitorsCount)} Units</span>
+            </div>
+            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-slate-600">Market Room Index:</span>
+              <span className="font-mono font-bold text-emerald-700">{competitionNormalized}% Room</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: CPI-Compounded Forward Pricing Guidance */}
+        <div className="glass-panel p-5 bg-white border border-slate-200 rounded-2xl shadow-card space-y-3">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <Tag className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Forward Pricing Guidance</h3>
+              <p className="text-[11px] text-slate-500 font-medium">MoSPI CPI-Adjusted Floor</p>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 text-xs">
+            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-slate-600">State Rural CPI Inflation:</span>
+              <span className="font-mono font-bold text-slate-900">{cpiPct.toFixed(2)}%</span>
+            </div>
+            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-slate-600">Unadjusted Unit Cost Floor:</span>
+              <span className="font-mono font-bold text-slate-900">₹{unitFloor.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-slate-600">12-Mo CPI Forward Floor:</span>
+              <span className="font-mono font-bold text-amber-800">₹{cpiFloor.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center p-2 rounded-xl bg-emerald-50/70 border border-emerald-200">
+              <span className="text-emerald-900 font-bold">Recommended Band:</span>
+              <span className="font-mono font-black text-emerald-800">₹{bandLow.toFixed(1)} – ₹{bandHigh.toFixed(1)}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
 
     </div>
   );

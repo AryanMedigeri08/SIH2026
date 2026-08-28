@@ -29,37 +29,42 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 export function TamFunnelChart({ demographics, pricing }) {
-  const pop = demographics?.projected_population || demographics?.census_details?.total_population || 125000;
-  const households = demographics?.projected_households || Math.round(pop / 4.8);
-  const targetHouseholds = demographics?.target_households || Math.round(households * 0.22);
-  const monthlyUnits = demographics?.monthly_unit_demand || Math.round(targetHouseholds * 3.5);
-  const monthlyTam = demographics?.monthly_tam_inr || (pricing?.cpi_adjusted_unit_price_floor ? monthlyUnits * pricing.cpi_adjusted_unit_price_floor : monthlyUnits * 85);
-  const provenance = demographics?.census_details?.provenance || 'Census 2011 + MoHFW 2026 Geometric Projection';
+  const popProj = demographics?.population_projection || {};
+  const tamData = demographics?.tam || {};
+  const censusDet = demographics?.census_details || {};
+
+  const pop = popProj.projected_population || demographics?.catchment_population_2026 || censusDet.base_population_2011 || 0;
+  const households = popProj.projected_households || Math.round(pop / 4.8);
+  const targetHouseholds = tamData.target_households || Math.round(households * (tamData.penetration_rate || 0.25));
+  const monthlyUnits = tamData.monthly_units || Math.round(targetHouseholds * (tamData.monthly_frequency || 4));
+  const monthlyTam = tamData.monthly_tam || (monthlyUnits * (tamData.avg_ticket_size || 100));
+  const annualTam = tamData.annual_tam || (monthlyTam * 12);
+  const provenance = censusDet.provenance || 'Census 2011 Rural Catchment Database (census_raw) + State CAGR Projection to 2026';
 
   const funnelData = [
     {
       stage: '1. Catchment Base',
       raw: households,
       displayValue: `${households.toLocaleString('en-IN')} Households`,
-      description: `Estimated catchment households from ${pop.toLocaleString('en-IN')} projected population.`,
+      description: `Estimated catchment households from ${pop.toLocaleString('en-IN')} projected 2026 population (avg 4.8 persons/hh).`,
     },
     {
       stage: '2. Target Segment',
       raw: targetHouseholds,
       displayValue: `${targetHouseholds.toLocaleString('en-IN')} Households`,
-      description: 'Realistic addressable demographic customer base in local radius.',
+      description: `Demographic customer base at ${((tamData.penetration_rate || 0.25) * 100).toFixed(0)}% sector penetration rate.`,
     },
     {
       stage: '3. Monthly Units',
       raw: monthlyUnits,
-      displayValue: `${monthlyUnits.toLocaleString('en-IN')} Units / mo`,
-      description: 'Projected monthly unit consumption demand based on local income slabs.',
+      displayValue: `${Math.round(monthlyUnits).toLocaleString('en-IN')} Units / mo`,
+      description: `Projected monthly consumption volume (${tamData.monthly_frequency || 4} purchase cycles/month).`,
     },
     {
       stage: '4. Monthly TAM',
       raw: Math.round(monthlyTam / 1000), // normalized for bar display scale
       displayValue: `₹${(monthlyTam / 100000).toFixed(2)} Lakh / mo`,
-      description: `Total Addressable Market in ₹ revenue at recommended floor price.`,
+      description: `Total monthly consumer spending at ₹${tamData.avg_ticket_size || 100} avg ticket size.`,
     },
   ];
 
@@ -74,15 +79,15 @@ export function TamFunnelChart({ demographics, pricing }) {
               Demographic Catchment Sizing
             </div>
             <h3 className="text-lg font-outfit font-bold text-slate-900">
-              TAM & Addressable Demand Funnel
+              TAM & Addressable Demand Conversion Funnel
             </h3>
           </div>
           <span className="text-xs px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono font-bold">
-            ₹{(monthlyTam * 12 / 100000).toFixed(1)}L Annual TAM
+            ₹{(annualTam / 100000).toFixed(1)}L Annual TAM
           </span>
         </div>
         <p className="text-xs text-slate-600 mb-4">
-          Stepped conversion from raw census catchment to quantified rupee market demand.
+          Stepped mathematical conversion from 2026 demographic catchment population to quantified monthly and annual rupee demand.
         </p>
       </div>
 
