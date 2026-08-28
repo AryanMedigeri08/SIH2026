@@ -8,30 +8,49 @@ import { fetchStates, fetchDistricts, fetchBlocks, fetchVillages } from '../../s
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 
+/**
+ * Statutory Promoter Margin Equity Requirement Rule:
+ * General Category = 10% (0.10)
+ * Special/Reserved Category (Women, SC, ST, OBC, Artisan, etc.) = 5% (0.05)
+ */
+export const getMarginPct = (category) => {
+  return category && category.toLowerCase() !== "general" ? 0.05 : 0.10;
+};
+
 export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, initialData }) {
   const { userProfile } = useAuth() || {};
   const { language: appLanguage, languages, t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState({
-    enterprise_name: "Joypur Fresh Dairy Processing Unit",
-    business_category: "manufacturing",
-    sector: "dairy",
-    promoter_name: userProfile?.name || "Dipankar Ghosh",
-    promoter_category: "general",
-    gender: userProfile?.gender && userProfile.gender !== "Unspecified" ? userProfile.gender : "Male",
-    state_name: "West Bengal",
-    district_name: "Bankura",
-    block_name: "Joypur",
-    village_name: "Joypur",
-    is_rural: true,
-    project_cost: 900000,
-    annual_turnover_estimate: 950000,
-    tenure_years: 7,
-    moratorium_months: 6,
-    additional_business_details: "",
-    monthly_net_operating_income_override: "",
-    language: appLanguage,
-    ...initialData,
+  const [formData, setFormData] = useState(() => {
+    const initCat = initialData?.promoter_category || "general";
+    const marginPct = getMarginPct(initCat);
+    const cost = initialData?.project_cost !== undefined ? initialData.project_cost : 900000;
+    const margin = initialData?.margin_capital !== undefined 
+      ? initialData.margin_capital 
+      : Math.round(cost * marginPct);
+
+    return {
+      enterprise_name: "Joypur Fresh Dairy Processing Unit",
+      business_category: "manufacturing",
+      sector: "dairy",
+      promoter_name: userProfile?.name || "Dipankar Ghosh",
+      promoter_category: initCat,
+      gender: userProfile?.gender && userProfile.gender !== "Unspecified" ? userProfile.gender : "Male",
+      state_name: "West Bengal",
+      district_name: "Bankura",
+      block_name: "Joypur",
+      village_name: "Joypur",
+      is_rural: true,
+      margin_capital: margin,
+      project_cost: cost,
+      annual_turnover_estimate: 950000,
+      tenure_years: 7,
+      moratorium_months: 6,
+      additional_business_details: "",
+      monthly_net_operating_income_override: "",
+      language: appLanguage,
+      ...initialData,
+    };
   });
 
   // LGD Dropdown states
@@ -48,7 +67,20 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
 
   useEffect(() => {
     if (initialData) {
-      setFormData(prev => ({ ...prev, ...initialData }));
+      setFormData(prev => {
+        const cat = initialData.promoter_category || prev.promoter_category || "general";
+        const marginPct = getMarginPct(cat);
+        const cost = initialData.project_cost !== undefined ? initialData.project_cost : (prev.project_cost || 900000);
+        const margin = initialData.margin_capital !== undefined 
+          ? initialData.margin_capital 
+          : Math.round(cost * marginPct);
+        return {
+          ...prev,
+          ...initialData,
+          margin_capital: margin,
+          project_cost: cost,
+        };
+      });
     }
   }, [initialData]);
 
@@ -522,7 +554,18 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">Social / Statutory Category</label>
                   <select
                     value={formData.promoter_category}
-                    onChange={e => setFormData({ ...formData, promoter_category: e.target.value })}
+                    onChange={e => {
+                      const newCat = e.target.value;
+                      const newMarginPct = getMarginPct(newCat);
+                      const currentMargin = Number(formData.margin_capital) || Math.round((Number(formData.project_cost) || 900000) * getMarginPct(formData.promoter_category));
+                      const derivedCost = newMarginPct > 0 ? Math.round(currentMargin / newMarginPct) : currentMargin * 10;
+                      setFormData(prev => ({
+                        ...prev,
+                        promoter_category: newCat,
+                        margin_capital: currentMargin,
+                        project_cost: derivedCost,
+                      }));
+                    }}
                     className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   >
                     <option value="general">General Category (10% Promoter Margin)</option>
@@ -530,7 +573,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                     <option value="sc">Scheduled Caste (SC) (5% Margin)</option>
                     <option value="st">Scheduled Tribe (ST) (5% Margin)</option>
                     <option value="obc">Other Backward Class (OBC) (5% Margin)</option>
-                    <option value="artisan">Artisan / Traditional Craftsman</option>
+                    <option value="artisan">Artisan / Traditional Craftsman (5% Margin)</option>
                   </select>
                 </div>
 
@@ -553,46 +596,88 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
           {/* Step 4: Capital Outlay & Sales */}
           {currentStep === 4 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Coins className="w-4 h-4 text-sovereign-700" />
-                Step 4: Total Capital Investment & Annual Turnover Target
-              </h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-sovereign-700" />
+                  Step 4: Available Margin Capital & Sales Revenue
+                </h3>
+                <span className="text-[11px] font-bold text-sovereign-800 bg-sovereign-50 border border-sovereign-200 px-2.5 py-1 rounded-lg self-start sm:self-auto">
+                  Statutory Equity: {(getMarginPct(formData.promoter_category) * 100).toFixed(0)}% ({formData.promoter_category?.toUpperCase()})
+                </span>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Total Project Outlay (₹)</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                    <span>Available Margin Capital (₹)</span>
+                    <span className="text-[10px] text-emerald-600 font-semibold">User Equity Input</span>
+                  </label>
                   <input
                     type="number"
                     required
-                    min={25000}
-                    step={5000}
-                    value={formData.project_cost}
-                    onChange={e => setFormData({ ...formData, project_cost: Number(e.target.value) })}
+                    min={2500}
+                    step={2500}
+                    value={formData.margin_capital !== undefined ? formData.margin_capital : ""}
+                    onChange={e => {
+                      const rawVal = e.target.value;
+                      const margin = rawVal === "" ? "" : Number(rawVal);
+                      const numMargin = Number(margin) || 0;
+                      const marginPct = getMarginPct(formData.promoter_category);
+                      const derivedCost = marginPct > 0 ? Math.round(numMargin / marginPct) : numMargin * 10;
+                      setFormData(prev => ({
+                        ...prev,
+                        margin_capital: margin,
+                        project_cost: derivedCost,
+                      }));
+                    }}
+                    placeholder="e.g. 90000"
                     className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">Includes Machinery, Civil, Working Capital & Contingency</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Personal cash/equity capital you are willing to invest</p>
+
+                  {/* Derived Project Sizing Readout Card */}
+                  <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 shadow-subtle">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500 font-medium">Derived Project Outlay:</span>
+                      <strong className="text-emerald-700 font-mono font-bold text-sm">
+                        ₹{Number(formData.project_cost || 0).toLocaleString('en-IN')}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-500">Gross Implied Bank Loan:</span>
+                      <span className="text-slate-800 font-mono font-semibold">
+                        ₹{Number(Math.max(0, (formData.project_cost || 0) - (Number(formData.margin_capital) || 0))).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-200 flex items-center gap-1">
+                      <Info className="w-3 h-3 text-sovereign-600 shrink-0" />
+                      <span>Back-solved: Margin ÷ {(getMarginPct(formData.promoter_category) * 100).toFixed(0)}% statutory equity requirement</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Estimated Annual Gross Sales (₹)</label>
-                  <input
-                    type="number"
-                    required
-                    min={25000}
-                    step={5000}
-                    value={formData.annual_turnover_estimate}
-                    onChange={e => setFormData({ ...formData, annual_turnover_estimate: Number(e.target.value) })}
-                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
-                  />
-                  <p className="text-[11px] text-slate-500 mt-1">Projected 100% capacity annual sales revenue</p>
-                </div>
-              </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Estimated Annual Gross Sales (₹)</label>
+                    <input
+                      type="number"
+                      required
+                      min={25000}
+                      step={5000}
+                      value={formData.annual_turnover_estimate}
+                      onChange={e => setFormData({ ...formData, annual_turnover_estimate: Number(e.target.value) })}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">Projected 100% capacity annual sales revenue</p>
+                  </div>
 
-              <div className="p-3 bg-sovereign-50 border border-sovereign-200 rounded-xl flex justify-between items-center text-xs">
-                <span className="text-slate-700 font-medium">Turnover to Capital Leverage:</span>
-                <strong className="text-sovereign-900 font-mono font-bold">
-                  {formData.project_cost > 0 ? (formData.annual_turnover_estimate / formData.project_cost).toFixed(2) : 0}x
-                </strong>
+                  <div className="p-3 bg-sovereign-50 border border-sovereign-200 rounded-xl flex justify-between items-center text-xs">
+                    <span className="text-slate-700 font-medium">Turnover to Capital Leverage:</span>
+                    <strong className="text-sovereign-900 font-mono font-bold">
+                      {formData.project_cost > 0 ? (formData.annual_turnover_estimate / formData.project_cost).toFixed(2) : 0}x
+                    </strong>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -768,9 +853,13 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                   </div>
 
                   <div className="p-2.5 bg-white rounded-lg border border-slate-200">
-                    <div className="text-[10px] text-slate-400 font-bold uppercase">Financial Outlay & Sales</div>
-                    <div className="font-mono font-bold text-emerald-700 mt-0.5">₹{Number(formData.project_cost).toLocaleString('en-IN')} Outlay</div>
-                    <div className="font-mono text-sovereign-800 text-[10px] mt-0.5">₹{Number(formData.annual_turnover_estimate).toLocaleString('en-IN')} Projected Sales</div>
+                    <div className="text-[10px] text-slate-400 font-bold uppercase">Margin Capital & Sizing</div>
+                    <div className="font-mono font-bold text-emerald-700 mt-0.5">
+                      ₹{Number(formData.margin_capital !== undefined ? formData.margin_capital : Math.round(formData.project_cost * getMarginPct(formData.promoter_category))).toLocaleString('en-IN')} Margin ({(getMarginPct(formData.promoter_category) * 100).toFixed(0)}%)
+                    </div>
+                    <div className="font-mono text-slate-700 text-[10px] mt-0.5">
+                      ₹{Number(formData.project_cost).toLocaleString('en-IN')} Derived Outlay • ₹{Number(formData.annual_turnover_estimate).toLocaleString('en-IN')} Sales
+                    </div>
                   </div>
                 </div>
 
