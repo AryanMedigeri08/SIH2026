@@ -601,12 +601,33 @@ def build_bank_dpr(
     )
 
     # 6. SWOT & Risk Sections
-    swot_items = {
-        "strengths": [SWOTQuadrantItem(text=i.text, data_source=i.data_source) for i in swot_matrix.strengths],
-        "weaknesses": [SWOTQuadrantItem(text=i.text, data_source=i.data_source) for i in swot_matrix.weaknesses],
-        "opportunities": [SWOTQuadrantItem(text=i.text, data_source=i.data_source) for i in swot_matrix.opportunities],
-        "threats": [SWOTQuadrantItem(text=i.text, data_source=i.data_source) for i in swot_matrix.threats],
-    }
+    def _extract_swot_quadrant(quadrant_data):
+        if not quadrant_data:
+            return []
+        items = []
+        for i in quadrant_data:
+            if isinstance(i, dict):
+                items.append(SWOTQuadrantItem(text=str(i.get("text", "")).strip(), data_source=str(i.get("data_source", "Market Feasibility Signal")).strip()))
+            elif hasattr(i, "text"):
+                items.append(SWOTQuadrantItem(text=str(i.text).strip(), data_source=str(getattr(i, "data_source", "Market Feasibility Signal")).strip()))
+            elif isinstance(i, str) and i.strip():
+                items.append(SWOTQuadrantItem(text=i.strip(), data_source="Market Feasibility Signal"))
+        return items
+
+    if isinstance(swot_matrix, dict):
+        swot_items = {
+            "strengths": _extract_swot_quadrant(swot_matrix.get("strengths", [])),
+            "weaknesses": _extract_swot_quadrant(swot_matrix.get("weaknesses", [])),
+            "opportunities": _extract_swot_quadrant(swot_matrix.get("opportunities", [])),
+            "threats": _extract_swot_quadrant(swot_matrix.get("threats", [])),
+        }
+    else:
+        swot_items = {
+            "strengths": _extract_swot_quadrant(getattr(swot_matrix, "strengths", [])),
+            "weaknesses": _extract_swot_quadrant(getattr(swot_matrix, "weaknesses", [])),
+            "opportunities": _extract_swot_quadrant(getattr(swot_matrix, "opportunities", [])),
+            "threats": _extract_swot_quadrant(getattr(swot_matrix, "threats", [])),
+        }
 
     risk_items = [
         RiskMitigationItem(

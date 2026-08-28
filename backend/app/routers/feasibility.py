@@ -21,7 +21,7 @@ from market_analyzer import (
     project_population, estimate_tam, compute_msme_density, compute_competition_intensity,
 )
 from risk_analyzer import build_risk_matrix, overall_risk_verdict
-from swot_analyzer import build_swot
+from swot_analyzer import build_swot, SWOTMatrix
 from pricing_engine import compute_pricing
 from feature_extractor import extract_features_from_pipeline_objects
 from inference import predict_viability
@@ -160,14 +160,15 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     )
     risk_verdict = overall_risk_verdict(risks)
 
-    swot = build_swot(
+    # Deterministic baseline SWOT
+    deterministic_swot = build_swot(
         dscr_res.dscr, top_scheme.subsidy_grant_amount, top_scheme.full_name, input_data.project_cost,
         infra_score, tam.annual_tam, input_data.annual_turnover_estimate,
         comp.competition_intensity_normalized, dens.msme_density_per_10k, cpi_pct, weather_score,
         ml_pred.verdict, ml_pred.confidence_pct,
     )
 
-    # 8. Executive AI Synthesis (Tier 3)
+    # 8. Executive AI Synthesis & Grounded SWOT (Tier 3)
     synthesis = generate_executive_synthesis({
         "enterprise_name": input_data.enterprise_name,
         "business_category": input_data.business_category,
@@ -186,15 +187,27 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         "cpi_adjusted_price_floor": pricing.cpi_adjusted_unit_price_floor,
         "ml_verdict": ml_pred.verdict,
         "ml_confidence_pct": ml_pred.confidence_pct,
-        "top_positive_driver": ml_pred.top_positive_factors[0],
-        "top_risk_factor": ml_pred.top_risk_factors[0],
+        "top_positive_driver": ml_pred.top_positive_factors[0] if ml_pred.top_positive_factors else "Adequate debt service margin",
+        "top_risk_factor": ml_pred.top_risk_factors[0] if ml_pred.top_risk_factors else "Competitive pressure",
         "key_risks": [r.title for r in risks if r.severity in ("HIGH", "SEVERE", "MODERATE")][:2],
+        "infrastructure_score": infra_score,
+        "competition_intensity_normalized": comp.competition_intensity_normalized,
+        "msme_density_per_10k": dens.msme_density_per_10k,
+        "cpi_inflation_pct": cpi_pct,
+        "weather_risk_score": weather_score,
+        "annual_turnover_estimate": input_data.annual_turnover_estimate,
         "additional_business_details": input_data.additional_business_details,
     }, language=input_data.language)
     logger.info(
         f"📝 [TIER 3 SYNTHESIS] Model: '{synthesis.model_name}' | Language: '{input_data.language.upper()}' | "
         f"Source: {'[DETERMINISTIC_TEMPLATE]' if synthesis.is_fallback else '[AI_GENERATED]'}"
     )
+
+    # Use LLM-generated SWOT if available, fallback to deterministic
+    if synthesis.swot_matrix and isinstance(synthesis.swot_matrix, dict):
+        final_swot = SWOTMatrix.from_dict(synthesis.swot_matrix)
+    else:
+        final_swot = deterministic_swot
 
     # 9. Bank DPR Assembly (Tier 4)
     dpr_doc = build_bank_dpr(
@@ -221,7 +234,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         dscr_result=dscr_res,
         risk_points=risks,
         risk_verdict=risk_verdict,
-        swot_matrix=swot,
+        swot_matrix=final_swot,
         pricing_result=pricing,
         ml_prediction=ml_pred,
         ai_synthesis=synthesis,
@@ -316,7 +329,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
             "composite_grade": risk_verdict.get("overall_severity", "MODERATE"),
             "average_risk_score": risk_verdict.get("average_risk_score", 3.0),
         },
-        swot_matrix=swot.to_dict(),
+        swot_matrix=final_swot.to_dict(),
         pricing_recommendation=pricing.to_dict(),
         executive_synthesis=synthesis.to_dict(),
         data_sources_used=data_sources_used,

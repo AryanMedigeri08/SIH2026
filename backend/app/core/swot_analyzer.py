@@ -1,23 +1,24 @@
 """
-swot_analyzer.py — Phase 2, Udyam Saathi
+swot_analyzer.py — Grounded SWOT Analysis Engine with Deterministic Fallback.
+Udyam Saathi (SIH 2026 PS 26091).
 
-Blueprint §5 (DPR section 6). Builds a grounded SWOT matrix: every bullet is
-templated from a concrete upstream number (DSCR, subsidy amount, infra score,
-competition, CPI, weather) with a data_source tag — never freeform LLM text.
-This is the deterministic "skeleton" the Tier 3 Groq call is allowed to
-restyle in Phase 4, but the underlying facts and numbers originate here.
+Builds a grounded SWOT matrix:
+- Primary Mode: LLM-synthesized via Groq with structured data sources and language awareness.
+- Fallback Mode: 100% deterministic rules mapped from concrete upstream financial,
+  infrastructure, demographic, inflation, weather, and ML signals.
 """
 
 from __future__ import annotations
 from dataclasses import dataclass, asdict
+from typing import Any, Optional
 
 
 @dataclass
 class SWOTItem:
     text: str
-    data_source: str
+    data_source: str = "Market Feasibility Signal"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, str]:
         return asdict(self)
 
 
@@ -28,13 +29,38 @@ class SWOTMatrix:
     opportunities: list[SWOTItem]
     threats: list[SWOTItem]
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, list[dict[str, str]]]:
         return {
             "strengths": [i.to_dict() for i in self.strengths],
             "weaknesses": [i.to_dict() for i in self.weaknesses],
             "opportunities": [i.to_dict() for i in self.opportunities],
             "threats": [i.to_dict() for i in self.threats],
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SWOTMatrix:
+        def _parse_list(items: Any, default_src: str) -> list[SWOTItem]:
+            if not isinstance(items, list):
+                return []
+            result: list[SWOTItem] = []
+            for item in items:
+                if isinstance(item, dict):
+                    text = str(item.get("text", "")).strip()
+                    src = str(item.get("data_source", default_src)).strip()
+                    if text:
+                        result.append(SWOTItem(text=text, data_source=src))
+                elif isinstance(item, str) and item.strip():
+                    result.append(SWOTItem(text=item.strip(), data_source=default_src))
+                elif hasattr(item, "text"):
+                    result.append(SWOTItem(text=getattr(item, "text", ""), data_source=getattr(item, "data_source", default_src)))
+            return result
+
+        return cls(
+            strengths=_parse_list(data.get("strengths"), "RBI Banking Guidelines & Amortization Ratios"),
+            weaknesses=_parse_list(data.get("weaknesses"), "Data.gov.in District Amenities Registry"),
+            opportunities=_parse_list(data.get("opportunities"), "Census 2011 Catchment Demographics"),
+            threats=_parse_list(data.get("threats"), "MoSPI CPI Inflation & Weather Telemetry"),
+        )
 
 
 def build_swot(
@@ -52,7 +78,10 @@ def build_swot(
     ml_viability_verdict: str,       # SUITABLE | CAUTION | RECONSIDER
     ml_confidence_pct: float,
 ) -> SWOTMatrix:
-
+    """
+    Deterministic rule-based SWOT generator. Serves as ground-truth baseline
+    and offline fallback whenever LLM synthesis is unavailable.
+    """
     strengths: list[SWOTItem] = []
     weaknesses: list[SWOTItem] = []
     opportunities: list[SWOTItem] = []
@@ -65,9 +94,10 @@ def build_swot(
             "RBI Prudential Banking Guidelines & Amortization Ratios",
         ))
     if subsidy_grant_amount > 0:
+        cost_denom = project_cost if project_cost > 0 else 1.0
         strengths.append(SWOTItem(
             f"₹{subsidy_grant_amount:,.0f} capital subsidy secured under {subsidy_scheme_name} "
-            f"({subsidy_grant_amount/project_cost*100:.1f}% of project cost), reducing effective debt burden.",
+            f"({subsidy_grant_amount/cost_denom*100:.1f}% of project cost), reducing effective debt burden.",
             "Statutory MSME Scheme Guidelines (government_schemes.json)",
         ))
     if infrastructure_score >= 7.0:
@@ -81,6 +111,13 @@ def build_swot(
             f"ML viability classifier rates this enterprise SUITABLE with {ml_confidence_pct:.1f}% confidence "
             f"across 10 weighted factors.",
             "Supervised XGBoost Viability Classifier (viability_xgb.joblib)",
+        ))
+
+    # Fallback strength if empty
+    if not strengths:
+        strengths.append(SWOTItem(
+            f"Active enterprise project with ₹{project_cost:,.0f} capital outlay under {subsidy_scheme_name}.",
+            "Enterprise Capital Outlay Plan",
         ))
 
     # --- Weaknesses ---
@@ -165,7 +202,6 @@ def build_swot(
         ))
 
     return SWOTMatrix(strengths=strengths, weaknesses=weaknesses, opportunities=opportunities, threats=threats)
-
 
 
 if __name__ == "__main__":
