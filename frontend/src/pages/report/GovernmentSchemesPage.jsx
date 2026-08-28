@@ -60,6 +60,7 @@ export function GovernmentSchemesPage({ reportData }) {
   if (!reportData) return null;
 
   const p = reportData.input_parameters || {};
+  const ml = reportData.ml_viability || {};
   const fin = reportData.financial_analysis || {};
   const schemes = reportData.scheme_optimization || [];
   const topScheme = schemes.find(s => s.eligible) || schemes[0] || {};
@@ -69,6 +70,16 @@ export function GovernmentSchemesPage({ reportData }) {
   const subsidyPct = projectCost > 0 ? ((subsidyAmount / projectCost) * 100).toFixed(0) : '0';
   const promoterMargin = fin.promoter_margin_amount || (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05));
   const termLoan = fin.loan_principal || Math.max(projectCost - subsidyAmount - promoterMargin, 0);
+  const dscr = fin.dscr?.dscr ?? 1.33;
+
+  const isReconsider = ml.verdict === 'RECONSIDER' || dscr < 1.0;
+  const isCaution = ml.verdict === 'CAUTION' || (dscr >= 1.0 && dscr < 1.33);
+
+  const cardBorderClass = isReconsider 
+    ? 'border-l-4 border-rose-500' 
+    : isCaution 
+    ? 'border-l-4 border-amber-500' 
+    : 'border-l-4 border-emerald-600';
 
   return (
     <div className="space-y-6">
@@ -88,13 +99,28 @@ export function GovernmentSchemesPage({ reportData }) {
       </div>
 
       {/* Top Scheme Recommendation Hero Banner */}
-      <div className="p-6 bg-white rounded-2xl shadow-card border border-slate-200/90 border-l-4 border-emerald-600">
+      <div className={`p-6 bg-white rounded-2xl shadow-card border border-slate-200/90 ${cardBorderClass}`}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold font-mono">
-              <Sparkles className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
-              <span>Rank 1 Recommended Statutory Match</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {isReconsider ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold font-mono">
+                  <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
+                  <span>Optimal Policy Match • Capital Restructuring Required</span>
+                </div>
+              ) : isCaution ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold font-mono">
+                  <span className="w-2 h-2 rounded-full bg-amber-600" />
+                  <span>Optimal Policy Match • Tight Debt Coverage</span>
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold font-mono">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
+                  <span>Rank 1 Recommended Statutory Match</span>
+                </div>
+              )}
             </div>
+
             <h2 className="text-2xl sm:text-3xl font-outfit font-extrabold text-slate-900 tracking-tight">
               {topScheme.scheme_id}: {topScheme.full_name}
             </h2>
@@ -130,13 +156,36 @@ export function GovernmentSchemesPage({ reportData }) {
             </div>
           </div>
         </div>
+
+        {/* Subtle Context-Aware Credit Appraisal Advisory Note */}
+        {isReconsider ? (
+          <div className="mt-4 p-3.5 rounded-xl bg-rose-50/90 border border-rose-200 text-xs text-rose-950 flex items-start gap-2.5">
+            <span className="p-1 rounded-md bg-rose-100 text-rose-700 font-bold shrink-0 text-[10px] font-mono uppercase">Notice</span>
+            <div className="leading-relaxed">
+              <strong className="font-bold text-rose-900">Prudential Underwriting Advisory: </strong>
+              <span>
+                While <strong>{topScheme.scheme_id}</strong> provides the highest statutory grant support (₹{Math.round(subsidyAmount).toLocaleString('en-IN')}), the enterprise's current Debt Service Coverage Ratio of <strong>{dscr.toFixed(2)}</strong> is below the RBI viability benchmark (1.33). To qualify for formal bank loan sanction under this scheme, it is recommended to increase promoter equity contribution, request an extended repayment moratorium, or restructure initial capital outlay.
+              </span>
+            </div>
+          </div>
+        ) : isCaution ? (
+          <div className="mt-4 p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-950 flex items-start gap-2.5">
+            <span className="p-1 rounded-md bg-amber-100 text-amber-700 font-bold shrink-0 text-[10px] font-mono uppercase">Advisory</span>
+            <div className="leading-relaxed">
+              <strong className="font-bold text-amber-900">Solvency Advisory: </strong>
+              <span>
+                <strong>{topScheme.scheme_id}</strong> is the optimal financial match; however, debt coverage is tight (DSCR <strong>{dscr.toFixed(2)}</strong> vs 1.33 benchmark). Maintaining a 3-month EMI reserve before bank disbursal is recommended.
+              </span>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Comparison Chart: Subsidy vs Interest */}
       <SchemeComparisonChart schemes={schemes} />
 
       {/* Ranked Scheme Leaderboard with Verified Official URLs */}
-      <SchemeLeaderboardCard schemes={schemes} />
+      <SchemeLeaderboardCard schemes={schemes} isReconsider={isReconsider} />
 
       {/* Statutory Scheme Specifications & Norms Reference Matrix */}
       <div className="glass-panel p-6 bg-white border border-slate-200 shadow-card space-y-4">

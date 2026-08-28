@@ -1,7 +1,7 @@
 import React from 'react';
 import { Award, CheckCircle, XCircle, Percent, ArrowUpRight, ExternalLink, Sparkles } from 'lucide-react';
 
-export function SchemeLeaderboardCard({ schemes }) {
+export function SchemeLeaderboardCard({ schemes, isReconsider = false }) {
   const schemeList = schemes || [];
 
   return (
@@ -34,7 +34,7 @@ export function SchemeLeaderboardCard({ schemes }) {
               key={s.scheme_id || idx}
               className={`p-4 rounded-xl border transition-all duration-200 ${
                 isTop 
-                  ? 'bg-sovereign-50/50 border-sovereign-300 shadow-sm' 
+                  ? (isReconsider ? 'bg-rose-50/40 border-rose-200 shadow-sm' : 'bg-sovereign-50/50 border-sovereign-300 shadow-sm')
                   : isEligible
                   ? 'bg-white border-slate-200 hover:border-slate-300'
                   : 'bg-slate-50/50 border-slate-200 opacity-60'
@@ -46,9 +46,11 @@ export function SchemeLeaderboardCard({ schemes }) {
                     <div className="flex items-center gap-2">
                       <span className="font-outfit font-extrabold text-sm text-slate-900">{s.scheme_id}</span>
                       {isTop && (
-                        <span className="text-[10px] font-bold bg-sovereign-800 text-white px-2 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-1 shadow-xs">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider inline-flex items-center gap-1 shadow-xs ${
+                          isReconsider ? 'bg-rose-800 text-white' : 'bg-sovereign-800 text-white'
+                        }`}>
                           <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" />
-                          <span>Top Match</span>
+                          <span>{isReconsider ? 'Conditional Policy Match' : 'Top Match'}</span>
                         </span>
                       )}
                     </div>
