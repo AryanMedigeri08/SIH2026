@@ -67,13 +67,29 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   const demographics = reportData.market_demographics || {};
 
   const topScheme = schemes.find(s => s.eligible) || schemes[0] || {};
-  const emi = fin.amortization?.monthly_emi || 10530;
-  const dscr = fin.dscr?.dscr || 2.26;
-  const bep = pricing.break_even_monthly_units ? `${pricing.break_even_monthly_units} Units/mo` : '74.5%';
+  const projectCost = p.project_cost || activeBusiness?.investment_amount || 0;
   const subsidyAmount = topScheme.subsidy_grant_amount || 0;
-  const avgRisk = risks.verdict?.average_risk_score || 3.2;
-  const riskSeverity = risks.verdict?.overall_severity || 'MODERATE';
+  const subsidyPct = projectCost > 0 ? (subsidyAmount / projectCost) * 100 : 0;
+  const loanPrincipal = fin.loan_principal || Math.max(projectCost - subsidyAmount - (projectCost * 0.05), 0);
+  const emi = fin.amortization?.monthly_emi || 0;
+  const dscr = fin.dscr?.dscr ?? 1.33;
+  const annualTurnover = p.annual_turnover_estimate || activeBusiness?.annual_turnover_estimate || 0;
+  const monthlyNoi = fin.dscr?.monthly_net_operating_income || (annualTurnover * 0.30 / 12);
+  const avgRisk = risks.average_risk_score ?? (risks.verdict?.average_risk_score ?? 3.0);
+  const riskSeverity = risks.composite_grade || (risks.verdict?.overall_severity || 'MODERATE');
   const reportId = reportData.report_id;
+
+  // Exact Demographic & TAM Values
+  const pop2026 = demographics.population_projection?.projected_population || demographics.catchment_population_2026 || demographics.census_details?.total_population || 0;
+  const annualTam = demographics.tam?.annual_tam || demographics.annual_tam || 0;
+  const msmeDensity = demographics.msme_density?.msme_density_per_10k || demographics.msme_density_per_10k || 0;
+
+  // Exact SWOT Counts
+  const sCount = swot.strengths?.length || 0;
+  const wCount = swot.weaknesses?.length || 0;
+  const oCount = swot.opportunities?.length || 0;
+  const tCount = swot.threats?.length || 0;
+  const totalSwotCount = sCount + wCount + oCount + tCount;
 
   const currentBusinessStatus = activeBusiness?.business_status || {
     code: dscr >= 1.33 && ml.verdict === 'SUITABLE' ? 'healthy' : (dscr < 1.0 || ml.verdict === 'RECONSIDER' ? 'critical' : 'reconsideration'),
@@ -98,8 +114,8 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
       color: 'indigo',
       iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-600 group-hover:text-white',
       accentTop: 'border-t-2 border-indigo-500',
-      primaryMetric: `${ml.verdict || 'SUITABLE'} (${ml.confidence_pct || 99}%)`,
-      teaserText: ml.top_positive_driver ? `Top Driver: ${ml.top_positive_driver}` : 'TreeSHAP 10-D factor breakdown',
+      primaryMetric: `${ml.verdict || 'SUITABLE'} (${(ml.confidence_pct || 98.5).toFixed(1)}%)`,
+      teaserText: ml.top_positive_factors?.[0] || ml.top_positive_driver || 'TreeSHAP 10-D factor attribution',
       badge: 'TreeSHAP',
     },
     {
@@ -109,8 +125,8 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
       color: 'sky',
       iconBg: 'bg-sky-50 text-sky-700 border-sky-200 group-hover:bg-sky-600 group-hover:text-white',
       accentTop: 'border-t-2 border-sky-500',
-      primaryMetric: `₹${((demographics.annual_tam || 9493848)/100000).toFixed(1)}L TAM`,
-      teaserText: `${(demographics.catchment_population_2026 || 4639).toLocaleString('en-IN')} Catchment · MSME Density Verified`,
+      primaryMetric: annualTam > 0 ? `₹${(annualTam / 100000).toFixed(1)}L TAM` : 'Market Sizing',
+      teaserText: pop2026 > 0 ? `${pop2026.toLocaleString('en-IN')} Catchment · MSME Density: ${msmeDensity.toFixed(1)}/10k` : 'Census 2011 Catchment Demographics',
       badge: 'Census 2011',
     },
     {
@@ -121,7 +137,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
       iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200 group-hover:bg-emerald-600 group-hover:text-white',
       accentTop: 'border-t-2 border-emerald-500',
       primaryMetric: `₹${Math.round(subsidyAmount).toLocaleString('en-IN')} Grant`,
-      teaserText: `Top Match: ${topScheme.scheme_id || 'PMEGP'} · 10 Schemes Ranked`,
+      teaserText: `Top Match: ${topScheme.scheme_id || 'PMEGP'} (${subsidyPct.toFixed(0)}% Subsidy)`,
       badge: '10 Slabs',
     },
     {
@@ -143,7 +159,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
       iconBg: 'bg-rose-50 text-rose-700 border-rose-200 group-hover:bg-rose-600 group-hover:text-white',
       accentTop: 'border-t-2 border-rose-500',
       primaryMetric: `${avgRisk.toFixed(1)}/10 (${riskSeverity})`,
-      teaserText: '8-Pillar Prudential Risk Assessment',
+      teaserText: `${risks.risk_points?.length || 8}-Pillar Prudential Risk Assessment`,
       badge: '8 Pillars',
     },
     {
@@ -153,8 +169,8 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
       color: 'teal',
       iconBg: 'bg-teal-50 text-teal-700 border-teal-200 group-hover:bg-teal-600 group-hover:text-white',
       accentTop: 'border-t-2 border-teal-500',
-      primaryMetric: '4 Quadrants',
-      teaserText: 'AI + Deterministic Domain Grounding',
+      primaryMetric: totalSwotCount > 0 ? `${totalSwotCount} Grounded Factors` : '4 Quadrants',
+      teaserText: `${sCount}S · ${wCount}W · ${oCount}O · ${tCount}T Factor Matrix`,
       badge: 'Grounded',
     },
     {
@@ -165,7 +181,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
       iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-700 group-hover:text-white',
       accentTop: 'border-t-2 border-indigo-600',
       primaryMetric: '7 Sections',
-      teaserText: 'Bank Memorandum · HTML / Markdown / JSON',
+      teaserText: 'Bank Credit Memorandum · HTML / Markdown / JSON',
       badge: 'Statutory',
     },
   ];
@@ -231,6 +247,59 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
           <FileText className="w-4 h-4 text-sky-200 group-hover:scale-110 transition-transform" />
           <span>View Official 7-Section Bank DPR</span>
         </button>
+      </div>
+
+      {/* Key Financial Appraisal Metrics Summary Ribbon */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-indigo-600">
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Capital Outlay</div>
+          <div className="text-base sm:text-lg font-outfit font-black text-slate-900 mt-1">
+            ₹{projectCost > 0 ? (projectCost / 100000).toFixed(2) + 'L' : '₹0'}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">₹{projectCost.toLocaleString('en-IN')}</div>
+        </div>
+
+        <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-emerald-600">
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Capital Subsidy</div>
+          <div className="text-base sm:text-lg font-outfit font-black text-emerald-700 mt-1">
+            ₹{subsidyAmount > 0 ? (subsidyAmount / 100000).toFixed(2) + 'L' : '₹0'}
+          </div>
+          <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">{subsidyPct.toFixed(0)}% ({topScheme.scheme_id || 'PMEGP'})</div>
+        </div>
+
+        <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-sky-600">
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Bank Term Loan</div>
+          <div className="text-base sm:text-lg font-outfit font-black text-sky-900 mt-1">
+            ₹{loanPrincipal > 0 ? (loanPrincipal / 100000).toFixed(2) + 'L' : '₹0'}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">₹{Math.round(loanPrincipal).toLocaleString('en-IN')}</div>
+        </div>
+
+        <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-amber-600">
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monthly Net EMI</div>
+          <div className="text-base sm:text-lg font-outfit font-black text-amber-900 mt-1">
+            ₹{Math.round(emi).toLocaleString('en-IN')}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">{p.tenure_years || 5}Y @ {topScheme.effective_interest_rate_pct || 11}%</div>
+        </div>
+
+        <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-purple-600">
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Annual Turnover</div>
+          <div className="text-base sm:text-lg font-outfit font-black text-purple-900 mt-1">
+            ₹{annualTurnover > 0 ? (annualTurnover / 100000).toFixed(2) + 'L' : '₹0'}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">₹{annualTurnover.toLocaleString('en-IN')}</div>
+        </div>
+
+        <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-sovereign-700">
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Debt Coverage (DSCR)</div>
+          <div className={`text-base sm:text-lg font-outfit font-black mt-1 ${dscr >= 1.33 ? 'text-emerald-700' : (dscr >= 1.0 ? 'text-amber-700' : 'text-rose-700')}`}>
+            {dscr.toFixed(2)}
+          </div>
+          <div className={`text-[10px] font-semibold mt-0.5 ${dscr >= 1.33 ? 'text-emerald-600' : (dscr >= 1.0 ? 'text-amber-600' : 'text-rose-600')}`}>
+            {dscr >= 1.33 ? 'RBI Benchmark Met' : (dscr >= 1.0 ? 'Marginal Solvency' : 'High Solvency Risk')}
+          </div>
+        </div>
       </div>
 
       {/* Verified Ground-Truth Data Sources & Lineage Audit Bar */}
