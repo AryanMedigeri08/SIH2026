@@ -1015,6 +1015,8 @@ class DatabaseManager:
 
     # --- Feasibility Report Cache Store ---
     async def save_feasibility_report(self, report_id: str, report_data: dict[str, Any], user_id: Optional[str] = None) -> None:
+        if isinstance(report_data, dict):
+            report_data["_owner_id"] = user_id
         self.in_memory_reports[report_id] = report_data
 
         if self.sqlite:
@@ -1024,14 +1026,21 @@ class DatabaseManager:
 
         if self.pool:
             try:
+                if user_id:
+                    try:
+                        await self.upsert_user(user_id, f"{user_id}@udyam.gov.in", "Enterprise User")
+                    except Exception as u_err:
+                        logger.warning(f"Could not auto-upsert user profile for {user_id}: {u_err}")
+
                 async with self.pool.acquire() as conn:
                     await conn.execute("""
-                        INSERT INTO feasibility_reports (report_id, user_id, report_payload, dpr_payload)
-                        VALUES ($1, $2, $3, $4)
+                        INSERT INTO feasibility_reports (report_id, user_id, report_payload, dpr_payload, updated_at)
+                        VALUES ($1, $2, $3, $4, NOW())
                         ON CONFLICT (report_id) DO UPDATE SET
                             user_id = EXCLUDED.user_id,
                             report_payload = EXCLUDED.report_payload,
-                            dpr_payload = EXCLUDED.dpr_payload
+                            dpr_payload = EXCLUDED.dpr_payload,
+                            updated_at = NOW()
                     """,
                     report_id,
                     user_id,
@@ -1044,13 +1053,14 @@ class DatabaseManager:
     async def get_feasibility_report(self, report_id: str, user_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         if report_id in self.in_memory_reports:
             payload = self.in_memory_reports[report_id]
-            if user_id is None or payload.get("_owner_id") == user_id:
+            owner = payload.get("_owner_id")
+            if user_id is None or owner is None or owner == user_id:
                 return payload
 
         if self.sqlite:
             row = self.sqlite.execute("SELECT user_id, payload FROM feasibility_reports WHERE report_id = ?", (report_id,)).fetchone()
             if row:
-                if user_id is not None and row["user_id"] != user_id:
+                if user_id is not None and row["user_id"] is not None and row["user_id"] != user_id:
                     return None
                 payload = json.loads(row["payload"])
                 payload["_owner_id"] = row["user_id"]
@@ -1060,14 +1070,14 @@ class DatabaseManager:
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
-                    if user_id is None:
-                        row = await conn.fetchrow("SELECT report_payload, dpr_payload FROM feasibility_reports WHERE report_id = $1", report_id)
-                    else:
-                        row = await conn.fetchrow("SELECT report_payload, dpr_payload FROM feasibility_reports WHERE report_id = $1 AND user_id = $2", report_id, user_id)
+                    row = await conn.fetchrow("SELECT user_id, report_payload, dpr_payload FROM feasibility_reports WHERE report_id = $1", report_id)
                     if row:
+                        owner = row["user_id"]
+                        if user_id is not None and owner is not None and owner != user_id:
+                            return None
                         rep = json.loads(row["report_payload"]) if isinstance(row["report_payload"], str) else row["report_payload"]
                         dpr = json.loads(row["dpr_payload"]) if isinstance(row["dpr_payload"], str) else row["dpr_payload"]
-                        payload = {"report": rep, "dpr": dpr}
+                        payload = {"report": rep, "dpr": dpr, "_owner_id": owner}
                         self.in_memory_reports[report_id] = payload
                         return payload
             except Exception as e:
