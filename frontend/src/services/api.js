@@ -1,8 +1,39 @@
 /**
- * api.js — REST API Client for Udyam Saathi Platform.
+ * api.js — REST API Client for Udyam Saathi Platform with Token-Aware Fetcher.
  */
 
 const API_BASE = '/api/v2';
+
+// Helper for authenticated HTTP requests
+async function authFetch(url, token, options = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
+  };
+
+  const res = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Request failed with status ${res.status}`;
+    try {
+      const errJson = await res.json();
+      errorDetail = errJson.detail || errJson.message || errorDetail;
+    } catch (_) {}
+    const error = new Error(errorDetail);
+    error.status = res.status;
+    throw error;
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return await res.json();
+  }
+  return await res.text();
+}
 
 export async function checkHealth() {
   try {
@@ -14,8 +45,82 @@ export async function checkHealth() {
   }
 }
 
-// --- LGD 4-Tier Location Endpoints ---
+// --- User Authentication & Profile API ---
+export const authApi = {
+  async registerProfile(token, profileData) {
+    return await authFetch(`${API_BASE}/auth/register`, token, {
+      method: 'POST',
+      body: JSON.stringify(profileData),
+    });
+  },
 
+  async syncSession(token) {
+    return await authFetch(`${API_BASE}/auth/session`, token, {
+      method: 'POST',
+    });
+  },
+
+  async getMyProfile(token) {
+    return await authFetch(`${API_BASE}/auth/me`, token, {
+      method: 'GET',
+    });
+  },
+
+  async updateMyProfile(token, updateData) {
+    return await authFetch(`${API_BASE}/auth/me`, token, {
+      method: 'PATCH',
+      body: JSON.stringify(updateData),
+    });
+  },
+
+  async deleteAccount(token) {
+    return await authFetch(`${API_BASE}/auth/me`, token, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// --- Projects State Persistence API (Owner-Grounded) ---
+export const projectsApi = {
+  async createProject(token, projectData) {
+    return await authFetch(`${API_BASE}/projects`, token, {
+      method: 'POST',
+      body: JSON.stringify(projectData),
+    });
+  },
+
+  async listProjects(token) {
+    return await authFetch(`${API_BASE}/projects`, token, {
+      method: 'GET',
+    });
+  },
+
+  async getProject(token, projectId) {
+    return await authFetch(`${API_BASE}/projects/${projectId}`, token, {
+      method: 'GET',
+    });
+  },
+
+  async analyzeProject(token, projectId) {
+    return await authFetch(`${API_BASE}/projects/${projectId}/analyze`, token, {
+      method: 'POST',
+    });
+  },
+
+  async getProjectDpr(token, projectId, format = 'json') {
+    return await authFetch(`${API_BASE}/projects/${projectId}/dpr?format=${format}`, token, {
+      method: 'GET',
+    });
+  },
+
+  async deleteProject(token, projectId) {
+    return await authFetch(`${API_BASE}/projects/${projectId}`, token, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// --- LGD 4-Tier Location Endpoints ---
 export async function fetchStates() {
   try {
     const res = await fetch(`${API_BASE}/locations/states`);
@@ -85,33 +190,23 @@ export async function fetchVillages(districtName, blockName, districtCode, block
 }
 
 // --- Feasibility Analysis & DPR Endpoints ---
-
-export async function generateFeasibility(formData) {
-  try {
-    const res = await fetch(`${API_BASE}/feasibility/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-    if (res.ok) return await res.json();
-    const err = await res.json();
-    throw new Error(err.detail || 'Feasibility analysis failed.');
-  } catch (err) {
-    throw err;
-  }
+export async function generateFeasibility(formData, token = null) {
+  return await authFetch(`${API_BASE}/feasibility/generate`, token, {
+    method: 'POST',
+    body: JSON.stringify(formData),
+  });
 }
 
-export async function fetchFeasibilityReport(reportId) {
-  const res = await fetch(`${API_BASE}/feasibility/${reportId}`);
-  if (!res.ok) throw new Error(`Report ${reportId} not found`);
-  return await res.json();
+export async function fetchFeasibilityReport(reportId, token = null) {
+  return await authFetch(`${API_BASE}/feasibility/${reportId}`, token, {
+    method: 'GET',
+  });
 }
 
-export async function fetchDprDocument(reportId, format = 'json') {
-  const res = await fetch(`${API_BASE}/feasibility/${reportId}/dpr?format=${format}`);
-  if (!res.ok) throw new Error('DPR Document not available');
-  if (format === 'html' || format === 'markdown') return await res.text();
-  return await res.json();
+export async function fetchDprDocument(reportId, format = 'json', token = null) {
+  return await authFetch(`${API_BASE}/feasibility/${reportId}/dpr?format=${format}`, token, {
+    method: 'GET',
+  });
 }
 
 export async function calculateFinancials(payload) {
@@ -127,7 +222,6 @@ export async function calculateFinancials(payload) {
 }
 
 // --- Data Source & Schemes Catalog Endpoints ---
-
 export async function fetchDataSources() {
   try {
     const res = await fetch(`${API_BASE}/data-sources`);
@@ -151,4 +245,3 @@ export async function fetchSystemStats() {
   } catch (e) {}
   return null;
 }
-

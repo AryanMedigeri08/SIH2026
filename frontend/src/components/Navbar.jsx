@@ -1,12 +1,15 @@
 import React from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { 
-  Sparkles, Calculator, FileText, Activity, ShieldCheck, 
-  LayoutDashboard, Database, Award, CheckCircle2, Menu
+  Sparkles, Calculator, Activity, LayoutDashboard, Database, Award, 
+  Menu, User, LogOut, LogIn, UserPlus 
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-export function Navbar({ health, onOpenWizard, onOpenCalculator, onToggleMobileSidebar }) {
+export function Navbar({ health, onToggleMobileSidebar }) {
   const isHealthy = health?.status === 'healthy';
+  const { isAuthenticated, userProfile, logout } = useAuth();
+  const navigate = useNavigate();
 
   const navLinks = [
     { to: '/', label: 'Overview', icon: LayoutDashboard },
@@ -16,8 +19,13 @@ export function Navbar({ health, onOpenWizard, onOpenCalculator, onToggleMobileS
     { to: '/data-sources', label: 'Data Lineage', icon: Database },
   ];
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
+
   return (
-    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm transition-all">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm transition-all">
       {/* Sovereign Top Gradient Accent Line */}
       <div className="h-[3px] w-full bg-gradient-to-r from-sovereign-900 via-sky-500 via-indigo-600 to-emerald-500" />
 
@@ -78,7 +86,7 @@ export function Navbar({ health, onOpenWizard, onOpenCalculator, onToggleMobileS
           })}
         </nav>
 
-        {/* Action Controls & Health Indicator */}
+        {/* Action Controls & User Identity */}
         <div className="flex items-center gap-2 sm:gap-3">
           
           {/* Live System Status Pill */}
@@ -95,26 +103,48 @@ export function Navbar({ health, onOpenWizard, onOpenCalculator, onToggleMobileS
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isHealthy ? 'bg-emerald-400' : 'bg-amber-400'}`} />
               <span className={`relative inline-flex rounded-full h-2 w-2 ${isHealthy ? 'bg-emerald-600' : 'bg-amber-600'}`} />
             </span>
-            <span className="font-semibold">{isHealthy ? 'Live Telemetry Active' : 'Connecting Engine...'}</span>
-          </Link>
-
-          {/* Quick Loan Sizing Tool Button */}
-          <Link
-            to="/calculator"
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200/90 px-3 py-1.5 rounded-xl shadow-subtle transition-all"
-          >
-            <Calculator className="w-4 h-4 text-sovereign-700" />
-            <span className="hidden md:inline">Quick Sizing</span>
+            <span className="font-semibold">{isHealthy ? 'Live Telemetry' : 'Connecting...'}</span>
           </Link>
 
           {/* Launch 6-Step Feasibility Wizard */}
           <Link
             to="/wizard"
-            className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-sovereign-800 via-sky-700 to-sovereign-800 hover:from-sovereign-700 hover:to-sky-600 px-4 py-1.5 rounded-xl shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition-all group"
+            className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-sovereign-800 via-sky-700 to-sovereign-800 hover:from-sovereign-700 hover:to-sky-600 px-3.5 py-1.5 rounded-xl shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition-all group"
           >
             <Sparkles className="w-3.5 h-3.5 text-sky-200 group-hover:rotate-12 transition-transform" />
             <span className="hidden sm:inline">New Assessment</span>
           </Link>
+
+          {/* User Auth Section */}
+          {isAuthenticated ? (
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-100 border border-slate-200">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-700 text-white flex items-center justify-center text-[10px] font-bold">
+                  {userProfile?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <span className="text-xs font-semibold text-slate-800 hidden md:inline max-w-[120px] truncate">
+                  {userProfile?.name || 'Promoter'}
+                </span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-1.5 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                title="Sign out of sovereign workspace"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+              <Link
+                to="/login"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl transition-colors shadow-sm"
+              >
+                <LogIn className="w-3.5 h-3.5 text-cyan-600" />
+                <span>Log In</span>
+              </Link>
+            </div>
+          )}
 
         </div>
 

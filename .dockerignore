@@ -1,0 +1,22 @@
+.git
+.github
+.gitignore
+.env
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+venv
+.venv
+env
+node_modules
+dist
+.tempmediaStorage
+.user_uploaded
+browser
+*.log
+*.sqlite3
+To be Deleted
+tests/__pycache__
+backend/__pycache__

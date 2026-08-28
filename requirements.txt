@@ -13,6 +13,11 @@ pydantic-settings>=2.2.0
 python-dotenv>=1.0.1
 python-multipart>=0.0.9
 
+# User Authentication & Security
+firebase-admin>=6.5.0
+pyjwt>=2.8.0
+cryptography>=42.0.0
+
 # Machine Learning & Scientific Computing
 numpy>=1.26.0
 pandas>=2.2.0

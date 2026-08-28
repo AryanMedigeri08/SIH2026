@@ -4,6 +4,13 @@ import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { CaseStudiesBar } from './components/CaseStudiesBar';
 import { ReportGenerationLoader } from './components/ReportGenerationLoader';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+
+// Public & Auth Pages
+import { LandingPage } from './pages/LandingPage';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
 
 // Routed Appraisal Pages
 import { OverviewPage } from './pages/report/OverviewPage';
@@ -38,7 +45,7 @@ import {
 // Modals & Services
 import { DprModal } from './components/DprModal';
 import { QuickCalculatorModal } from './components/QuickCalculatorModal';
-import { checkHealth, generateFeasibility, fetchFeasibilityReport } from './services/api';
+import { checkHealth, generateFeasibility } from './services/api';
 import { PITCH_CASES } from './data/pitchCases';
 import confetti from 'canvas-confetti';
 
@@ -49,8 +56,6 @@ function AppraisalSectionWrapper({
   reportData, 
   isLoading 
 }) {
-  const [isPending, startTransition] = useTransition();
-
   if (isLoading || !reportData) {
     return <SkeletonComponent />;
   }
@@ -80,6 +85,9 @@ export function AppContent() {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const { token } = useAuth();
+
+  const isAuthOrLanding = ['/landing', '/login', '/register'].includes(location.pathname);
 
   // Initial Health check and benchmark load
   useEffect(() => {
@@ -111,7 +119,7 @@ export function AppContent() {
     });
 
     try {
-      const rep = await generateFeasibility(pitchCase.formData);
+      const rep = await generateFeasibility(pitchCase.formData, token);
       setReportData(rep);
       if (rep?.ml_viability?.verdict === 'SUITABLE') {
         confetti({ particleCount: 50, spread: 60, origin: { y: 0.85 } });
@@ -132,7 +140,7 @@ export function AppContent() {
     });
 
     try {
-      const rep = await generateFeasibility(formData);
+      const rep = await generateFeasibility(formData, token);
       setReportData(rep);
       setActiveCaseId(null);
       if (rep?.ml_viability?.verdict === 'SUITABLE') {
@@ -147,14 +155,23 @@ export function AppContent() {
     }
   };
 
+  // If on Landing / Login / Register pages, render full screen without app sidebar
+  if (isAuthOrLanding) {
+    return (
+      <Routes>
+        <Route path="/landing" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+      </Routes>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-sovereign-200 selection:text-sovereign-900">
       
       {/* Top Navbar */}
       <Navbar
         health={health}
-        onOpenWizard={() => navigate('/wizard')}
-        onOpenCalculator={() => setIsCalculatorOpen(true)}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
       />
 
@@ -173,7 +190,7 @@ export function AppContent() {
         {/* Main Content Body */}
         <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-x-hidden">
           
-          {/* Top Benchmark Pitch Cases Bar (Shown when active on report pages) */}
+          {/* Top Benchmark Pitch Cases Bar */}
           <CaseStudiesBar
             activeCaseId={activeCaseId}
             onSelectCase={handleSelectCase}
@@ -353,25 +370,31 @@ export function AppContent() {
                 }
               />
 
-              {/* System Pages */}
+              {/* Protected System Pages */}
               <Route
                 path="/wizard"
                 element={
-                  <WizardPage
-                    onWizardSubmit={handleWizardSubmit}
-                    isLoading={isGenerating}
-                  />
+                  <ProtectedRoute>
+                    <WizardPage
+                      onWizardSubmit={handleWizardSubmit}
+                      isLoading={isGenerating}
+                    />
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/new-assessment"
                 element={
-                  <WizardPage
-                    onWizardSubmit={handleWizardSubmit}
-                    isLoading={isGenerating}
-                  />
+                  <ProtectedRoute>
+                    <WizardPage
+                      onWizardSubmit={handleWizardSubmit}
+                      isLoading={isGenerating}
+                    />
+                  </ProtectedRoute>
                 }
               />
+
+              {/* Public Discovery Pages */}
               <Route path="/calculator" element={<CalculatorPage />} />
               <Route path="/data-sources" element={<DataSourcesPage />} />
               <Route path="/master-schemes" element={<SchemesPage />} />
@@ -416,7 +439,9 @@ export function AppContent() {
 export function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

@@ -253,7 +253,31 @@ project_create_payload = {
     "language": "kn",
 }
 
-r_proj_create = client.post("/api/v2/projects", json=project_create_payload, headers={"X-User-ID": "user_demo_101"})
+# Auth & IDOR Checks on Projects Endpoint
+r_unauth = client.get("/api/v2/projects")
+check("GET /api/v2/projects without auth returns HTTP 401 Unauthorized", r_unauth.status_code == 401)
+
+auth_headers = {"Authorization": "Bearer test-token-user_demo_101:kiran@example.com"}
+
+# Register user profile
+r_reg = client.post("/api/v2/auth/register", json={
+    "name": "Kiran Gowda",
+    "gender": "Male",
+    "phone": "9876543210",
+    "additional_business_details": "Specialized in tractor hydraulics and smartphone board repair.",
+}, headers=auth_headers)
+check("POST /api/v2/auth/register returns HTTP 201 Created", r_reg.status_code == 201)
+
+# Sync session
+r_sess = client.post("/api/v2/auth/session", headers=auth_headers)
+check("POST /api/v2/auth/session returns HTTP 200 OK", r_sess.status_code == 200)
+
+# Get current user profile
+r_me = client.get("/api/v2/auth/me", headers=auth_headers)
+check("GET /api/v2/auth/me returns user profile", r_me.status_code == 200 and r_me.json().get("name") == "Kiran Gowda")
+
+# Create Project with Bearer Token
+r_proj_create = client.post("/api/v2/projects", json=project_create_payload, headers=auth_headers)
 check("POST /api/v2/projects returns HTTP 201 Created", r_proj_create.status_code == 201)
 proj_data = r_proj_create.json()
 project_id = proj_data.get("project_id")
@@ -261,17 +285,22 @@ check("Project record created with unique project_id", project_id is not None an
 check("Initial project status is 'draft'", proj_data.get("status") == "draft")
 
 # List projects for user
-r_proj_list = client.get("/api/v2/projects", headers={"X-User-ID": "user_demo_101"})
+r_proj_list = client.get("/api/v2/projects", headers=auth_headers)
 check("GET /api/v2/projects returns HTTP 200 OK", r_proj_list.status_code == 200)
 check("User project list contains created project", any(p["project_id"] == project_id for p in r_proj_list.json()))
 
-# Get project details
-r_proj_get = client.get(f"/api/v2/projects/{project_id}")
+# Get project details (Owner)
+r_proj_get = client.get(f"/api/v2/projects/{project_id}", headers=auth_headers)
 check(f"GET /api/v2/projects/{project_id} returns HTTP 200 OK", r_proj_get.status_code == 200)
 check("Project details match business name", r_proj_get.json().get("business_name") == "Ramanagara Auto & Mobile Clinic")
 
+# IDOR Security Check: Attempt access as different user
+other_user_headers = {"Authorization": "Bearer test-token-other_user_999:other@example.com"}
+r_idor = client.get(f"/api/v2/projects/{project_id}", headers=other_user_headers)
+check("GET /api/v2/projects/{id} as other user returns HTTP 403 Forbidden (IDOR Protected)", r_idor.status_code == 403)
+
 # Analyze project and persist JSONB analysis result
-r_proj_analyze = client.post(f"/api/v2/projects/{project_id}/analyze")
+r_proj_analyze = client.post(f"/api/v2/projects/{project_id}/analyze", headers=auth_headers)
 check(f"POST /api/v2/projects/{project_id}/analyze returns HTTP 200 OK", r_proj_analyze.status_code == 200)
 analyzed_proj = r_proj_analyze.json()
 check("Project status updated to 'analyzed'", analyzed_proj.get("status") == "analyzed")
@@ -279,7 +308,7 @@ check("Project analysis_result JSONB is populated", analyzed_proj.get("analysis_
 check("Analysis result contains report and dpr", "report" in analyzed_proj["analysis_result"] and "dpr" in analyzed_proj["analysis_result"])
 
 # Retrieve project DPR in Markdown format
-r_proj_dpr_md = client.get(f"/api/v2/projects/{project_id}/dpr?format=markdown")
+r_proj_dpr_md = client.get(f"/api/v2/projects/{project_id}/dpr?format=markdown", headers=auth_headers)
 check(f"GET /api/v2/projects/{project_id}/dpr?format=markdown returns HTTP 200 OK", r_proj_dpr_md.status_code == 200)
 check("Persistent DPR contains enterprise name", "Ramanagara Auto & Mobile Clinic" in r_proj_dpr_md.text)
 

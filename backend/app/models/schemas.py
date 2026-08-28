@@ -21,6 +21,37 @@ class HealthStatus(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# User Authentication & Profile Schemas
+# ---------------------------------------------------------------------------
+class UserRegisterRequest(BaseModel):
+    name: str = Field(..., min_length=1, description="Full Name of Entrepreneur")
+    gender: Optional[str] = Field("Unspecified", description="Male | Female | Other | Unspecified")
+    phone: Optional[str] = Field(None, description="Mobile / Contact number")
+    additional_business_details: Optional[str] = Field(None, max_length=1000, description="Optional free-text context for AI narrative")
+
+
+class UserUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1)
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    additional_business_details: Optional[str] = Field(None, max_length=1000)
+
+
+class UserProfileResponse(BaseModel):
+    firebase_uid: str
+    name: str
+    email: str
+    gender: Optional[str] = "Unspecified"
+    auth_provider: str = "email"
+    phone: Optional[str] = None
+    additional_business_details: Optional[str] = None
+    projects_count: int = 0
+    created_at: str
+    updated_at: str
+    last_login_at: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
 # LGD Location Schemas
 # ---------------------------------------------------------------------------
 class StateInfo(BaseModel):
@@ -77,6 +108,7 @@ class UserInput(BaseModel):
     cpi_inflation_pct: Optional[float] = Field(None, description="Optional state CPI inflation override (%)")
     weather_risk_score: Optional[float] = Field(None, ge=0, le=1, description="Optional weather disruption score (0-1)")
     monthly_net_operating_income_override: Optional[float] = Field(None, description="Optional monthly net profit override (₹)")
+    additional_business_details: Optional[str] = Field(None, max_length=1000, description="Optional supplemental narrative background")
     language: str = Field("en", description="Target language: en | hi | mr | ta | te | kn")
 
 
@@ -93,7 +125,6 @@ class FeasibilityReport(BaseModel):
     pricing_recommendation: dict[str, Any]
     executive_synthesis: dict[str, Any]
     data_sources_used: Optional[list[dict[str, Any]]] = Field(default_factory=list, description="Audit lineage of database tables, APIs and ML models queried")
-
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +147,7 @@ class ProjectCreate(BaseModel):
     tenure_years: float = 5.0
     moratorium_months: int = 6
     language: str = "en"
+    additional_business_details: Optional[str] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -125,6 +157,7 @@ class ProjectUpdate(BaseModel):
     tenure_years: Optional[float] = None
     moratorium_months: Optional[int] = None
     language: Optional[str] = None
+    additional_business_details: Optional[str] = None
 
 
 class ProjectModel(BaseModel):
@@ -146,6 +179,7 @@ class ProjectModel(BaseModel):
     tenure_years: float
     moratorium_months: int
     language: str
+    additional_business_details: Optional[str] = None
     status: str = "draft"  # draft | analyzed
     analysis_result: Optional[dict[str, Any]] = None
     created_at: str

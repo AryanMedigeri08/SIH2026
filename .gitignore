@@ -11,6 +11,9 @@ to_delete/
 .env.local
 .env.*.local
 *.env
+*firebase*.json
+serviceAccountKey.json
+firebase-credentials.json
 
 # Python Bytecode & Cache
 __pycache__/
@@ -28,7 +31,6 @@ lib/
 lib64/
 parts/
 sdist/
-var/
 wheels/
 share/python-wheels/
 *.egg-info/

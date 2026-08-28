@@ -189,6 +189,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         "top_positive_driver": ml_pred.top_positive_factors[0],
         "top_risk_factor": ml_pred.top_risk_factors[0],
         "key_risks": [r.title for r in risks if r.severity in ("HIGH", "SEVERE", "MODERATE")][:2],
+        "additional_business_details": input_data.additional_business_details,
     }, language=input_data.language)
     logger.info(
         f"📝 [TIER 3 SYNTHESIS] Model: '{synthesis.model_name}' | Language: '{input_data.language.upper()}' | "

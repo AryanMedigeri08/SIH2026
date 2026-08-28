@@ -10,6 +10,8 @@
 [![Vite](https://img.shields.io/badge/Vite-5.4-646CFF.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC.svg?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon%20Async-4169E1.svg?logo=postgresql&logoColor=white)](https://neon.tech/)
+[![Firebase](https://img.shields.io/badge/Auth-Firebase%20%2B%20OAuth-FFA611.svg?logo=firebase&logoColor=white)](https://firebase.google.com/)
+[![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED.svg?logo=docker&logoColor=white)](https://www.docker.com/)
 [![XGBoost](https://img.shields.io/badge/XGBoost-10--D%20Viability-EB5424.svg?logo=xgboost&logoColor=white)](https://xgboost.readthedocs.io/)
 [![SHAP](https://img.shields.io/badge/Explainability-Lundberg%20TreeSHAP-brightgreen.svg)](https://shap.readthedocs.io/)
 [![Groq Cloud](https://img.shields.io/badge/Groq%20Cloud-LLM%20Synthesis-F05A28.svg?logo=meta&logoColor=white)](https://groq.com/)
@@ -53,6 +55,7 @@ Unlike generic LLM wrappers that fabricate financial forecasts, Udyam Saathi imp
 │  • Groq Cloud LLM Single-Call Narrative Generator                                      │
 │  • 6 Regional Languages Supported: English, Hindi, Marathi, Tamil, Telugu, Kannada     │
 │  • Zero Financial Recalculation Invariant (LLM is strictly forbidden from hallucinations)│
+│  • Supplementary Promoter Context sanitized & injected for narrative depth only        │
 │  • SHA-256 Prompt Memory Caching (< 1ms instant replay)                                │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
@@ -72,201 +75,94 @@ Unlike generic LLM wrappers that fabricate financial forecasts, Udyam Saathi imp
 
 ---
 
+## 🔐 Authentication & IDOR-Protected Project State
+
+Udyam Saathi features enterprise user authentication and data isolation:
+
+1. **Firebase Authentication (Client-Side SDK)**:
+   - Password hashing and Google OAuth token issuance are handled securely by Firebase Client SDK.
+   - Raw passwords never reach the backend API.
+2. **Server-Side Token Verification & IDOR Protection**:
+   - Every protected route requires `Authorization: Bearer <Firebase ID Token>`.
+   - The FastAPI dependency `get_current_user` verifies cryptographic signatures and extracts claims.
+   - Strict project ownership validation: attempts to view or analyze another user's project return `HTTP 403 Forbidden`.
+3. **Hybrid Neon PostgreSQL Schema**:
+   - `users`: Keyed by `firebase_uid`, stores name, email, gender, phone, and optional narrative context.
+   - `projects`: Foreign-keyed to `users.firebase_uid` with cascade deletion and indexed queries.
+
+---
+
 ## 🚀 Key Features
 
 * **⚡ Sub-2-Second End-to-End Pipeline**: Executes demographic projection, financial amortization, 613 amenities parsing, ML viability classification, TreeSHAP explainability, AI synthesis, and 7-section DPR generation in $< 2\text{s}$.
 * **🧭 Sidebar Navigation & 8 Routed Deep-Dive Dimensions**: Clean information architecture partitioned across 8 dedicated routes:
   1. **Overview & Synthesis** (`/` or `/reports/:reportId`)
   2. **ML Viability & SHAP** (`/viability`)
-  3. **Market & Local Demand** (`/market`)
+  3. **Local Market Demand** (`/market`)
   4. **Government Schemes** (`/schemes`)
-  5. **Financials & Cash Flow** (`/financials`)
-  6. **Operational Risk Assessment** (`/risk`)
-  7. **Grounded SWOT Analysis** (`/swot`)
-  8. **Statutory Bank DPR** (`/dpr`)
-* **🧠 Lundberg TreeSHAP Explainability**: Replaces heuristic rules with exact game-theoretic Shapley value attributions calculated directly from tree ensembles, rendering interactive positive and risk attribution charts.
-* **🏛️ Verified Government Scheme Portals**: Automatically matches and ranks 10 Central & State credit-linked subsidy schemes (PMEGP, PMFME, MUDRA Shishu/Kishore/Tarun/Tarun Plus, Stand-Up India, PM Vishwakarma, DAY-NRLM, AHIDF) with verified live `.gov.in` portal hyperlinks.
-* **🌐 Live LGD 4-Tier Cascading Administrative Hierarchy**: Dynamically queries 36 Indian States/UTs, 785 Districts, 7,338 Development Blocks, and 698,950 Census Villages directly from PostgreSQL.
-* **📊 10-Dimensional ML Viability Engine**: In-memory XGBoost model evaluated on 10 grounded indicators ($x_0$: DSCR, $x_1$: Subsidy Ratio, $x_2$: Loan-to-Income, $x_3$: Population, $x_4$: MSME Density, $x_5$: Infrastructure Score, $x_6$: CPI Inflation, $x_7$: Working Capital Buffer, $x_8$: Competition, $x_9$: Weather Risk).
-* **⏳ Staged Pipeline Animation & Skeletons**: Staged 6-phase loading pipeline with checkmarks during generation, and card-specific CSS shimmer skeletons on route transitions.
-* **🗣️ Multi-Lingual Regional Translation**: Executive narrative synthesis and credit memos in 6 Indian languages (`en`, `hi`, `mr`, `ta`, `te`, `kn`).
-* **🖨️ Bank-Ready Printable DPR**: One-click official bank memorandum generation formatted for commercial bank loan officers (SBI, PNB, Canara Bank, NABARD).
+  5. **Financials & Cashflow** (`/financials`)
+  6. **Risk Assessment** (`/risk`)
+  7. **SWOT Matrix** (`/swot`)
+  8. **Official Bank DPR** (`/dpr`)
+* **🤖 Lundberg TreeSHAP Explainability**: Replaces heuristic rules with real mathematical game-theoretic Shapley values calculated by `shap.TreeExplainer`.
+* **🇮🇳 Multilingual AI Synthesis**: Generates bank appraisals in 6 official languages: English (`en`), Hindi (`hi`), Marathi (`mr`), Tamil (`ta`), Telugu (`te`), and Kannada (`kn`).
+* **🏛️ 10 Central & State Schemes Integrated**: PMEGP, PMFME, MUDRA (Shishu/Kishore/Tarun/Tarun Plus), Stand-Up India, PM Vishwakarma, DAY-NRLM, and AHIDF with direct `.gov.in` portal links.
+* **📦 Docker Containerization**: Multi-stage Nginx + Python 3.11 Slim container images orchestrated via Docker Compose.
 
 ---
 
-## 📁 Repository Structure
+## 🐳 Quick Start with Docker
 
-```
-SIH2026/
-├── backend/                             # FastAPI Python Backend
-│   ├── app/
-│   │   ├── config.py                    # Pydantic BaseSettings & Environment Loader
-│   │   ├── database.py                  # PostgreSQL / Neon Asyncpg Connection Pool & LGD Resolvers
-│   │   ├── main.py                      # FastAPI Application Entrypoint & CORS Middleware
-│   │   ├── api/
-│   │   │   └── endpoints.py             # Modular REST API Endpoints (/feasibility, /locations, /financial, /data-sources)
-│   │   ├── core/                        # Core Analytical & Mathematical Engines
-│   │   │   ├── amenities_client.py      # 613 District Village Amenities OGD API Client
-│   │   │   ├── dpr_generator.py         # 7-Section Statutory Bank DPR Document Compiler
-│   │   │   ├── executive_synthesizer.py # Groq Cloud Multi-Lingual AI Synthesis
-│   │   │   ├── feature_extractor.py     # 10-Dimensional ML Feature Vector Extractor (x0..x9)
-│   │   │   ├── financial_calculator.py  # EMI, Moratorium, DSCR, Working Capital & Scheme Ranking
-│   │   │   ├── inference.py             # Thread-Safe XGBoost Viability Engine + TreeSHAP Explainability
-│   │   │   ├── market_analyzer.py       # Census 2011 Catchment Population & TAM Estimator
-│   │   │   ├── pricing_engine.py        # CPI-Adjusted Cost-Plus Pricing Floor Calculator
-│   │   │   ├── risk_analyzer.py         # 8-Point Quantified Risk Matrix & Rupee Buffers
-│   │   │   ├── swot_analyzer.py         # Grounded SWOT Generator
-│   │   │   └── train_model.py           # XGBoost Synthetic Pipeline Training Script
-│   │   ├── data/                        # Model Weights, Scheme Rules & LGD Lookup Tables
-│   │   │   ├── district_resources.json  # 613 District Resource UUID Map
-│   │   │   ├── government_schemes.json  # 10 Govt Schemes with Verified official_url Portals
-│   │   │   ├── growth_rates.json        # State CAGR Census Population Projections
-│   │   │   ├── model_metadata.json      # XGBoost Hyperparameters & Feature Importances
-│   │   │   └── viability_xgb.joblib     # Serialized XGBoost Model Binary
-│   │   ├── models/
-│   │   │   └── schemas.py               # Pydantic v2 Request/Response Schemas
-│   │   └── routers/                     # Legacy Router Bindings (v1/v2 compatibility)
-│   │       ├── feasibility.py
-│   │       ├── financial.py
-│   │       ├── locations.py
-│   │       └── projects.py
-├── frontend/                            # React 18 + Vite + Tailwind CSS + Recharts SPA
-│   ├── index.html                       # Master HTML Mount & Google Fonts
-│   ├── package.json                     # Frontend Manifest & Scripts
-│   ├── vite.config.js                   # Vite Configuration
-│   ├── tailwind.config.js               # Sovereign Institutional Design System Tokens
-│   └── src/
-│       ├── App.jsx                      # Master Router, Layout Shell & State Machine
-│       ├── index.css                    # Ambient Background Animation & CSS Shimmer Skeletons
-│       ├── main.jsx                     # React Root Entrypoint
-│       ├── data/
-│       │   └── pitchCases.js            # 5 SIH Jury Defense Benchmark Scenarios
-│       ├── services/
-│       │   └── api.js                   # REST API Client with Offline Fallbacks
-│       ├── components/
-│       │   ├── Navbar.jsx               # Frosted Topbar with Live Telemetry Radar
-│       │   ├── CaseStudiesBar.jsx       # 1-Click Scenario Preset Switcher
-│       │   ├── DprModal.jsx             # Printable 7-Section Bank DPR Modal
-│       │   ├── QuickCalculatorModal.jsx # Quick Loan Sizing Sensitivity Tool
-│       │   ├── ReportGenerationLoader.jsx # Staged 6-Phase Generation Pipeline Loader
-│       │   ├── Sidebar/
-│       │   │   └── Sidebar.jsx          # Collapsible Desktop Sidebar & Off-Canvas Mobile Drawer
-│       │   ├── Skeletons/
-│       │   │   └── CardSkeletons.jsx    # Shimmer Skeleton Loaders per Appraisal Route
-│       │   ├── Dashboard/               # High-Density Visual & Chart Components
-│       │   │   ├── ViabilityMeterCard.jsx
-│       │   │   ├── FeatureContributionChart.jsx # TreeSHAP Factor Attribution Chart
-│       │   │   ├── ViabilityRadarChart.jsx      # 10-D Feature Vector Radar
-│       │   │   ├── TamFunnelChart.jsx           # Demographic Conversion Funnel
-│       │   │   ├── SchemeComparisonChart.jsx    # Subsidy vs Interest Scatter
-│       │   │   ├── SchemeLeaderboardCard.jsx    # Ranked Schemes with External .gov.in Links
-│       │   │   ├── CapitalReconciliationCard.jsx# Zero-Drift Outlay Reconciliation
-│       │   │   ├── DscrGaugeChart.jsx           # RBI Solvency Gauge
-│       │   │   ├── CashflowProjectionsChart.jsx # 5-Year Financial Amortization Table & Chart
-│       │   │   ├── RiskRadarCard.jsx            # 8-Point Operational Risk Matrix
-│       │   │   ├── SwotMatrixCard.jsx           # Grounded SWOT Grid
-│       │   │   ├── StatutoryChecklistCard.jsx   # Bank Submission Compliance Checklist
-│       │   │   └── ExecutiveNarrativeCard.jsx   # Multi-Lingual AI Credit Memo
-│       │   └── Wizard/
-│       │       └── FeasibilityWizard.jsx# 6-Step Enterprise Onboarding Form
-│       └── pages/                       # Multi-Page Routed View Containers
-│           ├── OverviewPage.jsx
-│           ├── ViabilityPage.jsx
-│           ├── MarketDemandPage.jsx
-│           ├── GovernmentSchemesPage.jsx
-│           ├── FinancialsPage.jsx
-│           ├── RiskAssessmentPage.jsx
-│           ├── SwotAnalysisPage.jsx
-│           ├── BankDprPage.jsx
-│           ├── WizardPage.jsx
-│           ├── CalculatorPage.jsx
-│           ├── DataSourcesPage.jsx
-│           ├── SchemesPage.jsx
-│           ├── ReportDetailPage.jsx
-│           └── NotFoundPage.jsx
-├── docs/                                # Architecture Specifications & Blueprints
-│   ├── udyam_saathi_master_blueprint.md
-│   ├── master_implementation_plan.md
-│   └── system_architecture_and_data_flow.md
-├── tests/                               # Master Automated Test Suites (325 Tests)
-│   ├── test_phase2.py                   # Deterministic Financial & Demographic Math (57 Tests)
-│   ├── test_phase3.py                   # XGBoost Inference & 10-D Feature Extractor (45 Tests)
-│   ├── test_phase4.py                   # Unified AI Synthesis & Multi-Lingual Fallback (68 Tests)
-│   ├── test_phase5.py                   # 7-Section Bank DPR Accounting Balancing (38 Tests)
-│   ├── test_phase6.py                   # FastAPI REST API & Neon DB Integration (74 Tests)
-│   └── test_phase7.py                   # React Frontend Components, Routes & Skeletons (93 Tests)
-├── test_modular_endpoints.py            # 14-Point Real Endpoint Verification Suite
-├── requirements.txt                     # Python Package Dependencies
-├── run_tests.py                         # Master Test Suite Runner
-├── start_backend.bat                    # Windows 1-Click Backend Launcher
-└── start_frontend.bat                   # Windows 1-Click Frontend Launcher
-```
-
----
-
-## ⚙️ Quick Start & Installation
-
-### 1. Prerequisites
-* **Python 3.10+ / 3.11+**
-* **Node.js 18+ & npm**
-* **PostgreSQL Database** (Neon Serverless PostgreSQL recommended)
-
-### 2. Environment Configuration
-Create a `.env` file in the root directory:
-
-```ini
-PORT=8000
-HOST=0.0.0.0
-DEBUG=True
-
-# Neon Serverless PostgreSQL Connection String
-DATABASE_URL=postgresql://neondb_owner:npg_DexJQiYjb9G8@ep-spring-cell-az3gxhjg-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-
-# Groq Cloud API Key for Multi-Lingual Executive Synthesis
-GROQ_API_KEY=gsk_your_groq_api_key_here
-
-# Open Government Data (data.gov.in) 613 Village Amenities API Key
-DATA_GOV_IN_API_KEY=579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b
-AMENITIES_API_BASE_URL=https://api.data.gov.in/resource
-```
-
-### 3. Install Dependencies
-
-**Backend Dependencies:**
+### Prerequisites
+* [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed & running.
+* Copy `.env.example` to `.env` and provide your Groq API key:
 ```bash
+cp .env.example .env
+```
+
+### Launch Containers
+```bash
+docker-compose up --build
+```
+
+* **Frontend Dashboard**: [`http://localhost:3000`](http://localhost:3000)
+* **Backend API & Swagger Docs**: [`http://localhost:8000/docs`](http://localhost:8000/docs)
+* **Backend Health Telemetry**: [`http://localhost:8000/api/v2/health`](http://localhost:8000/api/v2/health)
+
+---
+
+## 💻 Local Development Setup
+
+### 1. Backend Setup (FastAPI)
+```bash
+# Navigate to repository root
+cd SIH2026
+
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install Python dependencies
 pip install -r requirements.txt
+
+# Start FastAPI server with live reload
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-**Frontend Dependencies:**
+### 2. Frontend Setup (Vite + React)
 ```bash
 cd frontend
+
+# Install Node dependencies
 npm install
-cd ..
-```
 
-### 4. Running the Application
-
-#### Terminal 1 — Backend (FastAPI REST API & AI/ML Pipeline)
-```bash
-python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-*or double-click `start_backend.bat`*
-
-* **Interactive Swagger UI**: [`http://127.0.0.1:8000/docs`](http://127.0.0.1:8000/docs)
-* **Health Endpoint**: [`http://127.0.0.1:8000/api/v2/health`](http://127.0.0.1:8000/api/v2/health)
-
-#### Terminal 2 — Frontend (React 18 + Vite Multi-Page Application)
-```bash
-cd frontend
+# Start Vite dev server
 npm run dev
 ```
-*or double-click `start_frontend.bat`*
-
-* **Web Application UI**: [`http://127.0.0.1:5173`](http://127.0.0.1:5173)
 
 ---
 
-## 🏛️ Government Schemes & Verified Official Portals
+## 🏛️ Integrated Government Schemes Catalog
 
 Udyam Saathi evaluates enterprise parameters against 10 Central & State MSME credit-linked subsidy schemes with direct official portal links:
 
@@ -301,40 +197,41 @@ The platform includes 5 pre-configured benchmark case studies representing diver
 
 ## 📡 REST API Reference
 
-| Endpoint | Method | Description |
-|---|:---:|---|
-| `/api/v2/health` | `GET` | Subsystem health telemetry (Database, XGBoost model, OGD API, Groq LLM). |
-| `/api/v2/feasibility/generate` | `POST` | Complete 4-tier feasibility appraisal, TreeSHAP attributions, and credit memo. |
-| `/api/v2/feasibility/{report_id}` | `GET` | Retrieve stored feasibility report by unique report ID. |
-| `/api/v2/feasibility/{report_id}/dpr` | `GET` | Export 7-section statutory Bank DPR in `html`, `markdown`, or `json` formats. |
-| `/api/v2/financial/calculate` | `POST` | Standalone deterministic loan amortization, DSCR, and working capital calculator. |
-| `/api/v2/locations/states` | `GET` | List all 36 Indian States and Union Territories from LGD database. |
-| `/api/v2/locations/districts` | `GET` | Query districts for a selected state (`?state_name=...`). |
-| `/api/v2/locations/blocks` | `GET` | Query development blocks for a selected district (`?district_name=...`). |
-| `/api/v2/data-sources` | `GET` | Ground-truth database lineage metadata and connected table schemas. |
-| `/api/v2/data-sources/schemes` | `GET` | Master catalog of 10 Central & State subsidy schemes with official URLs. |
-| `/api/v2/data-sources/stats` | `GET` | System record counts across Census, MSME registry, and Amenities tables. |
+| Endpoint | Method | Auth | Description |
+|---|:---:|:---:|---|
+| `/api/v2/health` | `GET` | Public | Subsystem health telemetry (Database, XGBoost model, OGD API, Groq LLM). |
+| `/api/v2/auth/register` | `POST` | Bearer | Create or update user profile row after Firebase client account creation. |
+| `/api/v2/auth/session` | `POST` | Bearer | Sync session on login; updates `last_login_at` and creates profile if needed. |
+| `/api/v2/auth/me` | `GET` | Bearer | Retrieve caller's profile and count of associated projects. |
+| `/api/v2/auth/me` | `PATCH` | Bearer | Update profile fields (`name`, `gender`, `phone`, `additional_business_details`). |
+| `/api/v2/auth/me` | `DELETE` | Bearer | Delete Postgres profile, cascade delete projects, and remove Firebase user. |
+| `/api/v2/projects` | `POST` | Bearer | Create draft project record belonging to authenticated user. |
+| `/api/v2/projects` | `GET` | Bearer | List projects owned by authenticated user. |
+| `/api/v2/projects/{id}` | `GET` | Bearer | Retrieve project details with strict ownership verification (403 IDOR protected). |
+| `/api/v2/projects/{id}/analyze` | `POST` | Bearer | Run feasibility analysis for project and persist full JSONB results. |
+| `/api/v2/projects/{id}/dpr` | `GET` | Bearer | Retrieve project 7-section Bank DPR in `html`, `markdown`, or `json`. |
+| `/api/v2/feasibility/generate` | `POST` | Public / Bearer | Complete 4-tier feasibility appraisal, TreeSHAP attributions, and credit memo. |
+| `/api/v2/feasibility/{report_id}` | `GET` | Public | Retrieve stored feasibility report by unique report ID. |
+| `/api/v2/financial/calculate` | `POST` | Public | Standalone deterministic loan amortization, DSCR, and working capital calculator. |
+| `/api/v2/locations/states` | `GET` | Public | List all 36 Indian States and Union Territories from LGD database. |
+| `/api/v2/locations/districts` | `GET` | Public | Query districts for a selected state (`?state_name=...`). |
+| `/api/v2/locations/blocks` | `GET` | Public | Query development blocks for a selected district (`?district_name=...`). |
+| `/api/v2/data-sources` | `GET` | Public | Ground-truth database lineage metadata and connected table schemas. |
+| `/api/v2/data-sources/schemes` | `GET` | Public | Master catalog of 10 Central & State subsidy schemes with official URLs. |
+| `/api/v2/data-sources/stats` | `GET` | Public | System record counts across Census, MSME registry, and Amenities tables. |
 
 ---
 
 ## 🧪 Master Automated Test Suite
 
-Udyam Saathi includes **325 automated tests** across all 6 development phases:
+Udyam Saathi includes comprehensive automated tests covering all mathematical, ML, LLM, API, authentication, and IDOR invariants:
 
 ```bash
+# Run full regression test harness
 python run_tests.py
-```
 
-### Test Execution Summary:
-```
-==========================================================================================
-🏁 TEST EXECUTION SUMMARY:
-==========================================================================================
-Total Test Suites: 6
-Suites Passed:     6 / 6
-Suites Failed:     0
-==========================================================================================
-🎉 ALL 325 TESTS ACROSS ALL PHASES PASSED WITH 100% SUCCESS RATE!
+# Run modular endpoint test suite
+python test_modular_endpoints.py
 ```
 
 ---

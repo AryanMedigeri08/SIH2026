@@ -97,14 +97,29 @@ FALLBACK_DISTRICTS = {
 
 class DatabaseManager:
     """
-    Manages async connection pool and provides CRUD operations for LGD hierarchy and projects.
+    Manages async connection pool and provides CRUD operations for Users, LGD hierarchy, and Projects.
     """
     _instance: Optional[DatabaseManager] = None
 
     def __init__(self):
         self.pool = None
+        self.in_memory_users: dict[str, dict[str, Any]] = {}
         self.in_memory_projects: dict[str, dict[str, Any]] = {}
         self.in_memory_reports: dict[str, dict[str, Any]] = {}
+
+        # Default guest user for testing / offline fallback
+        self.in_memory_users["guest_user"] = {
+            "firebase_uid": "guest_user",
+            "name": "Guest Entrepreneur",
+            "email": "guest@udyam.gov.in",
+            "gender": "Unspecified",
+            "auth_provider": "email",
+            "phone": None,
+            "additional_business_details": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "last_login_at": datetime.now(timezone.utc).isoformat(),
+        }
 
     @classmethod
     def get_instance(cls) -> DatabaseManager:
@@ -136,16 +151,67 @@ class DatabaseManager:
             return
         try:
             async with self.pool.acquire() as conn:
-                # Ensure default demo user exists for foreign key constraint
+                # 1. Users Table
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        firebase_uid                TEXT PRIMARY KEY,
+                        name                         TEXT NOT NULL,
+                        email                        TEXT UNIQUE NOT NULL,
+                        gender                       TEXT DEFAULT 'Unspecified',
+                        auth_provider                TEXT NOT NULL DEFAULT 'email',
+                        phone                        TEXT,
+                        additional_business_details TEXT,
+                        created_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        last_login_at                TIMESTAMPTZ
+                    );
+                """)
+
+                # Ensure default guest / demo user exists for foreign key references
                 try:
                     await conn.execute("""
-                        INSERT INTO users (firebase_uid, name, email, language)
-                        VALUES ('guest_user', 'Guest Entrepreneur', 'guest@udyam.gov.in', 'en')
+                        INSERT INTO users (firebase_uid, name, email, gender, auth_provider)
+                        VALUES ('guest_user', 'Guest Entrepreneur', 'guest@udyam.gov.in', 'Unspecified', 'email')
                         ON CONFLICT (firebase_uid) DO NOTHING;
                     """)
                 except Exception:
                     pass
 
+                # 2. Projects Table
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS projects (
+                        project_id                   TEXT PRIMARY KEY,
+                        user_id                      TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+                        business_name                TEXT NOT NULL,
+                        business_category            TEXT NOT NULL,
+                        sector                       TEXT NOT NULL,
+                        investment_amount            NUMERIC(15, 2) NOT NULL,
+                        annual_turnover_estimate     NUMERIC(15, 2) NOT NULL,
+                        state_name                   TEXT NOT NULL,
+                        district_name                TEXT NOT NULL,
+                        block_name                   TEXT,
+                        village_name                 TEXT,
+                        promoter_name                TEXT,
+                        promoter_category            TEXT,
+                        gender                       TEXT,
+                        is_rural                     BOOLEAN DEFAULT true,
+                        tenure_years                 NUMERIC(4, 1) DEFAULT 5.0,
+                        moratorium_months            INT DEFAULT 6,
+                        language                     TEXT DEFAULT 'en',
+                        additional_business_details TEXT,
+                        status                       TEXT DEFAULT 'draft',
+                        analysis_result              JSONB,
+                        created_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at                   TIMESTAMPTZ NOT NULL DEFAULT now()
+                    );
+                """)
+
+                # 3. Index for user projects query
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
+                """)
+
+                # 4. Feasibility Reports Cache Table
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS feasibility_reports (
                         report_id VARCHAR(64) PRIMARY KEY,
@@ -154,7 +220,7 @@ class DatabaseManager:
                         created_at TIMESTAMPTZ DEFAULT NOW()
                     );
                 """)
-                logger.info("PostgreSQL schema & tables initialized successfully.")
+                logger.info("PostgreSQL schema & tables (users, projects, reports) verified/initialized successfully.")
         except Exception as e:
             logger.warning(f"Could not auto-create tables: {e}")
 
@@ -162,6 +228,151 @@ class DatabaseManager:
         if self.pool:
             await self.pool.close()
             self.pool = None
+
+    # --- User Management CRUD ---
+    async def upsert_user(
+        self,
+        firebase_uid: str,
+        email: str,
+        name: str,
+        gender: Optional[str] = "Unspecified",
+        auth_provider: str = "email",
+        phone: Optional[str] = None,
+        additional_business_details: Optional[str] = None,
+    ) -> dict[str, Any]:
+        now = datetime.now(timezone.utc).isoformat()
+        user_record = {
+            "firebase_uid": firebase_uid,
+            "email": email,
+            "name": name,
+            "gender": gender or "Unspecified",
+            "auth_provider": auth_provider,
+            "phone": phone,
+            "additional_business_details": additional_business_details,
+            "created_at": now,
+            "updated_at": now,
+            "last_login_at": now,
+        }
+
+        # Check existing in-memory
+        if firebase_uid in self.in_memory_users:
+            existing = self.in_memory_users[firebase_uid]
+            user_record["created_at"] = existing.get("created_at", now)
+            if not phone and existing.get("phone"):
+                user_record["phone"] = existing["phone"]
+            if not additional_business_details and existing.get("additional_business_details"):
+                user_record["additional_business_details"] = existing["additional_business_details"]
+
+        self.in_memory_users[firebase_uid] = user_record
+
+        if self.pool:
+            try:
+                async with self.pool.acquire() as conn:
+                    row = await conn.fetchrow("""
+                        INSERT INTO users (
+                            firebase_uid, email, name, gender, auth_provider, phone, additional_business_details, last_login_at, updated_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+                        ON CONFLICT (firebase_uid) DO UPDATE SET
+                            name = COALESCE(NULLIF(EXCLUDED.name, ''), users.name),
+                            email = EXCLUDED.email,
+                            gender = COALESCE(NULLIF(EXCLUDED.gender, ''), users.gender),
+                            auth_provider = EXCLUDED.auth_provider,
+                            phone = COALESCE(EXCLUDED.phone, users.phone),
+                            additional_business_details = COALESCE(EXCLUDED.additional_business_details, users.additional_business_details),
+                            last_login_at = NOW(),
+                            updated_at = NOW()
+                        RETURNING *;
+                    """, firebase_uid, email, name, gender or "Unspecified", auth_provider, phone, additional_business_details)
+                    if row:
+                        rec = dict(row)
+                        for k in ("created_at", "updated_at", "last_login_at"):
+                            if rec.get(k) and hasattr(rec[k], "isoformat"):
+                                rec[k] = rec[k].isoformat()
+                        self.in_memory_users[firebase_uid] = rec
+                        return rec
+            except Exception as e:
+                logger.warning(f"Could not upsert user to PostgreSQL ({e}); using in-memory store.")
+
+        return user_record
+
+    async def get_user(self, firebase_uid: str) -> Optional[dict[str, Any]]:
+        if self.pool:
+            try:
+                async with self.pool.acquire() as conn:
+                    row = await conn.fetchrow("SELECT * FROM users WHERE firebase_uid = $1", firebase_uid)
+                    if row:
+                        rec = dict(row)
+                        for k in ("created_at", "updated_at", "last_login_at"):
+                            if rec.get(k) and hasattr(rec[k], "isoformat"):
+                                rec[k] = rec[k].isoformat()
+                        self.in_memory_users[firebase_uid] = rec
+                        return rec
+            except Exception as e:
+                logger.warning(f"Could not fetch user from PostgreSQL: {e}")
+
+        return self.in_memory_users.get(firebase_uid)
+
+    async def update_user(self, firebase_uid: str, fields: dict[str, Any]) -> Optional[dict[str, Any]]:
+        now = datetime.now(timezone.utc).isoformat()
+        if firebase_uid in self.in_memory_users:
+            self.in_memory_users[firebase_uid].update(fields)
+            self.in_memory_users[firebase_uid]["updated_at"] = now
+
+        if self.pool:
+            try:
+                set_clauses = []
+                values = [firebase_uid]
+                idx = 2
+                for k, v in fields.items():
+                    if k in ("name", "gender", "phone", "additional_business_details", "last_login_at"):
+                        set_clauses.append(f"{k} = ${idx}")
+                        values.append(v)
+                        idx += 1
+
+                if set_clauses:
+                    set_clauses.append("updated_at = NOW()")
+                    query = f"UPDATE users SET {', '.join(set_clauses)} WHERE firebase_uid = $1 RETURNING *"
+                    async with self.pool.acquire() as conn:
+                        row = await conn.fetchrow(query, *values)
+                        if row:
+                            rec = dict(row)
+                            for k in ("created_at", "updated_at", "last_login_at"):
+                                if rec.get(k) and hasattr(rec[k], "isoformat"):
+                                    rec[k] = rec[k].isoformat()
+                            self.in_memory_users[firebase_uid] = rec
+                            return rec
+            except Exception as e:
+                logger.warning(f"Could not update user in PostgreSQL: {e}")
+
+        return self.in_memory_users.get(firebase_uid)
+
+    async def delete_user(self, firebase_uid: str) -> bool:
+        if firebase_uid in self.in_memory_users:
+            del self.in_memory_users[firebase_uid]
+        # Remove projects of this user
+        to_del = [pid for pid, p in self.in_memory_projects.items() if p.get("user_id") == firebase_uid]
+        for pid in to_del:
+            del self.in_memory_projects[pid]
+
+        if self.pool:
+            try:
+                async with self.pool.acquire() as conn:
+                    await conn.execute("DELETE FROM users WHERE firebase_uid = $1", firebase_uid)
+                    return True
+            except Exception as e:
+                logger.warning(f"Could not delete user from PostgreSQL: {e}")
+        return True
+
+    async def get_user_projects_count(self, firebase_uid: str) -> int:
+        if self.pool:
+            try:
+                async with self.pool.acquire() as conn:
+                    cnt = await conn.fetchval("SELECT COUNT(*) FROM projects WHERE user_id = $1", firebase_uid)
+                    return int(cnt or 0)
+            except Exception as e:
+                logger.warning(f"Could not count projects in PostgreSQL: {e}")
+
+        return sum(1 for p in self.in_memory_projects.values() if p.get("user_id") == firebase_uid)
 
     # --- LGD Location Resolvers ---
     async def get_states(self) -> list[dict[str, Any]]:
@@ -209,7 +420,6 @@ class DatabaseManager:
             except Exception as e:
                 logger.warning(f"Error querying districts from DB: {e}")
 
-        # Fallback resolution
         resolved_code = state_code
         if resolved_code is None and state_name:
             for s in FALLBACK_STATES:
@@ -330,14 +540,9 @@ class DatabaseManager:
         district_name: str,
         village_name: Optional[str] = None,
     ) -> dict[str, Any]:
-        """
-        Queries census_raw table (660k+ records) for ground-truth village/district population.
-        Falls back to district or state average if village is not individually enumerated.
-        """
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
-                    # 1. Direct village lookup in census_raw
                     if village_name and village_name.strip() and village_name.strip() != "N/A":
                         v_clean = village_name.strip()
                         row = await conn.fetchrow("""
@@ -358,7 +563,6 @@ class DatabaseManager:
                                 "provenance": "census_exact_village",
                             }
 
-                    # 2. Subdistrict / Block / District level lookup in census_raw
                     d_clean = district_name.strip()
                     row_dist = await conn.fetchrow("""
                         SELECT total_population, total_households, sc_population, st_population, literate_population, area_name
@@ -367,7 +571,6 @@ class DatabaseManager:
                         LIMIT 1
                     """, f"%{d_clean}%")
                     if row_dist and row_dist["total_population"] and row_dist["total_population"] > 0:
-                        # Derive village catchment estimate from district average
                         tot_pop = int(row_dist["total_population"])
                         derived_village_pop = min(max(int(tot_pop / 350), 1200), 15000)
                         return {
@@ -382,7 +585,6 @@ class DatabaseManager:
             except Exception as e:
                 logger.warning(f"Census query error: {e}")
 
-        # Baseline fallback
         return {
             "base_population_2011": 3850,
             "base_households_2011": 802,
@@ -398,9 +600,6 @@ class DatabaseManager:
         state_name: str,
         district_name: str,
     ) -> dict[str, Any]:
-        """
-        Queries msme_district table for registered MSMEs count in the target district.
-        """
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
@@ -435,9 +634,6 @@ class DatabaseManager:
         }
 
     async def get_state_cpi_inflation(self, state_name: str) -> float:
-        """
-        Queries cpi_data table for the latest state rural CPI inflation rate.
-        """
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
@@ -457,20 +653,17 @@ class DatabaseManager:
         return 4.85
 
     async def get_weather_risk_score(self, state_name: str, district_name: str) -> float:
-        """
-        Computes geographic weather & monsoon climate disruption risk index (0.0 to 1.0).
-        """
         coastal_riverine = ["West Bengal", "Kerala", "Assam", "Odisha", "Bihar", "Tamil Nadu", "Andhra Pradesh", "Goa"]
         arid_drought = ["Rajasthan", "Gujarat", "Haryana", "Punjab"]
         hilly_landslide = ["Himachal Pradesh", "Uttarakhand", "Jammu and Kashmir", "Sikkim", "Meghalaya"]
 
         s_clean = state_name.strip()
         if any(c.lower() in s_clean.lower() for c in coastal_riverine):
-            return 0.28  # Moderate seasonal monsoon / flood factor
+            return 0.28
         elif any(a.lower() in s_clean.lower() for a in arid_drought):
-            return 0.15  # Low rain, higher summer heat factor
+            return 0.15
         elif any(h.lower() in s_clean.lower() for h in hilly_landslide):
-            return 0.32  # Mountain terrain / monsoon transport disruption factor
+            return 0.32
         return 0.20
 
     # --- Project Persistence CRUD ---
@@ -481,20 +674,47 @@ class DatabaseManager:
         business_name = project_dict.get("enterprise_name") or project_dict.get("business_name", "Enterprise Unit")
         business_category = project_dict.get("business_category", "manufacturing")
         investment_amount = float(project_dict.get("project_cost") or project_dict.get("investment_amount", 500000.0))
+        annual_turnover = float(project_dict.get("annual_turnover_estimate", 600000.0))
         state_name = project_dict.get("state_name", "West Bengal")
         district_name = project_dict.get("district_name", "Bankura")
         block_name = project_dict.get("block_name", "Joypur")
         village_name = project_dict.get("village_name", "Joypur")
+        promoter_name = project_dict.get("promoter_name", "Enterprise Promoter")
+        promoter_category = project_dict.get("promoter_category", "general")
+        gender = project_dict.get("gender", "Unspecified")
+        is_rural = bool(project_dict.get("is_rural", True))
+        tenure_years = float(project_dict.get("tenure_years", 5.0))
+        moratorium_months = int(project_dict.get("moratorium_months", 6))
+        language = project_dict.get("language", "en")
+        additional_business_details = project_dict.get("additional_business_details")
         user_id = project_dict.get("user_id", "guest_user")
-        analysis_result = project_dict.get("analysis_result", {})
+        analysis_result = project_dict.get("analysis_result", None)
 
         record = {
             **project_dict,
             "project_id": project_id,
+            "user_id": user_id,
             "enterprise_name": business_name,
             "business_name": business_name,
+            "business_category": business_category,
+            "sector": project_dict.get("sector", "general"),
             "project_cost": investment_amount,
             "investment_amount": investment_amount,
+            "annual_turnover_estimate": annual_turnover,
+            "state_name": state_name,
+            "district_name": district_name,
+            "block_name": block_name,
+            "village_name": village_name,
+            "promoter_name": promoter_name,
+            "promoter_category": promoter_category,
+            "gender": gender,
+            "is_rural": is_rural,
+            "tenure_years": tenure_years,
+            "moratorium_months": moratorium_months,
+            "language": language,
+            "additional_business_details": additional_business_details,
+            "status": project_dict.get("status", "draft"),
+            "analysis_result": analysis_result,
             "created_at": now,
             "updated_at": now,
         }
@@ -502,32 +722,65 @@ class DatabaseManager:
 
         if self.pool:
             try:
+                # Ensure user exists before inserting foreign key
+                await self.upsert_user(
+                    firebase_uid=user_id,
+                    email=f"{user_id}@udyam.gov.in" if "@" not in user_id else user_id,
+                    name=promoter_name or "Entrepreneur",
+                )
                 async with self.pool.acquire() as conn:
                     await conn.execute("""
                         INSERT INTO projects (
-                            project_id, user_id, business_name, business_category, investment_amount,
-                            state_name, district_name, block_name, village_name, analysis_result, created_at
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+                            project_id, user_id, business_name, business_category, sector,
+                            investment_amount, annual_turnover_estimate,
+                            state_name, district_name, block_name, village_name,
+                            promoter_name, promoter_category, gender, is_rural,
+                            tenure_years, moratorium_months, language,
+                            additional_business_details, status, analysis_result, created_at, updated_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW(), NOW())
                         ON CONFLICT (project_id) DO UPDATE SET
                             business_name = EXCLUDED.business_name,
                             business_category = EXCLUDED.business_category,
+                            sector = EXCLUDED.sector,
                             investment_amount = EXCLUDED.investment_amount,
+                            annual_turnover_estimate = EXCLUDED.annual_turnover_estimate,
                             state_name = EXCLUDED.state_name,
                             district_name = EXCLUDED.district_name,
                             block_name = EXCLUDED.block_name,
                             village_name = EXCLUDED.village_name,
-                            analysis_result = EXCLUDED.analysis_result
+                            promoter_name = EXCLUDED.promoter_name,
+                            promoter_category = EXCLUDED.promoter_category,
+                            gender = EXCLUDED.gender,
+                            is_rural = EXCLUDED.is_rural,
+                            tenure_years = EXCLUDED.tenure_years,
+                            moratorium_months = EXCLUDED.moratorium_months,
+                            language = EXCLUDED.language,
+                            additional_business_details = EXCLUDED.additional_business_details,
+                            status = EXCLUDED.status,
+                            analysis_result = EXCLUDED.analysis_result,
+                            updated_at = NOW()
                     """,
                     project_id,
                     user_id,
                     business_name,
                     business_category,
+                    project_dict.get("sector", "general"),
                     investment_amount,
+                    annual_turnover,
                     state_name,
                     district_name,
                     block_name,
                     village_name,
-                    json.dumps(analysis_result),
+                    promoter_name,
+                    promoter_category,
+                    gender,
+                    is_rural,
+                    tenure_years,
+                    moratorium_months,
+                    language,
+                    additional_business_details,
+                    record["status"],
+                    json.dumps(analysis_result) if analysis_result is not None else None,
                     )
             except Exception as e:
                 logger.warning(f"Could not persist project to PostgreSQL: {e}")
@@ -535,9 +788,6 @@ class DatabaseManager:
         return record
 
     async def get_project(self, project_id: str) -> Optional[dict[str, Any]]:
-        if project_id in self.in_memory_projects:
-            return self.in_memory_projects[project_id]
-
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
@@ -548,12 +798,18 @@ class DatabaseManager:
                             rec["analysis_result"] = json.loads(rec["analysis_result"])
                         rec["enterprise_name"] = rec.get("business_name")
                         rec["project_cost"] = float(rec.get("investment_amount") or 0.0)
+                        rec["investment_amount"] = float(rec.get("investment_amount") or 0.0)
+                        rec["annual_turnover_estimate"] = float(rec.get("annual_turnover_estimate") or 0.0)
+                        rec["tenure_years"] = float(rec.get("tenure_years") or 5.0)
+                        for k in ("created_at", "updated_at"):
+                            if rec.get(k) and hasattr(rec[k], "isoformat"):
+                                rec[k] = rec[k].isoformat()
                         self.in_memory_projects[project_id] = rec
                         return rec
             except Exception as e:
                 logger.warning(f"Could not fetch project from PostgreSQL: {e}")
 
-        return None
+        return self.in_memory_projects.get(project_id)
 
     async def list_projects(self, user_id: str = "guest_user") -> list[dict[str, Any]]:
         if self.pool:
@@ -570,6 +826,12 @@ class DatabaseManager:
                             rec["analysis_result"] = json.loads(rec["analysis_result"])
                         rec["enterprise_name"] = rec.get("business_name")
                         rec["project_cost"] = float(rec.get("investment_amount") or 0.0)
+                        rec["investment_amount"] = float(rec.get("investment_amount") or 0.0)
+                        rec["annual_turnover_estimate"] = float(rec.get("annual_turnover_estimate") or 0.0)
+                        rec["tenure_years"] = float(rec.get("tenure_years") or 5.0)
+                        for k in ("created_at", "updated_at"):
+                            if rec.get(k) and hasattr(rec[k], "isoformat"):
+                                rec[k] = rec[k].isoformat()
                         self.in_memory_projects[rec["project_id"]] = rec
                         results.append(rec)
                     if results:
@@ -591,13 +853,30 @@ class DatabaseManager:
                 async with self.pool.acquire() as conn:
                     await conn.execute("""
                         UPDATE projects
-                        SET analysis_result = $1
+                        SET analysis_result = $1, status = 'analyzed', updated_at = NOW()
                         WHERE project_id = $2
                     """, json.dumps(analysis_result), project_id)
             except Exception as e:
                 logger.warning(f"Could not update project analysis in PostgreSQL: {e}")
 
         return self.in_memory_projects.get(project_id)
+
+    async def delete_project(self, project_id: str, user_id: Optional[str] = None) -> bool:
+        if project_id in self.in_memory_projects:
+            if user_id is None or self.in_memory_projects[project_id].get("user_id") == user_id:
+                del self.in_memory_projects[project_id]
+
+        if self.pool:
+            try:
+                async with self.pool.acquire() as conn:
+                    if user_id:
+                        await conn.execute("DELETE FROM projects WHERE project_id = $1 AND user_id = $2", project_id, user_id)
+                    else:
+                        await conn.execute("DELETE FROM projects WHERE project_id = $1", project_id)
+                    return True
+            except Exception as e:
+                logger.warning(f"Could not delete project from PostgreSQL: {e}")
+        return True
 
     # --- Feasibility Report Cache Store ---
     async def save_feasibility_report(self, report_id: str, report_data: dict[str, Any]) -> None:

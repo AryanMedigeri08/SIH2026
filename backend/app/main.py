@@ -35,9 +35,15 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.database import db_manager
 from app.models.schemas import HealthStatus
-from app.routers import locations_router, financial_router, feasibility_router, projects_router, data_sources_router
+from app.routers import (
+    locations_router,
+    financial_router,
+    feasibility_router,
+    projects_router,
+    data_sources_router,
+    auth_router,
+)
 from inference import ViabilityModelLoader
-
 
 
 @asynccontextmanager
@@ -96,7 +102,7 @@ async def log_requests_middleware(request: Request, call_next):
         logger.error(f"[{req_id}] ❌ ERROR in {latency:.2f}ms: {str(e)}", exc_info=True)
         raise
 
-# Configure CORS Middleware
+# Configure CORS Middleware (Explicit origins with credentials support)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -104,7 +110,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 
 @app.get("/", tags=["System"])
@@ -149,6 +154,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # Mount API v2 Routers
+app.include_router(auth_router, prefix=settings.API_V2_STR)
 app.include_router(locations_router, prefix=settings.API_V2_STR)
 app.include_router(financial_router, prefix=settings.API_V2_STR)
 app.include_router(feasibility_router, prefix=settings.API_V2_STR)
