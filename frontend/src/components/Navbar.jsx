@@ -8,6 +8,7 @@ import { useBusiness } from '../context/BusinessContext';
 import { BusinessSwitcher } from './BusinessSwitcher';
 import { LanguageSelector } from './LanguageSelector';
 import { useLanguage } from '../context/LanguageContext';
+import { ChatbotNavButton } from './Chat/ChatbotNavButton';
 
 export function Navbar({ health, onToggleMobileSidebar }) {
   const isHealthy = health?.status === 'healthy';
@@ -69,7 +70,10 @@ export function Navbar({ health, onToggleMobileSidebar }) {
         {/* Right: Action Controls & User Identity */}
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           
-          {/* Live System Status Pill */}
+          {/* Persistent AI Chatbot Navigation Button (Placed immediately to the left of Live Telemetry) */}
+          <ChatbotNavButton />
+
+          {/* Live System Status Pill (Live Telemetry) */}
           <Link 
             to="/data-sources" 
             className={`hidden lg:flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border transition-all ${
@@ -111,7 +115,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
                 title={t('logout')}
               >
                 <LogOut className="w-4 h-4" />
@@ -121,13 +125,13 @@ export function Navbar({ health, onToggleMobileSidebar }) {
             <div className="flex items-center gap-2">
               <Link
                 to="/login"
-                className="text-xs font-bold text-sovereign-800 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition"
+                className="text-xs font-bold text-sovereign-800 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition cursor-pointer"
               >
                 {t('login')}
               </Link>
               <Link
                 to="/register"
-                className="text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-3 py-1.5 rounded-xl transition shadow-sm"
+                className="text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-3 py-1.5 rounded-xl transition shadow-sm cursor-pointer"
               >
                 {t('register')}
               </Link>

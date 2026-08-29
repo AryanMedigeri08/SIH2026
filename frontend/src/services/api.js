@@ -335,3 +335,28 @@ export const translationApi = {
   },
 };
 
+// --- Groq Chatbot & Conversational AI Advisor API ---
+export const chatApi = {
+  async sendChatMessage(messages, context = null, language = 'en', token = null) {
+    return await authFetch(`${API_BASE}/chat`, token, {
+      method: 'POST',
+      body: JSON.stringify({
+        messages,
+        context,
+        language,
+      }),
+    });
+  },
+
+  async checkChatHealth() {
+    try {
+      const res = await fetch(`${API_BASE}/chat/health`);
+      if (res.ok) return await res.json();
+      return { status: 'fallback_ready', provider: 'deterministic_fallback' };
+    } catch (e) {
+      return { status: 'offline', provider: 'deterministic_fallback' };
+    }
+  },
+};
+
+

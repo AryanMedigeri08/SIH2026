@@ -43,6 +43,7 @@ from app.routers import (
     data_sources_router,
     auth_router,
     translation_router,
+    chat_router,
 )
 from inference import ViabilityModelLoader
 
@@ -162,6 +163,7 @@ app.include_router(feasibility_router, prefix=settings.API_V2_STR)
 app.include_router(projects_router, prefix=settings.API_V2_STR)
 app.include_router(data_sources_router, prefix=settings.API_V2_STR)
 app.include_router(translation_router, prefix=settings.API_V2_STR)
+app.include_router(chat_router, prefix=f"{settings.API_V2_STR}/chat", tags=["AI Chatbot & Groq Advisor"])
 
 
 if __name__ == "__main__":

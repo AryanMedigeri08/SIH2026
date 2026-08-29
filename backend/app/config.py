@@ -55,8 +55,9 @@ class Settings(BaseSettings):
     FIREBASE_SERVICE_ACCOUNT_PATH: Optional[str] = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", None)
     FIREBASE_PROJECT_ID: Optional[str] = os.getenv("FIREBASE_PROJECT_ID", None)
 
-    # Groq AI Model Configuration
+    # Groq AI Model & Dedicated Chatbot Configuration
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GROQ_CHAT_KEY: Optional[str] = os.getenv("GROQ_CHAT_KEY", None)
     GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 
     # 613 Village Amenities API (Data.gov.in / Mission Antyodaya OGD API)

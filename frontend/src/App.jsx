@@ -7,6 +7,8 @@ import { ReportGenerationLoader } from './components/ReportGenerationLoader';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { BusinessProvider, useBusiness } from './context/BusinessContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { ChatProvider } from './context/ChatContext';
+import { FloatingChatWindow } from './components/Chat/FloatingChatWindow';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Public & Auth Pages
@@ -196,7 +198,6 @@ export function AppContent() {
       sector: pitchCase.formData?.sector,
     });
 
-    // If currently on a /reports/:id path, immediately switch to root to prevent stale URL sync
     if (location.pathname.startsWith('/reports/')) {
       navigate('/dashboard', { replace: true });
     }
@@ -211,7 +212,6 @@ export function AppContent() {
       alert(`Feasibility error: ${err.message}`);
     } finally {
       setIsGenerating(false);
-      // Give React router microtask a tick before re-enabling URL auto-watcher
       setTimeout(() => {
         isSelectingCaseRef.current = false;
       }, 100);
@@ -255,7 +255,7 @@ export function AppContent() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-sovereign-200 selection:text-sovereign-900">
       
-      {/* Top Navbar with Multi-Business Switcher */}
+      {/* Top Navbar with Persistent Chatbot button & Multi-Business Switcher */}
       <Navbar
         health={health}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
@@ -535,7 +535,7 @@ export function AppContent() {
         </div>
       </footer>
 
-      {/* Global Modals */}
+      {/* Global Modals & Persistent Floating Windows */}
       <DprModal
         isOpen={isDprOpen}
         onClose={() => setIsDprOpen(false)}
@@ -548,6 +548,9 @@ export function AppContent() {
         onClose={() => setIsCalculatorOpen(false)}
       />
 
+      {/* Persistent Movable Desktop AI Chatbot Window */}
+      <FloatingChatWindow />
+
     </div>
   );
 }
@@ -558,7 +561,9 @@ export function App() {
       <AuthProvider>
         <LanguageProvider>
           <BusinessProvider>
-            <AppContent />
+            <ChatProvider>
+              <AppContent />
+            </ChatProvider>
           </BusinessProvider>
         </LanguageProvider>
       </AuthProvider>
