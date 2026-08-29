@@ -4,6 +4,7 @@ chat.py — REST API Router for Persistent Groq Chatbot & Enterprise Advisor.
 
 from __future__ import annotations
 import logging
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
@@ -31,15 +32,22 @@ class ChatCompletionRequest(BaseModel):
 
 class ChatCompletionResponse(BaseModel):
     message: Dict[str, str]
+    reply: str
     model: str
     is_fallback: bool
     latency_ms: float
+    timestamp: Optional[str] = None
 
 
 @router.post(
     "",
     response_model=ChatCompletionResponse,
     summary="Send message to Groq AI Advisor with active enterprise grounding",
+)
+@router.post(
+    "/",
+    response_model=ChatCompletionResponse,
+    include_in_schema=False,
 )
 async def create_chat_completion(payload: ChatCompletionRequest):
     """
@@ -52,6 +60,12 @@ async def create_chat_completion(payload: ChatCompletionRequest):
             context=payload.context,
             language=payload.language or "en",
         )
+        
+        # Ensure reply and timestamp are explicitly populated for all client SDK formats
+        content = result.get("message", {}).get("content", "")
+        result["reply"] = content
+        result["timestamp"] = datetime.now(timezone.utc).isoformat()
+        
         return result
     except Exception as e:
         logger.error("Chat completion error: %s", e, exc_info=True)

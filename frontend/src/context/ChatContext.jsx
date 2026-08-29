@@ -583,13 +583,19 @@ export function ChatProvider({ children }) {
           token
         );
 
+        const replyText =
+          data?.reply ||
+          data?.message?.content ||
+          data?.content ||
+          (typeof data === 'string' ? data : null);
+
         const botMsg = {
           id: `bot-${Date.now()}`,
           role: 'assistant',
-          content: data.reply || 'I could not generate a response. Please try again.',
-          timestamp: data.timestamp || new Date().toISOString(),
-          isFallback: data.is_fallback || false,
-          model: data.model,
+          content: replyText || 'I could not generate a response. Please try again.',
+          timestamp: data?.timestamp || new Date().toISOString(),
+          isFallback: data?.is_fallback || false,
+          model: data?.model || 'groq',
         };
 
         setMessages((prev) => [...prev, botMsg]);
