@@ -19,7 +19,7 @@ export const getMarginPct = (category) => {
 
 export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, initialData }) {
   const { userProfile } = useAuth() || {};
-  const { language: appLanguage, languages, t } = useLanguage();
+  const { language: appLanguage, setLanguage, languages, t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState(() => {
     const initCat = initialData?.promoter_category || "general";
@@ -83,6 +83,13 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
       });
     }
   }, [initialData]);
+
+  // Synchronize wizard language with global LanguageContext when opened or changed externally
+  useEffect(() => {
+    if (appLanguage && formData.language !== appLanguage) {
+      setFormData(prev => ({ ...prev, language: appLanguage }));
+    }
+  }, [appLanguage]);
 
   // If user profile is available, pre-fill promoter name if empty or default
   useEffect(() => {
@@ -804,12 +811,24 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
                     <Languages className="w-3.5 h-3.5 text-sovereign-700" />
-                    {t('appraisalLanguage')}
+                    {t('appraisalLanguage') || 'Credit Appraisal Language'}
                   </label>
-                  <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-semibold flex items-center justify-between shadow-xs">
-                    <span>{languages.find(l => l.code === (formData.language || language))?.label || 'English'} ({(formData.language || language).toUpperCase()})</span>
-                    <span className="text-[10px] font-bold text-sovereign-800 bg-sovereign-100/80 px-2 py-0.5 rounded-md font-mono">Global Default</span>
-                  </div>
+                  <select
+                    id="wizard-credit-appraisal-language"
+                    value={formData.language || appLanguage || 'en'}
+                    onChange={(e) => {
+                      const nextLang = e.target.value;
+                      setFormData(prev => ({ ...prev, language: nextLang }));
+                      setLanguage(nextLang);
+                    }}
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle cursor-pointer"
+                  >
+                    {languages.map(({ code, label, native }) => (
+                      <option key={code} value={code}>
+                        {label} {native && native !== label ? `(${native})` : ''}
+                      </option>
+                    ))}
+                  </select>
                   <p className="text-[10px] text-slate-500 mt-1">Synchronized with platform language selector in top navbar</p>
                 </div>
               </div>

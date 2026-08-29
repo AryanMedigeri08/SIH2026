@@ -50,7 +50,7 @@ FORMATTING & TONE GUIDELINES:
 - Format all rupee amounts with the Rupee symbol (e.g. ₹5,00,000 or ₹5.20 Lakhs).
 - Use clean Markdown: bold key metrics, use bullet points for action items, and short structured paragraphs.
 - Keep answers concise and actionable (under 250 words unless detailed calculations are requested).
-- If the user writes in Hindi, Marathi, Tamil, Telugu, or Kannada, respond fluently in that language while preserving exact financial figures (₹).
+- LANGUAGE INVARIANT: You must ALWAYS reason and output your response in clear, professional English. The client-side translation layer handles translating into the user's selected Indic language. Never generate responses in non-English languages.
 """
 
 
@@ -135,10 +135,9 @@ class ChatService:
         start_time = time.perf_counter()
         api_key = self._get_api_key()
 
-        # Build full system instruction with page grounding
+        # Build full system instruction with page grounding (always English)
         system_instruction = BASE_SYSTEM_PROMPT + self._build_context_prompt(context)
-        if language and language != "en":
-            system_instruction += f"\n\nIMPORTANT: The user has selected language code '{language}'. Please provide your response in that language."
+        system_instruction += "\n\nCRITICAL INSTRUCTION: Always generate your response in pure English. Never output in non-English languages."
 
         # Assemble messages payload
         groq_messages = [{"role": "system", "content": system_instruction}]
