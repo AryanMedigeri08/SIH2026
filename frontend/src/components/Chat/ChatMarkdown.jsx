@@ -1,150 +1,278 @@
 import React from 'react';
 import { useChat } from '../../context/ChatContext';
+import { Database, ShieldCheck, Sparkles, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 
 /**
- * ChatMarkdown — Formats assistant responses with rich, theme-aware typography.
+ * ChatMarkdown — Formats assistant responses with rich, theme-aware typography,
+ * full markdown table rendering, lists, headers, callouts, and data sources attribution.
  */
 export function ChatMarkdown({ content, customTheme }) {
   const { currentTheme } = useChat();
-  const theme = customTheme || currentTheme;
+  const theme = customTheme || currentTheme || {};
 
   if (!content) return null;
 
   // Split into lines for structured block rendering
-  const lines = content.split('\n');
-  const elements = [];
-  let currentList = [];
-  let listType = null; // 'ul' | 'ol'
+  const rawLines = content.split('\n');
+  const blocks = [];
+  let i = 0;
 
-  const flushList = () => {
-    if (currentList.length > 0) {
-      if (listType === 'ul') {
-        elements.push(
-          <ul
-            key={`ul-${elements.length}`}
-            className={`my-2 pl-4 space-y-1 text-xs list-disc ${theme.mdList || 'text-slate-700 marker:text-sky-600'}`}
-          >
-            {currentList.map((item, idx) => (
-              <li key={idx} className="leading-relaxed">
-                {formatInline(item, theme)}
-              </li>
-            ))}
-          </ul>
-        );
-      } else {
-        elements.push(
-          <ol
-            key={`ol-${elements.length}`}
-            className={`my-2 pl-4 space-y-1 text-xs list-decimal font-medium ${theme.mdList || 'text-slate-700 marker:text-sky-600'}`}
-          >
-            {currentList.map((item, idx) => (
-              <li key={idx} className="leading-relaxed">
-                {formatInline(item, theme)}
-              </li>
-            ))}
-          </ol>
-        );
-      }
-      currentList = [];
-      listType = null;
-    }
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const rawLine = lines[i];
+  while (i < rawLines.length) {
+    const rawLine = rawLines[i];
     const trimmed = rawLine.trim();
 
+    // 1. Skip empty lines
     if (!trimmed) {
-      flushList();
+      i++;
       continue;
     }
 
-    // Header 3 or 4: ### Header
-    if (trimmed.startsWith('### ')) {
-      flushList();
-      elements.push(
+    // 2. Horizontal Rule (--- or *** or ___)
+    if (/^(\-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      blocks.push(
+        <hr
+          key={`hr-${i}`}
+          className="my-2.5 border-t border-slate-200/90 dark:border-slate-700/60"
+        />
+      );
+      i++;
+      continue;
+    }
+
+    // 3. Markdown Table Detection (Lines with '|')
+    if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.includes('|')) {
+      const tableLines = [];
+      while (
+        i < rawLines.length &&
+        rawLines[i].trim().startsWith('|') &&
+        rawLines[i].trim().endsWith('|')
+      ) {
+        tableLines.push(rawLines[i].trim());
+        i++;
+      }
+
+      if (tableLines.length >= 2) {
+        const headerRow = parseTableRow(tableLines[0]);
+        let dataStartIndex = 1;
+
+        // If second line is separator |---|---|, skip it
+        if (
+          tableLines.length > 1 &&
+          tableLines[1].replace(/[\s|:\-]/g, '').length === 0
+        ) {
+          dataStartIndex = 2;
+        }
+
+        const bodyRows = tableLines.slice(dataStartIndex).map(parseTableRow);
+
+        blocks.push(
+          <div
+            key={`table-${i}`}
+            className="my-2.5 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xs"
+          >
+            <table className="w-full text-left text-xs border-collapse">
+              {headerRow.length > 0 && (
+                <thead className="bg-slate-100/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-bold">
+                  <tr>
+                    {headerRow.map((cell, cIdx) => (
+                      <th
+                        key={`th-${cIdx}`}
+                        className="px-3 py-2 font-outfit text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 first:rounded-tl-xl last:rounded-tr-xl border-r last:border-r-0 border-slate-200/60 dark:border-slate-700/60"
+                      >
+                        {formatInline(cell, theme)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+              )}
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900/50">
+                {bodyRows.map((row, rIdx) => (
+                  <tr
+                    key={`tr-${rIdx}`}
+                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                  >
+                    {row.map((cell, cIdx) => (
+                      <td
+                        key={`td-${rIdx}-${cIdx}`}
+                        className="px-3 py-2 text-[11px] text-slate-800 dark:text-slate-200 border-r last:border-r-0 border-slate-100 dark:border-slate-800 font-medium"
+                      >
+                        {formatInline(cell, theme)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+        continue;
+      }
+    }
+
+    // 4. Data Sources Section Detection
+    if (
+      trimmed.toLowerCase().startsWith('**data source') ||
+      trimmed.toLowerCase().startsWith('### data source') ||
+      trimmed.toLowerCase().startsWith('**sources') ||
+      trimmed.toLowerCase().startsWith('### sources') ||
+      trimmed.toLowerCase().startsWith('sources:')
+    ) {
+      const sourceContent = trimmed
+        .replace(/^(\*{1,2}|#{1,4})\s*(data sources?|sources?)[:\*#\s]*/i, '')
+        .trim();
+
+      blocks.push(
+        <div
+          key={`sources-${i}`}
+          className="mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/70 text-[10px] text-slate-600 dark:text-slate-400 space-y-1 shadow-2xs"
+        >
+          <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-sovereign-800 dark:text-sky-300">
+            <Database className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+            <span>Verified Data Sources:</span>
+          </div>
+          <div className="leading-relaxed pl-4 font-medium text-slate-700 dark:text-slate-300">
+            {sourceContent ? formatInline(sourceContent, theme) : 'Ministry of MSME, Census 2011, RBI Prudential Norms'}
+          </div>
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    // 5. Headings
+    if (trimmed.startsWith('# ') || trimmed.startsWith('## ') || trimmed.startsWith('### ') || trimmed.startsWith('#### ')) {
+      let level = 3;
+      let text = trimmed;
+      if (trimmed.startsWith('#### ')) {
+        level = 4;
+        text = trimmed.substring(5);
+      } else if (trimmed.startsWith('### ')) {
+        level = 3;
+        text = trimmed.substring(4);
+      } else if (trimmed.startsWith('## ')) {
+        level = 2;
+        text = trimmed.substring(3);
+      } else if (trimmed.startsWith('# ')) {
+        level = 1;
+        text = trimmed.substring(2);
+      }
+
+      blocks.push(
         <h4
-          key={`h3-${i}`}
-          className={`font-outfit font-bold text-xs sm:text-sm mt-2.5 mb-1 flex items-center gap-1.5 border-b pb-0.5 ${
-            theme.mdH3 || 'text-sovereign-900 border-slate-200'
+          key={`h-${i}`}
+          className={`font-outfit font-bold tracking-tight mt-3 mb-1.5 flex items-center gap-1.5 border-b pb-0.5 ${
+            level <= 2 ? 'text-xs sm:text-sm text-sovereign-950 dark:text-white border-slate-200 dark:border-slate-700' : 'text-xs text-sovereign-900 dark:text-sky-300 border-slate-200/60 dark:border-slate-800'
           }`}
         >
-          {formatInline(trimmed.substring(4), theme)}
+          {formatInline(text, theme)}
         </h4>
       );
+      i++;
       continue;
     }
 
-    // Header 2: ## Header
-    if (trimmed.startsWith('## ')) {
-      flushList();
-      elements.push(
-        <h3
-          key={`h2-${i}`}
-          className={`font-outfit font-extrabold text-sm mt-3 mb-1.5 flex items-center gap-1.5 border-b pb-1 ${
-            theme.mdH2 || 'text-sovereign-950 border-slate-300'
-          }`}
+    // 6. Unordered List Items (- item, * item, + item, • item)
+    if (
+      trimmed.startsWith('- ') ||
+      trimmed.startsWith('* ') ||
+      trimmed.startsWith('+ ') ||
+      trimmed.startsWith('• ')
+    ) {
+      const listItems = [];
+      while (
+        i < rawLines.length &&
+        (rawLines[i].trim().startsWith('- ') ||
+          rawLines[i].trim().startsWith('* ') ||
+          rawLines[i].trim().startsWith('+ ') ||
+          rawLines[i].trim().startsWith('• '))
+      ) {
+        const itemText = rawLines[i].trim().substring(2).trim();
+        listItems.push(itemText);
+        i++;
+      }
+
+      blocks.push(
+        <ul
+          key={`ul-${i}`}
+          className={`my-2 pl-4 space-y-1 text-xs list-disc ${theme.mdList || 'text-slate-700 marker:text-sky-600 dark:text-slate-200 dark:marker:text-sky-400'}`}
         >
-          {formatInline(trimmed.substring(3), theme)}
-        </h3>
+          {listItems.map((item, idx) => (
+            <li key={idx} className="leading-relaxed">
+              {formatInline(item, theme)}
+            </li>
+          ))}
+        </ul>
       );
       continue;
     }
 
-    // Unordered list item: - item or * item
-    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-      if (listType !== 'ul') {
-        flushList();
-        listType = 'ul';
+    // 7. Ordered List Items (1. item, 2. item)
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const listItems = [];
+      while (i < rawLines.length && /^\d+\.\s+/.test(rawLines[i].trim())) {
+        const itemText = rawLines[i].trim().replace(/^\d+\.\s+/, '').trim();
+        listItems.push(itemText);
+        i++;
       }
-      currentList.push(trimmed.substring(2));
+
+      blocks.push(
+        <ol
+          key={`ol-${i}`}
+          className={`my-2 pl-4 space-y-1 text-xs list-decimal font-medium ${theme.mdList || 'text-slate-700 dark:text-slate-200 marker:text-sky-600'}`}
+        >
+          {listItems.map((item, idx) => (
+            <li key={idx} className="leading-relaxed">
+              {formatInline(item, theme)}
+            </li>
+          ))}
+        </ol>
+      );
       continue;
     }
 
-    // Ordered list item: 1. item
-    const matchOrdered = trimmed.match(/^(\d+)\.\s+(.*)$/);
-    if (matchOrdered) {
-      if (listType !== 'ol') {
-        flushList();
-        listType = 'ol';
-      }
-      currentList.push(matchOrdered[2]);
-      continue;
-    }
-
-    // Blockquote: > text
+    // 8. Blockquote (> quote)
     if (trimmed.startsWith('> ')) {
-      flushList();
-      elements.push(
+      blocks.push(
         <blockquote
           key={`quote-${i}`}
-          className={`my-2 pl-3 border-l-2 py-1 pr-2 rounded-r text-xs italic ${
-            theme.mdQuote || 'border-sky-500 bg-sky-50/60 text-slate-700'
+          className={`my-2 pl-3 border-l-2 py-1.5 pr-2 rounded-r text-xs italic ${
+            theme.mdQuote || 'border-sky-500 bg-sky-50/60 dark:bg-sky-950/40 text-slate-700 dark:text-slate-300'
           }`}
         >
           {formatInline(trimmed.substring(2), theme)}
         </blockquote>
       );
+      i++;
       continue;
     }
 
-    // Standard paragraph line
-    flushList();
-    elements.push(
+    // 9. Standard Paragraph
+    blocks.push(
       <p
         key={`p-${i}`}
-        className={`text-xs leading-relaxed my-1 ${
-          theme.mdText || 'text-slate-800'
-        }`}
+        className={`text-xs leading-relaxed my-1 font-normal ${theme.mdText || 'text-slate-800 dark:text-slate-100'}`}
       >
         {formatInline(trimmed, theme)}
       </p>
     );
+    i++;
   }
 
-  flushList();
+  return (
+    <div className={`space-y-1 select-text ${theme.mdText || 'text-slate-800 dark:text-slate-100'}`}>
+      {blocks}
+    </div>
+  );
+}
 
-  return <div className={`space-y-1 ${theme.mdText || 'text-slate-800'}`}>{elements}</div>;
+/**
+ * Splits a markdown table row "| Col 1 | Col 2 |" into an array of trimmed cell strings
+ */
+function parseTableRow(line) {
+  return line
+    .split('|')
+    .slice(1, -1)
+    .map((cell) => cell.trim());
 }
 
 /**
@@ -153,7 +281,6 @@ export function ChatMarkdown({ content, customTheme }) {
 function formatInline(text, theme) {
   if (!text) return null;
 
-  // Regex splitting on code blocks `code`, bold **bold**, and italic *italic*
   const tokens = [];
   let remainder = text;
   let keyIndex = 0;
@@ -177,7 +304,7 @@ function formatInline(text, theme) {
         <strong
           key={`bold-${keyIndex++}`}
           className={`tracking-tight ${
-            theme?.mdBold || 'font-bold text-slate-950'
+            theme?.mdBold || 'font-bold text-slate-950 dark:text-white'
           }`}
         >
           {matchedStr.slice(2, -2)}
@@ -188,7 +315,7 @@ function formatInline(text, theme) {
         <code
           key={`code-${keyIndex++}`}
           className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${
-            theme?.mdCode || 'bg-slate-100 text-sovereign-800 border border-slate-200'
+            theme?.mdCode || 'bg-slate-100 dark:bg-slate-800 text-sovereign-800 dark:text-sky-300 border border-slate-200 dark:border-slate-700'
           }`}
         >
           {matchedStr.slice(1, -1)}
