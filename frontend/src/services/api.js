@@ -275,3 +275,63 @@ export async function fetchSystemStats() {
   } catch (e) {}
   return null;
 }
+
+// --- Google Cloud Translation & Multilingual API ---
+export const translationApi = {
+  async translateText(text, targetLanguage, sourceLanguage = 'en') {
+    try {
+      const res = await fetch(`${API_BASE}/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          target_language: targetLanguage,
+          source_language: sourceLanguage,
+        }),
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {}
+    return { translated_text: text, target_language: targetLanguage, provider: 'fallback' };
+  },
+
+  async translateBatch(texts, targetLanguage, sourceLanguage = 'en') {
+    try {
+      const res = await fetch(`${API_BASE}/translate/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          texts,
+          target_language: targetLanguage,
+          source_language: sourceLanguage,
+        }),
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {}
+    return texts.map((t) => ({ translated_text: t, target_language: targetLanguage, provider: 'fallback' }));
+  },
+
+  async translateDictionary(dictionary, targetLanguage, sourceLanguage = 'en') {
+    try {
+      const res = await fetch(`${API_BASE}/translate/dictionary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dictionary,
+          target_language: targetLanguage,
+          source_language: sourceLanguage,
+        }),
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {}
+    return dictionary;
+  },
+
+  async fetchSupportedLanguages() {
+    try {
+      const res = await fetch(`${API_BASE}/translate/languages`);
+      if (res.ok) return await res.json();
+    } catch (e) {}
+    return { status: 'active', supported_languages: [] };
+  },
+};
+

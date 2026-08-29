@@ -42,6 +42,7 @@ from app.routers import (
     projects_router,
     data_sources_router,
     auth_router,
+    translation_router,
 )
 from inference import ViabilityModelLoader
 
@@ -160,6 +161,7 @@ app.include_router(financial_router, prefix=settings.API_V2_STR)
 app.include_router(feasibility_router, prefix=settings.API_V2_STR)
 app.include_router(projects_router, prefix=settings.API_V2_STR)
 app.include_router(data_sources_router, prefix=settings.API_V2_STR)
+app.include_router(translation_router, prefix=settings.API_V2_STR)
 
 
 if __name__ == "__main__":
