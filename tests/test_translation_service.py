@@ -8,6 +8,13 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # Ensure root directory is on pythonpath
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
@@ -107,6 +114,21 @@ def test_translation_cache_performance():
     print("  [PASS] Translation caching verified.")
 
 
+def test_dynamic_paragraph_translation_google_cloud():
+    """Verify dynamic complex sentence translation with live Google Cloud API Key."""
+    text = "The proposed dairy micro-enterprise in Joypur demonstrates robust financial viability with a projected DSCR of 1.78x and eligible PMEGP capital subsidy of 35%."
+    for lang in ["hi", "mr", "ta", "te", "kn"]:
+        res = client.post(
+            "/api/v2/translate",
+            json={"text": text, "target_language": lang, "source_language": "en"}
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert len(data["translated_text"]) > 10
+        assert data["target_language"] == lang
+        print(f"  [PASS] Live Google Cloud Translation ({lang.upper()}): {data['translated_text'][:60]}...")
+
+
 if __name__ == "__main__":
     print("\n" + "=" * 80)
     print("RUNNING GOOGLE CLOUD TRANSLATION API & MULTILINGUAL SUITE")
@@ -117,6 +139,8 @@ if __name__ == "__main__":
     test_batch_translation_all_languages()
     test_dictionary_translation()
     test_translation_cache_performance()
+    test_dynamic_paragraph_translation_google_cloud()
     print("=" * 80)
     print("ALL TRANSLATION TESTS PASSED WITH 100% SUCCESS!")
     print("=" * 80 + "\n")
+

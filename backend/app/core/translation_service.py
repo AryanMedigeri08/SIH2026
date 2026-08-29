@@ -106,10 +106,8 @@ class TranslationService:
             logger.warning("Could not initialize SQLite translation cache: %s", e)
 
     def _init_gcp_client(self):
-        """Initializes the official Google Cloud Translation SDK client if credentials exist."""
+        """Initializes the official Google Cloud Translation SDK client if service account exists."""
         try:
-            from google.cloud import translate_v2 as translate
-            # Check for candidate service account credentials
             path_str = getattr(settings, "FIREBASE_SERVICE_ACCOUNT_PATH", None) or os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "serviceAccountKey.json"
             raw_path = Path(path_str) if path_str else None
             candidates = [
@@ -119,20 +117,12 @@ class TranslationService:
                 Path(__file__).resolve().parent.parent.parent / "serviceAccountKey.json",
                 Path.cwd() / "serviceAccountKey.json",
             ]
-            cred_file = None
             for c in candidates:
                 if c and c.exists() and c.is_file():
-                    cred_file = str(c.resolve())
-                    break
-
-            if cred_file:
-                self._gcp_client = translate.Client.from_service_account_json(cred_file)
-                logger.info("🌐 Google Cloud Translation SDK Client initialized with: %s", cred_file)
-            else:
-                api_key = os.getenv("GOOGLE_TRANSLATE_API_KEY")
-                if api_key:
-                    self._gcp_client = translate.Client(api_key=api_key)
-                    logger.info("🌐 Google Cloud Translation SDK Client initialized with API Key.")
+                    from google.cloud import translate_v2 as translate
+                    self._gcp_client = translate.Client.from_service_account_json(str(c.resolve()))
+                    logger.info("🌐 Google Cloud Translation SDK Client initialized with Service Account: %s", c)
+                    return
         except Exception as e:
             logger.info("ℹ️ Google Cloud Translation SDK deferred to REST / Fallback mode: %s", e)
 
@@ -222,7 +212,36 @@ class TranslationService:
                 "provider": "domain_dictionary"
             }
 
-        # 3. Try Google Cloud Translation SDK
+        # 3. Try Google Cloud Translation REST API with API Key
+        api_key = os.getenv("GOOGLE_TRANSLATE_API_KEY")
+        if api_key:
+            try:
+                url = f"https://translation.googleapis.com/language/translate/v2?key={api_key}"
+                payload = {
+                    "q": clean_text,
+                    "target": target_lang,
+                    "source": src_lang if src_lang != "auto" else None,
+                    "format": format_type,
+                }
+                async with httpx.AsyncClient(timeout=8.0) as client:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        translations = data.get("data", {}).get("translations", [])
+                        if translations:
+                            translated_str = translations[0].get("translatedText", clean_text)
+                            detected_src = translations[0].get("detectedSourceLanguage", src_lang)
+                            self._save_cached_translation(ckey, detected_src, target_lang, clean_text, translated_str, "google_cloud_rest")
+                            return {
+                                "translated_text": translated_str,
+                                "source_language": detected_src,
+                                "target_language": target_lang,
+                                "provider": "google_cloud_rest"
+                            }
+            except Exception as rest_err:
+                logger.warning("Google Cloud Translation REST API error: %s", rest_err)
+
+        # 4. Try Google Cloud Translation SDK via Service Account
         if self._gcp_client:
             try:
                 result = self._gcp_client.translate(
@@ -241,37 +260,7 @@ class TranslationService:
                     "provider": "google_cloud_sdk"
                 }
             except Exception as gcp_err:
-                logger.warning("Google Cloud Translation SDK call failed (%s); trying REST fallback.", gcp_err)
-
-        # 4. Try Google Cloud Translation REST API (v2)
-        api_key = os.getenv("GOOGLE_TRANSLATE_API_KEY")
-        if api_key:
-            try:
-                url = "https://translation.googleapis.com/language/translate/v2"
-                payload = {
-                    "q": clean_text,
-                    "target": target_lang,
-                    "source": src_lang if src_lang != "auto" else None,
-                    "format": format_type,
-                    "key": api_key,
-                }
-                async with httpx.AsyncClient(timeout=8.0) as client:
-                    resp = await client.post(url, json=payload)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        translations = data.get("data", {}).get("translations", [])
-                        if translations:
-                            translated_str = translations[0].get("translatedText", clean_text)
-                            detected_src = translations[0].get("detectedSourceLanguage", src_lang)
-                            self._save_cached_translation(ckey, detected_src, target_lang, clean_text, translated_str, "google_cloud_rest")
-                            return {
-                                "translated_text": translated_str,
-                                "source_language": detected_src,
-                                "target_language": target_lang,
-                                "provider": "google_cloud_rest"
-                            }
-            except Exception as rest_err:
-                logger.warning("Google Cloud Translation REST API failed: %s", rest_err)
+                logger.warning("Google Cloud Translation SDK call error (%s); falling back.", gcp_err)
 
         # 5. Deterministic AI / Dictionary Fallback
         fallback_str = self._apply_domain_substitutions(clean_text, target_lang)
@@ -289,12 +278,82 @@ class TranslationService:
         target_language: str = "hi",
         source_language: str = "en",
     ) -> list[dict[str, Any]]:
-        """Batch translation for arrays of strings."""
-        results = []
-        for t in texts:
-            res = await self.translate_text(t, target_language=target_language, source_language=source_language)
-            results.append(res)
-        return results
+        """Batch translation with multi-item Google Cloud Translate acceleration."""
+        if not texts:
+            return []
+
+        target_lang = target_language.lower().strip()
+        src_lang = source_language.lower().strip() if source_language else "en"
+
+        api_key = os.getenv("GOOGLE_TRANSLATE_API_KEY")
+        # Check cache for what's already known
+        cached_results: dict[int, dict[str, Any]] = {}
+        uncached_indices = []
+        uncached_texts = []
+
+        for idx, t in enumerate(texts):
+            if not t or not t.strip() or target_lang == src_lang:
+                cached_results[idx] = {
+                    "translated_text": t,
+                    "source_language": src_lang,
+                    "target_language": target_lang,
+                    "provider": "identity"
+                }
+                continue
+
+            ckey = self._cache_key(t.strip(), src_lang, target_lang)
+            cached = self._get_cached_translation(ckey)
+            if cached:
+                cached_results[idx] = {
+                    "translated_text": cached,
+                    "source_language": src_lang,
+                    "target_language": target_lang,
+                    "provider": "cache"
+                }
+            else:
+                uncached_indices.append(idx)
+                uncached_texts.append(t.strip())
+
+        # If everything was cached, return immediately
+        if not uncached_texts:
+            return [cached_results[i] for i in range(len(texts))]
+
+        # Query Google Cloud Translate in a single bulk HTTP request
+        if api_key and uncached_texts:
+            try:
+                url = f"https://translation.googleapis.com/language/translate/v2?key={api_key}"
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.post(url, json={
+                        "q": uncached_texts,
+                        "target": target_lang,
+                        "source": src_lang if src_lang != "auto" else None,
+                        "format": "text"
+                    })
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        translations = data.get("data", {}).get("translations", [])
+                        for u_idx, orig_idx in enumerate(uncached_indices):
+                            if u_idx < len(translations):
+                                tr_text = translations[u_idx].get("translatedText", uncached_texts[u_idx])
+                                det_src = translations[u_idx].get("detectedSourceLanguage", src_lang)
+                                ckey = self._cache_key(uncached_texts[u_idx], src_lang, target_lang)
+                                self._save_cached_translation(ckey, det_src, target_lang, uncached_texts[u_idx], tr_text, "google_cloud_rest")
+                                cached_results[orig_idx] = {
+                                    "translated_text": tr_text,
+                                    "source_language": det_src,
+                                    "target_language": target_lang,
+                                    "provider": "google_cloud_rest"
+                                }
+            except Exception as batch_err:
+                logger.warning("Bulk translation error: %s", batch_err)
+
+        # Complete any remaining items with individual translation
+        for orig_idx in uncached_indices:
+            if orig_idx not in cached_results:
+                res = await self.translate_text(texts[orig_idx], target_language=target_lang, source_language=src_lang)
+                cached_results[orig_idx] = res
+
+        return [cached_results[i] for i in range(len(texts))]
 
     async def translate_dictionary(
         self,
