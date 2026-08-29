@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, AlertOctagon, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { TranslatedText } from '../TranslatedText';
 
 export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confidenceScore }) {
   const data = mlViability || viabilityData || {};
@@ -84,7 +85,7 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Primary Solvency Driver:
             </div>
             <p className="text-slate-800 font-medium leading-relaxed">
-              {data?.top_positive_factors?.[0] || data?.top_positive_driver || "Solvent debt coverage ratio satisfies RBI underwriting benchmark."}
+              <TranslatedText text={data?.top_positive_factors?.[0] || data?.top_positive_driver || "Solvent debt coverage ratio satisfies RBI underwriting benchmark."} />
             </p>
           </div>
 
@@ -93,7 +94,7 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" /> Primary Operational Risk Factor:
             </div>
             <p className="text-slate-800 font-medium leading-relaxed">
-              {data?.top_risk_factors?.[0] || data?.top_risk_driver || "Maintain working capital liquidity reserve to absorb localized cost shocks."}
+              <TranslatedText text={data?.top_risk_factors?.[0] || data?.top_risk_driver || "Maintain working capital liquidity reserve to absorb localized cost shocks."} />
             </p>
           </div>
         </div>

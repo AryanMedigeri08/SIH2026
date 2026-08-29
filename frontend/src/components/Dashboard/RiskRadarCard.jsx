@@ -9,6 +9,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { ShieldAlert, AlertTriangle, ShieldCheck, Database, Coins } from 'lucide-react';
+import { TranslatedText } from '../TranslatedText';
 
 const CustomRadarTooltip = ({ active, payload }) => {
   if (!active || !payload || !payload.length) return null;
@@ -166,7 +167,7 @@ export function RiskRadarCard({ riskData }) {
               <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono font-bold text-sovereign-800">{r.risk_id}</span>
-                  <strong className="text-xs text-slate-900 font-bold">{r.title}</strong>
+                  <strong className="text-xs text-slate-900 font-bold"><TranslatedText text={r.title} /></strong>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -186,7 +187,7 @@ export function RiskRadarCard({ riskData }) {
               </div>
 
               <div className="text-[11px] text-slate-600 mb-2">
-                <strong className="text-slate-800 font-medium">Grounding Basis:</strong> {r.basis}
+                <strong className="text-slate-800 font-medium">Grounding Basis:</strong> <TranslatedText text={r.basis} />
               </div>
 
               <div className={`p-2.5 rounded-lg border text-[11px] text-slate-800 ${
@@ -196,7 +197,7 @@ export function RiskRadarCard({ riskData }) {
                   ? 'bg-white/80 border-amber-200' 
                   : 'bg-white/80 border-emerald-200'
               }`}>
-                <strong className="text-sovereign-800">Mitigation:</strong> {r.mitigation}
+                <strong className="text-sovereign-800">Mitigation:</strong> <TranslatedText text={r.mitigation} />
                 {r.rupee_buffer > 0 && (
                   <div className="mt-1 text-emerald-800 font-mono font-bold flex items-center gap-1.5">
                     <Coins className="w-3.5 h-3.5 text-emerald-600 shrink-0" />

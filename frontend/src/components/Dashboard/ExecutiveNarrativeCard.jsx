@@ -1,12 +1,21 @@
 import React from 'react';
-import { Bot, Sparkles, Languages, CheckCircle2, BookmarkCheck, Cpu, FileCheck, Zap } from 'lucide-react';
+import { Bot, Sparkles, Languages, CheckCircle2, BookmarkCheck, Cpu, FileCheck, Zap, Loader2 } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
+import { useAutoTranslate } from '../../hooks/useAutoTranslate';
 
 export function ExecutiveNarrativeCard({ synthesisData }) {
+  const { language } = useLanguage();
   const synth = synthesisData || {};
-  const summary = synth.executive_summary || "The proposed enterprise demonstrates sound financial and commercial feasibility with healthy debt coverage.";
-  const recommendations = synth.strategic_recommendations || [];
-  const bankNotes = synth.bank_appraisal_notes || "Enterprise satisfies credit underwriting benchmarks.";
-  const lang = (synth.language || synth.target_language || "en").toUpperCase();
+  const rawSummary = synth.executive_summary || "The proposed enterprise demonstrates sound financial and commercial feasibility with healthy debt coverage.";
+  const rawRecommendations = synth.strategic_recommendations || [];
+  const rawBankNotes = synth.bank_appraisal_notes || "Enterprise satisfies credit underwriting benchmarks.";
+  
+  // Dynamic Google Cloud Translation binding for Groq content
+  const { translated: summary, isTranslating: isSummaryTranslating } = useAutoTranslate(rawSummary);
+  const { translated: recommendations } = useAutoTranslate(rawRecommendations);
+  const { translated: bankNotes } = useAutoTranslate(rawBankNotes);
+
+  const activeLangCode = language ? language.toUpperCase() : (synth.language || synth.target_language || "en").toUpperCase();
   const isFallback = synth.is_fallback ?? true;
   const isCached = synth.is_cached ?? false;
   const modelName = synth.model_name || (isFallback ? "deterministic_narrative_engine_v1.0" : "groq:llama-3.3-70b");
@@ -14,7 +23,7 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
 
   // Simple Markdown bold formatter for synthesis narrative
   const formatMarkdown = (text) => {
-    if (!text) return null;
+    if (!text || typeof text !== 'string') return null;
     const parts = text.split(/(\*\*.*?\*\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
@@ -24,7 +33,7 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
     });
   };
 
-  const paragraphs = summary.split('\n\n').filter(Boolean);
+  const paragraphs = typeof summary === 'string' ? summary.split('\n\n').filter(Boolean) : [rawSummary];
 
   return (
     <div className="glass-panel p-6 border-l-4 border-sovereign-800 bg-white shadow-card space-y-4">
@@ -38,6 +47,12 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
           <div>
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <span>Executive Feasibility & Credit Appraisal Synthesis</span>
+              {isSummaryTranslating && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-sovereign-700 bg-sovereign-50 px-2 py-0.5 rounded-full border border-sovereign-200">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Translating...</span>
+                </span>
+              )}
             </h3>
             <p className="text-[11px] text-slate-500 font-medium">
               {isFallback
@@ -63,7 +78,7 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
 
           {/* Language Badge */}
           <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sovereign-50 border border-sovereign-200 text-sovereign-800 flex items-center gap-1.5">
-            <Languages className="w-3.5 h-3.5" /> {lang}
+            <Languages className="w-3.5 h-3.5" /> {activeLangCode}
           </span>
 
           {/* Model / Latency Badge */}
@@ -81,7 +96,7 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
       </div>
 
       {/* Synthesis Narrative with Paragraph Formatting */}
-      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 leading-relaxed space-y-3 font-normal">
+      <div className={`p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 leading-relaxed space-y-3 font-normal transition-opacity duration-200 ${isSummaryTranslating ? "opacity-75" : "opacity-100"}`}>
         {paragraphs.map((p, idx) => (
           <p key={idx} className="leading-relaxed">
             {formatMarkdown(p)}
@@ -90,7 +105,7 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
       </div>
 
       {/* Strategic Action Points */}
-      {recommendations.length > 0 && (
+      {recommendations && recommendations.length > 0 && (
         <div className="space-y-2 pt-1">
           <div className="text-xs font-bold text-sovereign-800 uppercase tracking-wider flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-sovereign-700" />
@@ -131,4 +146,5 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
     </div>
   );
 }
+
 export default ExecutiveNarrativeCard;

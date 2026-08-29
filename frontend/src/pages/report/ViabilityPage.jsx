@@ -3,6 +3,7 @@ import { ViabilityMeterCard } from '../../components/Dashboard/ViabilityMeterCar
 import { FeatureContributionChart } from '../../components/Dashboard/FeatureContributionChart';
 import { ViabilityRadarChart } from '../../components/Dashboard/ViabilityRadarChart';
 import { BrainCircuit, Info, ShieldCheck, Sparkles, CheckCircle2, Table, TrendingUp, TrendingDown, Layers } from 'lucide-react';
+import { TranslatedText } from '../../components/TranslatedText';
 
 const FEATURE_DEFINITIONS = [
   { key: 'dscr', label: 'Debt Service Coverage Ratio (DSCR)', unit: 'Ratio', benchmark: '≥ 1.33 (RBI Norm)', description: 'Operating cash flow available to service debt interest and principal amortizations.' },
@@ -102,8 +103,8 @@ export function ViabilityPage({ reportData }) {
                   <tr key={def.key} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-3 font-mono text-slate-400 text-[11px]">{`x${idx}`}</td>
                     <td className="py-3 px-3">
-                      <div className="font-bold text-slate-900">{def.label}</div>
-                      <div className="text-[10px] text-slate-500 line-clamp-1">{def.description}</div>
+                      <div className="font-bold text-slate-900"><TranslatedText text={def.label} /></div>
+                      <div className="text-[10px] text-slate-500 line-clamp-1"><TranslatedText text={def.description} /></div>
                     </td>
                     <td className="py-3 px-3 font-mono font-extrabold text-sovereign-900">
                       {typeof raw === 'number' ? (Number.isInteger(raw) ? raw : raw.toFixed(2)) : raw}

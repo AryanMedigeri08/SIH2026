@@ -284,17 +284,60 @@ export function LanguageProvider({ children }) {
   }, [language]);
 
   /**
-   * Batch text translator for reports and multi-line structures.
+   * Batch text translator for reports and multi-line structures with local caching.
    */
   const translateBatch = useCallback(async (texts, targetLang = language, sourceLang = "en") => {
     if (!Array.isArray(texts) || texts.length === 0) return texts;
     if (targetLang === sourceLang) return texts;
 
+    const uncachedIndices = [];
+    const uncachedTexts = [];
+    const results = new Array(texts.length);
+
+    texts.forEach((txt, idx) => {
+      if (typeof txt !== "string" || !txt.trim()) {
+        results[idx] = txt;
+        return;
+      }
+      const cacheKey = `${sourceLang}:${targetLang}:${txt.trim()}`;
+      if (cacheRef.current[cacheKey]) {
+        results[idx] = cacheRef.current[cacheKey];
+      } else {
+        uncachedIndices.push(idx);
+        uncachedTexts.push(txt);
+      }
+    });
+
+    if (uncachedTexts.length === 0) {
+      return results;
+    }
+
     try {
-      const res = await translationApi.translateBatch(texts, targetLang, sourceLang);
-      return res.map((r) => r.translated_text);
+      const res = await translationApi.translateBatch(uncachedTexts, targetLang, sourceLang);
+      const newCacheEntries = {};
+
+      res.forEach((r, i) => {
+        const originalIdx = uncachedIndices[i];
+        const translatedStr = r?.translated_text || uncachedTexts[i];
+        results[originalIdx] = translatedStr;
+        const cacheKey = `${sourceLang}:${targetLang}:${uncachedTexts[i].trim()}`;
+        newCacheEntries[cacheKey] = translatedStr;
+      });
+
+      setDynamicCache((prev) => {
+        const next = { ...prev, ...newCacheEntries };
+        try {
+          localStorage.setItem(TRANSLATION_CACHE_KEY, JSON.stringify(next));
+        } catch (_) {}
+        return next;
+      });
+
+      return results;
     } catch (e) {
-      return texts;
+      uncachedIndices.forEach((origIdx, i) => {
+        results[origIdx] = uncachedTexts[i];
+      });
+      return results;
     }
   }, [language]);
 

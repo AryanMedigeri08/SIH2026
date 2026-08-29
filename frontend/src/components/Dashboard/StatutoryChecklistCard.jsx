@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ClipboardCheck, CheckSquare, Square, FileText } from 'lucide-react';
+import { TranslatedText } from '../TranslatedText';
 
 export function StatutoryChecklistCard() {
   const [checkedItems, setCheckedItems] = useState({
@@ -68,10 +69,10 @@ export function StatutoryChecklistCard() {
 
               <div>
                 <div className={`text-xs font-bold ${isChecked ? 'text-emerald-900' : 'text-slate-900'}`}>
-                  {d.title}
+                  <TranslatedText text={d.title} />
                 </div>
                 <div className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                  {d.desc}
+                  <TranslatedText text={d.desc} />
                 </div>
               </div>
             </div>

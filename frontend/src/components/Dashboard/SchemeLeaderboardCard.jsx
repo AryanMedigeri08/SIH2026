@@ -1,5 +1,6 @@
 import React from 'react';
 import { Award, CheckCircle, XCircle, Percent, ArrowUpRight, ExternalLink, Sparkles } from 'lucide-react';
+import { TranslatedText } from '../TranslatedText';
 
 export function SchemeLeaderboardCard({ schemes, isReconsider = false }) {
   const schemeList = schemes || [];
@@ -88,7 +89,7 @@ export function SchemeLeaderboardCard({ schemes, isReconsider = false }) {
                 </div>
 
                 <div className={`text-[11px] mt-2 line-clamp-2 italic ${isEligible ? 'text-slate-600' : 'text-rose-700'}`}>
-                  {rationale}
+                  <TranslatedText text={rationale} />
                 </div>
               </div>
 

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import { BusinessStatusPill } from '../../components/BusinessSwitcher';
+import { TranslatedText } from '../../components/TranslatedText';
 
 export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   const navigate = useNavigate();
@@ -234,7 +235,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
               }`} />
               <div>
                 <strong className="font-bold">{currentBusinessStatus.label}: </strong>
-                <span>{currentBusinessStatus.reason}</span>
+                <span><TranslatedText text={currentBusinessStatus.reason} /></span>
               </div>
             </div>
           )}
@@ -395,7 +396,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
                   </div>
 
                   <p className="mt-1 text-[11px] text-slate-500 font-medium line-clamp-2">
-                    {sec.teaserText}
+                    <TranslatedText text={sec.teaserText} />
                   </p>
                 </div>
 

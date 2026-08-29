@@ -1,5 +1,6 @@
 import React from 'react';
 import { Target, CheckCircle2, AlertTriangle, Lightbulb, ShieldAlert, Sparkles, Database, Cpu } from 'lucide-react';
+import { TranslatedText } from '../TranslatedText';
 
 export function SwotMatrixCard({ swotData, synthesisData }) {
   const s = swotData?.strengths || [];
@@ -53,7 +54,7 @@ export function SwotMatrixCard({ swotData, synthesisData }) {
                 <li key={idx} className="flex items-start gap-2">
                   <span className="text-emerald-600 mt-0.5 font-bold shrink-0">•</span>
                   <div className="leading-relaxed">
-                    <span>{text}</span>
+                    <TranslatedText text={text} />
                     {source && (
                       <span className="ml-1.5 px-1.5 py-0.2 rounded bg-white border border-emerald-200 text-[10px] text-emerald-800 font-mono font-normal inline-block">
                         {source}
@@ -80,7 +81,7 @@ export function SwotMatrixCard({ swotData, synthesisData }) {
                 <li key={idx} className="flex items-start gap-2">
                   <span className="text-amber-600 mt-0.5 font-bold shrink-0">•</span>
                   <div className="leading-relaxed">
-                    <span>{text}</span>
+                    <TranslatedText text={text} />
                     {source && (
                       <span className="ml-1.5 px-1.5 py-0.2 rounded bg-white border border-amber-200 text-[10px] text-amber-800 font-mono font-normal inline-block">
                         {source}
@@ -107,7 +108,7 @@ export function SwotMatrixCard({ swotData, synthesisData }) {
                 <li key={idx} className="flex items-start gap-2">
                   <span className="text-sky-700 mt-0.5 font-bold shrink-0">•</span>
                   <div className="leading-relaxed">
-                    <span>{text}</span>
+                    <TranslatedText text={text} />
                     {source && (
                       <span className="ml-1.5 px-1.5 py-0.2 rounded bg-white border border-sky-200 text-[10px] text-sky-800 font-mono font-normal inline-block">
                         {source}
@@ -134,7 +135,7 @@ export function SwotMatrixCard({ swotData, synthesisData }) {
                 <li key={idx} className="flex items-start gap-2">
                   <span className="text-rose-600 mt-0.5 font-bold shrink-0">•</span>
                   <div className="leading-relaxed">
-                    <span>{text}</span>
+                    <TranslatedText text={text} />
                     {source && (
                       <span className="ml-1.5 px-1.5 py-0.2 rounded bg-white border border-rose-200 text-[10px] text-rose-800 font-mono font-normal inline-block">
                         {source}
