@@ -348,6 +348,45 @@ export const chatApi = {
     });
   },
 
+  async sendVoiceAudio(audioBlob, context = null, language = 'en', history = [], token = null) {
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'recording.webm');
+    formData.append('language', language || 'en');
+    if (context) {
+      formData.append('context', JSON.stringify(context));
+    }
+    if (history && history.length > 0) {
+      formData.append('history', JSON.stringify(history));
+    }
+
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE}/chat/audio`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Voice chat failed: ${errText || res.statusText}`);
+    }
+    return await res.json();
+  },
+
+  async generateTts(text, language = 'en', token = null) {
+    return await authFetch(`${API_BASE}/chat/tts`, token, {
+      method: 'POST',
+      body: JSON.stringify({
+        text,
+        language,
+      }),
+    });
+  },
+
   async checkChatHealth() {
     try {
       const res = await fetch(`${API_BASE}/chat/health`);

@@ -58,7 +58,11 @@ class Settings(BaseSettings):
     # Groq AI Model & Dedicated Chatbot Configuration
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     GROQ_CHAT_KEY: Optional[str] = os.getenv("GROQ_CHAT_KEY", None)
+    GROQ_API_KEY_STT: Optional[str] = os.getenv("GROQ_API_KEY_STT", None)
+    GROQ_API_KEY_LLM: Optional[str] = os.getenv("GROQ_API_KEY_LLM", None)
     GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+    GROQ_STT_MODEL: str = os.getenv("GROQ_STT_MODEL", "whisper-large-v3")
+    GROQ_LLM_MODEL: str = os.getenv("GROQ_LLM_MODEL", "openai/gpt-oss-20b")
 
     # 613 Village Amenities API (Data.gov.in / Mission Antyodaya OGD API)
     DATA_GOV_IN_API_KEY: str = os.getenv("DATA_GOV_IN_API_KEY", os.getenv("AMENITIES_API_KEY", ""))

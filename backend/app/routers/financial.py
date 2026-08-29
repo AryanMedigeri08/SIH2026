@@ -6,10 +6,16 @@ from __future__ import annotations
 from typing import Optional, Any
 from fastapi import APIRouter, HTTPException
 
-from financial_calculator import (
-    emi_with_moratorium, working_capital_estimate, compute_dscr, rank_eligible_schemes,
-)
-from app.models.schemas import FinancialCalcRequest, FinancialCalcResponse
+try:
+    from app.core.financial_calculator import (
+        emi_with_moratorium, working_capital_estimate, compute_dscr, rank_eligible_schemes,
+    )
+    from app.models.schemas import FinancialCalcRequest, FinancialCalcResponse
+except ImportError:
+    from backend.app.core.financial_calculator import (
+        emi_with_moratorium, working_capital_estimate, compute_dscr, rank_eligible_schemes,
+    )
+    from backend.app.models.schemas import FinancialCalcRequest, FinancialCalcResponse
 
 router = APIRouter(prefix="/financial", tags=["Financial Calculators"])
 

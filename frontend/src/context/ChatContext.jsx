@@ -125,127 +125,227 @@ export const CHAT_THEMES = {
     mdH2: 'text-emerald-950 border-emerald-300',
     mdList: 'text-slate-700 marker:text-emerald-600',
     mdBold: 'text-slate-950 font-bold',
-    mdCode: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    mdCode: 'bg-emerald-50 text-emerald-900 border-emerald-200',
     mdQuote: 'border-emerald-500 bg-emerald-50/60 text-slate-700',
+  },
+  royal: {
+    id: 'royal',
+    name: 'Royal Purple',
+    accentColor: 'purple',
+    // Container
+    windowBg: 'bg-[#0e0720]/95 backdrop-blur-2xl border-purple-900/60 shadow-2xl text-purple-100 ring-1 ring-white/10',
+    topBar: 'bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-500',
+    // Header
+    headerBg: 'bg-[#080214]/90 text-white border-b border-purple-950',
+    headerTitle: 'text-white',
+    headerSubtitle: 'text-purple-300/80',
+    headerBadge: 'bg-purple-950/80 text-purple-300 border border-purple-700/60',
+    headerBtn: 'text-purple-300 hover:text-white hover:bg-purple-900/40',
+    headerMinimizeBtn: 'text-purple-300 hover:text-white hover:bg-purple-900/50 border border-purple-800/50',
+    // Body / Messages List
+    bodyBg: 'bg-[#150a2e]/40',
+    userBubble: 'bg-gradient-to-r from-purple-900 via-indigo-900 to-pink-900 text-white border border-purple-400/30 shadow-md',
+    userText: 'text-white',
+    assistantBubble: 'bg-[#1c0f3d]/90 text-purple-100 border border-purple-800/60 shadow-xs',
+    metaText: 'text-purple-400',
+    metaPill: 'text-purple-300 font-medium',
+    loadingBg: 'bg-[#1c0f3d]/90 border border-purple-800/60 text-purple-300 shadow-md',
+    loadingText: 'text-purple-200',
+    // Quick chips
+    chipHeader: 'text-purple-400',
+    chipBtn: 'bg-[#1c0f3d]/70 hover:bg-[#281655] text-purple-200 hover:text-pink-200 border-purple-800/60 hover:border-purple-500/60 shadow-2xs',
+    // Input
+    inputFooter: 'bg-[#080214]/95 border-t border-purple-950',
+    textarea: 'bg-[#150a2e]/90 border-purple-900/80 focus:border-purple-400/80 focus:ring-1 focus:ring-purple-400/50 text-purple-100 placeholder:text-purple-400',
+    sendBtn: 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-md shadow-purple-950/40',
+    subText: 'text-purple-400',
+    subBadge: 'bg-purple-950 border-purple-900 text-purple-400',
+    // Markdown
+    mdText: 'text-purple-100',
+    mdH3: 'text-purple-300 border-purple-800/50',
+    mdH2: 'text-purple-100 border-purple-800',
+    mdList: 'text-purple-200 marker:text-pink-400',
+    mdBold: 'text-white font-bold',
+    mdCode: 'bg-[#0b041a] text-purple-300 border-purple-800',
+    mdQuote: 'border-purple-500 bg-purple-950/40 text-purple-200',
   },
 };
 
 const ChatContext = createContext(null);
-
-const DEFAULT_WIDTH = 440;
-const DEFAULT_HEIGHT = 600;
-const POSITION_STORAGE_KEY = 'udyam_saathi_chat_window_pos_v1';
-const MESSAGES_STORAGE_KEY = 'udyam_saathi_chat_history_v1';
-const THEME_STORAGE_KEY = 'udyam_saathi_chat_theme_v1';
 
 export function ChatProvider({ children }) {
   const { token } = useAuth();
   const { reportData, activeBusiness } = useBusiness();
   const { language } = useLanguage();
 
-  // Chat Theme state ('sovereign' | 'midnight' | 'emerald')
-  const [chatTheme, setChatTheme] = useState(() => {
-    try {
-      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-      if (savedTheme && CHAT_THEMES[savedTheme]) {
-        return savedTheme;
-      }
-    } catch (_) {}
-    return 'sovereign'; // Default: Sovereign Light
-  });
-
-  const currentTheme = CHAT_THEMES[chatTheme] || CHAT_THEMES.sovereign;
-
-  // Toggle or cycle theme
-  const cycleTheme = useCallback(() => {
-    setChatTheme((prev) => {
-      const themeKeys = Object.keys(CHAT_THEMES);
-      const currentIndex = themeKeys.indexOf(prev);
-      const nextIndex = (currentIndex + 1) % themeKeys.length;
-      const nextTheme = themeKeys[nextIndex];
-      try {
-        localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
-      } catch (_) {}
-      return nextTheme;
-    });
-  }, []);
-
-  const selectTheme = useCallback((themeKey) => {
-    if (CHAT_THEMES[themeKey]) {
-      setChatTheme(themeKey);
-      try {
-        localStorage.setItem(THEME_STORAGE_KEY, themeKey);
-      } catch (_) {}
-    }
-  }, []);
-
-  // Chat window open & animation state
+  // Floating Window State
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [animState, setAnimState] = useState('idle'); // 'opening' | 'minimizing' | 'idle'
   const [isLoading, setIsLoading] = useState(false);
 
-  // Position & Dimensions
-  const [position, setPosition] = useState(() => {
+  // Audio Voice State
+  const [autoPlayVoice, setAutoPlayVoice] = useState(() => {
     try {
-      const saved = localStorage.getItem(POSITION_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const maxX = Math.max(20, window.innerWidth - DEFAULT_WIDTH - 20);
-        const maxY = Math.max(20, window.innerHeight - DEFAULT_HEIGHT - 20);
-        return {
-          x: Math.min(Math.max(20, parsed.x), maxX),
-          y: Math.min(Math.max(70, parsed.y), maxY),
-        };
-      }
-    } catch (_) {}
+      const saved = localStorage.getItem('udyam_saathi_voice_autoplay');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch (e) {
+      return true;
+    }
+  });
+  const [playingAudioId, setPlayingAudioId] = useState(null);
+  const [ttsLoadingId, setTtsLoadingId] = useState(null);
+  const currentAudioRef = useRef(null);
+
+  // Theme State
+  const [chatTheme, setChatTheme] = useState(() => {
+    return localStorage.getItem('udyam_saathi_chat_theme') || 'sovereign';
+  });
+
+  // Window Dimension & Position State
+  const [position, setPosition] = useState(() => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    if (isMobile) {
+      return { x: 12, y: 64 };
+    }
+    const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    return { x: Math.max(20, winWidth - 460), y: 84 };
+  });
+
+  const [size, setSize] = useState(() => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     return {
-      x: typeof window !== 'undefined' ? Math.max(20, window.innerWidth - DEFAULT_WIDTH - 30) : 100,
-      y: typeof window !== 'undefined' ? Math.max(80, window.innerHeight - DEFAULT_HEIGHT - 30) : 100,
+      width: isMobile ? (typeof window !== 'undefined' ? window.innerWidth - 24 : 360) : 420,
+      height: isMobile ? (typeof window !== 'undefined' ? window.innerHeight - 100 : 560) : 590,
     };
   });
 
-  const [size] = useState({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT });
-
-  // Conversation history
-  const [messages, setMessages] = useState(() => {
-    try {
-      const saved = localStorage.getItem(MESSAGES_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch (_) {}
-    return [
-      {
-        id: 'welcome-1',
-        role: 'assistant',
-        content: `👋 **Welcome to Udyam Saathi AI Advisor!**\n\nI have real-time access to the **dashboard screen and telemetry you are viewing**.\n\nYou can ask me to:\n- 📄 **"Summarize this page"** or explain any specific numbers on your screen\n- 🏛️ **Optimize your scheme subsidies** (PMEGP, Mudra, PMFME, CGTMSE)\n- 📈 **Audit your DSCR and credit feasibility metrics**\n\nHow can I help your enterprise right now?`,
-        timestamp: new Date().toISOString(),
-      },
-    ];
-  });
+  // Conversation Messages State
+  const [messages, setMessages] = useState([
+    {
+      id: 'welcome-init',
+      role: 'assistant',
+      content: `👋 **Namaste! I am Udyam Saathi's AI Advisor.**\n\nI am grounded in your enterprise parameters, 10-D XGBoost viability score, statutory scheme rankings (PMEGP, Mudra, PMFME), and 5-year bank cash flows.\n\nYou can **type or speak** in your chosen language anytime!`,
+      timestamp: new Date().toISOString(),
+      sources: ['Udyam Saathi MSME Credit & Feasibility Advisory Knowledge Base'],
+    },
+  ]);
 
   const navButtonRef = useRef(null);
   const chatInputRef = useRef(null);
 
-  // Save position on change
+  // Save Theme Preference
   useEffect(() => {
-    try {
-      localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify(position));
-    } catch (_) {}
-  }, [position]);
+    localStorage.setItem('udyam_saathi_chat_theme', chatTheme);
+  }, [chatTheme]);
 
-  // Save messages on change
+  // Save AutoPlay Preference
   useEffect(() => {
-    try {
-      localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(messages));
-    } catch (_) {}
-  }, [messages]);
+    localStorage.setItem('udyam_saathi_voice_autoplay', JSON.stringify(autoPlayVoice));
+  }, [autoPlayVoice]);
 
-  // Window resize handler: Keep window on-screen if viewport resizes
+  const currentTheme = CHAT_THEMES[chatTheme] || CHAT_THEMES.sovereign;
+
+  const selectTheme = useCallback((themeId) => {
+    if (CHAT_THEMES[themeId]) {
+      setChatTheme(themeId);
+    }
+  }, []);
+
+  const cycleTheme = useCallback(() => {
+    const themeKeys = Object.keys(CHAT_THEMES);
+    const currentIndex = themeKeys.indexOf(chatTheme);
+    const nextIndex = (currentIndex + 1) % themeKeys.length;
+    setChatTheme(themeKeys[nextIndex]);
+  }, [chatTheme]);
+
+  // Stop currently playing audio
+  const stopAudio = useCallback(() => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    setPlayingAudioId(null);
+  }, []);
+
+  // Play audio from base64 data URL
+  const playAudio = useCallback((audioBase64, msgId) => {
+    if (!audioBase64) return;
+
+    if (playingAudioId === msgId && currentAudioRef.current) {
+      stopAudio();
+      return;
+    }
+
+    stopAudio();
+
+    try {
+      const audio = new Audio(audioBase64);
+      currentAudioRef.current = audio;
+      setPlayingAudioId(msgId);
+
+      audio.onended = () => {
+        setPlayingAudioId(null);
+        currentAudioRef.current = null;
+      };
+
+      audio.onerror = () => {
+        setPlayingAudioId(null);
+        currentAudioRef.current = null;
+      };
+
+      audio.play().catch((err) => {
+        console.warn('Audio autoplay blocked or failed:', err);
+        setPlayingAudioId(null);
+      });
+    } catch (e) {
+      console.error('Audio playback error:', e);
+      setPlayingAudioId(null);
+    }
+  }, [playingAudioId, stopAudio]);
+
+  // Play TTS for any message on demand
+  const playMessageTts = useCallback(async (msgId, text, msgAudioBase64) => {
+    if (msgAudioBase64) {
+      playAudio(msgAudioBase64, msgId);
+      return;
+    }
+
+    if (ttsLoadingId) return;
+
+    setTtsLoadingId(msgId);
+    try {
+      const res = await chatApi.generateTts(text, language || 'en', token);
+      if (res && res.audio_base64) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === msgId ? { ...m, audio_base64: res.audio_base64 } : m))
+        );
+        playAudio(res.audio_base64, msgId);
+      }
+    } catch (err) {
+      console.error('TTS request failed:', err);
+    } finally {
+      setTtsLoadingId(null);
+    }
+  }, [language, token, ttsLoadingId, playAudio]);
+
+  // Ensure Window remains in viewport bounds on resize
   useEffect(() => {
     const handleResize = () => {
+      if (typeof window === 'undefined') return;
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        setSize({
+          width: window.innerWidth - 24,
+          height: window.innerHeight - 100,
+        });
+        setPosition({ x: 12, y: 64 });
+        return;
+      }
+
       setPosition((prev) => {
-        const maxX = Math.max(20, window.innerWidth - size.width - 20);
-        const maxY = Math.max(70, window.innerHeight - size.height - 20);
+        const maxX = window.innerWidth - size.width - 20;
+        const maxY = window.innerHeight - size.height - 20;
         return {
           x: Math.min(Math.max(20, prev.x), maxX),
           y: Math.min(Math.max(70, prev.y), maxY),
@@ -282,6 +382,7 @@ export function ChatProvider({ children }) {
   const minimizeChat = useCallback(() => {
     if (!isChatOpen || isAnimating) return;
 
+    stopAudio();
     setIsAnimating(true);
     setAnimState('minimizing');
 
@@ -290,7 +391,7 @@ export function ChatProvider({ children }) {
       setAnimState('idle');
       setIsAnimating(false);
     }, 280);
-  }, [isChatOpen, isAnimating]);
+  }, [isChatOpen, isAnimating, stopAudio]);
 
   // Toggle Chat
   const toggleChat = useCallback(() => {
@@ -348,154 +449,124 @@ export function ChatProvider({ children }) {
     } else if (path.includes('/risk')) {
       tabKey = 'risk';
       tabTitle = 'Comprehensive Multi-Dimensional Risk Assessment';
-      icon = '⚠️';
+      icon = '🛡️';
     } else if (path.includes('/swot')) {
       tabKey = 'swot';
-      tabTitle = 'SWOT Analysis Matrix';
-      icon = '🎯';
+      tabTitle = 'Strategic SWOT Analysis Matrix';
+      icon = '🧭';
     } else if (path.includes('/dpr')) {
       tabKey = 'dpr';
-      tabTitle = 'Official Bank DPR Package & Statutory Annexures';
-      icon = '📑';
-    } else if (path.includes('/calculator')) {
-      tabKey = 'calculator';
-      tabTitle = 'Interactive Credit & Break-Even Calculator';
-      icon = '🧮';
-    } else if (path.includes('/data-sources')) {
-      tabKey = 'data-sources';
-      tabTitle = 'Live Data Sources & ML Pipelines';
-      icon = '📡';
-    } else if (path.includes('/wizard') || path.includes('/new-assessment')) {
-      tabKey = 'wizard';
-      tabTitle = '7-Step Feasibility Assessment Wizard';
-      icon = '✨';
+      tabTitle = 'Official Bank Detailed Project Report (DPR)';
+      icon = '📄';
     }
 
-    let tabData = {};
-    let quickPrompts = [
-      'Summarize this page in 3 key takeaways',
-      'What are the most critical numbers on this screen?',
-      'Is my business ready for commercial bank approval?',
-    ];
+    let tabData = null;
+    let quickPrompts = [];
 
     if (reportData) {
-      if (tabKey === 'viability') {
-        const ml = reportData.ml_viability || {};
-        const shap = ml.shap_explanation?.contributions || [];
+      if (tabKey === 'overview') {
         tabData = {
-          verdict: ml.verdict || 'SUITABLE',
-          viability_score: `${ml.viability_score || ml.confidence_pct || 94}%`,
-          confidence_pct: `${ml.confidence_pct || 94}%`,
-          calibrated_probability: ml.probability || 0.94,
-          top_positive_contributors: shap.filter((s) => Number(s.shap_value) > 0).slice(0, 3).map((s) => `${s.feature}: +${Number(s.shap_value).toFixed(2)}`),
-          top_negative_risk_factors: shap.filter((s) => Number(s.shap_value) < 0).slice(0, 3).map((s) => `${s.feature}: ${Number(s.shap_value).toFixed(2)}`),
-          infrastructure_readiness: reportData.input_parameters?.infrastructure_score || '8.2 / 10',
-          working_capital_months_buffer: `${reportData.financial_summary?.working_capital_months || 2.5} Months`,
+          enterprise_name: reportData.enterprise_name || reportData.input_parameters?.enterprise_name,
+          project_cost: reportData.financial_summary?.project_cost || reportData.input_parameters?.project_cost,
+          top_scheme: reportData.scheme_recommendations?.[0]?.scheme_id,
+          subsidy_amount: reportData.scheme_recommendations?.[0]?.subsidy_grant_amount,
+          ml_verdict: reportData.ml_viability?.verdict,
+          dscr: reportData.financial_summary?.dscr_ratio,
         };
         quickPrompts = [
-          'Summarize this Viability page and verdict',
-          'Explain my top positive and negative TreeSHAP factors',
-          'How can I improve my viability score for the bank?',
+          'Summarize this Overview Synthesis page',
+          'Is this project viable for a bank loan?',
+          'What is the recommended government scheme?',
+          'Explain the 5-year financial breakdown',
+        ];
+      } else if (tabKey === 'viability') {
+        tabData = {
+          verdict: reportData.ml_viability?.verdict,
+          confidence_pct: reportData.ml_viability?.confidence_pct,
+          probabilities: reportData.ml_viability?.class_probabilities,
+          top_positive_driver: reportData.ml_viability?.top_positive_feature,
+          top_risk_driver: reportData.ml_viability?.top_negative_feature,
+        };
+        quickPrompts = [
+          'Explain the 10-D XGBoost viability score',
+          'What are the main solvency drivers?',
+          'How can I improve model confidence?',
         ];
       } else if (tabKey === 'market') {
-        const mkt = reportData.market_analysis || {};
         tabData = {
-          catchment_population_2026: mkt.catchment_population_2026 || reportData.input_parameters?.projected_population || '48,200',
-          cluster_msme_density: mkt.msme_density_per_10k || '38 units per 10k Pop',
-          estimated_monthly_demand: mkt.monthly_catchment_demand_units || '14,200 units',
-          competitor_saturation_index: mkt.competitor_saturation_index || '0.34 (Low Saturation)',
-          benchmark_market_selling_price: `₹${mkt.benchmark_unit_selling_price || 45.0}`,
-          break_even_floor_price: `₹${reportData.financial_summary?.break_even_unit_price || 36.5}`,
+          catchment_pop_2026: reportData.market_demographics?.catchment_population_2026,
+          annual_tam: reportData.market_demographics?.annual_tam,
+          msme_density: reportData.market_demographics?.msme_density_per_10k,
+          pricing_floor: reportData.pricing_recommendation?.cpi_adjusted_unit_price_floor,
         };
         quickPrompts = [
-          'Summarize local market demand and catchment scale',
-          'How competitive is my cluster location?',
-          'Explain the margin between my break-even price and market price',
+          'What is the annual local TAM demand?',
+          'Explain the MSME competition density',
+          'What is the recommended selling price band?',
         ];
       } else if (tabKey === 'schemes') {
-        const schemes = reportData.scheme_recommendations || [];
         tabData = {
-          matched_schemes_count: schemes.length,
-          top_recommended_schemes: schemes.slice(0, 3).map((s) => ({
-            scheme: s.scheme_id || s.full_name,
-            subsidy_grant_amount: `₹${Number(s.subsidy_grant_amount || 0).toLocaleString('en-IN')}`,
-            grant_percentage: `${s.subsidy_percentage || 25}%`,
-            eligibility_status: s.eligibility_status || 'Eligible',
-            nodal_agency: s.nodal_agency || 'KVIC / District Industries Centre (DIC)',
+          top_scheme: reportData.scheme_recommendations?.[0],
+          all_schemes: reportData.scheme_recommendations?.map((s) => ({
+            id: s.scheme_id,
+            eligible: s.eligible,
+            subsidy: s.subsidy_grant_amount,
           })),
         };
         quickPrompts = [
-          'Summarize all matched subsidy schemes on this page',
-          'Which scheme gives me the highest capital grant?',
-          'What are the step-by-step application requirements?',
+          'Why was this scheme ranked #1?',
+          'How do I apply on the official government portal?',
+          'What is the promoter equity margin required?',
         ];
       } else if (tabKey === 'financials') {
-        const fin = reportData.financial_summary || {};
-        const amort = fin.amortization_schedule || {};
         tabData = {
-          total_project_outlay: `₹${Number(fin.project_cost || 0).toLocaleString('en-IN')}`,
-          promoter_equity_margin: `₹${Number(fin.promoter_margin_amount || 0).toLocaleString('en-IN')}`,
-          effective_term_loan: `₹${Number(fin.effective_loan_principal || 0).toLocaleString('en-IN')}`,
-          scheduled_monthly_emi: `₹${Number(amort.monthly_emi || 0).toLocaleString('en-IN')}`,
-          dscr_solvency_ratio: `${Number(fin.dscr_ratio || 1.45).toFixed(2)} (${fin.dscr_verdict || 'Adequate Solvency'})`,
-          year_1_gross_revenue: `₹${Number(fin.year_1_revenue || 0).toLocaleString('en-IN')}`,
-          year_1_net_operating_profit: `₹${Number(fin.year_1_net_profit || 0).toLocaleString('en-IN')}`,
-          break_even_capacity_utilization: `${fin.break_even_capacity_utilization_pct || 42}%`,
+          project_cost: reportData.financial_summary?.project_cost,
+          dscr: reportData.financial_summary?.dscr_ratio,
+          monthly_emi: reportData.financial_summary?.amortization_schedule?.monthly_emi,
+          projections: reportData.financial_summary?.projections_5yr,
         };
         quickPrompts = [
-          'Summarize this Financials page for my bank loan manager',
-          'Explain why my DSCR ratio is safe or risky',
-          'Break down my monthly EMI and break-even capacity',
+          'Explain the 5-year cash flow projections',
+          'Is the DSCR ratio compliant with RBI norms?',
+          'What is the monthly bank EMI repayment?',
         ];
       } else if (tabKey === 'risk') {
-        const risk = reportData.risk_assessment || {};
         tabData = {
-          overall_risk_grade: risk.risk_grade || 'Moderate / Low Risk',
-          composite_risk_score: risk.composite_risk_score || '3.2 / 10.0',
-          top_risk_vectors: risk.risk_vectors || ['Raw Material Price Volatility (MoSPI CPI)', 'Monsoon Weather Disruption', 'Working Capital Drag'],
-          mitigation_strategies: risk.mitigation_strategies || ['Maintain 3-month DSCR reserve buffer', 'Long-term farmer vendor contracts'],
+          composite_score: reportData.risk_assessment?.average_risk_score,
+          severity: reportData.risk_assessment?.composite_grade,
+          contingency_buffer: reportData.risk_assessment?.total_rupee_buffer,
         };
         quickPrompts = [
-          'Summarize the biggest risk factors on this page',
-          'How can I mitigate raw material inflation and weather risks?',
-          'What risk reserves will the bank look for?',
+          'What are the highest operational risk pillars?',
+          'How much contingency buffer is recommended?',
+          'How to mitigate raw material price risk?',
         ];
       } else if (tabKey === 'swot') {
-        const swot = reportData.swot_analysis || {};
-        tabData = {
-          strengths: swot.strengths || ['High local raw material availability', 'Healthy gross contribution margin'],
-          weaknesses: swot.weaknesses || ['Initial working capital constraint', 'Single facility dependency'],
-          opportunities: swot.opportunities || ['Government PMEGP 35% subsidy grant', 'Expanding peri-urban retail demand'],
-          threats: swot.threats || ['Unseasonal weather anomalies', 'Localized competitor price discounting'],
-        };
+        tabData = reportData.swot_matrix;
         quickPrompts = [
-          'Summarize this SWOT analysis and core opportunities',
-          'How can I convert weaknesses into competitive advantages?',
+          'Summarize the core enterprise strengths',
+          'What are the key market opportunities?',
+          'What threats require immediate mitigation?',
         ];
       } else if (tabKey === 'dpr') {
-        const dpr = reportData.dpr_package || {};
         tabData = {
-          dpr_package_readiness: '100% Bank-Ready Format',
-          total_sections: 7,
-          required_statutory_licenses: ['Udyam Registration', 'GSTIN (if applicable)', 'FSSAI License / PCB Consent'],
-          mandatory_bank_annexures: ['Promoter KYC (PAN/Aadhaar)', 'Machinery Supplier Quotations', 'Project Site Land/Lease Agreement'],
+          report_id: reportData.report_id,
+          checklist: reportData.statutory_checklist,
         };
         quickPrompts = [
-          'Summarize the official bank DPR checklist',
-          'What statutory licenses do I need before submitting?',
-          'Walk me through the 7 DPR sections',
+          'Summarize the 7-section bank DPR document',
+          'What documents are required for credit sanction?',
+          'How to export this DPR to PDF/HTML?',
+        ];
+      }
+    } else {
+      if (activeBusiness) {
+        quickPrompts = [
+          `Tell me about ${activeBusiness.name}`,
+          'What government schemes can I apply for?',
+          'How is project viability calculated?',
         ];
       } else {
-        // Overview
-        tabData = {
-          enterprise_name: reportData.enterprise_name || reportData.input_parameters?.enterprise_name,
-          sector: reportData.sector || reportData.input_parameters?.sector,
-          total_project_outlay: `₹${Number(reportData.financial_summary?.project_cost || 0).toLocaleString('en-IN')}`,
-          dscr_ratio: `${Number(reportData.financial_summary?.dscr_ratio || 1.45).toFixed(2)} (${reportData.financial_summary?.dscr_verdict || 'Adequate Solvency'})`,
-          matched_scheme: reportData.scheme_recommendations?.[0]?.scheme_id || 'PMEGP',
-          subsidy_grant: `₹${Number(reportData.scheme_recommendations?.[0]?.subsidy_grant_amount || 0).toLocaleString('en-IN')}`,
-          ml_viability_verdict: reportData.ml_viability?.verdict || 'SUITABLE',
-        };
         quickPrompts = [
           'Summarize this enterprise feasibility assessment',
           'Is this business ready for a bank loan application?',
@@ -505,7 +576,7 @@ export function ChatProvider({ children }) {
     }
 
     return { tabKey, tabTitle, icon, tabData, quickPrompts };
-  }, [reportData]);
+  }, [reportData, activeBusiness]);
 
   // Extract Full Grounded Context Payload
   const getGroundedContext = useCallback(() => {
@@ -551,7 +622,7 @@ export function ChatProvider({ children }) {
     };
   }, [reportData, activeBusiness, getActiveTabTelemetry]);
 
-  // Send User Message
+  // Send Text User Message
   const sendMessage = useCallback(
     async (text) => {
       const trimmed = (text || '').trim();
@@ -617,18 +688,109 @@ export function ChatProvider({ children }) {
     [isLoading, messages, getGroundedContext, language, token]
   );
 
+  // Send Voice Audio Message (Microphone WebM -> Whisper STT -> LLM -> gTTS Audio)
+  const sendVoiceAudioMessage = useCallback(
+    async (audioBlob) => {
+      if (!audioBlob || isLoading) return;
+
+      const tempUserMsgId = `user-voice-${Date.now()}`;
+      const userMsg = {
+        id: tempUserMsgId,
+        role: 'user',
+        content: '🎤 Transcribing your voice...',
+        isVoice: true,
+        timestamp: new Date().toISOString(),
+      };
+
+      const updatedHistory = [...messages, userMsg];
+      setMessages(updatedHistory);
+      setIsLoading(true);
+
+      const activeContext = getGroundedContext();
+
+      try {
+        const payloadHistory = messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+
+        const data = await chatApi.sendVoiceAudio(
+          audioBlob,
+          activeContext,
+          language || 'en',
+          payloadHistory,
+          token
+        );
+
+        const transcript = data?.user_transcript || '(Voice Input)';
+        const replyText = data?.reply || 'I could not generate a response. Please try again.';
+        const audioBase64 = data?.audio_base64 || null;
+
+        // Update the user message with transcribed speech
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempUserMsgId ? { ...m, content: transcript, isVoice: true } : m))
+        );
+
+        const botMsgId = `bot-voice-${Date.now()}`;
+        const botMsg = {
+          id: botMsgId,
+          role: 'assistant',
+          content: replyText,
+          audio_base64: audioBase64,
+          timestamp: data?.timestamp || new Date().toISOString(),
+          isFallback: data?.is_fallback || false,
+          model: data?.model || 'whisper-large-v3 + groq-llm',
+          sources: data?.sources || [],
+          latencies: {
+            stt_s: data?.stt_latency_s,
+            llm_s: data?.llm_latency_s,
+            tts_s: data?.tts_latency_s,
+            total_s: data?.total_latency_s,
+          },
+        };
+
+        setMessages((prev) => [...prev, botMsg]);
+
+        // Auto-play voice response if enabled
+        if (autoPlayVoice && audioBase64) {
+          playAudio(audioBase64, botMsgId);
+        }
+      } catch (err) {
+        console.error('Voice chat error:', err);
+        // Update user message on error
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempUserMsgId ? { ...m, content: '🎤 [Voice Recording Failed]' } : m
+          )
+        );
+        const errorMsg = {
+          id: `err-${Date.now()}`,
+          role: 'assistant',
+          content: `⚠️ **Voice Processing Notice**: ${err.message || 'Could not process audio recording. Please check microphone permissions and try again.'}`,
+          timestamp: new Date().toISOString(),
+          isError: true,
+        };
+        setMessages((prev) => [...prev, errorMsg]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isLoading, messages, getGroundedContext, language, token, autoPlayVoice, playAudio]
+  );
+
   // Clear conversation history
   const clearChat = useCallback(() => {
+    stopAudio();
     const { tabTitle } = getActiveTabTelemetry();
     setMessages([
       {
         id: `welcome-${Date.now()}`,
         role: 'assistant',
-        content: `👋 **Chat history reset.**\n\nI am analyzing your **${tabTitle}** screen. Ask me to summarize this page or evaluate any financial or scheme metrics!`,
+        content: `👋 **Chat history reset.**\n\nI am analyzing your **${tabTitle}** screen. Ask me in text or voice to summarize this page or evaluate any financial or scheme metrics!`,
         timestamp: new Date().toISOString(),
       },
     ]);
-  }, [getActiveTabTelemetry]);
+  }, [getActiveTabTelemetry, stopAudio]);
 
   return (
     <ChatContext.Provider
@@ -643,6 +805,10 @@ export function ChatProvider({ children }) {
         messages,
         chatTheme,
         currentTheme,
+        autoPlayVoice,
+        setAutoPlayVoice,
+        playingAudioId,
+        ttsLoadingId,
         setChatTheme,
         selectTheme,
         cycleTheme,
@@ -653,6 +819,10 @@ export function ChatProvider({ children }) {
         minimizeChat,
         toggleChat,
         sendMessage,
+        sendVoiceAudioMessage,
+        playAudio,
+        stopAudio,
+        playMessageTts,
         clearChat,
       }}
     >
@@ -668,3 +838,4 @@ export function useChat() {
   }
   return context;
 }
+export default ChatProvider;
