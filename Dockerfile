@@ -1,10 +1,8 @@
 # ============================================================================
-# Udyam Saathi — Backend Dockerfile (Python 3.11 Slim + Non-Root User)
-# Compatible with Google Cloud Run, Docker Compose & Kubernetes
+# Udyam Saathi — Backend Dockerfile (Root Entrypoint for Cloud Run)
 # ============================================================================
 FROM python:3.11-slim as base
 
-# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONIOENCODING=utf-8 \
@@ -12,19 +10,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies needed for compiling C extensions & SSL
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy backend codebase, core modules, schemas, data catalogs & pre-trained ML models
 COPY backend /app/backend
 COPY data /app/data
 COPY models /app/models
@@ -36,7 +31,6 @@ COPY swot_analyzer.py /app/
 COPY pricing_engine.py /app/
 COPY .env.example /app/.env.example
 
-# Create dedicated non-root user for container security
 RUN useradd -m -u 1001 appuser && \
     chown -R appuser:appuser /app
 
@@ -44,5 +38,4 @@ USER appuser
 
 EXPOSE 8000
 
-# Start Uvicorn ASGI Server with dynamic Cloud Run PORT binding
 CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2"]
