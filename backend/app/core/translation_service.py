@@ -371,6 +371,197 @@ class TranslationService:
                 translated[k] = v
         return translated
 
+    def translate_text_sync(
+        self,
+        text: str,
+        target_language: str = "hi",
+        source_language: str = "en",
+        format_type: str = "text",
+    ) -> dict[str, Any]:
+        """Synchronous text translation with persistent SQLite and Google Cloud Translate."""
+        if not text or not text.strip():
+            return {
+                "translated_text": text,
+                "source_language": source_language,
+                "target_language": target_language,
+                "provider": "noop"
+            }
+
+        target_lang = target_language.lower().strip()
+        src_lang = source_language.lower().strip() if source_language else "en"
+
+        if target_lang == src_lang:
+            return {
+                "translated_text": text,
+                "source_language": src_lang,
+                "target_language": target_lang,
+                "provider": "identity"
+            }
+
+        clean_text = text.strip()
+        ckey = self._cache_key(clean_text, src_lang, target_lang)
+
+        # 1. Check Cache
+        cached = self._get_cached_translation(ckey)
+        if cached:
+            return {
+                "translated_text": cached,
+                "source_language": src_lang,
+                "target_language": target_lang,
+                "provider": "cache"
+            }
+
+        # 2. Check Static Domain Dictionary
+        lookup_key = clean_text.lower()
+        if lookup_key in CORE_DOMAIN_TERMS and target_lang in CORE_DOMAIN_TERMS[lookup_key]:
+            dict_translation = CORE_DOMAIN_TERMS[lookup_key][target_lang]
+            self._save_cached_translation(ckey, src_lang, target_lang, clean_text, dict_translation, "domain_dictionary")
+            return {
+                "translated_text": dict_translation,
+                "source_language": src_lang,
+                "target_language": target_lang,
+                "provider": "domain_dictionary"
+            }
+
+        # 3. Try Google Cloud Translation REST API with API Key (Sync)
+        api_key = os.getenv("GOOGLE_TRANSLATE_API_KEY")
+        if api_key:
+            try:
+                url = f"https://translation.googleapis.com/language/translate/v2?key={api_key}"
+                payload = {
+                    "q": clean_text,
+                    "target": target_lang,
+                    "source": src_lang if src_lang != "auto" else None,
+                    "format": format_type,
+                }
+                with httpx.Client(timeout=8.0) as client:
+                    resp = client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        translations = data.get("data", {}).get("translations", [])
+                        if translations:
+                            translated_str = translations[0].get("translatedText", clean_text)
+                            detected_src = translations[0].get("detectedSourceLanguage", src_lang)
+                            self._save_cached_translation(ckey, detected_src, target_lang, clean_text, translated_str, "google_cloud_rest")
+                            return {
+                                "translated_text": translated_str,
+                                "source_language": detected_src,
+                                "target_language": target_lang,
+                                "provider": "google_cloud_rest"
+                            }
+            except Exception as rest_err:
+                logger.warning("Sync Google Cloud Translation REST API error: %s", rest_err)
+
+        # 4. Try Google Cloud Translation SDK via Service Account
+        if self._gcp_client:
+            try:
+                result = self._gcp_client.translate(
+                    clean_text,
+                    target_language=target_lang,
+                    source_language=src_lang if src_lang != "auto" else None,
+                    format_=format_type,
+                )
+                translated_str = result.get("translatedText", clean_text)
+                detected_src = result.get("detectedSourceLanguage", src_lang)
+                self._save_cached_translation(ckey, detected_src, target_lang, clean_text, translated_str, "google_cloud_sdk")
+                return {
+                    "translated_text": translated_str,
+                    "source_language": detected_src,
+                    "target_language": target_lang,
+                    "provider": "google_cloud_sdk"
+                }
+            except Exception as gcp_err:
+                logger.warning("Sync Google Cloud Translation SDK call error (%s); falling back.", gcp_err)
+
+        # 5. Deterministic AI / Dictionary Fallback
+        fallback_str = self._apply_domain_substitutions(clean_text, target_lang)
+        self._save_cached_translation(ckey, src_lang, target_lang, clean_text, fallback_str, "deterministic_fallback")
+        return {
+            "translated_text": fallback_str,
+            "source_language": src_lang,
+            "target_language": target_lang,
+            "provider": "deterministic_fallback"
+        }
+
+    def translate_batch_sync(
+        self,
+        texts: list[str],
+        target_language: str = "hi",
+        source_language: str = "en",
+    ) -> list[dict[str, Any]]:
+        """Synchronous batch translation with multi-item Google Cloud Translate acceleration."""
+        if not texts:
+            return []
+
+        target_lang = target_language.lower().strip()
+        src_lang = source_language.lower().strip() if source_language else "en"
+
+        api_key = os.getenv("GOOGLE_TRANSLATE_API_KEY")
+        cached_results: dict[int, dict[str, Any]] = {}
+        uncached_indices = []
+        uncached_texts = []
+
+        for idx, t in enumerate(texts):
+            if not t or not t.strip() or target_lang == src_lang:
+                cached_results[idx] = {
+                    "translated_text": t,
+                    "source_language": src_lang,
+                    "target_language": target_lang,
+                    "provider": "identity"
+                }
+                continue
+
+            ckey = self._cache_key(t.strip(), src_lang, target_lang)
+            cached = self._get_cached_translation(ckey)
+            if cached:
+                cached_results[idx] = {
+                    "translated_text": cached,
+                    "source_language": src_lang,
+                    "target_language": target_lang,
+                    "provider": "cache"
+                }
+            else:
+                uncached_indices.append(idx)
+                uncached_texts.append(t.strip())
+
+        if not uncached_texts:
+            return [cached_results[i] for i in range(len(texts))]
+
+        if api_key and uncached_texts:
+            try:
+                url = f"https://translation.googleapis.com/language/translate/v2?key={api_key}"
+                with httpx.Client(timeout=10.0) as client:
+                    resp = client.post(url, json={
+                        "q": uncached_texts,
+                        "target": target_lang,
+                        "source": src_lang if src_lang != "auto" else None,
+                        "format": "text"
+                    })
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        translations = data.get("data", {}).get("translations", [])
+                        for u_idx, orig_idx in enumerate(uncached_indices):
+                            if u_idx < len(translations):
+                                tr_text = translations[u_idx].get("translatedText", uncached_texts[u_idx])
+                                det_src = translations[u_idx].get("detectedSourceLanguage", src_lang)
+                                ckey = self._cache_key(uncached_texts[u_idx], src_lang, target_lang)
+                                self._save_cached_translation(ckey, det_src, target_lang, uncached_texts[u_idx], tr_text, "google_cloud_rest")
+                                cached_results[orig_idx] = {
+                                    "translated_text": tr_text,
+                                    "source_language": det_src,
+                                    "target_language": target_lang,
+                                    "provider": "google_cloud_rest"
+                                }
+            except Exception as batch_err:
+                logger.warning("Sync bulk translation error: %s", batch_err)
+
+        for orig_idx in uncached_indices:
+            if orig_idx not in cached_results:
+                res = self.translate_text_sync(texts[orig_idx], target_language=target_lang, source_language=src_lang)
+                cached_results[orig_idx] = res
+
+        return [cached_results[i] for i in range(len(texts))]
+
     def _apply_domain_substitutions(self, text: str, target_lang: str) -> str:
         """Applies high-accuracy Indian language institutional banking substitutions."""
         res = text
