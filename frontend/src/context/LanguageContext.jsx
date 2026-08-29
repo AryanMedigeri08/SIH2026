@@ -10,16 +10,12 @@ const LANGUAGE_STORAGE_KEY = "udyam_saathi_ui_language";
 const TRANSLATION_CACHE_KEY = "udyam_saathi_dynamic_translation_cache_v2";
 
 export const LANGUAGES = [
-  { code: "bn", label: "Bengali", native: "বাংলা" },
   { code: "en", label: "English", native: "English" },
-  { code: "gu", label: "Gujarati", native: "ગુજરાતી" },
   { code: "hi", label: "Hindi", native: "हिन्दी" },
-  { code: "kn", label: "Kannada", native: "ಕನ್ನಡ" },
-  { code: "ml", label: "Malayalam", native: "മലയാളം" },
   { code: "mr", label: "Marathi", native: "मराठी" },
-  { code: "pa", label: "Punjabi", native: "ਪੰਜਾਬੀ" },
-  { code: "ta", label: "Tamil", native: "தமிழ்" },
   { code: "te", label: "Telugu", native: "తెలుగు" },
+  { code: "ta", label: "Tamil", native: "தமிழ்" },
+  { code: "kn", label: "Kannada", native: "ಕನ್ನಡ" },
 ];
 
 export const messages = {
