@@ -596,6 +596,7 @@ export function ChatProvider({ children }) {
           timestamp: data?.timestamp || new Date().toISOString(),
           isFallback: data?.is_fallback || false,
           model: data?.model || 'groq',
+          sources: data?.sources || [],
         };
 
         setMessages((prev) => [...prev, botMsg]);

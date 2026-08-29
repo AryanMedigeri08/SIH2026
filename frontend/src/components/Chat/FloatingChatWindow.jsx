@@ -383,7 +383,7 @@ export function FloatingChatWindow() {
                 {isUser ? (
                   <p className={`whitespace-pre-wrap leading-relaxed ${currentTheme.userText}`}>{m.content}</p>
                 ) : (
-                  <ChatMarkdown content={m.content} />
+                  <ChatMarkdown content={m.content} sources={m.sources} />
                 )}
               </div>
 

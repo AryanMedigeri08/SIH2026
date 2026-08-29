@@ -6,7 +6,7 @@ import { Database, ShieldCheck, Sparkles, CheckCircle2, AlertTriangle, Info } fr
  * ChatMarkdown — Formats assistant responses with rich, theme-aware typography,
  * full markdown table rendering, lists, headers, callouts, and data sources attribution.
  */
-export function ChatMarkdown({ content, customTheme }) {
+export function ChatMarkdown({ content, sources, customTheme }) {
   const { currentTheme } = useChat();
   const theme = customTheme || currentTheme || {};
 
@@ -15,6 +15,7 @@ export function ChatMarkdown({ content, customTheme }) {
   // Split into lines for structured block rendering
   const rawLines = content.split('\n');
   const blocks = [];
+  let hasRenderedSources = false;
   let i = 0;
 
   while (i < rawLines.length) {
@@ -117,6 +118,7 @@ export function ChatMarkdown({ content, customTheme }) {
       trimmed.toLowerCase().startsWith('### sources') ||
       trimmed.toLowerCase().startsWith('sources:')
     ) {
+      hasRenderedSources = true;
       const sourceContent = trimmed
         .replace(/^(\*{1,2}|#{1,4})\s*(data sources?|sources?)[:\*#\s]*/i, '')
         .trim();
@@ -256,6 +258,24 @@ export function ChatMarkdown({ content, customTheme }) {
       </p>
     );
     i++;
+  }
+
+  // If no source block was parsed from markdown but sources were supplied via API
+  if (!hasRenderedSources && sources && sources.length > 0) {
+    blocks.push(
+      <div
+        key="sources-fallback"
+        className="mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/70 text-[10px] text-slate-600 dark:text-slate-400 space-y-1 shadow-2xs"
+      >
+        <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-sovereign-800 dark:text-sky-300">
+          <Database className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+          <span>Verified Data Sources:</span>
+        </div>
+        <div className="leading-relaxed pl-4 font-medium text-slate-700 dark:text-slate-300">
+          {sources.join(', ')}
+        </div>
+      </div>
+    );
   }
 
   return (

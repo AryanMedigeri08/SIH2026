@@ -27,13 +27,14 @@ class ChatMessagePayload(BaseModel):
 class ChatCompletionRequest(BaseModel):
     messages: List[ChatMessagePayload] = Field(..., min_length=1, description="List of chat messages in conversation")
     context: Optional[Dict[str, Any]] = Field(default=None, description="Active enterprise and report telemetry context")
-    language: Optional[str] = Field(default="en", description="Target response language code (en, hi, mr, ta, te, kn)")
+    language: Optional[str] = Field(default="en", description="Target response language code (en, hi, mr, ta, te, kn, bn, gu, ml, pa)")
 
 
 class ChatCompletionResponse(BaseModel):
     message: Dict[str, str]
     reply: str
     model: str
+    sources: List[str] = Field(default_factory=list, description="Verified data sources used for response")
     is_fallback: bool
     latency_ms: float
     timestamp: Optional[str] = None
@@ -51,7 +52,7 @@ class ChatCompletionResponse(BaseModel):
 )
 async def create_chat_completion(payload: ChatCompletionRequest):
     """
-    Submits user messages to Groq Cloud LLM with active enterprise telemetry grounding.
+    Submits user messages to Groq Cloud LLM with active enterprise telemetry grounding and guardrail screening.
     """
     try:
         raw_messages = [{"role": m.role, "content": m.content} for m in payload.messages]
@@ -61,10 +62,12 @@ async def create_chat_completion(payload: ChatCompletionRequest):
             language=payload.language or "en",
         )
         
-        # Ensure reply and timestamp are explicitly populated for all client SDK formats
+        # Ensure reply, sources, and timestamp are explicitly populated for all client SDK formats
         content = result.get("message", {}).get("content", "")
         result["reply"] = content
         result["timestamp"] = datetime.now(timezone.utc).isoformat()
+        if "sources" not in result:
+            result["sources"] = []
         
         return result
     except Exception as e:
