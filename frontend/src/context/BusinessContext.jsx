@@ -14,7 +14,7 @@ const ACTIVE_BIZ_KEY_PREFIX = "udyam_saathi_active_biz_";
 
 export const BusinessProvider = ({ children }) => {
   const { token, isAuthenticated, userProfile } = useAuth();
-  const { language: globalLanguage } = useLanguage();
+  const { language: globalLanguage, setLanguage } = useLanguage();
 
   const [businesses, setBusinesses] = useState([]);
   const [activeBusiness, setActiveBusiness] = useState(null);
@@ -184,6 +184,11 @@ export const BusinessProvider = ({ children }) => {
   // Create New Business and Persist
   const createAndSaveBusiness = useCallback(
     async (formData) => {
+      // Automatically reset active UI language to English for new enterprise analysis
+      if (setLanguage && globalLanguage !== "en") {
+        setLanguage("en");
+      }
+
       const projectPayload = {
         business_name: formData.enterprise_name,
         business_category: formData.business_category || "manufacturing",
@@ -200,7 +205,7 @@ export const BusinessProvider = ({ children }) => {
         is_rural: formData.is_rural ?? true,
         tenure_years: Number(formData.tenure_years || 5.0),
         moratorium_months: Number(formData.moratorium_months || 6),
-        language: formData.language || globalLanguage || "en",
+        language: "en",
         additional_business_details: formData.additional_business_details || null,
         monthly_net_operating_income_override: formData.monthly_net_operating_income_override
           ? Number(formData.monthly_net_operating_income_override)
@@ -225,7 +230,7 @@ export const BusinessProvider = ({ children }) => {
         // Fallback for demo unauthenticated flow
         const rep = await generateFeasibility({
           ...formData,
-          language: globalLanguage || "en",
+          language: "en",
         });
         setReportData(rep);
         return {
@@ -237,7 +242,7 @@ export const BusinessProvider = ({ children }) => {
         };
       }
     },
-    [token, userProfile, getStorageKey, globalLanguage]
+    [token, userProfile, getStorageKey, globalLanguage, setLanguage]
   );
 
   // Delete Business

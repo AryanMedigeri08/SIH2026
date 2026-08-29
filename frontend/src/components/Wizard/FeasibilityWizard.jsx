@@ -48,7 +48,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
       moratorium_months: 6,
       additional_business_details: "",
       monthly_net_operating_income_override: "",
-      language: appLanguage,
+      language: "en",
       ...initialData,
     };
   });

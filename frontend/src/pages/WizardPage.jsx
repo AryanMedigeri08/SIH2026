@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FeasibilityWizard } from '../components/Wizard/FeasibilityWizard';
 import { Sparkles, ArrowLeft, ShieldCheck, CheckCircle2 } from 'lucide-react';
@@ -8,10 +8,20 @@ import { useLanguage } from '../context/LanguageContext';
 export function WizardPage({ onWizardSubmit, isLoading }) {
   const navigate = useNavigate();
   const [selectedTemplateIndex, setSelectedTemplateIndex] = useState(0);
-  const { language, t } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
+
+  // Automatically reset active language to English when starting a fresh enterprise analysis
+  useEffect(() => {
+    if (language !== "en") {
+      setLanguage("en");
+    }
+  }, []);
 
   const handleSubmit = async (formData) => {
-    await onWizardSubmit(formData);
+    if (language !== "en") {
+      setLanguage("en");
+    }
+    await onWizardSubmit({ ...formData, language: "en" });
     navigate('/dashboard');
   };
 
@@ -65,7 +75,7 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
           onClose={() => navigate('/dashboard')}
           onSubmit={handleSubmit}
           isSubmitting={isLoading}
-          initialData={{ ...PITCH_CASES[selectedTemplateIndex]?.formData, language }}
+          initialData={{ ...PITCH_CASES[selectedTemplateIndex]?.formData, language: "en" }}
         />
       </div>
 
