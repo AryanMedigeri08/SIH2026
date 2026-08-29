@@ -1,9 +1,13 @@
 import React from 'react';
+import { useChat } from '../../context/ChatContext';
 
 /**
- * ChatMarkdown — Formats assistant responses with rich, readable typography.
+ * ChatMarkdown — Formats assistant responses with rich, theme-aware typography.
  */
-export function ChatMarkdown({ content }) {
+export function ChatMarkdown({ content, customTheme }) {
+  const { currentTheme } = useChat();
+  const theme = customTheme || currentTheme;
+
   if (!content) return null;
 
   // Split into lines for structured block rendering
@@ -16,20 +20,26 @@ export function ChatMarkdown({ content }) {
     if (currentList.length > 0) {
       if (listType === 'ul') {
         elements.push(
-          <ul key={`ul-${elements.length}`} className="my-2 pl-4 space-y-1 text-xs text-slate-200 list-disc marker:text-cyan-400">
+          <ul
+            key={`ul-${elements.length}`}
+            className={`my-2 pl-4 space-y-1 text-xs list-disc ${theme.mdList || 'text-slate-700 marker:text-sky-600'}`}
+          >
             {currentList.map((item, idx) => (
               <li key={idx} className="leading-relaxed">
-                {formatInline(item)}
+                {formatInline(item, theme)}
               </li>
             ))}
           </ul>
         );
       } else {
         elements.push(
-          <ol key={`ol-${elements.length}`} className="my-2 pl-4 space-y-1 text-xs text-slate-200 list-decimal marker:text-cyan-400 font-medium">
+          <ol
+            key={`ol-${elements.length}`}
+            className={`my-2 pl-4 space-y-1 text-xs list-decimal font-medium ${theme.mdList || 'text-slate-700 marker:text-sky-600'}`}
+          >
             {currentList.map((item, idx) => (
               <li key={idx} className="leading-relaxed">
-                {formatInline(item)}
+                {formatInline(item, theme)}
               </li>
             ))}
           </ol>
@@ -53,8 +63,13 @@ export function ChatMarkdown({ content }) {
     if (trimmed.startsWith('### ')) {
       flushList();
       elements.push(
-        <h4 key={`h3-${i}`} className="font-outfit font-bold text-sm text-cyan-300 mt-2.5 mb-1 flex items-center gap-1.5 border-b border-slate-700/50 pb-0.5">
-          {formatInline(trimmed.substring(4))}
+        <h4
+          key={`h3-${i}`}
+          className={`font-outfit font-bold text-xs sm:text-sm mt-2.5 mb-1 flex items-center gap-1.5 border-b pb-0.5 ${
+            theme.mdH3 || 'text-sovereign-900 border-slate-200'
+          }`}
+        >
+          {formatInline(trimmed.substring(4), theme)}
         </h4>
       );
       continue;
@@ -64,8 +79,13 @@ export function ChatMarkdown({ content }) {
     if (trimmed.startsWith('## ')) {
       flushList();
       elements.push(
-        <h3 key={`h2-${i}`} className="font-outfit font-extrabold text-sm text-slate-100 mt-3 mb-1.5 flex items-center gap-1.5 border-b border-slate-700 pb-1">
-          {formatInline(trimmed.substring(3))}
+        <h3
+          key={`h2-${i}`}
+          className={`font-outfit font-extrabold text-sm mt-3 mb-1.5 flex items-center gap-1.5 border-b pb-1 ${
+            theme.mdH2 || 'text-sovereign-950 border-slate-300'
+          }`}
+        >
+          {formatInline(trimmed.substring(3), theme)}
         </h3>
       );
       continue;
@@ -96,8 +116,13 @@ export function ChatMarkdown({ content }) {
     if (trimmed.startsWith('> ')) {
       flushList();
       elements.push(
-        <blockquote key={`quote-${i}`} className="my-2 pl-3 border-l-2 border-cyan-500 bg-slate-800/40 py-1 pr-2 rounded-r text-xs italic text-slate-300">
-          {formatInline(trimmed.substring(2))}
+        <blockquote
+          key={`quote-${i}`}
+          className={`my-2 pl-3 border-l-2 py-1 pr-2 rounded-r text-xs italic ${
+            theme.mdQuote || 'border-sky-500 bg-sky-50/60 text-slate-700'
+          }`}
+        >
+          {formatInline(trimmed.substring(2), theme)}
         </blockquote>
       );
       continue;
@@ -106,21 +131,26 @@ export function ChatMarkdown({ content }) {
     // Standard paragraph line
     flushList();
     elements.push(
-      <p key={`p-${i}`} className="text-xs text-slate-200 leading-relaxed my-1">
-        {formatInline(trimmed)}
+      <p
+        key={`p-${i}`}
+        className={`text-xs leading-relaxed my-1 ${
+          theme.mdText || 'text-slate-800'
+        }`}
+      >
+        {formatInline(trimmed, theme)}
       </p>
     );
   }
 
   flushList();
 
-  return <div className="space-y-1 text-slate-100">{elements}</div>;
+  return <div className={`space-y-1 ${theme.mdText || 'text-slate-800'}`}>{elements}</div>;
 }
 
 /**
  * Parses inline Markdown syntax: bold (**), italic (*), code (`), rupee amounts (₹)
  */
-function formatInline(text) {
+function formatInline(text, theme) {
   if (!text) return null;
 
   // Regex splitting on code blocks `code`, bold **bold**, and italic *italic*
@@ -128,13 +158,11 @@ function formatInline(text) {
   let remainder = text;
   let keyIndex = 0;
 
-  // Tokenize bold **...** and `...`
   const regex = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
   let lastIndex = 0;
   let match;
 
   while ((match = regex.exec(remainder)) !== null) {
-    // Push preceding normal text
     if (match.index > lastIndex) {
       tokens.push(
         <span key={`text-${keyIndex++}`}>
@@ -146,19 +174,29 @@ function formatInline(text) {
     const matchedStr = match[0];
     if (matchedStr.startsWith('**') && matchedStr.endsWith('**')) {
       tokens.push(
-        <strong key={`bold-${keyIndex++}`} className="font-bold text-slate-100 tracking-wide">
+        <strong
+          key={`bold-${keyIndex++}`}
+          className={`tracking-tight ${
+            theme?.mdBold || 'font-bold text-slate-950'
+          }`}
+        >
           {matchedStr.slice(2, -2)}
         </strong>
       );
     } else if (matchedStr.startsWith('`') && matchedStr.endsWith('`')) {
       tokens.push(
-        <code key={`code-${keyIndex++}`} className="font-mono text-[11px] bg-slate-800 text-cyan-300 px-1.5 py-0.5 rounded border border-slate-700">
+        <code
+          key={`code-${keyIndex++}`}
+          className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${
+            theme?.mdCode || 'bg-slate-100 text-sovereign-800 border border-slate-200'
+          }`}
+        >
           {matchedStr.slice(1, -1)}
         </code>
       );
     } else if (matchedStr.startsWith('*') && matchedStr.endsWith('*')) {
       tokens.push(
-        <em key={`em-${keyIndex++}`} className="italic text-slate-300">
+        <em key={`em-${keyIndex++}`} className="italic opacity-90">
           {matchedStr.slice(1, -1)}
         </em>
       );
@@ -167,7 +205,6 @@ function formatInline(text) {
     lastIndex = regex.lastIndex;
   }
 
-  // Push trailing text
   if (lastIndex < remainder.length) {
     tokens.push(
       <span key={`text-${keyIndex++}`}>
