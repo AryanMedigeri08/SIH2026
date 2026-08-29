@@ -68,18 +68,26 @@ export const LandingPage = () => {
           <div className="flex items-center gap-3">
             <LanguageSelector />
             {isAuthenticated ? (
-              <Link
-                to="/dashboard"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sovereign-800 hover:bg-sovereign-700 text-white font-bold text-xs shadow-md shadow-sovereign-900/20 transition-all"
-              >
-                <span>Dashboard</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-100 font-bold text-xs transition-colors"
+                >
+                  <span>{t('signIn') || 'Sign In'}</span>
+                </Link>
+                <Link
+                  to="/dashboard"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sovereign-800 hover:bg-sovereign-700 text-white font-bold text-xs shadow-md shadow-sovereign-900/20 transition-all"
+                >
+                  <span>Dashboard</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
             ) : (
               <>
                 <Link
                   to="/login"
-                  className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-100 font-bold text-xs transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-100 font-bold text-xs transition-colors"
                 >
                   <span>{t('signIn') || 'Sign In'}</span>
                 </Link>
@@ -125,13 +133,21 @@ export const LandingPage = () => {
           {/* Action CTAs */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             {isAuthenticated ? (
-              <Link
-                to="/wizard"
-                className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl bg-gradient-to-r from-sovereign-900 via-sovereign-800 to-sovereign-700 hover:from-sovereign-800 hover:to-sovereign-600 text-white font-bold text-sm sm:text-base shadow-lg shadow-sovereign-900/25 transition-all duration-200 transform hover:-translate-y-0.5"
-              >
-                <span>New Feasibility Appraisal ({userProfile?.name?.split(" ")[0] || "Promoter"})</span>
-                <ArrowRight className="w-5 h-5" />
-              </Link>
+              <>
+                <Link
+                  to="/wizard"
+                  className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl bg-gradient-to-r from-sovereign-900 via-sovereign-800 to-sovereign-700 hover:from-sovereign-800 hover:to-sovereign-600 text-white font-bold text-sm sm:text-base shadow-lg shadow-sovereign-900/25 transition-all duration-200 transform hover:-translate-y-0.5"
+                >
+                  <span>New Feasibility Appraisal ({userProfile?.name?.split(" ")[0] || "Enterprise"})</span>
+                  <ArrowRight className="w-5 h-5" />
+                </Link>
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 font-bold text-sm sm:text-base shadow-subtle hover:border-slate-400 transition-all cursor-pointer"
+                >
+                  <span>{t('signIn') || 'Sign In'}</span>
+                </Link>
+              </>
             ) : (
               <>
                 <Link
@@ -143,7 +159,7 @@ export const LandingPage = () => {
                 </Link>
                 <Link
                   to="/login"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 font-bold text-sm sm:text-base shadow-subtle hover:border-slate-400 transition-all"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 font-bold text-sm sm:text-base shadow-subtle hover:border-slate-400 transition-all cursor-pointer"
                 >
                   <span>{t('signIn') || 'Sign In'}</span>
                 </Link>
