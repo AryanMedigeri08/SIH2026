@@ -234,6 +234,28 @@ export function ChatProvider({ children }) {
   const navButtonRef = useRef(null);
   const chatInputRef = useRef(null);
 
+  // Active Project Identifier
+  const activeProjectKey =
+    activeBusiness?.project_id ||
+    reportData?.report_id ||
+    reportData?.input_parameters?.enterprise_name ||
+    (activeBusiness?.name ? `biz_${activeBusiness.name}` : null);
+
+  const prevProjectKeyRef = useRef(null);
+
+  // Helper to build a fresh, project-grounded initial welcome message
+  const createProjectWelcomeMessage = useCallback((entName, sector, cost) => {
+    const formattedCost = cost ? ` • ₹${(Number(cost) / 100000).toFixed(1)}L Outlay` : '';
+    const formattedSector = sector ? ` (${sector})` : '';
+    return {
+      id: `welcome-${Date.now()}`,
+      role: 'assistant',
+      content: `👋 **Namaste! I am Udyam Saathi's AI Advisor.**\n\nI am grounded in your active enterprise parameters for **${entName || 'your enterprise'}**${formattedSector}${formattedCost}, including 10-D XGBoost viability score, statutory scheme rankings (PMEGP, Mudra, PMFME), and 5-year cash flows.\n\nYou can **type or speak** in your chosen language anytime!`,
+      timestamp: new Date().toISOString(),
+      sources: ['Udyam Saathi MSME Credit & Feasibility Advisory Knowledge Base'],
+    };
+  }, []);
+
   // Save Theme Preference
   useEffect(() => {
     localStorage.setItem('udyam_saathi_chat_theme', chatTheme);
@@ -267,6 +289,46 @@ export function ChatProvider({ children }) {
     }
     setPlayingAudioId(null);
   }, []);
+
+  // AUTOMATIC RESET ON PROJECT SWITCH:
+  // Detects when the active project ID or report changes, stops any ongoing audio,
+  // and starts a completely fresh, isolated conversation for the new project.
+  useEffect(() => {
+    if (!activeProjectKey) return;
+
+    if (prevProjectKeyRef.current === null) {
+      prevProjectKeyRef.current = activeProjectKey;
+      return;
+    }
+
+    if (prevProjectKeyRef.current !== activeProjectKey) {
+      prevProjectKeyRef.current = activeProjectKey;
+
+      // 1. Stop any playing voice audio from previous project
+      stopAudio();
+
+      // 2. Clear any pending TTS loading state
+      setTtsLoadingId(null);
+
+      // 3. Reset conversation history completely for the new project
+      const entName =
+        reportData?.enterprise_name ||
+        reportData?.input_parameters?.enterprise_name ||
+        activeBusiness?.name ||
+        'your enterprise';
+      const sector =
+        reportData?.sector ||
+        reportData?.input_parameters?.sector ||
+        activeBusiness?.sector ||
+        '';
+      const cost =
+        reportData?.financial_summary?.project_cost ||
+        reportData?.input_parameters?.project_cost ||
+        activeBusiness?.project_cost;
+
+      setMessages([createProjectWelcomeMessage(entName, sector, cost)]);
+    }
+  }, [activeProjectKey, activeBusiness, reportData, stopAudio, createProjectWelcomeMessage]);
 
   // Play audio from base64 data URL
   const playAudio = useCallback((audioBase64, msgId) => {
