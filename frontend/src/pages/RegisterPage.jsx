@@ -1,5 +1,6 @@
 /**
  * RegisterPage.jsx — Multi-Section Sovereign Account & Promoter Profile Registration.
+ * Styled in complete harmony with the Udyam Saathi Institutional Dashboard Theme.
  */
 
 import React, { useState } from "react";
@@ -55,7 +56,6 @@ export const RegisterPage = () => {
         gender,
         phone: phone.trim() || null,
       });
-      // Direct user into the 7-Step Feasibility Wizard to input business details & supplementary context
       navigate("/wizard", { replace: true });
     } catch (err) {
       setLocalError(err.message || "Failed to create promoter account.");
@@ -103,49 +103,56 @@ export const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-200">
-      <div className="absolute right-4 top-4 z-20"><LanguageSelector /></div>
-      {/* Background ambient lighting */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[32rem] h-[32rem] bg-cyan-500/10 blur-[140px] rounded-full pointer-events-none" />
+    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-sovereign-100 selection:text-sovereign-900">
+      <div className="absolute right-4 top-4 z-20">
+        <LanguageSelector />
+      </div>
+
+      {/* Subtle Background ambient lighting */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[34rem] h-[34rem] bg-sovereign-100/60 blur-[140px] rounded-full pointer-events-none -z-10" />
+      <div className="absolute bottom-10 right-1/4 w-80 h-80 bg-sky-100/50 blur-[140px] rounded-full pointer-events-none -z-10" />
 
       <div className="max-w-xl mx-auto relative z-10">
         {/* Header */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-4 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-black text-lg shadow-lg shadow-cyan-500/30 group-hover:scale-105 transition-transform">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-sovereign-900 via-sovereign-800 to-sovereign-700 flex items-center justify-center text-white font-black text-xl shadow-md shadow-sovereign-950/20 group-hover:scale-105 transition-transform">
               उ
             </div>
-            <span className="text-xl font-bold font-display text-white">Udyam Saathi</span>
+            <span className="text-2xl font-bold font-display text-slate-900 tracking-tight">
+              Udyam Saathi
+            </span>
           </Link>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-display">
-            {t('createAccount')}
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display">
+            {t('createAccount') || 'Create Promoter Account'}
           </h1>
-          <p className="mt-2 text-xs sm:text-sm text-slate-400">
+          <p className="mt-2 text-xs sm:text-sm text-slate-600 font-medium">
             Set up your verified profile for AI-driven feasibility appraisals and institutional bank DPR generation.
           </p>
         </div>
 
         {/* Form Container */}
-        <div className="bg-slate-900/90 py-8 px-6 sm:px-10 shadow-2xl rounded-2xl border border-slate-800 backdrop-blur-xl">
+        <div className="bg-white py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-200">
+          
           {/* Quick Demo One-Click Access Button */}
           <div className="mb-6">
             <button
               type="button"
               onClick={handleDemoAccess}
               disabled={isSubmitting}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-cyan-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs shadow-lg shadow-emerald-950/40 transition-all duration-200 group"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-300 text-emerald-900 font-bold text-xs shadow-xs transition-all duration-200 group"
             >
-              <Zap className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <Zap className="w-4 h-4 text-emerald-700 group-hover:scale-110 transition-transform" />
               <span>Skip & Instant Access as Demo Evaluator</span>
             </button>
           </div>
 
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-800" />
+              <div className="w-full border-t border-slate-200" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-slate-900 px-3 text-slate-500 font-medium tracking-wider">
+              <span className="bg-white px-3 text-slate-400 font-semibold tracking-wider text-[11px]">
                 Or create new profile
               </span>
             </div>
@@ -153,26 +160,26 @@ export const RegisterPage = () => {
 
           {/* Error Banner */}
           {(localError || authError) && (
-            <div className="mb-6 p-4 rounded-xl bg-rose-950/40 border border-rose-500/30 flex items-start gap-3 text-rose-300 text-xs">
-              <AlertCircle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
-              <p className="leading-relaxed">{localError || authError}</p>
+            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-800 text-xs shadow-xs">
+              <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+              <p className="leading-relaxed font-medium">{localError || authError}</p>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Section 1: Security & Identity */}
             <div>
-              <div className="flex items-center gap-2 pb-2 mb-3.5 border-b border-slate-800 text-cyan-400 text-xs font-bold uppercase tracking-wider">
-                <ShieldCheck className="w-4 h-4" />
+              <div className="flex items-center gap-2 pb-2 mb-3.5 border-b border-slate-200 text-sovereign-800 text-xs font-bold uppercase tracking-wider">
+                <ShieldCheck className="w-4 h-4 text-sovereign-700" />
                 <span>1. Account Credentials</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Email Address <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Email Address <span className="text-rose-500">*</span>
                   </label>
-                  <div className="relative rounded-xl shadow-sm">
+                  <div className="relative rounded-xl shadow-subtle">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                       <Mail className="h-4 w-4" />
                     </div>
@@ -182,16 +189,16 @@ export const RegisterPage = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="promoter@enterprise.in"
                       required
-                      className="block w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-colors"
+                      className="block w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Account Password <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Account Password <span className="text-rose-500">*</span>
                   </label>
-                  <div className="relative rounded-xl shadow-sm">
+                  <div className="relative rounded-xl shadow-subtle">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                       <Lock className="h-4 w-4" />
                     </div>
@@ -202,7 +209,7 @@ export const RegisterPage = () => {
                       placeholder="Min 6 characters"
                       required
                       minLength={6}
-                      className="block w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-colors"
+                      className="block w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
                     />
                   </div>
                 </div>
@@ -211,17 +218,17 @@ export const RegisterPage = () => {
 
             {/* Section 2: Promoter Profile */}
             <div>
-              <div className="flex items-center gap-2 pb-2 mb-3.5 border-b border-slate-800 text-teal-400 text-xs font-bold uppercase tracking-wider">
-                <User className="w-4 h-4" />
+              <div className="flex items-center gap-2 pb-2 mb-3.5 border-b border-slate-200 text-sovereign-800 text-xs font-bold uppercase tracking-wider">
+                <User className="w-4 h-4 text-sovereign-700" />
                 <span>2. Promoter Profile</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Full Legal Name <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Full Legal Name <span className="text-rose-500">*</span>
                   </label>
-                  <div className="relative rounded-xl shadow-sm">
+                  <div className="relative rounded-xl shadow-subtle">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                       <User className="h-4 w-4" />
                     </div>
@@ -231,19 +238,19 @@ export const RegisterPage = () => {
                       onChange={(e) => setName(e.target.value)}
                       placeholder="e.g. Ramesh Chandra Sharma"
                       required
-                      className="block w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-colors"
+                      className="block w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
                     Gender
                   </label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
-                    className="block w-full px-3 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-colors"
+                    className="block w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
                   >
                     <option value="Unspecified">Unspecified</option>
                     <option value="Male">Male</option>
@@ -254,10 +261,10 @@ export const RegisterPage = () => {
               </div>
 
               <div className="mt-3.5">
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Mobile / Phone Number (Optional)
                 </label>
-                <div className="relative rounded-xl shadow-sm">
+                <div className="relative rounded-xl shadow-subtle">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <Phone className="h-4 w-4" />
                   </div>
@@ -266,17 +273,17 @@ export const RegisterPage = () => {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="9876543210"
-                    className="block w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-colors"
+                    className="block w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
                   />
                 </div>
               </div>
             </div>
 
             {/* Note on Step-by-Step Business Details */}
-            <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700 text-xs text-slate-300 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+            <div className="p-3 rounded-xl bg-sovereign-50 border border-sovereign-200 text-xs text-sovereign-900 flex items-center gap-2 font-medium">
+              <Sparkles className="w-4 h-4 text-sovereign-700 shrink-0" />
               <span>
-                Business details & supplementary context are seamlessly entered in the 7-Step Feasibility Wizard next.
+                Enterprise parameters & supplementary context are entered in the 7-Step Feasibility Wizard next.
               </span>
             </div>
 
@@ -284,7 +291,7 @@ export const RegisterPage = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm shadow-xl shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-200 disabled:opacity-50 group"
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-gradient-to-r from-sovereign-900 via-sovereign-800 to-sovereign-700 hover:from-sovereign-800 hover:to-sovereign-600 text-white font-bold text-sm shadow-md shadow-sovereign-900/20 hover:shadow-lg transition-all duration-200 disabled:opacity-50 group"
             >
               {isSubmitting ? (
                 <>
@@ -304,21 +311,21 @@ export const RegisterPage = () => {
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-800" />
+                <div className="w-full border-t border-slate-200" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-slate-900 px-3 text-slate-500 font-medium tracking-wider">
+                <span className="bg-white px-3 text-slate-400 font-semibold tracking-wider text-[11px]">
                   Or register with
                 </span>
               </div>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-5">
               <button
                 type="button"
                 onClick={handleGoogleSignup}
                 disabled={isSubmitting}
-                className="w-full inline-flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-700 text-slate-200 text-sm font-medium transition-colors disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-semibold shadow-subtle hover:border-slate-400 transition-colors disabled:opacity-50"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path
@@ -345,9 +352,9 @@ export const RegisterPage = () => {
         </div>
 
         {/* Existing Account Prompt */}
-        <p className="mt-6 text-center text-xs text-slate-400">
+        <p className="mt-6 text-center text-xs text-slate-600 font-medium">
           Already registered?{" "}
-          <Link to="/login" className="font-semibold text-cyan-400 hover:text-cyan-300 transition-colors">
+          <Link to="/login" className="font-bold text-sovereign-800 hover:text-sovereign-600 underline transition-colors">
             Sign in to existing account &rarr;
           </Link>
         </p>
