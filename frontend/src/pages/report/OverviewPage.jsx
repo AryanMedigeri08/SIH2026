@@ -40,17 +40,17 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
             <BarChart3 className="w-8 h-8 text-sovereign-800" />
           </div>
           <h3 className="text-xl font-bold font-outfit text-slate-900">
-            No Active Feasibility Assessment
+            <TranslatedText text="No Active Feasibility Assessment" />
           </h3>
           <p className="text-xs text-slate-600 leading-relaxed font-medium">
-            Select a benchmark scenario from the top bar or launch the 7-Step Feasibility Wizard to generate an instant bank-ready credit appraisal.
+            <TranslatedText text="Select a benchmark scenario from the top bar or launch the 7-Step Feasibility Wizard to generate an instant bank-ready credit appraisal." />
           </p>
           <button
             onClick={onOpenWizard}
             className="inline-flex items-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-sovereign-800 to-sky-700 hover:from-sovereign-700 hover:to-sky-600 px-5 py-2.5 rounded-xl shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition"
           >
             <Sparkles className="w-4 h-4 text-sky-200" />
-            <span>Launch Feasibility Wizard</span>
+            <span><TranslatedText text="Launch Feasibility Wizard" /></span>
           </button>
         </div>
       </div>
@@ -215,7 +215,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
             <span>•</span>
             <span className="flex items-center gap-1.5 font-medium">
               <User className="w-3.5 h-3.5 text-slate-600" />
-              Promoter: <strong className="text-slate-900">{p.promoter_name || 'Promoter'}</strong> ({(p.promoter_category || 'general').toUpperCase()})
+              <TranslatedText text="Promoter Profile" />: <strong className="text-slate-900">{p.promoter_name || 'Promoter'}</strong> ({(p.promoter_category || 'general').toUpperCase()})
             </span>
             <span>•</span>
             <span className="font-mono text-slate-600">
@@ -246,14 +246,16 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
           className="flex items-center justify-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-sovereign-800 via-sky-700 to-sovereign-800 hover:from-sovereign-700 hover:to-sky-600 px-5 py-3 rounded-xl shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition-all shrink-0 group"
         >
           <FileText className="w-4 h-4 text-sky-200 group-hover:scale-110 transition-transform" />
-          <span>View Official 7-Section Bank DPR</span>
+          <span><TranslatedText text="View Official 7-Section Bank DPR" /></span>
         </button>
       </div>
 
       {/* Key Financial Appraisal Metrics Summary Ribbon */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-indigo-600">
-          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Capital Outlay</div>
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <TranslatedText text="Total Capital Outlay" />
+          </div>
           <div className="text-base sm:text-lg font-outfit font-black text-slate-900 mt-1">
             ₹{projectCost > 0 ? (projectCost / 100000).toFixed(2) + 'L' : '₹0'}
           </div>
@@ -261,7 +263,9 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
         </div>
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-emerald-600">
-          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Capital Subsidy</div>
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <TranslatedText text="Capital Subsidy" />
+          </div>
           <div className="text-base sm:text-lg font-outfit font-black text-emerald-700 mt-1">
             ₹{subsidyAmount > 0 ? (subsidyAmount / 100000).toFixed(2) + 'L' : '₹0'}
           </div>
@@ -269,7 +273,9 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
         </div>
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-sky-600">
-          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Bank Term Loan</div>
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <TranslatedText text="Bank Term Loan" />
+          </div>
           <div className="text-base sm:text-lg font-outfit font-black text-sky-900 mt-1">
             ₹{loanPrincipal > 0 ? (loanPrincipal / 100000).toFixed(2) + 'L' : '₹0'}
           </div>
@@ -277,7 +283,9 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
         </div>
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-amber-600">
-          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monthly Net EMI</div>
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <TranslatedText text="Monthly Net EMI" />
+          </div>
           <div className="text-base sm:text-lg font-outfit font-black text-amber-900 mt-1">
             ₹{Math.round(emi).toLocaleString('en-IN')}
           </div>
@@ -285,7 +293,9 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
         </div>
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-purple-600">
-          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Annual Turnover</div>
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <TranslatedText text="Annual Turnover" />
+          </div>
           <div className="text-base sm:text-lg font-outfit font-black text-purple-900 mt-1">
             ₹{annualTurnover > 0 ? (annualTurnover / 100000).toFixed(2) + 'L' : '₹0'}
           </div>
@@ -293,12 +303,14 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
         </div>
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-sovereign-700">
-          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Debt Coverage (DSCR)</div>
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <TranslatedText text="Debt Coverage (DSCR)" />
+          </div>
           <div className={`text-base sm:text-lg font-outfit font-black mt-1 ${dscr >= 1.33 ? 'text-emerald-700' : (dscr >= 1.0 ? 'text-amber-700' : 'text-rose-700')}`}>
             {dscr.toFixed(2)}
           </div>
           <div className={`text-[10px] font-semibold mt-0.5 ${dscr >= 1.33 ? 'text-emerald-600' : (dscr >= 1.0 ? 'text-amber-600' : 'text-rose-600')}`}>
-            {dscr >= 1.33 ? 'RBI Benchmark Met' : (dscr >= 1.0 ? 'Marginal Solvency' : 'High Solvency Risk')}
+            <TranslatedText text={dscr >= 1.33 ? 'RBI Benchmark Met' : (dscr >= 1.0 ? 'Marginal Solvency' : 'High Solvency Risk')} />
           </div>
         </div>
       </div>
@@ -309,14 +321,14 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
           <div className="flex items-center gap-2">
             <Database className="w-4 h-4 text-sovereign-800" />
             <h4 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider">
-              Verified Ground-Truth Data Sources & Audit Lineage
+              <TranslatedText text="Verified Ground-Truth Data Sources & Audit Lineage" />
             </h4>
             <span className="text-[10px] bg-sovereign-50 border border-sovereign-200 text-sovereign-800 px-2 py-0.5 rounded-full font-mono font-bold">
-              {dataSources.length} Sources Connected
+              {dataSources.length} <TranslatedText text="Sources Connected" />
             </span>
           </div>
           <button className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 font-semibold">
-            <span>{showLineage ? "Hide Lineage" : "Show Lineage"}</span>
+            <span><TranslatedText text={showLineage ? "Hide Lineage" : "Show Lineage"} /></span>
             {showLineage ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
         </div>
@@ -326,13 +338,17 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
             {dataSources.map((ds, idx) => (
               <div key={idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] space-y-0.5 hover:bg-slate-100 transition-colors">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-sovereign-800 truncate">{ds.logical_source}</span>
+                  <span className="font-bold text-sovereign-800 truncate">
+                    <TranslatedText text={ds.logical_source} />
+                  </span>
                   <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold shrink-0">
-                    {ds.status}
+                    <TranslatedText text={ds.status} />
                   </span>
                 </div>
                 <div className="text-slate-600 font-mono text-[10px] truncate">{ds.table_or_file}</div>
-                <div className="text-slate-500 text-[10px] line-clamp-1">{ds.attribution}</div>
+                <div className="text-slate-500 text-[10px] line-clamp-1">
+                  <TranslatedText text={ds.attribution} />
+                </div>
               </div>
             ))}
           </div>
@@ -359,10 +375,10 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
         <div className="flex items-center justify-between mb-3 px-1">
           <div className="flex items-center gap-2 text-xs font-bold font-outfit uppercase tracking-wider text-slate-500 font-mono">
             <Layers className="w-4 h-4 text-sovereign-700" />
-            <span>Dedicated Appraisal Modules</span>
+            <span><TranslatedText text="Dedicated Appraisal Modules" /></span>
           </div>
           <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-            Click any card to deep-dive into detailed telemetry
+            <TranslatedText text="Click any card to deep-dive into detailed telemetry" />
           </span>
         </div>
 
@@ -388,7 +404,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
                   </div>
 
                   <h3 className="text-sm font-outfit font-extrabold text-slate-900 group-hover:text-sovereign-800 transition-colors">
-                    {sec.title}
+                    <TranslatedText text={sec.title} />
                   </h3>
 
                   <div className="mt-2.5 font-outfit font-black text-lg text-slate-900">
@@ -401,7 +417,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-sovereign-800 group-hover:text-sky-700 transition-colors">
-                  <span>Explore Section</span>
+                  <span><TranslatedText text="Explore Section" /></span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>

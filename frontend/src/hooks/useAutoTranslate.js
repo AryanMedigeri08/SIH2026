@@ -6,8 +6,18 @@ import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "../context/LanguageContext";
 
 export function useAutoTranslate(content) {
-  const { language, translateText, translateBatch } = useLanguage();
-  const [translated, setTranslated] = useState(content);
+  const { language, lookupStatic, translateText, translateBatch } = useLanguage();
+  
+  const getInitialValue = () => {
+    if (!content || language === "en") return content;
+    if (typeof content === "string" && lookupStatic) {
+      const match = lookupStatic(content, language);
+      if (match) return match;
+    }
+    return content;
+  };
+
+  const [translated, setTranslated] = useState(getInitialValue);
   const [isTranslating, setIsTranslating] = useState(false);
   const mountedRef = useRef(true);
 
@@ -21,12 +31,24 @@ export function useAutoTranslate(content) {
   useEffect(() => {
     if (!content) {
       setTranslated(content);
+      setIsTranslating(false);
       return;
     }
 
     if (language === "en") {
       setTranslated(content);
+      setIsTranslating(false);
       return;
+    }
+
+    // Check synchronous static dictionary first for instant 0ms response
+    if (typeof content === "string" && lookupStatic) {
+      const staticMatch = lookupStatic(content, language);
+      if (staticMatch) {
+        setTranslated(staticMatch);
+        setIsTranslating(false);
+        return;
+      }
     }
 
     let isCancelled = false;
@@ -62,7 +84,7 @@ export function useAutoTranslate(content) {
     return () => {
       isCancelled = true;
     };
-  }, [content, language, translateText, translateBatch]);
+  }, [content, language, lookupStatic, translateText, translateBatch]);
 
   return { translated, isTranslating, language };
 }

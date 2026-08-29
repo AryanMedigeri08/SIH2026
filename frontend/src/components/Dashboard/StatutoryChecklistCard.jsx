@@ -31,18 +31,18 @@ export function StatutoryChecklistCard() {
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wider text-sovereign-700 flex items-center gap-1.5 mb-1">
             <ClipboardCheck className="w-3.5 h-3.5" />
-            Statutory Banking Compliance
+            <TranslatedText text="Statutory Banking Compliance" />
           </div>
           <h3 className="text-lg font-outfit font-bold text-slate-900">
-            Commercial Bank Loan Submission Checklist
+            <TranslatedText text="Commercial Bank Loan Submission Checklist" />
           </h3>
           <p className="text-xs text-slate-600 mt-0.5">
-            Mandatory statutory compliance checklist required prior to formal bank credit sanction.
+            <TranslatedText text="Mandatory statutory compliance checklist required prior to formal bank credit sanction." />
           </p>
         </div>
 
         <span className="text-xs font-bold px-3 py-1 rounded-full bg-sovereign-50 border border-sovereign-200 text-sovereign-800">
-          {completedCount} of {docs.length} Documents Ready
+          {completedCount} <TranslatedText text="of" /> {docs.length} <TranslatedText text="Documents Ready" />
         </span>
       </div>
 

@@ -41,13 +41,13 @@ export function ViabilityPage({ reportData }) {
       <div className="glass-panel p-6 border-l-4 border-indigo-600 bg-gradient-to-r from-white via-indigo-50/20 to-white shadow-card border border-slate-200/90">
         <div className="text-xs font-bold uppercase tracking-wider text-indigo-700 mb-1 flex items-center gap-1.5">
           <BrainCircuit className="w-4 h-4 text-indigo-600" />
-          <span>Dimension 1 • Machine Learning Viability & TreeSHAP Explainability</span>
+          <span><TranslatedText text="Dimension 1 • Machine Learning Viability & TreeSHAP Explainability" /></span>
         </div>
         <h1 className="text-2xl font-outfit font-extrabold text-slate-900 tracking-tight">
-          Supervised 10-D XGBoost Classifier & Lundberg TreeSHAP Attributions
+          <TranslatedText text="Supervised 10-D XGBoost Classifier & Lundberg TreeSHAP Attributions" />
         </h1>
         <p className="text-xs text-slate-600 mt-1 max-w-3xl font-medium leading-relaxed">
-          Trained on empirical rural enterprise repayment outcomes. TreeSHAP calculates the exact marginal game-theoretic contribution (log-odds impact) of every financial, competitive, and infrastructure variable without heuristic guessing.
+          <TranslatedText text="Trained on empirical rural enterprise repayment outcomes. TreeSHAP calculates the exact marginal game-theoretic contribution (log-odds impact) of every financial, competitive, and infrastructure variable without heuristic guessing." />
         </p>
       </div>
 
@@ -69,15 +69,15 @@ export function ViabilityPage({ reportData }) {
             </div>
             <div>
               <h3 className="text-base font-outfit font-bold text-slate-900">
-                10-Dimensional Input Feature Vector & Audit Inspection
+                <TranslatedText text="10-Dimensional Input Feature Vector & Audit Inspection" />
               </h3>
               <p className="text-xs text-slate-500 font-medium">
-                Verifiable mathematical inputs fed into the XGBoost classification engine with corresponding TreeSHAP impact
+                <TranslatedText text="Verifiable mathematical inputs fed into the XGBoost classification engine with corresponding TreeSHAP impact" />
               </p>
             </div>
           </div>
           <span className="text-xs px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-800 font-mono font-bold self-start sm:self-auto">
-            10 Features Audited
+            10 <TranslatedText text="Features Audited" />
           </span>
         </div>
 
@@ -86,11 +86,11 @@ export function ViabilityPage({ reportData }) {
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
                 <th className="py-3 px-3">#</th>
-                <th className="py-3 px-3">Feature Name</th>
-                <th className="py-3 px-3">Raw Value</th>
-                <th className="py-3 px-3">Benchmark / Scale</th>
-                <th className="py-3 px-3 text-right">TreeSHAP Attribution</th>
-                <th className="py-3 px-3 text-center">Impact Verdict</th>
+                <th className="py-3 px-3"><TranslatedText text="Feature Name" /></th>
+                <th className="py-3 px-3"><TranslatedText text="Raw Value" /></th>
+                <th className="py-3 px-3"><TranslatedText text="Benchmark / Scale" /></th>
+                <th className="py-3 px-3 text-right"><TranslatedText text="TreeSHAP Attribution" /></th>
+                <th className="py-3 px-3 text-center"><TranslatedText text="Impact Verdict" /></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
@@ -126,12 +126,12 @@ export function ViabilityPage({ reportData }) {
                       {isPos ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                           <TrendingUp className="w-3 h-3 text-emerald-600" />
-                          <span>Solvency Lift</span>
+                          <span><TranslatedText text="Solvency Lift" /></span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
                           <TrendingDown className="w-3 h-3 text-rose-600" />
-                          <span>Caution Drag</span>
+                          <span><TranslatedText text="Caution Drag" /></span>
                         </span>
                       )}
                     </td>
@@ -150,20 +150,22 @@ export function ViabilityPage({ reportData }) {
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <div className="font-bold text-slate-900">Model File: <code className="font-mono text-indigo-900 bg-indigo-50/70 px-1.5 py-0.5 rounded border border-indigo-200">viability_xgb.joblib</code></div>
+            <div className="font-bold text-slate-900">
+              <TranslatedText text="Model File:" /> <code className="font-mono text-indigo-900 bg-indigo-50/70 px-1.5 py-0.5 rounded border border-indigo-200">viability_xgb.joblib</code>
+            </div>
             <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-              Algorithm: Gradient-Boosted Decision Trees (XGBoost 10-D Classifier) • Explainer: TreeExplainer (Lundberg et al.)
+              <TranslatedText text="Algorithm: Gradient-Boosted Decision Trees (XGBoost 10-D Classifier) • Explainer: TreeExplainer (Lundberg et al.)" />
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2 font-mono text-xs text-slate-700 shrink-0">
           <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 font-bold">
-            Execution Latency: &lt;3ms
+            <TranslatedText text="Execution Latency: <3ms" />
           </span>
           <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            Verified Invariant
+            <TranslatedText text="Verified Invariant" />
           </span>
         </div>
       </div>

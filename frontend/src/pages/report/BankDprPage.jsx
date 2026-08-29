@@ -3,6 +3,7 @@ import { StatutoryChecklistCard } from '../../components/Dashboard/StatutoryChec
 import { fetchDprDocument } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { FileText, Printer, Download, Copy, Check, Loader2, CheckCircle2, ShieldCheck, Sparkles, Landmark, IndianRupee, PieChart, TrendingUp } from 'lucide-react';
+import { TranslatedText } from '../../components/TranslatedText';
 
 export function BankDprPage({ reportData }) {
   const { token } = useAuth();
@@ -86,13 +87,13 @@ export function BankDprPage({ reportData }) {
         <div>
           <div className="text-xs font-bold uppercase tracking-wider text-purple-700 mb-1 flex items-center gap-1.5">
             <FileText className="w-4 h-4 text-purple-600" />
-            <span>Dimension 7 • Statutory Bank Detailed Project Report (DPR)</span>
+            <span><TranslatedText text="Dimension 7 • Statutory Bank Detailed Project Report (DPR)" /></span>
           </div>
           <h1 className="text-2xl font-outfit font-extrabold text-slate-900 tracking-tight">
-            Official 7-Section Bank DPR & Sanction Memorandum
+            <TranslatedText text="Official 7-Section Bank DPR & Sanction Memorandum" />
           </h1>
           <p className="text-xs text-slate-600 mt-1 max-w-2xl font-medium leading-relaxed">
-            Compiled in accordance with standard commercial bank credit underwriting norms, containing full means of finance, 5-year amortization, demographic validation, and risk mitigation schedules.
+            <TranslatedText text="Compiled in accordance with standard commercial bank credit underwriting norms, containing full means of finance, 5-year amortization, demographic validation, and risk mitigation schedules." />
           </p>
         </div>
 
@@ -105,7 +106,7 @@ export function BankDprPage({ reportData }) {
                 format === 'html' ? 'bg-gradient-to-r from-sovereign-800 to-indigo-900 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Printable HTML
+              <TranslatedText text="Printable HTML" />
             </button>
             <button
               onClick={() => setFormat('markdown')}
@@ -113,7 +114,7 @@ export function BankDprPage({ reportData }) {
                 format === 'markdown' ? 'bg-gradient-to-r from-sovereign-800 to-indigo-900 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Markdown Memo
+              <TranslatedText text="Markdown Memo" />
             </button>
           </div>
 
@@ -124,7 +125,7 @@ export function BankDprPage({ reportData }) {
             title="Copy memorandum text to clipboard"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-500" />}
-            <span>{copied ? 'Copied' : 'Copy'}</span>
+            <span><TranslatedText text={copied ? 'Copied' : 'Copy'} /></span>
           </button>
 
           {/* Download action */}
@@ -134,7 +135,7 @@ export function BankDprPage({ reportData }) {
             title="Download DPR file"
           >
             <Download className="w-4 h-4 text-slate-500" />
-            <span>Download</span>
+            <span><TranslatedText text="Download" /></span>
           </button>
 
           {/* Print action button */}
@@ -143,7 +144,7 @@ export function BankDprPage({ reportData }) {
             className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-sovereign-800 to-sky-700 hover:from-sovereign-700 hover:to-sky-600 px-4 py-2 rounded-xl shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition"
           >
             <Printer className="w-4 h-4 text-sky-200" />
-            <span>Print / PDF</span>
+            <span><TranslatedText text="Print / PDF" /></span>
           </button>
         </div>
       </div>
@@ -152,8 +153,8 @@ export function BankDprPage({ reportData }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
-            <PieChart className="w-3 h-3 text-sovereign-700" />
-            <span>Total Outlay</span>
+            <PieChart className="w-3.5 h-3.5 text-sovereign-700" />
+            <span><TranslatedText text="Total Outlay" /></span>
           </div>
           <strong className="text-base font-mono font-extrabold text-slate-900 block mt-1">
             ₹{(projectCost / 100000).toFixed(2)}L
@@ -163,19 +164,19 @@ export function BankDprPage({ reportData }) {
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-emerald-600" />
-            <span>Capital Grant</span>
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+            <span><TranslatedText text="Capital Grant" /></span>
           </div>
           <strong className="text-base font-mono font-extrabold text-emerald-700 block mt-1">
             ₹{(subsidyAmount / 100000).toFixed(2)}L
           </strong>
-          <span className="text-[10px] text-emerald-700 font-semibold">{topScheme.scheme_id || 'Scheme'} Subsidy</span>
+          <span className="text-[10px] text-emerald-700 font-semibold">{topScheme.scheme_id || 'Scheme'} <TranslatedText text="Subsidy" /></span>
         </div>
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
-            <Landmark className="w-3 h-3 text-amber-700" />
-            <span>Term Loan</span>
+            <Landmark className="w-3.5 h-3.5 text-amber-700" />
+            <span><TranslatedText text="Term Loan" /></span>
           </div>
           <strong className="text-base font-mono font-extrabold text-amber-900 block mt-1">
             ₹{(termLoan / 100000).toFixed(2)}L
@@ -185,8 +186,8 @@ export function BankDprPage({ reportData }) {
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
-            <IndianRupee className="w-3 h-3 text-indigo-700" />
-            <span>Monthly EMI</span>
+            <IndianRupee className="w-3.5 h-3.5 text-indigo-700" />
+            <span><TranslatedText text="Monthly EMI" /></span>
           </div>
           <strong className="text-base font-mono font-extrabold text-indigo-900 block mt-1">
             ₹{Math.round(monthlyEmi).toLocaleString('en-IN')}
@@ -196,14 +197,14 @@ export function BankDprPage({ reportData }) {
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all col-span-2 sm:col-span-1">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3 text-sovereign-700" />
-            <span>DSCR Solvency</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-sovereign-700" />
+            <span><TranslatedText text="DSCR Solvency" /></span>
           </div>
           <strong className="text-base font-mono font-extrabold text-sovereign-900 block mt-1">
             {dscr.toFixed(2)}x
           </strong>
           <span className={`text-[10px] font-bold ${dscr >= 1.33 ? 'text-emerald-700' : 'text-amber-700'}`}>
-            {dscr >= 1.33 ? 'RBI Benchmark Met' : 'Below 1.33'}
+            <TranslatedText text={dscr >= 1.33 ? 'RBI Benchmark Met' : 'Below 1.33'} />
           </span>
         </div>
       </div>
@@ -217,7 +218,7 @@ export function BankDprPage({ reportData }) {
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              Statutory 7-Section Bank Memorandum Output
+              <TranslatedText text="Statutory 7-Section Bank Memorandum Output" />
             </span>
           </div>
           <span className="text-xs font-mono font-bold text-sovereign-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-subtle">
@@ -228,7 +229,7 @@ export function BankDprPage({ reportData }) {
         {loading ? (
           <div className="py-24 flex items-center justify-center text-slate-600 gap-2 text-sm font-medium">
             <Loader2 className="w-5 h-5 animate-spin text-sovereign-800" />
-            Compiling Official 7-Section Bank Memorandum...
+            <span><TranslatedText text="Compiling Official 7-Section Bank Memorandum..." /></span>
           </div>
         ) : format === 'html' ? (
           <div 

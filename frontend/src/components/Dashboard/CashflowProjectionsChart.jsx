@@ -4,6 +4,7 @@ import {
   Legend, ReferenceLine, CartesianGrid, ComposedChart 
 } from 'recharts';
 import { TrendingUp, Table as TableIcon } from 'lucide-react';
+import { TranslatedText } from '../TranslatedText';
 
 export function CashflowProjectionsChart({ inputData, financialData, pricingData }) {
   const turnover = Number(inputData?.annual_turnover_estimate) || 950000;
@@ -43,23 +44,23 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wider text-sovereign-700 flex items-center gap-1.5 mb-1">
             <TrendingUp className="w-3.5 h-3.5" />
-            5-Year Amortization & Cash Flow
+            <TranslatedText text="5-Year Amortization & Cash Flow" />
           </div>
           <h3 className="text-lg font-outfit font-bold text-slate-900">
-            5-Year Financial Horizon & Capacity Ramp Schedule
+            <TranslatedText text="5-Year Financial Horizon & Capacity Ramp Schedule" />
           </h3>
           <p className="text-xs text-slate-600 mt-0.5">
-            Standard commercial banking capacity ramp (60% to 90%) with loan amortization and tax depreciation.
+            <TranslatedText text="Standard commercial banking capacity ramp (60% to 90%) with loan amortization and tax depreciation." />
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs">
-            <span className="text-slate-500">5-Yr Avg DSCR: </span>
+            <span className="text-slate-500"><TranslatedText text="5-Yr Avg DSCR" />: </span>
             <strong className="text-sovereign-800 font-mono font-bold text-sm ml-1">{avgDscr}</strong>
           </div>
           <div className="bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs">
-            <span className="text-slate-500">Break-Even: </span>
+            <span className="text-slate-500"><TranslatedText text="Break-Even" />: </span>
             <strong className="text-emerald-700 font-mono font-bold text-sm ml-1">{bep}</strong>
           </div>
         </div>
@@ -93,7 +94,7 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
         <table className="w-full text-left text-xs">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 font-bold uppercase text-[10px]">
-              <th className="py-2.5 px-3">Line Item (₹)</th>
+              <th className="py-2.5 px-3"><TranslatedText text="Line Item (₹)" /></th>
               {years.map(y => (
                 <th key={y.yr} className="py-2.5 px-3 text-right">{y.yr}</th>
               ))}
@@ -101,34 +102,48 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
           </thead>
           <tbody className="divide-y divide-slate-200 font-mono text-slate-700">
             <tr>
-              <td className="py-2 px-3 font-sans font-semibold text-slate-900">Gross Turnover</td>
+              <td className="py-2 px-3 font-sans font-semibold text-slate-900">
+                <TranslatedText text="Gross Turnover" />
+              </td>
               {years.map(y => <td key={y.yr} className="py-2 px-3 text-right text-blue-900 font-bold">₹{Math.round(y.rev).toLocaleString('en-IN')}</td>)}
             </tr>
             <tr>
-              <td className="py-2 px-3 font-sans text-slate-600">Operating Expenses (Raw Mat, Power, Wages)</td>
+              <td className="py-2 px-3 font-sans text-slate-600">
+                <TranslatedText text="Operating Expenses (Raw Mat, Power, Wages)" />
+              </td>
               {years.map(y => <td key={y.yr} className="py-2 px-3 text-right text-slate-600">₹{Math.round(y.opex).toLocaleString('en-IN')}</td>)}
             </tr>
             <tr>
-              <td className="py-2 px-3 font-sans font-semibold text-sky-800">Operating EBITDA</td>
+              <td className="py-2 px-3 font-sans font-semibold text-sky-800">
+                <TranslatedText text="Operating EBITDA" />
+              </td>
               {years.map(y => <td key={y.yr} className="py-2 px-3 text-right text-sky-900 font-bold">₹{Math.round(y.rev - y.opex).toLocaleString('en-IN')}</td>)}
             </tr>
             <tr>
-              <td className="py-2 px-3 font-sans text-slate-600">Depreciation (15% WDV)</td>
+              <td className="py-2 px-3 font-sans text-slate-600">
+                <TranslatedText text="Depreciation (15% WDV)" />
+              </td>
               {years.map(y => <td key={y.yr} className="py-2 px-3 text-right text-slate-500">₹{Math.round(y.depr).toLocaleString('en-IN')}</td>)}
             </tr>
             <tr>
-              <td className="py-2 px-3 font-sans text-slate-600">Bank Interest</td>
+              <td className="py-2 px-3 font-sans text-slate-600">
+                <TranslatedText text="Bank Interest" />
+              </td>
               {years.map(y => <td key={y.yr} className="py-2 px-3 text-right text-slate-500">₹{Math.round(y.int).toLocaleString('en-IN')}</td>)}
             </tr>
             <tr className="bg-emerald-50 font-bold">
-              <td className="py-2.5 px-3 font-sans text-emerald-900">Net Profit After Tax (PAT)</td>
+              <td className="py-2.5 px-3 font-sans text-emerald-900">
+                <TranslatedText text="Net Profit After Tax (PAT)" />
+              </td>
               {years.map(y => {
                 const pat = Math.max(y.rev - y.opex - y.depr - y.int, 0);
                 return <td key={y.yr} className="py-2.5 px-3 text-right text-emerald-800 font-bold">₹{Math.round(pat).toLocaleString('en-IN')}</td>;
               })}
             </tr>
             <tr className="bg-sovereign-50 font-bold">
-              <td className="py-2.5 px-3 font-sans text-sovereign-900">Debt Service Coverage (DSCR)</td>
+              <td className="py-2.5 px-3 font-sans text-sovereign-900">
+                <TranslatedText text="Debt Service Coverage (DSCR)" />
+              </td>
               {years.map(y => <td key={y.yr} className="py-2.5 px-3 text-right text-sovereign-800 font-bold">{y.dscr.toFixed(2)}x</td>)}
             </tr>
           </tbody>
@@ -138,10 +153,10 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
       {/* Grounded Data Source Lineage Tag */}
       <div className="text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 pt-3 mt-2 border-t border-slate-200">
         <span>
-          <strong className="text-slate-700">Data Source:</strong> Statutory 5-Year Amortization Schedule & Indian Income Tax WDV Depreciation Slabs
+          <strong className="text-slate-700"><TranslatedText text="Data Source:" /></strong> <TranslatedText text="Statutory 5-Year Amortization Schedule & Indian Income Tax WDV Depreciation Slabs" />
         </span>
         <span className="font-mono text-slate-600 font-medium">
-          Financial Math: Deterministic Banking Formulae
+          <TranslatedText text="Financial Math: Deterministic Banking Formulae" />
         </span>
       </div>
 

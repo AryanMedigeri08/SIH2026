@@ -2,6 +2,7 @@ import React from 'react';
 import { SchemeComparisonChart } from '../../components/Dashboard/SchemeComparisonChart';
 import { SchemeLeaderboardCard } from '../../components/Dashboard/SchemeLeaderboardCard';
 import { Award, ShieldCheck, CheckCircle2, ArrowRight, Sparkles, Building, Landmark, BookOpen, ExternalLink } from 'lucide-react';
+import { TranslatedText } from '../../components/TranslatedText';
 
 const STATUTORY_SCHEME_SPECS = [
   {
@@ -88,13 +89,13 @@ export function GovernmentSchemesPage({ reportData }) {
       <div className="glass-panel p-6 border-l-4 border-emerald-600 bg-gradient-to-r from-white via-emerald-50/20 to-white shadow-card border border-slate-200/90">
         <div className="text-xs font-bold uppercase tracking-wider text-emerald-700 mb-1 flex items-center gap-1.5">
           <Award className="w-4 h-4 text-emerald-600" />
-          <span>Dimension 3 • Statutory MSME Schemes & Incentive Optimization</span>
+          <span><TranslatedText text="Dimension 3 • Statutory MSME Schemes & Incentive Optimization" /></span>
         </div>
         <h1 className="text-2xl font-outfit font-extrabold text-slate-900 tracking-tight">
-          Central & State Scheme Ranking, Capital Subsidies & Official Portals
+          <TranslatedText text="Central & State Scheme Ranking, Capital Subsidies & Official Portals" />
         </h1>
         <p className="text-xs text-slate-600 mt-1 max-w-3xl font-medium leading-relaxed">
-          Automatically evaluated against statutory MSME guidelines (PMEGP, PMFME, MUDRA, Stand-Up India, PM Vishwakarma, DAY-NRLM, AHIDF). Verified official government portal links are provided for each eligible incentive scheme.
+          <TranslatedText text="Automatically evaluated against statutory MSME guidelines (PMEGP, PMFME, MUDRA, Stand-Up India, PM Vishwakarma, DAY-NRLM, AHIDF). Verified official government portal links are provided for each eligible incentive scheme." />
         </p>
       </div>
 
@@ -106,49 +107,55 @@ export function GovernmentSchemesPage({ reportData }) {
               {isReconsider ? (
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold font-mono">
                   <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
-                  <span>Optimal Policy Match • Capital Restructuring Required</span>
+                  <span><TranslatedText text="Optimal Policy Match • Capital Restructuring Required" /></span>
                 </div>
               ) : isCaution ? (
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold font-mono">
                   <span className="w-2 h-2 rounded-full bg-amber-600" />
-                  <span>Optimal Policy Match • Tight Debt Coverage</span>
+                  <span><TranslatedText text="Optimal Policy Match • Tight Debt Coverage" /></span>
                 </div>
               ) : (
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold font-mono">
                   <Sparkles className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
-                  <span>Rank 1 Recommended Statutory Match</span>
+                  <span><TranslatedText text="Rank 1 Recommended Statutory Match" /></span>
                 </div>
               )}
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-outfit font-extrabold text-slate-900 tracking-tight">
-              {topScheme.scheme_id}: {topScheme.full_name}
+              {topScheme.scheme_id}: <TranslatedText text={topScheme.full_name} />
             </h2>
             <p className="text-xs text-slate-600 max-w-2xl font-medium leading-relaxed">
-              Provides the highest Net Financial Benefit by maximizing upfront non-repayable capital subsidy and minimizing debt service burden.
+              <TranslatedText text="Provides the highest Net Financial Benefit by maximizing upfront non-repayable capital subsidy and minimizing debt service burden." />
             </p>
           </div>
 
           {/* Quick Metrics Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 shrink-0">
             <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200">
-              <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">Subsidy Grant</div>
+              <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
+                <TranslatedText text="Capital Subsidy" />
+              </div>
               <div className="text-xl font-mono font-black text-emerald-700 mt-0.5">
                 ₹{Math.round(subsidyAmount).toLocaleString('en-IN')}
               </div>
-              <div className="text-[10px] text-emerald-700 font-semibold">{subsidyPct}% Capital Subsidy</div>
+              <div className="text-[10px] text-emerald-700 font-semibold">{subsidyPct}% <TranslatedText text="Capital Subsidy" /></div>
             </div>
 
             <div className="p-3.5 rounded-xl bg-sky-50/60 border border-sky-200">
-              <div className="text-[10px] text-sky-800 font-bold uppercase tracking-wider">Promoter Margin</div>
+              <div className="text-[10px] text-sky-800 font-bold uppercase tracking-wider">
+                <TranslatedText text="Promoter Equity" />
+              </div>
               <div className="text-xl font-mono font-black text-sky-900 mt-0.5">
                 ₹{Math.round(promoterMargin).toLocaleString('en-IN')}
               </div>
-              <div className="text-[10px] text-sky-700 font-semibold">{p.promoter_category === 'general' ? '10%' : '5%'} Own Equity</div>
+              <div className="text-[10px] text-sky-700 font-semibold">{p.promoter_category === 'general' ? '10%' : '5%'} <TranslatedText text="Own Equity" /></div>
             </div>
 
             <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 col-span-2 sm:col-span-1">
-              <div className="text-[10px] text-amber-800 font-bold uppercase tracking-wider">Net Bank Loan</div>
+              <div className="text-[10px] text-amber-800 font-bold uppercase tracking-wider">
+                <TranslatedText text="Bank Term Loan" />
+              </div>
               <div className="text-xl font-mono font-black text-amber-900 mt-0.5">
                 ₹{Math.round(termLoan).toLocaleString('en-IN')}
               </div>
@@ -160,21 +167,21 @@ export function GovernmentSchemesPage({ reportData }) {
         {/* Subtle Context-Aware Credit Appraisal Advisory Note */}
         {isReconsider ? (
           <div className="mt-4 p-3.5 rounded-xl bg-rose-50/90 border border-rose-200 text-xs text-rose-950 flex items-start gap-2.5">
-            <span className="p-1 rounded-md bg-rose-100 text-rose-700 font-bold shrink-0 text-[10px] font-mono uppercase">Notice</span>
+            <span className="p-1 rounded-md bg-rose-100 text-rose-700 font-bold shrink-0 text-[10px] font-mono uppercase"><TranslatedText text="Notice" /></span>
             <div className="leading-relaxed">
-              <strong className="font-bold text-rose-900">Prudential Underwriting Advisory: </strong>
+              <strong className="font-bold text-rose-900"><TranslatedText text="Prudential Underwriting Advisory:" />{" "}</strong>
               <span>
-                While <strong>{topScheme.scheme_id}</strong> provides the highest statutory grant support (₹{Math.round(subsidyAmount).toLocaleString('en-IN')}), the enterprise's current Debt Service Coverage Ratio of <strong>{dscr.toFixed(2)}</strong> is below the RBI viability benchmark (1.33). To qualify for formal bank loan sanction under this scheme, it is recommended to increase promoter equity contribution, request an extended repayment moratorium, or restructure initial capital outlay.
+                <TranslatedText text={`While ${topScheme.scheme_id} provides the highest statutory grant support, the enterprise's current Debt Service Coverage Ratio is below the RBI viability benchmark (1.33). To qualify for formal bank loan sanction, it is recommended to increase promoter equity contribution, request an extended repayment moratorium, or restructure initial capital outlay.`} />
               </span>
             </div>
           </div>
         ) : isCaution ? (
           <div className="mt-4 p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-950 flex items-start gap-2.5">
-            <span className="p-1 rounded-md bg-amber-100 text-amber-700 font-bold shrink-0 text-[10px] font-mono uppercase">Advisory</span>
+            <span className="p-1 rounded-md bg-amber-100 text-amber-700 font-bold shrink-0 text-[10px] font-mono uppercase"><TranslatedText text="Advisory" /></span>
             <div className="leading-relaxed">
-              <strong className="font-bold text-amber-900">Solvency Advisory: </strong>
+              <strong className="font-bold text-amber-900"><TranslatedText text="Solvency Advisory:" />{" "}</strong>
               <span>
-                <strong>{topScheme.scheme_id}</strong> is the optimal financial match; however, debt coverage is tight (DSCR <strong>{dscr.toFixed(2)}</strong> vs 1.33 benchmark). Maintaining a 3-month EMI reserve before bank disbursal is recommended.
+                <TranslatedText text={`${topScheme.scheme_id} is the optimal financial match; however, debt coverage is tight. Maintaining a 3-month EMI reserve before bank disbursal is recommended.`} />
               </span>
             </div>
           </div>
@@ -195,10 +202,10 @@ export function GovernmentSchemesPage({ reportData }) {
           </div>
           <div>
             <h3 className="text-base font-outfit font-bold text-slate-900">
-              Statutory Government Scheme Reference Matrix (2025–2026 Guidelines)
+              <TranslatedText text="Statutory Government Scheme Reference Matrix (2025–2026 Guidelines)" />
             </h3>
             <p className="text-xs text-slate-500 font-medium">
-              Official credit guidelines, subsidy slabs, promoter contribution norms, and collateral-free thresholds
+              <TranslatedText text="Official credit guidelines, subsidy slabs, promoter contribution norms, and collateral-free thresholds" />
             </p>
           </div>
         </div>
@@ -207,13 +214,13 @@ export function GovernmentSchemesPage({ reportData }) {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-3">Scheme ID</th>
-                <th className="py-3 px-3">Nodal Ministry</th>
-                <th className="py-3 px-3">Project Cost Limit</th>
-                <th className="py-3 px-3">Subsidy / Subvention Slab</th>
-                <th className="py-3 px-3">Promoter Share</th>
-                <th className="py-3 px-3">Collateral Norms</th>
-                <th className="py-3 px-3 text-right">Official Portal</th>
+                <th className="py-3 px-3"><TranslatedText text="Scheme ID" /></th>
+                <th className="py-3 px-3"><TranslatedText text="Nodal Ministry" /></th>
+                <th className="py-3 px-3"><TranslatedText text="Project Cost Limit" /></th>
+                <th className="py-3 px-3"><TranslatedText text="Subsidy / Subvention Slab" /></th>
+                <th className="py-3 px-3"><TranslatedText text="Promoter Share" /></th>
+                <th className="py-3 px-3"><TranslatedText text="Collateral Norms" /></th>
+                <th className="py-3 px-3 text-right"><TranslatedText text="Official Portal" /></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
@@ -221,22 +228,22 @@ export function GovernmentSchemesPage({ reportData }) {
                 <tr key={spec.scheme_id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3 px-3">
                     <span className="font-outfit font-extrabold text-sm text-slate-900 block">{spec.scheme_id}</span>
-                    <span className="text-[10px] text-slate-500 line-clamp-1">{spec.name}</span>
+                    <span className="text-[10px] text-slate-500 line-clamp-1"><TranslatedText text={spec.name} /></span>
                   </td>
                   <td className="py-3 px-3 font-mono text-[11px] text-slate-600">
-                    {spec.ministry}
+                    <TranslatedText text={spec.ministry} />
                   </td>
                   <td className="py-3 px-3 font-mono text-[11px] text-sovereign-900 font-bold">
-                    {spec.max_cost}
+                    <TranslatedText text={spec.max_cost} />
                   </td>
                   <td className="py-3 px-3 font-mono text-[11px] text-emerald-800 font-semibold">
-                    {spec.subsidy_slabs}
+                    <TranslatedText text={spec.subsidy_slabs} />
                   </td>
                   <td className="py-3 px-3 font-mono text-[11px] text-slate-700">
-                    {spec.promoter_margin}
+                    <TranslatedText text={spec.promoter_margin} />
                   </td>
                   <td className="py-3 px-3 font-mono text-[11px] text-slate-600">
-                    {spec.collateral}
+                    <TranslatedText text={spec.collateral} />
                   </td>
                   <td className="py-3 px-3 text-right">
                     <a
@@ -245,7 +252,7 @@ export function GovernmentSchemesPage({ reportData }) {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-[11px] font-bold text-sovereign-800 hover:text-sky-700 underline"
                     >
-                      <span>Portal</span>
+                      <span><TranslatedText text="Portal" /></span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   </td>

@@ -30,21 +30,23 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
           <div className="space-y-1">
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 font-mono">
               <span className={`w-2.5 h-2.5 rounded-full ${isSuitable ? 'bg-emerald-500' : isCaution ? 'bg-amber-500' : 'bg-rose-500'}`} />
-              Tier 2 Supervised XGBoost Viability Engine (10-D)
+              <TranslatedText text="Tier 2 Supervised XGBoost Viability Engine (10-D)" />
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <h2 className="text-xl sm:text-2xl font-outfit font-extrabold text-slate-900">
-                Viability Verdict:
+                <TranslatedText text="Viability Verdict:" />
               </h2>
               <div className={`flex items-center gap-1.5 text-sm sm:text-base font-outfit font-black px-3.5 py-1 rounded-xl ${badgeBg}`}>
                 <VerdictIcon className="w-4 h-4" />
-                <span>{verdict}</span>
+                <span><TranslatedText text={verdict} /></span>
               </div>
             </div>
           </div>
 
           <div className="sm:text-right bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-200 shrink-0">
-            <div className="text-[10px] text-slate-500 font-semibold font-mono uppercase">Model Confidence</div>
+            <div className="text-[10px] text-slate-500 font-semibold font-mono uppercase">
+              <TranslatedText text="Model Confidence" />
+            </div>
             <div className="text-xl sm:text-2xl font-outfit font-black text-sovereign-800">
               {Number(confidence).toFixed(1)}%
             </div>
@@ -54,9 +56,9 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
         {/* Class Probabilities Bar */}
         <div className="mb-5">
           <div className="flex flex-wrap justify-between text-xs font-bold text-slate-700 mb-1.5">
-            <span>Class Probabilities Distribution:</span>
+            <span><TranslatedText text="Class Probabilities Distribution:" /></span>
             <span className="font-mono text-[11px] text-slate-600">
-              SUITABLE: {(probs.SUITABLE * 100).toFixed(1)}% • CAUTION: {(probs.CAUTION * 100).toFixed(1)}% • RECONSIDER: {(probs.RECONSIDER * 100).toFixed(1)}%
+              <TranslatedText text="SUITABLE" />: {(probs.SUITABLE * 100).toFixed(1)}% • <TranslatedText text="CAUTION" />: {(probs.CAUTION * 100).toFixed(1)}% • <TranslatedText text="RECONSIDER" />: {(probs.RECONSIDER * 100).toFixed(1)}%
             </span>
           </div>
           <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden flex p-0.5 border border-slate-200">
@@ -82,7 +84,8 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
           <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs">
             <div className="font-bold text-emerald-800 uppercase text-[10px] tracking-wider mb-1 flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Primary Solvency Driver:
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span><TranslatedText text="Primary Solvency Driver:" /></span>
             </div>
             <p className="text-slate-800 font-medium leading-relaxed">
               <TranslatedText text={data?.top_positive_factors?.[0] || data?.top_positive_driver || "Solvent debt coverage ratio satisfies RBI underwriting benchmark."} />
@@ -91,7 +94,8 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
 
           <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs">
             <div className="font-bold text-rose-800 uppercase text-[10px] tracking-wider mb-1 flex items-center gap-1.5">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" /> Primary Operational Risk Factor:
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span><TranslatedText text="Primary Operational Risk Factor:" /></span>
             </div>
             <p className="text-slate-800 font-medium leading-relaxed">
               <TranslatedText text={data?.top_risk_factors?.[0] || data?.top_risk_driver || "Maintain working capital liquidity reserve to absorb localized cost shocks."} />
@@ -103,7 +107,7 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
       {/* Grounded Data Source Lineage Tag */}
       <div className="text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 pt-3 mt-4 border-t border-slate-200">
         <span className="flex items-center gap-1">
-          <strong className="text-slate-700">Data Source:</strong> Supervised XGBoost Classifier (<code className="font-mono text-sovereign-800 font-bold">viability_xgb.joblib</code>)
+          <strong className="text-slate-700"><TranslatedText text="Data Source:" /></strong> Supervised XGBoost Classifier (<code className="font-mono text-sovereign-800 font-bold">viability_xgb.joblib</code>)
         </span>
         <span className="font-mono text-slate-600 font-medium">
           Cross-Validation: 98.9% Acc • Engine: {data?.is_fallback ? "Active (Deterministic Rule Engine)" : "Active (Trained XGBoost Active)"}
