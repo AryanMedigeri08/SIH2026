@@ -1,5 +1,5 @@
 """
-test_chat_service.py — Test Suite for Groq Chatbot Service & REST Endpoints.
+test_chat_service.py — Test Suite for Groq Chatbot Service, Tab-Aware Page Content Summaries & REST Endpoints.
 """
 
 import sys
@@ -55,17 +55,53 @@ def test_chat_service_direct():
     assert "latency_ms" in res
 
 
+def test_chat_tab_page_summarization():
+    """Verify that the Chatbot can access active tab content and summarize the current page."""
+    financials_tab_context = {
+        "enterprise_name": "Joypur Fresh Dairy",
+        "current_tab": "financials",
+        "active_tab_title": "5-Year Financials & Cash Flow Projections",
+        "active_tab_data": {
+            "total_project_outlay": "₹9,00,000",
+            "promoter_equity_margin": "₹90,000 (10%)",
+            "effective_term_loan": "₹4,95,000",
+            "scheduled_monthly_emi": "₹10,240",
+            "dscr_solvency_ratio": "1.78 (Adequate Solvency)",
+            "year_1_gross_revenue": "₹28,50,000",
+            "year_1_net_operating_profit": "₹4,82,000",
+            "break_even_capacity_utilization": "38.5%",
+        },
+        "project_cost": 900000.0,
+        "dscr": 1.78,
+    }
+    messages = [
+        {"role": "user", "content": "Summarize the content on this financials page for me."}
+    ]
+    res = chat_service.generate_chat_response(messages, context=financials_tab_context, language="en")
+    content = res["message"]["content"]
+    assert len(content) > 20
+    # Must mention financial metrics or DSCR or summary
+    assert any(k in content.lower() for k in ["dscr", "1.78", "financial", "revenue", "profit", "loan", "joypur", "summary"])
+
+
 def test_chat_api_endpoint():
-    """Verify POST /api/v2/chat endpoint with multi-turn conversation."""
+    """Verify POST /api/v2/chat endpoint with multi-turn conversation and active tab telemetry."""
     payload = {
         "messages": [
-            {"role": "user", "content": "Hello, how can Udyam Saathi help me get PMEGP subsidy?"}
+            {"role": "user", "content": "Explain what is on my screen and whether my viability score is good."}
         ],
         "context": {
             "enterprise_name": "Purulia Mustard Oil Mill",
             "project_cost": 800000.0,
-            "top_scheme_name": "PMEGP",
-            "subsidy_amount": 280000.0,
+            "current_tab": "viability",
+            "active_tab_title": "ML Viability & TreeSHAP Attributions",
+            "active_tab_data": {
+                "verdict": "SUITABLE",
+                "viability_score": "94.2%",
+                "top_positive_contributors": ["working_capital_buffer: +1.42", "dscr: +1.18"],
+            },
+            "ml_verdict": "SUITABLE",
+            "ml_confidence_pct": 94.2,
         },
         "language": "en",
     }
@@ -84,6 +120,8 @@ if __name__ == "__main__":
     print("  [PASS] GET /api/v2/chat/health passed.")
     test_chat_service_direct()
     print("  [PASS] Direct ChatService generation with context passed.")
+    test_chat_tab_page_summarization()
+    print("  [PASS] Active tab page content summarization verified.")
     test_chat_api_endpoint()
     print("  [PASS] POST /api/v2/chat endpoint passed.")
     print("=" * 80)

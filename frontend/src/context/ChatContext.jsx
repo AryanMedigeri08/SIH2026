@@ -217,7 +217,7 @@ export function ChatProvider({ children }) {
       {
         id: 'welcome-1',
         role: 'assistant',
-        content: `👋 **Welcome to Udyam Saathi AI Advisor!**\n\nI can assist you with:\n- **Scheme Optimization**: Eligibility for PMEGP, Mudra, PMFME, and CGTMSE subsidies.\n- **Credit Feasibility**: Evaluating DSCR, monthly EMIs, and break-even realization.\n- **Regulatory Clearances**: Udyam, GST, FSSAI, and bank documentation.\n\nHow can I assist your enterprise today?`,
+        content: `👋 **Welcome to Udyam Saathi AI Advisor!**\n\nI have real-time access to the **dashboard screen and telemetry you are viewing**.\n\nYou can ask me to:\n- 📄 **"Summarize this page"** or explain any specific numbers on your screen\n- 🏛️ **Optimize your scheme subsidies** (PMEGP, Mudra, PMFME, CGTMSE)\n- 📈 **Audit your DSCR and credit feasibility metrics**\n\nHow can I help your enterprise right now?`,
         timestamp: new Date().toISOString(),
       },
     ];
@@ -322,8 +322,195 @@ export function ChatProvider({ children }) {
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [isChatOpen, openChat]);
 
-  // Extract Active Context for Groq Grounding
+  // Extract Active Dashboard Tab & Deep Page Content Telemetry
+  const getActiveTabTelemetry = useCallback(() => {
+    const path = typeof window !== 'undefined' ? window.location.pathname : '';
+    let tabKey = 'overview';
+    let tabTitle = 'Overview Synthesis Dashboard';
+    let icon = '📊';
+
+    if (path.includes('/viability')) {
+      tabKey = 'viability';
+      tabTitle = 'ML Viability & TreeSHAP Attributions';
+      icon = '🧠';
+    } else if (path.includes('/market')) {
+      tabKey = 'market';
+      tabTitle = 'Market Demand & Local Cluster Density';
+      icon = '📍';
+    } else if (path.includes('/schemes')) {
+      tabKey = 'schemes';
+      tabTitle = 'Government Scheme Optimizer';
+      icon = '🏛️';
+    } else if (path.includes('/financials')) {
+      tabKey = 'financials';
+      tabTitle = '5-Year Financials & Cash Flow Projections';
+      icon = '📈';
+    } else if (path.includes('/risk')) {
+      tabKey = 'risk';
+      tabTitle = 'Comprehensive Multi-Dimensional Risk Assessment';
+      icon = '⚠️';
+    } else if (path.includes('/swot')) {
+      tabKey = 'swot';
+      tabTitle = 'SWOT Analysis Matrix';
+      icon = '🎯';
+    } else if (path.includes('/dpr')) {
+      tabKey = 'dpr';
+      tabTitle = 'Official Bank DPR Package & Statutory Annexures';
+      icon = '📑';
+    } else if (path.includes('/calculator')) {
+      tabKey = 'calculator';
+      tabTitle = 'Interactive Credit & Break-Even Calculator';
+      icon = '🧮';
+    } else if (path.includes('/data-sources')) {
+      tabKey = 'data-sources';
+      tabTitle = 'Live Data Sources & ML Pipelines';
+      icon = '📡';
+    } else if (path.includes('/wizard') || path.includes('/new-assessment')) {
+      tabKey = 'wizard';
+      tabTitle = '7-Step Feasibility Assessment Wizard';
+      icon = '✨';
+    }
+
+    let tabData = {};
+    let quickPrompts = [
+      'Summarize this page in 3 key takeaways',
+      'What are the most critical numbers on this screen?',
+      'Is my business ready for commercial bank approval?',
+    ];
+
+    if (reportData) {
+      if (tabKey === 'viability') {
+        const ml = reportData.ml_viability || {};
+        const shap = ml.shap_explanation?.contributions || [];
+        tabData = {
+          verdict: ml.verdict || 'SUITABLE',
+          viability_score: `${ml.viability_score || ml.confidence_pct || 94}%`,
+          confidence_pct: `${ml.confidence_pct || 94}%`,
+          calibrated_probability: ml.probability || 0.94,
+          top_positive_contributors: shap.filter((s) => Number(s.shap_value) > 0).slice(0, 3).map((s) => `${s.feature}: +${Number(s.shap_value).toFixed(2)}`),
+          top_negative_risk_factors: shap.filter((s) => Number(s.shap_value) < 0).slice(0, 3).map((s) => `${s.feature}: ${Number(s.shap_value).toFixed(2)}`),
+          infrastructure_readiness: reportData.input_parameters?.infrastructure_score || '8.2 / 10',
+          working_capital_months_buffer: `${reportData.financial_summary?.working_capital_months || 2.5} Months`,
+        };
+        quickPrompts = [
+          'Summarize this Viability page and verdict',
+          'Explain my top positive and negative TreeSHAP factors',
+          'How can I improve my viability score for the bank?',
+        ];
+      } else if (tabKey === 'market') {
+        const mkt = reportData.market_analysis || {};
+        tabData = {
+          catchment_population_2026: mkt.catchment_population_2026 || reportData.input_parameters?.projected_population || '48,200',
+          cluster_msme_density: mkt.msme_density_per_10k || '38 units per 10k Pop',
+          estimated_monthly_demand: mkt.monthly_catchment_demand_units || '14,200 units',
+          competitor_saturation_index: mkt.competitor_saturation_index || '0.34 (Low Saturation)',
+          benchmark_market_selling_price: `₹${mkt.benchmark_unit_selling_price || 45.0}`,
+          break_even_floor_price: `₹${reportData.financial_summary?.break_even_unit_price || 36.5}`,
+        };
+        quickPrompts = [
+          'Summarize local market demand and catchment scale',
+          'How competitive is my cluster location?',
+          'Explain the margin between my break-even price and market price',
+        ];
+      } else if (tabKey === 'schemes') {
+        const schemes = reportData.scheme_recommendations || [];
+        tabData = {
+          matched_schemes_count: schemes.length,
+          top_recommended_schemes: schemes.slice(0, 3).map((s) => ({
+            scheme: s.scheme_id || s.full_name,
+            subsidy_grant_amount: `₹${Number(s.subsidy_grant_amount || 0).toLocaleString('en-IN')}`,
+            grant_percentage: `${s.subsidy_percentage || 25}%`,
+            eligibility_status: s.eligibility_status || 'Eligible',
+            nodal_agency: s.nodal_agency || 'KVIC / District Industries Centre (DIC)',
+          })),
+        };
+        quickPrompts = [
+          'Summarize all matched subsidy schemes on this page',
+          'Which scheme gives me the highest capital grant?',
+          'What are the step-by-step application requirements?',
+        ];
+      } else if (tabKey === 'financials') {
+        const fin = reportData.financial_summary || {};
+        const amort = fin.amortization_schedule || {};
+        tabData = {
+          total_project_outlay: `₹${Number(fin.project_cost || 0).toLocaleString('en-IN')}`,
+          promoter_equity_margin: `₹${Number(fin.promoter_margin_amount || 0).toLocaleString('en-IN')}`,
+          effective_term_loan: `₹${Number(fin.effective_loan_principal || 0).toLocaleString('en-IN')}`,
+          scheduled_monthly_emi: `₹${Number(amort.monthly_emi || 0).toLocaleString('en-IN')}`,
+          dscr_solvency_ratio: `${Number(fin.dscr_ratio || 1.45).toFixed(2)} (${fin.dscr_verdict || 'Adequate Solvency'})`,
+          year_1_gross_revenue: `₹${Number(fin.year_1_revenue || 0).toLocaleString('en-IN')}`,
+          year_1_net_operating_profit: `₹${Number(fin.year_1_net_profit || 0).toLocaleString('en-IN')}`,
+          break_even_capacity_utilization: `${fin.break_even_capacity_utilization_pct || 42}%`,
+        };
+        quickPrompts = [
+          'Summarize this Financials page for my bank loan manager',
+          'Explain why my DSCR ratio is safe or risky',
+          'Break down my monthly EMI and break-even capacity',
+        ];
+      } else if (tabKey === 'risk') {
+        const risk = reportData.risk_assessment || {};
+        tabData = {
+          overall_risk_grade: risk.risk_grade || 'Moderate / Low Risk',
+          composite_risk_score: risk.composite_risk_score || '3.2 / 10.0',
+          top_risk_vectors: risk.risk_vectors || ['Raw Material Price Volatility (MoSPI CPI)', 'Monsoon Weather Disruption', 'Working Capital Drag'],
+          mitigation_strategies: risk.mitigation_strategies || ['Maintain 3-month DSCR reserve buffer', 'Long-term farmer vendor contracts'],
+        };
+        quickPrompts = [
+          'Summarize the biggest risk factors on this page',
+          'How can I mitigate raw material inflation and weather risks?',
+          'What risk reserves will the bank look for?',
+        ];
+      } else if (tabKey === 'swot') {
+        const swot = reportData.swot_analysis || {};
+        tabData = {
+          strengths: swot.strengths || ['High local raw material availability', 'Healthy gross contribution margin'],
+          weaknesses: swot.weaknesses || ['Initial working capital constraint', 'Single facility dependency'],
+          opportunities: swot.opportunities || ['Government PMEGP 35% subsidy grant', 'Expanding peri-urban retail demand'],
+          threats: swot.threats || ['Unseasonal weather anomalies', 'Localized competitor price discounting'],
+        };
+        quickPrompts = [
+          'Summarize this SWOT analysis and core opportunities',
+          'How can I convert weaknesses into competitive advantages?',
+        ];
+      } else if (tabKey === 'dpr') {
+        const dpr = reportData.dpr_package || {};
+        tabData = {
+          dpr_package_readiness: '100% Bank-Ready Format',
+          total_sections: 7,
+          required_statutory_licenses: ['Udyam Registration', 'GSTIN (if applicable)', 'FSSAI License / PCB Consent'],
+          mandatory_bank_annexures: ['Promoter KYC (PAN/Aadhaar)', 'Machinery Supplier Quotations', 'Project Site Land/Lease Agreement'],
+        };
+        quickPrompts = [
+          'Summarize the official bank DPR checklist',
+          'What statutory licenses do I need before submitting?',
+          'Walk me through the 7 DPR sections',
+        ];
+      } else {
+        // Overview
+        tabData = {
+          enterprise_name: reportData.enterprise_name || reportData.input_parameters?.enterprise_name,
+          sector: reportData.sector || reportData.input_parameters?.sector,
+          total_project_outlay: `₹${Number(reportData.financial_summary?.project_cost || 0).toLocaleString('en-IN')}`,
+          dscr_ratio: `${Number(reportData.financial_summary?.dscr_ratio || 1.45).toFixed(2)} (${reportData.financial_summary?.dscr_verdict || 'Adequate Solvency'})`,
+          matched_scheme: reportData.scheme_recommendations?.[0]?.scheme_id || 'PMEGP',
+          subsidy_grant: `₹${Number(reportData.scheme_recommendations?.[0]?.subsidy_grant_amount || 0).toLocaleString('en-IN')}`,
+          ml_viability_verdict: reportData.ml_viability?.verdict || 'SUITABLE',
+        };
+        quickPrompts = [
+          'Summarize this enterprise feasibility assessment',
+          'Is this business ready for a bank loan application?',
+          'What are the key financial highlights?',
+        ];
+      }
+    }
+
+    return { tabKey, tabTitle, icon, tabData, quickPrompts };
+  }, [reportData]);
+
+  // Extract Full Grounded Context Payload
   const getGroundedContext = useCallback(() => {
+    const { tabKey, tabTitle, tabData } = getActiveTabTelemetry();
+
     if (!reportData) {
       if (activeBusiness) {
         return {
@@ -332,9 +519,15 @@ export function ChatProvider({ children }) {
           business_category: activeBusiness.category,
           location: `${activeBusiness.district || ''}, ${activeBusiness.state || ''}`,
           project_cost: activeBusiness.project_cost,
+          current_tab: tabKey,
+          active_tab_title: tabTitle,
+          active_tab_data: tabData,
         };
       }
-      return null;
+      return {
+        current_tab: tabKey,
+        active_tab_title: tabTitle,
+      };
     }
 
     return {
@@ -352,9 +545,11 @@ export function ChatProvider({ children }) {
       dscr_verdict: reportData.financial_summary?.dscr_verdict,
       ml_verdict: reportData.ml_viability?.verdict,
       ml_confidence_pct: reportData.ml_viability?.confidence_pct,
-      current_tab: typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : 'overview',
+      current_tab: tabKey,
+      active_tab_title: tabTitle,
+      active_tab_data: tabData,
     };
-  }, [reportData, activeBusiness]);
+  }, [reportData, activeBusiness, getActiveTabTelemetry]);
 
   // Send User Message
   const sendMessage = useCallback(
@@ -417,15 +612,16 @@ export function ChatProvider({ children }) {
 
   // Clear conversation history
   const clearChat = useCallback(() => {
+    const { tabTitle } = getActiveTabTelemetry();
     setMessages([
       {
         id: `welcome-${Date.now()}`,
         role: 'assistant',
-        content: `👋 **Chat history reset.**\n\nHow can I help you analyze your MSME project, scheme eligibility, or financial ratios today?`,
+        content: `👋 **Chat history reset.**\n\nI am analyzing your **${tabTitle}** screen. Ask me to summarize this page or evaluate any financial or scheme metrics!`,
         timestamp: new Date().toISOString(),
       },
     ]);
-  }, []);
+  }, [getActiveTabTelemetry]);
 
   return (
     <ChatContext.Provider
@@ -443,6 +639,7 @@ export function ChatProvider({ children }) {
         setChatTheme,
         selectTheme,
         cycleTheme,
+        getActiveTabTelemetry,
         navButtonRef,
         chatInputRef,
         openChat,

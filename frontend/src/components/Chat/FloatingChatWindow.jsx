@@ -13,6 +13,8 @@ import {
   HelpCircle,
   Palette,
   CheckCircle2,
+  Layers,
+  ArrowUpRight,
 } from 'lucide-react';
 import { useChat, CHAT_THEMES } from '../../context/ChatContext';
 import { useBusiness } from '../../context/BusinessContext';
@@ -33,6 +35,7 @@ export function FloatingChatWindow() {
     currentTheme,
     selectTheme,
     cycleTheme,
+    getActiveTabTelemetry,
     navButtonRef,
     chatInputRef,
     minimizeChat,
@@ -51,6 +54,8 @@ export function FloatingChatWindow() {
   const messagesEndRef = useRef(null);
   const windowRef = useRef(null);
   const themeMenuRef = useRef(null);
+
+  const { tabTitle, icon, quickPrompts } = getActiveTabTelemetry();
 
   // Close theme menu on outside click
   useEffect(() => {
@@ -213,13 +218,6 @@ export function FloatingChatWindow() {
     reportData?.input_parameters?.project_cost ||
     activeBusiness?.project_cost;
 
-  const quickPrompts = [
-    'What is my DSCR ratio and is my bank loan safe?',
-    'How much subsidy can I get under PMEGP or Mudra?',
-    'Explain the break-even pricing floor calculation.',
-    'What statutory documents are required for my bank DPR?',
-  ];
-
   return (
     <div
       ref={windowRef}
@@ -343,6 +341,27 @@ export function FloatingChatWindow() {
         </div>
       </div>
 
+      {/* Active Tab Screen Awareness Sub-Header */}
+      <div className={`px-3.5 py-1.5 text-[10px] flex items-center justify-between border-b opacity-90 transition-colors ${
+        chatTheme === 'midnight'
+          ? 'bg-[#061826] border-sky-900/60 text-cyan-300'
+          : chatTheme === 'emerald'
+          ? 'bg-emerald-50/80 border-emerald-100 text-emerald-800'
+          : 'bg-sky-50/80 border-sky-100 text-sovereign-900'
+      }`}>
+        <div className="flex items-center gap-1.5 truncate">
+          <span>{icon}</span>
+          <span className="font-semibold truncate">Active Viewport: {tabTitle}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => sendMessage(`Please summarize this ${tabTitle} page for me in detail.`)}
+          className="font-bold underline text-[9px] hover:opacity-80 cursor-pointer shrink-0 ml-2"
+        >
+          Summarize Screen
+        </button>
+      </div>
+
       {/* Message List */}
       <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-3.5 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent ${currentTheme.bodyBg}`}>
         {messages.map((m) => {
@@ -410,17 +429,17 @@ export function FloatingChatWindow() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-600" />
               </span>
               <span className={`text-[11px] font-medium ${currentTheme.loadingText}`}>
-                Analyzing enterprise telemetry...
+                Analyzing {tabTitle} telemetry...
               </span>
             </div>
           </div>
         )}
 
-        {/* Quick Suggestion Chips (when only 1 or 2 messages exist) */}
+        {/* Context-Aware Quick Suggestion Chips (Dynamically tailored to the active tab screen!) */}
         {messages.length <= 2 && !isLoading && (
           <div className="pt-2">
             <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1 ${currentTheme.chipHeader}`}>
-              <Sparkles className="w-3 h-3 text-sky-500" /> Quick Inquiries
+              <Sparkles className="w-3 h-3 text-sky-500" /> Quick Inquiries for {tabTitle.split(' ')[0]}
             </p>
             <div className="grid grid-cols-1 gap-1.5">
               {quickPrompts.map((q, idx) => (
@@ -428,9 +447,10 @@ export function FloatingChatWindow() {
                   key={idx}
                   type="button"
                   onClick={() => sendMessage(q)}
-                  className={`text-left text-[11px] px-3 py-1.5 rounded-xl transition-all cursor-pointer truncate ${currentTheme.chipBtn}`}
+                  className={`text-left text-[11px] px-3 py-1.5 rounded-xl transition-all cursor-pointer truncate flex items-center justify-between group ${currentTheme.chipBtn}`}
                 >
-                  ⚡ {q}
+                  <span className="truncate">⚡ {q}</span>
+                  <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
                 </button>
               ))}
             </div>
@@ -453,7 +473,7 @@ export function FloatingChatWindow() {
             onChange={(e) => setInputVal(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isLoading}
-            placeholder="Ask about your MSME feasibility or schemes... (Alt+Space)"
+            placeholder={`Ask about ${tabTitle} or type 'Summarize page'...`}
             className={`w-full text-xs rounded-xl pl-3 pr-10 py-2.5 resize-none outline-none transition-all disabled:opacity-50 border ${currentTheme.textarea}`}
             style={{ maxHeight: '90px' }}
           />
