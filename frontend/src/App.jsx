@@ -55,6 +55,7 @@ import confetti from 'canvas-confetti';
 
 // Empty State View when no enterprise appraisal is loaded
 function EmptyAppraisalState({ onOpenWizard }) {
+  const { isDemoMode } = useAuth();
   const navigate = useNavigate();
   return (
     <div className="py-12 sm:py-16 px-4 text-center">
@@ -72,7 +73,15 @@ function EmptyAppraisalState({ onOpenWizard }) {
             No Active Enterprise Assessment Loaded
           </h3>
           <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-md mx-auto">
-            Select one of the benchmark scenarios from the <span className="font-semibold text-sovereign-900">Preset Scenarios</span> bar above, or launch a new enterprise appraisal.
+            {isDemoMode ? (
+              <>
+                Select one of the benchmark scenarios from the{" "}
+                <span className="font-semibold text-sovereign-900">Preset Scenarios</span> bar above,
+                or launch a new enterprise appraisal.
+              </>
+            ) : (
+              "Launch a new enterprise feasibility appraisal to evaluate market potential, debt service coverage, and statutory subsidies."
+            )}
           </p>
         </div>
 
@@ -131,7 +140,7 @@ export function AppContent() {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated, token, isDemoMode } = useAuth();
   const {
     reportData,
     dprData,
@@ -276,12 +285,14 @@ export function AppContent() {
         {/* Main Content Body */}
         <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-x-hidden">
           
-          {/* Top Benchmark Pitch Cases Bar */}
-          <CaseStudiesBar
-            activeCaseId={activeCaseId}
-            onSelectCase={handleSelectCase}
-            isLoading={isGenerating || isLoadingInitial || loadingBusinesses}
-          />
+          {/* Top Benchmark Pitch Cases Bar — ONLY visible in Quick Login / Evaluator Demo Mode */}
+          {isDemoMode && (
+            <CaseStudiesBar
+              activeCaseId={activeCaseId}
+              onSelectCase={handleSelectCase}
+              isLoading={isGenerating || isLoadingInitial || loadingBusinesses}
+            />
+          )}
 
           {/* Staged Full-Page Loader for New Assessment Generation */}
           {isGenerating ? (

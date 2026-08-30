@@ -67,7 +67,7 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     } else {
-      // Check local storage for persistent sovereign demo session
+      // Check local storage for persistent sovereign session
       const saved = localStorage.getItem(LOCAL_SESSION_KEY);
       if (saved) {
         try {
@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }) => {
           const devUser = createSovereignUser(parsed.uid, parsed.email, parsed.name, parsed.token);
           setFirebaseUser(devUser);
           setToken(parsed.token);
-          setIsDemoMode(true);
+          setIsDemoMode(Boolean(parsed.isDemoMode));
           try {
             const profile = await authApi.syncSession(parsed.token);
             setUserProfile(profile);
@@ -85,7 +85,7 @@ export const AuthProvider = ({ children }) => {
               name: parsed.name,
               email: parsed.email,
               gender: "Unspecified",
-              auth_provider: "sovereign",
+              auth_provider: parsed.isDemoMode ? "demo" : "sovereign",
               projects_count: 0,
             });
           }
@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }) => {
   }, [handleAuthChange]);
 
   // Sovereign Fallback Login Helper
-  const sovereignFallbackLogin = async (email, name = null, profileData = {}) => {
+  const sovereignFallbackLogin = async (email, name = null, profileData = {}, isDemo = false) => {
     const cleanEmail = email.trim().toLowerCase();
     // Deterministic slug UID from email
     const safeSlug = cleanEmail.replace(/[^a-z0-9]/g, "_").slice(0, 24);
@@ -122,7 +122,7 @@ export const AuthProvider = ({ children }) => {
     const devUser = createSovereignUser(uid, cleanEmail, displayName, devToken);
     setFirebaseUser(devUser);
     setToken(devToken);
-    setIsDemoMode(true);
+    setIsDemoMode(isDemo);
 
     localStorage.setItem(
       LOCAL_SESSION_KEY,
@@ -131,6 +131,7 @@ export const AuthProvider = ({ children }) => {
         email: cleanEmail,
         name: displayName,
         token: devToken,
+        isDemoMode: isDemo,
       })
     );
 
@@ -184,7 +185,7 @@ export const AuthProvider = ({ children }) => {
 
       if (isApiKeyError) {
         console.warn("Firebase Web API key not configured or invalid. Operating in Sovereign Token Auth mode.");
-        return await sovereignFallbackLogin(email, profileData.name, profileData);
+        return await sovereignFallbackLogin(email, profileData.name, profileData, false);
       }
 
       setAuthError(err.message);
@@ -217,7 +218,7 @@ export const AuthProvider = ({ children }) => {
 
       if (isApiKeyError) {
         console.warn("Firebase Web API key not configured or invalid. Operating in Sovereign Token Auth mode.");
-        return await sovereignFallbackLogin(email);
+        return await sovereignFallbackLogin(email, null, {}, false);
       }
 
       setAuthError(err.message);
@@ -249,8 +250,8 @@ export const AuthProvider = ({ children }) => {
         err.message?.includes("invalid-api-key");
 
       if (isApiKeyError) {
-        console.warn("Firebase Web API key unconfigured for Google Popup. Operating in Sovereign Google Demo Mode.");
-        return await sovereignFallbackLogin("google.entrepreneur@udyam.gov.in", "Google Enterprise User");
+        console.warn("Firebase Web API key unconfigured for Google Popup. Operating in Sovereign Google Mode.");
+        return await sovereignFallbackLogin("google.entrepreneur@udyam.gov.in", "Google Enterprise User", {}, false);
       }
 
       setAuthError(err.message);
@@ -260,12 +261,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Dedicated Demo One-Click Login
+  // Dedicated Demo One-Click Quick Login
   const loginAsDemo = async (email = "guest@udyam.gov.in", name = "Guest Entrepreneur") => {
     setLoading(true);
     setAuthError(null);
     try {
-      return await sovereignFallbackLogin(email, name);
+      return await sovereignFallbackLogin(email, name, {}, true);
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { CaseStudiesBar } from '../components/CaseStudiesBar';
 import { Dashboard } from '../components/Dashboard/Dashboard';
+import { useAuth } from '../context/AuthContext';
 
 export function DashboardPage({
   reportData,
@@ -10,14 +11,18 @@ export function DashboardPage({
   onOpenDpr,
   onOpenWizard,
 }) {
+  const { isDemoMode } = useAuth();
+
   return (
     <div className="space-y-4">
-      {/* 1-Click SIH Pitch Preset Cases Bar */}
-      <CaseStudiesBar
-        activeCaseId={activeCaseId}
-        onSelectCase={onSelectCase}
-        isLoading={isLoading}
-      />
+      {/* 1-Click SIH Pitch Preset Cases Bar — ONLY visible in Quick Login / Evaluator Demo Mode */}
+      {isDemoMode && (
+        <CaseStudiesBar
+          activeCaseId={activeCaseId}
+          onSelectCase={onSelectCase}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* Main Content Area */}
       {isLoading ? (

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FeasibilityWizard } from '../components/Wizard/FeasibilityWizard';
-import { Sparkles, ArrowLeft, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Sparkles, ArrowLeft } from 'lucide-react';
 import { PITCH_CASES } from '../data/pitchCases';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 
 export function WizardPage({ onWizardSubmit, isLoading }) {
   const navigate = useNavigate();
+  const { isDemoMode } = useAuth();
   const [selectedTemplateIndex, setSelectedTemplateIndex] = useState(0);
   const { language, setLanguage, t } = useLanguage();
 
@@ -24,6 +26,10 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
     await onWizardSubmit({ ...formData, language: "en" });
     navigate('/dashboard');
   };
+
+  const initialData = isDemoMode && PITCH_CASES[selectedTemplateIndex]
+    ? { ...PITCH_CASES[selectedTemplateIndex].formData, language: "en" }
+    : { language: "en" };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -49,23 +55,25 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
           </p>
         </div>
 
-        {/* Quick Preload Benchmark Template selector */}
-        <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs space-y-1.5 shrink-0">
-          <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
-            Preload Benchmark Case:
-          </span>
-          <select
-            value={selectedTemplateIndex}
-            onChange={(e) => setSelectedTemplateIndex(Number(e.target.value))}
-            className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 w-full font-medium"
-          >
-            {PITCH_CASES.map((c, idx) => (
-              <option key={c.id} value={idx}>
-                {c.title} ({c.state})
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Quick Preload Benchmark Template selector — Only for Quick Login / Demo Mode */}
+        {isDemoMode && (
+          <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs space-y-1.5 shrink-0">
+            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+              Preload Benchmark Case:
+            </span>
+            <select
+              value={selectedTemplateIndex}
+              onChange={(e) => setSelectedTemplateIndex(Number(e.target.value))}
+              className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 w-full font-medium"
+            >
+              {PITCH_CASES.map((c, idx) => (
+                <option key={c.id} value={idx}>
+                  {c.title} ({c.state})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Embedded Wizard Container */}
@@ -75,7 +83,7 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
           onClose={() => navigate('/dashboard')}
           onSubmit={handleSubmit}
           isSubmitting={isLoading}
-          initialData={{ ...PITCH_CASES[selectedTemplateIndex]?.formData, language: "en" }}
+          initialData={initialData}
         />
       </div>
 
