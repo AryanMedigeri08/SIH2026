@@ -20,22 +20,27 @@ TEST_SCRIPTS = [
     "test_phase5.py",
     "test_phase6.py",
     "test_phase7.py",
+    "test_business_management.py",
+    "test_neon_persistence.py",
+    "test_chat_service.py",
+    "test_audio_chat_service.py",
+    "test_translation_service.py",
 ]
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     print("=" * 90)
-    print("🧪 UDYAM SAATHI — MASTER PLATFORM VERIFICATION TEST RUNNER")
+    print("UDYAM SAATHI -- MASTER PLATFORM VERIFICATION TEST RUNNER")
     print("=" * 90)
     print(f"Root Directory:    {ROOT_DIR}")
     print(f"Core Engine Dir:   {CORE_DIR}")
     print(f"Tests Directory:   {TESTS_DIR}\n")
-
-    if hasattr(sys.stdout, "reconfigure"):
-        try:
-            sys.stdout.reconfigure(encoding="utf-8")
-        except Exception:
-            pass
 
     env = os.environ.copy()
     python_paths = [str(CORE_DIR), str(BACKEND_DIR), str(ROOT_DIR)]
@@ -49,22 +54,22 @@ def main():
     for script in TEST_SCRIPTS:
         script_path = TESTS_DIR / script
         if not script_path.exists():
-            print(f"⚠️  Warning: {script} not found in tests/ directory.")
+            print(f"[WARN] {script} not found in tests/ directory.")
             continue
 
-        print(f"\n▶️ Running {script} ...")
+        print(f"\n>> Running {script} ...")
         cmd = [sys.executable, str(script_path)]
         res = subprocess.run(cmd, cwd=str(ROOT_DIR), env=env)
 
         if res.returncode == 0:
             passed_suites += 1
-            print(f"✅ {script} PASSED")
+            print(f"[PASS] {script} PASSED")
         else:
             failed_suites += 1
-            print(f"❌ {script} FAILED (Exit code: {res.returncode})")
+            print(f"[FAIL] {script} FAILED (Exit code: {res.returncode})")
 
     print("\n" + "=" * 90)
-    print("🏁 TEST EXECUTION SUMMARY:")
+    print("TEST EXECUTION SUMMARY:")
     print("=" * 90)
     print(f"Total Test Suites: {passed_suites + failed_suites}")
     print(f"Suites Passed:     {passed_suites} / {passed_suites + failed_suites}")
@@ -74,7 +79,7 @@ def main():
     if failed_suites > 0:
         sys.exit(1)
     else:
-        print("\n🎉 ALL 325 TESTS ACROSS ALL PHASES PASSED WITH 100% SUCCESS RATE!\n")
+        print("\nALL PLATFORM TEST SUITES PASSED WITH 100% SUCCESS RATE!\n")
 
 
 if __name__ == "__main__":

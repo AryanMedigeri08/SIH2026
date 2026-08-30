@@ -20,6 +20,7 @@ from app.models.schemas import (
 )
 from app.routers.feasibility import _run_pipeline
 from app.core.auth_dependency import get_current_user, AuthenticatedUser
+from app.core.translation_service import TranslationService
 from dpr_generator import BankDPRDocument, dpr_to_printable_markdown, dpr_to_html
 
 logger = logging.getLogger("udyam_saathi.projects")

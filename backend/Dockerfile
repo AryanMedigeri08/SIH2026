@@ -1,6 +1,6 @@
 # ============================================================================
 # Udyam Saathi — Backend Dockerfile (Python 3.11 Slim + Non-Root Security)
-# Optimized for Google Cloud Run, Docker Compose & Microservices Architecture
+# Optimized for Google Cloud Run, Docker Compose & Cloud Deployments
 # ============================================================================
 FROM python:3.11-slim as base
 
@@ -8,6 +8,7 @@ FROM python:3.11-slim as base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONIOENCODING=utf-8 \
+    PYTHONPATH=/app/backend:/app/backend/app/core:/app \
     PORT=8000
 
 WORKDIR /app
@@ -24,16 +25,12 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy backend codebase, catalogs, ML models & pipeline modules
+# Copy backend codebase, catalogs, ML models, and configuration
 COPY backend /app/backend
-COPY data* /app/data/
-COPY models* /app/models/
-COPY government_schemes.json district_resources.json growth_rates.json model_metadata.json /app/
-COPY viability_xgb.joblib /app/
-COPY dpr_generator.py financial_calculator.py market_analyzer.py risk_analyzer.py swot_analyzer.py pricing_engine.py /app/
-COPY .env.example /app/.env.example
+COPY serviceAccountKey.json* /app/
+COPY .env.example* /app/
 
-# Create SQLite cache data folder and non-root app user
+# Ensure SQLite cache / data directory exists and assign non-root app user
 RUN mkdir -p /app/backend/app/data && \
     useradd -m -u 1001 appuser && \
     chown -R appuser:appuser /app

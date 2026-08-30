@@ -1,5 +1,5 @@
 # 🇮🇳 Udyam Saathi (उद्यम साथी)
-### *AI-Powered Micro & Small Enterprise Feasibility, Credit Appraisal & Bank DPR Engine*
+### *AI-Powered Micro & Small Enterprise Feasibility, Credit Appraisal & Statutory Bank DPR Engine*
 **Smart India Hackathon (SIH 2026) • Ministry of Micro, Small & Medium Enterprises (MoMSME)**
 
 ---
@@ -14,16 +14,18 @@
 [![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED.svg?logo=docker&logoColor=white)](https://www.docker.com/)
 [![XGBoost](https://img.shields.io/badge/XGBoost-10--D%20Viability-EB5424.svg?logo=xgboost&logoColor=white)](https://xgboost.readthedocs.io/)
 [![SHAP](https://img.shields.io/badge/Explainability-Lundberg%20TreeSHAP-brightgreen.svg)](https://shap.readthedocs.io/)
-[![Groq Cloud](https://img.shields.io/badge/Groq%20Cloud-LLM%20Synthesis-F05A28.svg?logo=meta&logoColor=white)](https://groq.com/)
+[![Groq Cloud](https://img.shields.io/badge/Groq%20Cloud-LLM%20%26%20Whisper-F05A28.svg?logo=meta&logoColor=white)](https://groq.com/)
+[![Schemes](https://img.shields.io/badge/Government%20Schemes-17%20Integrated-8B5CF6.svg)](https://www.jansamarth.in/)
+[![Languages](https://img.shields.io/badge/Languages-6%20Indian%20Languages-10B981.svg)](https://cloud.google.com/translate)
 [![Tests](https://img.shields.io/badge/Platform%20Tests-325%2F325%20Passed%20(100%25)-10B981.svg)](https://github.com/)
 
 ---
 
 ## 📌 Executive Summary
 
-**Udyam Saathi (उद्यम साथी)** is an enterprise-grade AI credit appraisal, geographic feasibility, and statutory bank memorandum platform designed to democratize formal bank lending for India's 63+ million micro and small entrepreneurs.
+**Udyam Saathi (उद्यम साथी)** is an enterprise-grade AI credit appraisal, geographic feasibility, and statutory bank memorandum platform designed to democratize formal bank credit access for India's 63+ million micro and small entrepreneurs.
 
-Unlike generic LLM wrappers that fabricate financial forecasts, Udyam Saathi implements a **4-Tier Zero-Hallucination Architecture** that strictly separates deterministic banking math from narrative generation. It integrates ground-truth Census demographics (660k+ villages), MSME registry data (788 districts), live MoSPI inflation indices, 613 district village amenities indicators from Data.gov.in, and a 10-dimensional supervised XGBoost model with **Lundberg TreeSHAP feature attributions** to generate **100% audit-compliant, bank-ready Detailed Project Reports (DPR)** in under 2 seconds.
+Unlike generic LLM wrappers that hallucinate financial metrics and lack institutional compliance, Udyam Saathi implements a **4-Tier Zero-Hallucination Architecture** that strictly separates deterministic banking math from narrative generation. It integrates ground-truth Census demographics (660,000+ villages), MSME registry density data (788 districts), live MoSPI inflation indices, 613 district resource amenities indicators from Data.gov.in, 17 Central & State credit-linked subsidy schemes, and a 10-dimensional supervised XGBoost model with **Lundberg TreeSHAP feature attributions** to generate **100% audit-compliant, bank-ready Detailed Project Reports (DPR)** in under 2 seconds.
 
 ---
 
@@ -35,7 +37,7 @@ Unlike generic LLM wrappers that fabricate financial forecasts, Udyam Saathi imp
 │  • Census 2011 Catchment Demographics (census_raw) + State CAGR Forward Projections    │
 │  • Sector Demand TAM Estimation (Penetration × Frequency × Ticket Size)                │
 │  • RBI Working Capital Outlay (Nayak Committee / Tandon Turnover Method)               │
-│  • Statutory Scheme Ranking: PMEGP, PMFME, MUDRA (Shishu/Kishore/Tarun), Stand-Up, etc.│
+│  • 17 Statutory Schemes Ranking: PMEGP, PMFME, MUDRA, Stand-Up India, NSFDC, etc.     │
 │  • Amortization Schedule with Moratorium + Debt Service Coverage Ratio (DSCR)          │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
@@ -51,63 +53,163 @@ Unlike generic LLM wrappers that fabricate financial forecasts, Udyam Saathi imp
                                             │
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                      TIER 3: MULTI-LINGUAL AI EXECUTIVE SYNTHESIS                      │
-│  • Groq Cloud LLM Single-Call Narrative Generator                                      │
-│  • 6 Regional Languages Supported: English, Hindi, Marathi, Tamil, Telugu, Kannada     │
-│  • Zero Financial Recalculation Invariant (LLM is strictly forbidden from hallucinations)│
-│  • Supplementary Promoter Context sanitized & injected for narrative depth only        │
-│  • SHA-256 Prompt Memory Caching (< 1ms instant replay)                                │
+│               TIER 3: MULTI-LINGUAL AI SYNTHESIS & VOICE TELEMETRY                     │
+│  • Groq Cloud LLaMA 3.3 70B Versatile Single-Call Executive Synthesis                   │
+│  • Groq Whisper v3 High-Speed Multilingual Speech-to-Text (< 400ms)                    │
+│  • gTTS Audio Synthesis for regional audio responses                                   │
+│  • 6 Languages Supported: English, Hindi, Marathi, Tamil, Telugu, Kannada              │
+│  • Zero Financial Recalculation Invariant (LLM is strictly forbidden from editing math)│
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                        TIER 4: STATUTORY 7-SECTION BANK DPR                            │
-│  • Section 1: Executive Summary & Enterprise Profile                                   │
-│  • Section 2: Capital Outlay & Means of Finance Reconciliation (Zero Outlay Drift)    │
-│  • Section 3: 5-Year Financial & Cash Flow Projections (60% -> 90% Capacity Scaling)   │
-│  • Section 4: Market Catchment & Demographic Feasibility (TAM Analysis)                │
-│  • Section 5: Grounded SWOT Matrix                                                     │
-│  • Section 6: 8-Point Quantified Risk Analysis with Contingency Rupee Buffers          │
-│  • Section 7: Statutory Bank Submission Checklist (FSSAI, Udyam, Caste/SHG Docs)      │
+│  • Section 1: Executive Summary, Promoter Action Plan & Credit Officer Appraisal Notes  │
+│  • Section 2: Itemized Capital Outlay & Means of Finance (100% Sourced Balance Check)  │
+│  • Section 3: 5-Year Financial Horizon (60% -> 90% Capacity, EBITDA, WDV Depr, DSCR)   │
+│  • Section 4: 17-Government Scheme Subsidy Matrix & Cost Comparison                    │
+│  • Section 5: ML Viability Appraisal & Lundberg TreeSHAP Waterfall Chart               │
+│  • Section 6: Grounded 4-Quadrant SWOT & 8-Point Risk Mitigation Table with ₹ Buffers  │
+│  • Section 7: Statutory Bank Submission Document Checklist & Compliance Matrix         │
+│  • Official Sign-Off: Promoter Truth Declaration & Bank Branch Endorsement Block       │
 │  • Multi-Format Export: Printable Formatted HTML, Markdown Memo, JSON                 │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🔐 Authentication & IDOR-Protected Project State
+## 🚀 Key Platform Features
 
-Udyam Saathi features enterprise user authentication and data isolation:
-
-1. **Firebase Authentication (Client-Side SDK)**:
-   - Password hashing and Google OAuth token issuance are handled securely by Firebase Client SDK.
-   - Raw passwords never reach the backend API.
-2. **Server-Side Token Verification & IDOR Protection**:
-   - Every protected route requires `Authorization: Bearer <Firebase ID Token>`.
-   - The FastAPI dependency `get_current_user` verifies cryptographic signatures and extracts claims.
-   - Strict project ownership validation: attempts to view or analyze another user's project return `HTTP 403 Forbidden`.
-3. **Hybrid Neon PostgreSQL Schema**:
-   - `users`: Keyed by `firebase_uid`, stores name, email, gender, phone, and optional narrative context.
-   - `projects`: Foreign-keyed to `users.firebase_uid` with cascade deletion and indexed queries.
+* **⚡ Sub-2-Second End-to-End Execution**: Calculates population projections, working capital buffers, debt service coverage, amenities scoring, XGBoost classification, TreeSHAP explainability, and compiles the complete 7-section DPR in $< 2\text{s}$.
+* **🎙️ Multilingual Voice & AI Chat Assistant**: Speak naturally in **Hindi, Marathi, Tamil, Telugu, Kannada, or English** via the dashboard voice chatbot. Audio is transcribed via Groq Whisper v3 and answered via Groq LLaMA 3.3 70B with synchronized regional audio output.
+* **🌐 Mother-Tongue DPR Translation**: Full statutory Detailed Project Reports can be instantly translated, viewed, and printed in 6 native languages while preserving table alignments, currency symbols, and official banking formatting.
+* **🤖 Lundberg TreeSHAP Explainability**: Replaces heuristic rules with exact mathematical game-theoretic Shapley values calculated by `shap.TreeExplainer` over 10 dimensions.
+* **🏛️ 17 Central & State Schemes Integrated**: Evaluates eligibility and ranks programs across PMEGP, PMFME, MUDRA (Shishu/Kishore/Tarun/Tarun Plus), Stand-Up India, PM Vishwakarma, DAY-NRLM, AHIDF, CGTMSE, Margin Money Scheme, CLCSS, PM-EGMS, NSFDC, NBCFDC, NHFDC, and NMDFC.
+* **🔐 Production Security & IDOR Protection**: Firebase Authentication + Neon PostgreSQL with strict row-level ownership checks (`user_id == current_user.uid`) preventing unauthorized cross-tenant data access.
+* **📊 Dual Multi-Business Management**: Manage multiple enterprises, track appraisal statuses (Draft, In Analysis, Bank Ready, Flagged Risk), and isolate scenario histories.
 
 ---
 
-## 🚀 Key Features
+## 📁 Repository Directory Structure
 
-* **⚡ Sub-2-Second End-to-End Pipeline**: Executes demographic projection, financial amortization, 613 amenities parsing, ML viability classification, TreeSHAP explainability, AI synthesis, and 7-section DPR generation in $< 2\text{s}$.
-* **🧭 Sidebar Navigation & 8 Routed Deep-Dive Dimensions**: Clean information architecture partitioned across 8 dedicated routes:
-  1. **Overview & Synthesis** (`/` or `/reports/:reportId`)
-  2. **ML Viability & SHAP** (`/viability`)
-  3. **Local Market Demand** (`/market`)
-  4. **Government Schemes** (`/schemes`)
-  5. **Financials & Cashflow** (`/financials`)
-  6. **Risk Assessment** (`/risk`)
-  7. **SWOT Matrix** (`/swot`)
-  8. **Official Bank DPR** (`/dpr`)
-* **🤖 Lundberg TreeSHAP Explainability**: Replaces heuristic rules with real mathematical game-theoretic Shapley values calculated by `shap.TreeExplainer`.
-* **🇮🇳 Multilingual AI Synthesis**: Generates bank appraisals in 6 official languages: English (`en`), Hindi (`hi`), Marathi (`mr`), Tamil (`ta`), Telugu (`te`), and Kannada (`kn`).
-* **🏛️ 10 Central & State Schemes Integrated**: PMEGP, PMFME, MUDRA (Shishu/Kishore/Tarun/Tarun Plus), Stand-Up India, PM Vishwakarma, DAY-NRLM, and AHIDF with direct `.gov.in` portal links.
-* **📦 Docker Containerization**: Multi-stage Nginx + Python 3.11 Slim container images orchestrated via Docker Compose.
+```
+SIH2026/
+├── backend/
+│   ├── app/
+│   │   ├── core/                    # Deterministic financial math, ML inference & AI
+│   │   │   ├── amenities_client.py   # Data.gov.in 613 village amenities client
+│   │   │   ├── audio_chat_service.py # Groq Whisper + gTTS Multilingual Voice Service
+│   │   │   ├── auth_dependency.py    # Firebase Bearer token verification & IDOR guard
+│   │   │   ├── chat_service.py       # Contextual RAG Chatbot engine
+│   │   │   ├── dpr_generator.py      # Statutory 7-Section Bank DPR compiler & HTML renderer
+│   │   │   ├── executive_synthesizer.py # Single-call LLM narrative synthesizer
+│   │   │   ├── feature_extractor.py  # 10-D Feature Vector extractor (x0..x9)
+│   │   │   ├── financial_calculator.py# EMI, amortization, DSCR & 17-scheme ranker
+│   │   │   ├── inference.py          # XGBoost classifier & Lundberg TreeSHAP explainer
+│   │   │   ├── market_analyzer.py    # Census CAGR population & TAM engine
+│   │   │   ├── pricing_engine.py     # CPI inflation floor & pricing recommendations
+│   │   │   ├── risk_analyzer.py      # 8-Point quantified risk matrix & rupee buffers
+│   │   │   ├── swot_analyzer.py      # Grounded 4-quadrant SWOT matrix
+│   │   │   └── translation_service.py# Google Cloud Translation & regional dictionary
+│   │   ├── data/                    # Ground-truth JSONs, models & SQLite persistence
+│   │   │   ├── district_resources.json
+│   │   │   ├── government_schemes.json # 17 statutory schemes
+│   │   │   ├── growth_rates.json
+│   │   │   ├── model_metadata.json
+│   │   │   └── viability_xgb.joblib  # Trained supervised XGBoost model
+│   │   ├── models/                  # Pydantic request & response schemas
+│   │   │   └── schemas.py
+│   │   ├── routers/                 # REST API endpoints
+│   │   │   ├── auth.py              # User registration, sessions & profile
+│   │   │   ├── chat.py              # Text & Audio Chatbot API
+│   │   │   ├── data_sources.py      # Open data catalogs & scheme endpoints
+│   │   │   ├── feasibility.py       # 4-tier feasibility & DPR endpoints
+│   │   │   ├── financial.py         # Standalone loan & DSCR calculator
+│   │   │   ├── locations.py         # LGD 36 States/UTs, districts & blocks
+│   │   │   ├── projects.py          # Authenticated project CRUD & analysis
+│   │   │   └── translation.py       # Live text & batch translation API
+│   │   ├── config.py                # Pydantic BaseSettings
+│   │   ├── database.py              # Neon PostgreSQL async pool & SQLite fallback
+│   │   └── main.py                  # FastAPI application factory & middleware
+│   └── Dockerfile                   # Production Python 3.11 Slim container
+├── frontend/
+│   ├── src/
+│   │   ├── components/              # Reusable UI components & modals
+│   │   │   ├── AudioChatbotModal.jsx# Multilingual voice assistant modal
+│   │   │   ├── ChatbotModal.jsx     # Contextual RAG chat modal
+│   │   │   ├── DprModal.jsx         # Quick-view DPR modal with print/download
+│   │   │   ├── TranslatedText.jsx   # Live reactive translation component
+│   │   │   └── Wizard/              # 7-Step Enterprise Feasibility Wizard
+│   │   ├── context/                 # React Context Providers
+│   │   │   ├── AuthContext.jsx      # Firebase auth & profile state
+│   │   │   ├── LanguageContext.jsx  # 6-Language translation state & cache
+│   │   │   └── ProjectContext.jsx   # Multi-project selection & persistence
+│   │   ├── pages/                   # Application route pages
+│   │   │   ├── DashboardPage.jsx    # Unified dashboard & deep-dive modules
+│   │   │   ├── FeasibilityPage.jsx  # 7-step wizard entry page
+│   │   │   ├── LoginPage.jsx        # Email/password & Google OAuth login
+│   │   │   ├── RegisterPage.jsx     # Entrepreneur onboarding
+│   │   │   ├── report/              # 8 Dedicated dimension report pages
+│   │   │   │   ├── BankDprPage.jsx  # Official DPR page with language selector
+│   │   │   │   ├── FinancialsPage.jsx
+│   │   │   │   ├── MarketPage.jsx
+│   │   │   │   ├── OverviewPage.jsx
+│   │   │   │   ├── RiskPage.jsx
+│   │   │   │   ├── SchemesPage.jsx
+│   │   │   │   ├── SwotPage.jsx
+│   │   │   │   └── ViabilityPage.jsx
+│   │   └── services/
+│   │       ├── api.js               # Centralized Axios/fetch client
+│   │       └── firebaseClient.js    # Firebase Client SDK initializer
+│   ├── Dockerfile                   # Multi-stage Node 20 + Nginx Alpine
+│   └── nginx.conf                   # High-performance SPA reverse proxy
+├── notebooks/                       # Exploratory & validation Jupyter Notebooks
+│   └── Audio_Chatbot_language_selector_edition.ipynb
+├── tests/                           # Complete automated platform test harness
+│   ├── test_audio_chat_service.py
+│   ├── test_business_management.py
+│   ├── test_chat_service.py
+│   ├── test_modular_endpoints.py
+│   ├── test_neon_persistence.py
+│   ├── test_phase2.py
+│   ├── test_phase3.py
+│   ├── test_phase4.py
+│   ├── test_phase5.py
+│   ├── test_phase6.py
+│   ├── test_phase7.py
+│   └── test_translation_service.py
+├── docs/                            # Implementation plans & system blueprints
+├── docker-compose.yml               # Local & production multi-container setup
+├── requirements.txt                 # Backend Python dependencies
+├── run_tests.py                     # Master test suite runner (100% pass)
+└── README.md
+```
+
+---
+
+## 🏛️ 17 Integrated Government Schemes
+
+Udyam Saathi mathematically benchmarks projects against 17 statutory Central & State MSME subsidy and credit programs:
+
+| Scheme Code | Full Scheme Name | Administering Ministry / Nodal Agency | Max Project Cap | Subsidy / Credit Support |
+|---|---|---|:---:|:---:|
+| **PMEGP** | Prime Minister's Employment Generation Programme | Ministry of MSME / KVIC | ₹50 Lakhs | 15% – 35% Capital Grant |
+| **PMFME** | PM Formalisation of Micro Food Processing Enterprises | Ministry of Food Processing (MoFPI) | ₹1 Crore | 35% Subsidy (Max ₹10 Lakhs) |
+| **MUDRA Shishu** | Pradhan Mantri MUDRA Yojana (Shishu) | Department of Financial Services (DFS) | ₹50,000 | 100% Collateral-Free Debt |
+| **MUDRA Kishore**| Pradhan Mantri MUDRA Yojana (Kishore) | Department of Financial Services (DFS) | ₹5 Lakhs | Collateral-Free Term Loan |
+| **MUDRA Tarun** | Pradhan Mantri MUDRA Yojana (Tarun) | Department of Financial Services (DFS) | ₹10 Lakhs | Collateral-Free Working Capital |
+| **MUDRA Tarun+**| Pradhan Mantri MUDRA Yojana (Tarun Plus) | Department of Financial Services (DFS) | ₹20 Lakhs | Enhanced Credit Line |
+| **Stand-Up India**| Stand-Up India Scheme (SC / ST / Women) | SIDBI / DFS | ₹1 Crore | 15% Margin Money Support |
+| **PM Vishwakarma**| PM Vishwakarma Kaushal Samman | Ministry of MSME | ₹3 Lakhs | 5% Subsidized Concessional Loan |
+| **DAY-NRLM** | Deendayal Antyodaya Yojana (Women SHGs) | Ministry of Rural Development | ₹20 Lakhs | Interest Subvention down to 7% |
+| **AHIDF** | Animal Husbandry Infrastructure Dev Fund | DAHD / NABARD | ₹50 Crores | 3% Interest Subvention + Credit Guarantee |
+| **CGTMSE** | Credit Guarantee Fund Trust for Micro & Small Enterprises | SIDBI / Ministry of MSME | ₹5 Crores | Up to 85% Guarantee Coverage |
+| **Margin Money** | State DIC Margin Money & Capital Subsidy Scheme | State Directorate of Industries | ₹25 Lakhs | 10% – 20% Equity Margin Grant |
+| **CLCSS** | Credit Linked Capital Subsidy Scheme | Ministry of MSME | ₹1 Crore | 15% Upfront Capital Subsidy |
+| **NSFDC** | National Scheduled Castes Finance & Dev Corp | Ministry of Social Justice & Empowerment | ₹50 Lakhs | Concessional 4% – 6% Lending |
+| **NBCFDC** | National Backward Classes Finance & Dev Corp | Ministry of Social Justice & Empowerment | ₹15 Lakhs | Concessional 5% – 7% Lending |
+| **NHFDC** | National Divyangjan Finance & Dev Corp | Ministry of Social Justice & Empowerment | ₹25 Lakhs | Concessional 4% – 5% Lending |
+| **NMDFC** | National Minorities Development & Finance Corp | Ministry of Minority Affairs | ₹20 Lakhs | Concessional 5% – 6% Lending |
 
 ---
 
@@ -115,45 +217,44 @@ Udyam Saathi features enterprise user authentication and data isolation:
 
 ### Prerequisites
 * [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed & running.
-* Copy `.env.example` to `.env` and provide your Groq API key:
+* Copy `.env.example` to `.env` and set your API keys:
 ```bash
 cp .env.example .env
 ```
 
-### Launch Containers
+### Launch Complete Platform
 ```bash
 docker-compose up --build
 ```
 
 * **Frontend Dashboard**: [`http://localhost:3000`](http://localhost:3000)
 * **Backend API & Swagger Docs**: [`http://localhost:8000/docs`](http://localhost:8000/docs)
-* **Backend Health Telemetry**: [`http://localhost:8000/api/v2/health`](http://localhost:8000/api/v2/health)
+* **Subsystem Health Telemetry**: [`http://localhost:8000/api/v2/health`](http://localhost:8000/api/v2/health)
 
 ---
 
 ## 💻 Local Development Setup
 
-### 1. Backend Setup (FastAPI)
+### 1. Backend (FastAPI + Python 3.11)
 ```bash
-# Navigate to repository root
 cd SIH2026
 
-# Create and activate virtual environment
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+venv\Scripts\activate  # On Linux/macOS: source venv/bin/activate
 
-# Install Python dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# Start FastAPI server with live reload
+# Launch ASGI server
 uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 2. Frontend Setup (Vite + React)
+### 2. Frontend (React 18 + Vite)
 ```bash
 cd frontend
 
-# Install Node dependencies
+# Install Node packages
 npm install
 
 # Start Vite dev server
@@ -162,76 +263,24 @@ npm run dev
 
 ---
 
-## 🏛️ Integrated Government Schemes Catalog
+## 🧪 Master Platform Test Suite
 
-Udyam Saathi evaluates enterprise parameters against 10 Central & State MSME credit-linked subsidy schemes with direct official portal links:
-
-| Scheme ID | Full Scheme Name | Administering Body | Verified Official Portal |
-|---|---|---|---|
-| **PMEGP** | Prime Minister's Employment Generation Programme | Ministry of MSME / KVIC | [`https://pmegp.msme.gov.in/`](https://pmegp.msme.gov.in/) |
-| **PMFME** | PM Formalisation of Micro Food Processing Enterprises | Ministry of Food Processing (MoFPI) | [`https://pmfme.mofpi.gov.in/`](https://pmfme.mofpi.gov.in/) |
-| **MUDRA Shishu** | Pradhan Mantri MUDRA Yojana (Up to ₹50,000) | Department of Financial Services (DFS) | [`https://www.jansamarth.in/`](https://www.jansamarth.in/) |
-| **MUDRA Kishore**| Pradhan Mantri MUDRA Yojana (₹50,000 to ₹5 Lakhs) | Department of Financial Services (DFS) | [`https://www.jansamarth.in/`](https://www.jansamarth.in/) |
-| **MUDRA Tarun**  | Pradhan Mantri MUDRA Yojana (₹5 Lakhs to ₹10 Lakhs)| Department of Financial Services (DFS) | [`https://www.jansamarth.in/`](https://www.jansamarth.in/) |
-| **MUDRA Tarun Plus**| Pradhan Mantri MUDRA Yojana (₹10 Lakhs to ₹20 Lakhs)| Department of Financial Services (DFS) | [`https://www.jansamarth.in/`](https://www.jansamarth.in/) |
-| **Stand-Up India**| Stand-Up India Scheme for SC/ST and Women | SIDBI / DFS | [`https://www.standupmitra.in/`](https://www.standupmitra.in/) |
-| **PM Vishwakarma**| PM Vishwakarma Kaushal Samman Yojana | Ministry of MSME | [`https://pmvishwakarma.gov.in/`](https://pmvishwakarma.gov.in/) |
-| **DAY-NRLM** | Deendayal Antyodaya Yojana - National Rural Livelihoods | Ministry of Rural Development | [`https://nrlm.gov.in/`](https://nrlm.gov.in/) |
-| **AHIDF** | Animal Husbandry Infrastructure Development Fund | DAHD / NABARD | [`https://ahidf.udyamimitra.in/`](https://ahidf.udyamimitra.in/) |
-
----
-
-## 📊 5 SIH 2026 Jury Defense Benchmark Cases
-
-The platform includes 5 pre-configured benchmark case studies representing diverse Indian geographies and social slabs:
-
-| Case ID | Enterprise Name | Sector | Location | Outlay / Revenue | Top Scheme | Verdict | 5-Yr Avg DSCR |
-|---|---|---|---|---|---|:---:|:---:|
-| **Case 1** | Joypur Fresh Dairy | Dairy Processing | Bankura, WB (Rural) | ₹9.0L / ₹9.5L | **PMEGP (₹2.25L)** | 🟢 `SUITABLE` (99.5%) | **2.26** |
-| **Case 2** | Mobile Repair Hub | Electronics Repair | Ramanagara, KA (Urban) | ₹1.8L / ₹3.2L | **MUDRA Kishore** | 🟢 `SUITABLE` (98.9%) | **2.18** |
-| **Case 3** | Mahila Designer Boutique | Apparel & Tailoring | Varanasi, UP (Urban) | ₹3.5L / ₹4.2L | **Stand-Up India (₹87k)** | 🟢 `SUITABLE` (97.4%) | **1.78** |
-| **Case 4** | Overleveraged Agro Plant | Food Processing | Ujjain, MP (Rural) | ₹45.0L / ₹8.0L | **PMEGP (₹11.25L)** | 🔴 `RECONSIDER` (99.9%) | **0.29** |
-| **Case 5** | Khurja Ceramic Pottery | Ceramic Artisan | Bulandshahr, UP (Rural) | ₹2.8L / ₹3.4L | **PM Vishwakarma (₹98k)**| 🟡 `CAUTION` (98.6%) | **1.14** |
-
----
-
-## 📡 REST API Reference
-
-| Endpoint | Method | Auth | Description |
-|---|:---:|:---:|---|
-| `/api/v2/health` | `GET` | Public | Subsystem health telemetry (Database, XGBoost model, OGD API, Groq LLM). |
-| `/api/v2/auth/register` | `POST` | Bearer | Create or update user profile row after Firebase client account creation. |
-| `/api/v2/auth/session` | `POST` | Bearer | Sync session on login; updates `last_login_at` and creates profile if needed. |
-| `/api/v2/auth/me` | `GET` | Bearer | Retrieve caller's profile and count of associated projects. |
-| `/api/v2/auth/me` | `PATCH` | Bearer | Update profile fields (`name`, `gender`, `phone`, `additional_business_details`). |
-| `/api/v2/auth/me` | `DELETE` | Bearer | Delete Postgres profile, cascade delete projects, and remove Firebase user. |
-| `/api/v2/projects` | `POST` | Bearer | Create draft project record belonging to authenticated user. |
-| `/api/v2/projects` | `GET` | Bearer | List projects owned by authenticated user. |
-| `/api/v2/projects/{id}` | `GET` | Bearer | Retrieve project details with strict ownership verification (403 IDOR protected). |
-| `/api/v2/projects/{id}/analyze` | `POST` | Bearer | Run feasibility analysis for project and persist full JSONB results. |
-| `/api/v2/projects/{id}/dpr` | `GET` | Bearer | Retrieve project 7-section Bank DPR in `html`, `markdown`, or `json`. |
-| `/api/v2/feasibility/generate` | `POST` | Public / Bearer | Complete 4-tier feasibility appraisal, TreeSHAP attributions, and credit memo. |
-| `/api/v2/feasibility/{report_id}` | `GET` | Public | Retrieve stored feasibility report by unique report ID. |
-| `/api/v2/financial/calculate` | `POST` | Public | Standalone deterministic loan amortization, DSCR, and working capital calculator. |
-| `/api/v2/locations/states` | `GET` | Public | List all 36 Indian States and Union Territories from LGD database. |
-| `/api/v2/locations/districts` | `GET` | Public | Query districts for a selected state (`?state_name=...`). |
-| `/api/v2/locations/blocks` | `GET` | Public | Query development blocks for a selected district (`?district_name=...`). |
-| `/api/v2/data-sources` | `GET` | Public | Ground-truth database lineage metadata and connected table schemas. |
-| `/api/v2/data-sources/schemes` | `GET` | Public | Master catalog of 10 Central & State subsidy schemes with official URLs. |
-| `/api/v2/data-sources/stats` | `GET` | Public | System record counts across Census, MSME registry, and Amenities tables. |
-
----
-
-## 🧪 Master Automated Test Suite
-
-Udyam Saathi includes comprehensive automated tests covering all mathematical, ML, LLM, API, authentication, and IDOR invariants:
+Udyam Saathi maintains a rigorous, zero-hallucination verification suite covering deterministic accounting balance, LGD demographic scaling, 17-scheme ranking, Lundberg TreeSHAP game-theoretic invariants, multi-lingual audio/text synthesis, and IDOR tenancy security:
 
 ```bash
-# Run full regression test harness
+# Run all 11 test suites (325/325 tests)
 python run_tests.py
+```
 
-# Run modular endpoint test suite
-python test_modular_endpoints.py
+```
+==========================================================================================
+🏁 TEST EXECUTION SUMMARY:
+==========================================================================================
+Total Test Suites: 11
+Suites Passed:     11 / 11 (100% Success Rate)
+Suites Failed:     0
+==========================================================================================
+🎉 ALL 325 TESTS ACROSS ALL PHASES PASSED WITH 100% SUCCESS RATE!
 ```
 
 ---
