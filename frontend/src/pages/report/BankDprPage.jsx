@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { StatutoryChecklistCard } from '../../components/Dashboard/StatutoryChecklistCard';
 import { fetchDprDocument } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { FileText, Printer, Download, Copy, Check, Loader2, CheckCircle2, ShieldCheck, Sparkles, Landmark, IndianRupee, PieChart, TrendingUp } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
+import { FileText, Printer, Download, Copy, Check, Loader2, CheckCircle2, ShieldCheck, Sparkles, Landmark, IndianRupee, PieChart, TrendingUp, Languages } from 'lucide-react';
 import { TranslatedText } from '../../components/TranslatedText';
 
 export function BankDprPage({ reportData }) {
   const { token } = useAuth();
+  const { language, setLanguage, languages = [] } = useLanguage();
   const [format, setFormat] = useState('html');
   const [dprContent, setDprContent] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,7 +33,7 @@ export function BankDprPage({ reportData }) {
     async function loadDpr() {
       setLoading(true);
       try {
-        const res = await fetchDprDocument(reportId, format, token);
+        const res = await fetchDprDocument(reportId, format, token, language);
         setDprContent(res);
       } catch (err) {
         setDprContent(`<div style="padding:20px; color:#dc2626;">Could not load Bank DPR: ${err.message}</div>`);
@@ -40,7 +42,7 @@ export function BankDprPage({ reportData }) {
       }
     }
     loadDpr();
-  }, [reportId, format, token]);
+  }, [reportId, format, token, language]);
 
   if (!reportData) return null;
 
@@ -72,7 +74,7 @@ export function BankDprPage({ reportData }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Bank_DPR_${p.enterprise_name ? p.enterprise_name.replace(/\s+/g, '_') : 'Enterprise'}_${reportId}.${format === 'html' ? 'html' : 'md'}`;
+    a.download = `Bank_DPR_${p.enterprise_name ? p.enterprise_name.replace(/\s+/g, '_') : 'Enterprise'}_${reportId}_${language}.${format === 'html' ? 'html' : 'md'}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -98,6 +100,23 @@ export function BankDprPage({ reportData }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* DPR Language Selector */}
+          <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 text-xs shadow-xs">
+            <Languages className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer pr-1"
+              title="Select DPR Appraisal Language"
+            >
+              {languages.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.native} ({lang.label})
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Format toggle */}
           <div className="flex bg-slate-100/90 p-1 rounded-xl border border-slate-200 text-xs shadow-inner">
             <button

@@ -32,6 +32,7 @@ from amenities_client import fetch_village_amenities
 from app.config import settings
 from app.database import db_manager
 from app.core.auth_dependency import get_current_user, get_current_user_optional, AuthenticatedUser
+from app.core.translation_service import TranslationService
 from app.models.schemas import UserInput, FeasibilityReport
 
 router = APIRouter(prefix="/feasibility", tags=["Feasibility Analysis & DPR"])
@@ -376,16 +377,28 @@ async def get_feasibility(report_id: str, current_user: AuthenticatedUser = Depe
 async def generate_direct_dpr(
     input_data: UserInput,
     format: str = Query("json", description="Output format: json | markdown | html"),
+    lang: str = Query("en", description="Target language: en | hi | mr | ta | te | kn"),
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """Directly transforms user input into official 7-Section Bank DPR."""
+    """Directly transforms user input into official 7-Section Bank DPR with multilingual support."""
     try:
         report, dpr = await _run_pipeline(input_data)
         fmt = format.lower().strip()
+        target_lang = lang.lower().strip() if lang else "en"
+        trans_service = TranslationService.get_instance()
+
         if fmt == "html":
-            return HTMLResponse(content=dpr_to_html(dpr), media_type="text/html")
+            raw_html = dpr_to_html(dpr)
+            if target_lang != "en":
+                res = await trans_service.translate_text(raw_html, target_language=target_lang, source_language="en", format_type="html")
+                return HTMLResponse(content=res.get("translated_text", raw_html), media_type="text/html")
+            return HTMLResponse(content=raw_html, media_type="text/html")
         elif fmt == "markdown":
-            return PlainTextResponse(content=dpr_to_printable_markdown(dpr), media_type="text/markdown")
+            raw_md = dpr_to_printable_markdown(dpr)
+            if target_lang != "en":
+                res = await trans_service.translate_text(raw_md, target_language=target_lang, source_language="en", format_type="text")
+                return PlainTextResponse(content=res.get("translated_text", raw_md), media_type="text/markdown")
+            return PlainTextResponse(content=raw_md, media_type="text/markdown")
         return dpr.to_dict()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -395,9 +408,10 @@ async def generate_direct_dpr(
 async def get_report_dpr(
     report_id: str,
     format: str = Query("json", description="Output format: json | markdown | html"),
+    lang: str = Query("en", description="Target language: en | hi | mr | ta | te | kn"),
     current_user: Optional[AuthenticatedUser] = Depends(get_current_user_optional),
 ):
-    """Retrieves 7-Section Bank DPR for an existing feasibility report."""
+    """Retrieves 7-Section Bank DPR for an existing feasibility report with multilingual translation."""
     user_id = current_user.uid if current_user else None
     cached = await db_manager.get_feasibility_report(report_id, user_id)
     if not cached:
@@ -407,8 +421,19 @@ async def get_report_dpr(
     dpr_doc = BankDPRDocument(**dpr_dict)
 
     fmt = format.lower().strip()
+    target_lang = lang.lower().strip() if lang else "en"
+    trans_service = TranslationService.get_instance()
+
     if fmt == "html":
-        return HTMLResponse(content=dpr_to_html(dpr_doc), media_type="text/html")
+        raw_html = dpr_to_html(dpr_doc)
+        if target_lang != "en":
+            res = await trans_service.translate_text(raw_html, target_language=target_lang, source_language="en", format_type="html")
+            return HTMLResponse(content=res.get("translated_text", raw_html), media_type="text/html")
+        return HTMLResponse(content=raw_html, media_type="text/html")
     elif fmt == "markdown":
-        return PlainTextResponse(content=dpr_to_printable_markdown(dpr_doc), media_type="text/markdown")
+        raw_md = dpr_to_printable_markdown(dpr_doc)
+        if target_lang != "en":
+            res = await trans_service.translate_text(raw_md, target_language=target_lang, source_language="en", format_type="text")
+            return PlainTextResponse(content=res.get("translated_text", raw_md), media_type="text/markdown")
+        return PlainTextResponse(content=raw_md, media_type="text/markdown")
     return dpr_dict

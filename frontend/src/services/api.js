@@ -233,8 +233,9 @@ export async function fetchFeasibilityReport(reportId, token = null) {
   });
 }
 
-export async function fetchDprDocument(reportId, format = 'json', token = null) {
-  return await authFetch(`${API_BASE}/feasibility/${reportId}/dpr?format=${format}`, token, {
+export async function fetchDprDocument(reportId, format = 'json', token = null, lang = 'en') {
+  const langParam = lang ? `&lang=${encodeURIComponent(lang)}` : '';
+  return await authFetch(`${API_BASE}/feasibility/${reportId}/dpr?format=${format}${langParam}`, token, {
     method: 'GET',
   });
 }

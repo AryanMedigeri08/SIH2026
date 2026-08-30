@@ -275,9 +275,10 @@ async def update_project(
 async def get_project_dpr(
     project_id: str,
     format: str = Query("json", description="Output format: json | markdown | html"),
+    lang: str = Query("en", description="Target language: en | hi | mr | ta | te | kn"),
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """Retrieves official 7-Section Bank DPR for a project with ownership verification."""
+    """Retrieves official 7-Section Bank DPR for a project with ownership verification and translation."""
     project = await db_manager.get_project(project_id)
     if not project:
         raise HTTPException(status_code=404, detail=f"Business '{project_id}' not found.")
@@ -299,10 +300,21 @@ async def get_project_dpr(
     dpr_doc = BankDPRDocument(**dpr_dict)
 
     fmt = format.lower().strip()
+    target_lang = lang.lower().strip() if lang else "en"
+    trans_service = TranslationService.get_instance()
+
     if fmt == "html":
-        return HTMLResponse(content=dpr_to_html(dpr_doc), media_type="text/html")
+        raw_html = dpr_to_html(dpr_doc)
+        if target_lang != "en":
+            res = await trans_service.translate_text(raw_html, target_language=target_lang, source_language="en", format_type="html")
+            return HTMLResponse(content=res.get("translated_text", raw_html), media_type="text/html")
+        return HTMLResponse(content=raw_html, media_type="text/html")
     elif fmt == "markdown":
-        return PlainTextResponse(content=dpr_to_printable_markdown(dpr_doc), media_type="text/markdown")
+        raw_md = dpr_to_printable_markdown(dpr_doc)
+        if target_lang != "en":
+            res = await trans_service.translate_text(raw_md, target_language=target_lang, source_language="en", format_type="text")
+            return PlainTextResponse(content=res.get("translated_text", raw_md), media_type="text/markdown")
+        return PlainTextResponse(content=raw_md, media_type="text/markdown")
     return dpr_dict
 
 
