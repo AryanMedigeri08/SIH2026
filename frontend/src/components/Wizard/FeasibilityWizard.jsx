@@ -594,93 +594,219 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
           )}
 
           {/* Step 4: Capital Outlay & Sales */}
-          {currentStep === 4 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-sovereign-700" />
-                  Step 4: Available Margin Capital & Sales Revenue
-                </h3>
-                <span className="text-[11px] font-bold text-sovereign-800 bg-sovereign-50 border border-sovereign-200 px-2.5 py-1 rounded-lg self-start sm:self-auto">
-                  Statutory Equity: {(getMarginPct(formData.promoter_category) * 100).toFixed(0)}% ({formData.promoter_category?.toUpperCase()})
-                </span>
-              </div>
+          {currentStep === 4 && (() => {
+            const cost = Number(formData.project_cost) || 0;
+            const sales = Number(formData.annual_turnover_estimate) || 0;
+            const marginVal = Number(formData.margin_capital) || 0;
+            const turnoverRatio = cost > 0 ? (sales / cost) : 0;
+            
+            // Sector benchmark margin helper
+            const sec = String(formData.sector || "").toLowerCase();
+            const sectorMargin = sec.includes("service") || sec.includes("repair") ? 0.38 
+              : sec.includes("apparel") || sec.includes("textile") || sec.includes("craft") ? 0.32
+              : sec.includes("trading") || sec.includes("retail") ? 0.22 
+              : 0.30;
+            
+            // Fast EMI approximation for instant underwriting preview
+            const loanPrincipal = Math.max(1000, (cost * 0.65) - Math.min(marginVal, cost * 0.10));
+            const monthlyRate = 0.095 / 12;
+            const tenureMonths = Math.max(12, (Number(formData.tenure_years) || 5) * 12);
+            const quickEmi = (loanPrincipal * monthlyRate * Math.pow(1 + monthlyRate, tenureMonths)) / 
+              Math.max(0.0001, (Math.pow(1 + monthlyRate, tenureMonths) - 1));
+            
+            const monthlyNoi = (sales * sectorMargin) / 12;
+            const preDscr = quickEmi > 0 ? (monthlyNoi / quickEmi) : 0;
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                    <span>Available Margin Capital (₹)</span>
-                    <span className="text-[10px] text-emerald-600 font-semibold">User Equity Input</span>
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min={2500}
-                    step={2500}
-                    value={formData.margin_capital !== undefined ? formData.margin_capital : ""}
-                    onChange={e => {
-                      const rawVal = e.target.value;
-                      const margin = rawVal === "" ? "" : Number(rawVal);
-                      const numMargin = Number(margin) || 0;
-                      const marginPct = getMarginPct(formData.promoter_category);
-                      const derivedCost = marginPct > 0 ? Math.round(numMargin / marginPct) : numMargin * 10;
-                      setFormData(prev => ({
-                        ...prev,
-                        margin_capital: margin,
-                        project_cost: derivedCost,
-                      }));
-                    }}
-                    placeholder="e.g. 90000"
-                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
-                  />
-                  <p className="text-[11px] text-slate-500 mt-1">Personal cash/equity capital you are willing to invest</p>
+            const isLowSales = turnoverRatio > 0 && (turnoverRatio < 0.50 || preDscr < 1.0);
+            const isHighSales = turnoverRatio > 5.0;
+            const isOptimal = turnoverRatio >= 0.80 && turnoverRatio <= 3.50 && preDscr >= 1.33;
 
-                  {/* Derived Project Sizing Readout Card */}
-                  <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 shadow-subtle">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-500 font-medium">Derived Project Outlay:</span>
-                      <strong className="text-emerald-700 font-mono font-bold text-sm">
-                        ₹{Number(formData.project_cost || 0).toLocaleString('en-IN')}
-                      </strong>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-slate-500">Gross Implied Bank Loan:</span>
-                      <span className="text-slate-800 font-mono font-semibold">
-                        ₹{Number(Math.max(0, (formData.project_cost || 0) - (Number(formData.margin_capital) || 0))).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-200 flex items-center gap-1">
-                      <Info className="w-3 h-3 text-sovereign-600 shrink-0" />
-                      <span>Back-solved: Margin ÷ {(getMarginPct(formData.promoter_category) * 100).toFixed(0)}% statutory equity requirement</span>
-                    </div>
-                  </div>
+            return (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-sovereign-700" />
+                    Step 4: Available Margin Capital & Sales Revenue
+                  </h3>
+                  <span className="text-[11px] font-bold text-sovereign-800 bg-sovereign-50 border border-sovereign-200 px-2.5 py-1 rounded-lg self-start sm:self-auto">
+                    Statutory Equity: {(getMarginPct(formData.promoter_category) * 100).toFixed(0)}% ({formData.promoter_category?.toUpperCase()})
+                  </span>
                 </div>
 
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Estimated Annual Gross Sales (₹)</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                      <span>Available Margin Capital (₹)</span>
+                      <span className="text-[10px] text-emerald-600 font-semibold">User Equity Input</span>
+                    </label>
                     <input
                       type="number"
                       required
-                      min={25000}
-                      step={5000}
-                      value={formData.annual_turnover_estimate}
-                      onChange={e => setFormData({ ...formData, annual_turnover_estimate: Number(e.target.value) })}
+                      min={2500}
+                      step={2500}
+                      value={formData.margin_capital !== undefined ? formData.margin_capital : ""}
+                      onChange={e => {
+                        const rawVal = e.target.value;
+                        const margin = rawVal === "" ? "" : Number(rawVal);
+                        const numMargin = Number(margin) || 0;
+                        const marginPct = getMarginPct(formData.promoter_category);
+                        const derivedCost = marginPct > 0 ? Math.round(numMargin / marginPct) : numMargin * 10;
+                        setFormData(prev => ({
+                          ...prev,
+                          margin_capital: margin,
+                          project_cost: derivedCost,
+                        }));
+                      }}
+                      placeholder="e.g. 90000"
                       className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                     />
-                    <p className="text-[11px] text-slate-500 mt-1">Projected 100% capacity annual sales revenue</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Personal cash/equity capital you are willing to invest</p>
+
+                    {/* Derived Project Sizing Readout Card */}
+                    <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 shadow-subtle">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-500 font-medium">Derived Project Outlay:</span>
+                        <strong className="text-emerald-700 font-mono font-bold text-sm">
+                          ₹{Number(formData.project_cost || 0).toLocaleString('en-IN')}
+                        </strong>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-500">Gross Implied Bank Loan:</span>
+                        <span className="text-slate-800 font-mono font-semibold">
+                          ₹{Number(Math.max(0, (formData.project_cost || 0) - (Number(formData.margin_capital) || 0))).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-200 flex items-center gap-1">
+                        <Info className="w-3 h-3 text-sovereign-600 shrink-0" />
+                        <span>Back-solved: Margin ÷ {(getMarginPct(formData.promoter_category) * 100).toFixed(0)}% statutory equity requirement</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="p-3 bg-sovereign-50 border border-sovereign-200 rounded-xl flex justify-between items-center text-xs">
-                    <span className="text-slate-700 font-medium">Turnover to Capital Leverage:</span>
-                    <strong className="text-sovereign-900 font-mono font-bold">
-                      {formData.project_cost > 0 ? (formData.annual_turnover_estimate / formData.project_cost).toFixed(2) : 0}x
-                    </strong>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700">Estimated Annual Gross Sales (₹)</label>
+                        {cost > 0 && (
+                          <span className="text-[10px] text-slate-500 font-medium">
+                            Range: ₹{(cost * 0.8).toLocaleString('en-IN')} – ₹{(cost * 3.0).toLocaleString('en-IN')}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        required
+                        min={25000}
+                        step={5000}
+                        value={formData.annual_turnover_estimate}
+                        onChange={e => setFormData({ ...formData, annual_turnover_estimate: Number(e.target.value) })}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1">Projected 100% capacity annual sales revenue</p>
+
+                      {/* 1-Click Quick Preset Turnover Buttons */}
+                      {cost > 0 && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Presets:</span>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({
+                              ...prev,
+                              annual_turnover_estimate: Math.round((cost * 1.0) / 5000) * 5000
+                            }))}
+                            className={`text-[10px] px-2 py-1 rounded-md font-semibold border transition ${
+                              Math.abs(turnoverRatio - 1.0) < 0.1
+                                ? 'bg-sovereign-100 border-sovereign-400 text-sovereign-900'
+                                : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            1.0x Conservative
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({
+                              ...prev,
+                              annual_turnover_estimate: Math.round((cost * 1.5) / 5000) * 5000
+                            }))}
+                            className={`text-[10px] px-2 py-1 rounded-md font-semibold border transition ${
+                              Math.abs(turnoverRatio - 1.5) < 0.1
+                                ? 'bg-emerald-100 border-emerald-400 text-emerald-900 shadow-xs'
+                                : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                            }`}
+                          >
+                            ★ 1.5x Realistic (Optimal)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({
+                              ...prev,
+                              annual_turnover_estimate: Math.round((cost * 2.2) / 5000) * 5000
+                            }))}
+                            className={`text-[10px] px-2 py-1 rounded-md font-semibold border transition ${
+                              Math.abs(turnoverRatio - 2.2) < 0.1
+                                ? 'bg-sovereign-100 border-sovereign-400 text-sovereign-900'
+                                : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            2.2x High Capacity
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Live Underwriting Diagnostics Preview Card */}
+                    <div className="p-3 bg-gradient-to-br from-slate-50 to-sovereign-50/30 border border-slate-200 rounded-xl space-y-2 shadow-subtle">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-600 font-medium">Turnover to Capital Leverage:</span>
+                        <strong className="text-sovereign-900 font-mono font-bold text-sm">
+                          {turnoverRatio.toFixed(2)}x
+                        </strong>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-200/80 text-[11px]">
+                        <div>
+                          <span className="text-slate-500 block">Est. Monthly Cash Surplus:</span>
+                          <span className="text-slate-800 font-mono font-semibold">
+                            ₹{Math.round(monthlyNoi).toLocaleString('en-IN')}/mo
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Est. Bank EMI:</span>
+                          <span className="text-slate-800 font-mono font-semibold">
+                            ₹{Math.round(quickEmi).toLocaleString('en-IN')}/mo
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Dynamic Solvency Pre-Check Indicator */}
+                      <div className="pt-1.5 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-500">Instant Pre-DSCR:</span>
+                        {isOptimal ? (
+                          <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded text-[10px]">
+                            <CheckCircle2 className="w-3 h-3" />
+                            {preDscr.toFixed(2)}x (Prime Bankable)
+                          </span>
+                        ) : isLowSales ? (
+                          <span className="inline-flex items-center gap-1 font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded text-[10px]">
+                            <AlertCircle className="w-3 h-3" />
+                            {preDscr.toFixed(2)}x (Insolvent Cash Deficit)
+                          </span>
+                        ) : isHighSales ? (
+                          <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-[10px]">
+                            <AlertCircle className="w-3 h-3" />
+                            {turnoverRatio.toFixed(1)}x (High Machine Load)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 font-bold text-slate-700 bg-slate-200 px-2 py-0.5 rounded text-[10px]">
+                            {preDscr.toFixed(2)}x (Acceptable)
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Step 5: Loan Terms & Moratorium */}
           {currentStep === 5 && (
