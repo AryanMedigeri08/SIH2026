@@ -151,6 +151,10 @@ export function MarketDemandPage({ reportData }) {
               <span className="text-slate-600"><TranslatedText text="Purchase Frequency" />:</span>
               <span className="font-mono font-bold text-slate-900">{monthlyFrequency} <TranslatedText text="cycles / month" /></span>
             </div>
+            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-slate-600"><TranslatedText text="Average Ticket Size" />:</span>
+              <span className="font-mono font-bold text-emerald-800">₹{avgTicketSize} / <TranslatedText text="purchase" /></span>
+            </div>
           </div>
         </div>
 
