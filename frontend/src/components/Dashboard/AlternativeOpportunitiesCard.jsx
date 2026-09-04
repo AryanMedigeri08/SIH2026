@@ -51,9 +51,9 @@ export function AlternativeOpportunitiesCard({ reportData, onOpenWizard }) {
   const isReconsider = verdict === 'RECONSIDER';
   const currentSector = reportData?.input_parameters?.sector || activeBusiness?.sector;
 
-  // Load recommendations from API or persistent session cache
+  // Load recommendations from API when verdict is RECONSIDER
   const loadRecommendations = useCallback(async () => {
-    if (!reportData) return;
+    if (!reportData || !isReconsider) return;
     setLoading(true);
     setError(null);
 
@@ -69,21 +69,6 @@ export function AlternativeOpportunitiesCard({ reportData, onOpenWizard }) {
         const top3 = res.recommendations.slice(0, 3);
         setRecommendations(top3);
         setSource(res.source || 'GROQ_LLM');
-
-        // Persist to session storage so it remains visible even after switching to a new suitable dashboard
-        try {
-          sessionStorage.setItem(
-            STORAGE_KEY_ALTERNATIVES,
-            JSON.stringify({
-              recommendations: top3,
-              source: res.source || 'GROQ_LLM',
-              originalReportId: reportData.report_id,
-              originalEnterpriseName: reportData.input_parameters?.enterprise_name || activeBusiness?.business_name,
-            })
-          );
-        } catch (e) {
-          console.warn('Could not store alternatives in sessionStorage:', e);
-        }
       } else {
         setRecommendations([]);
       }
@@ -93,26 +78,14 @@ export function AlternativeOpportunitiesCard({ reportData, onOpenWizard }) {
     } finally {
       setLoading(false);
     }
-  }, [reportData, token, activeBusiness]);
+  }, [reportData, isReconsider, token]);
 
-  // Initial effect: If RECONSIDER, fetch fresh recommendations; otherwise check session cache
+  // Only fetch recommendations when the enterprise is flagged as RECONSIDER
   useEffect(() => {
     if (isReconsider) {
       loadRecommendations();
     } else {
-      // Check if user previously had alternative recommendations in this session
-      try {
-        const cachedStr = sessionStorage.getItem(STORAGE_KEY_ALTERNATIVES);
-        if (cachedStr) {
-          const cached = JSON.parse(cachedStr);
-          if (cached && Array.isArray(cached.recommendations) && cached.recommendations.length > 0) {
-            setRecommendations(cached.recommendations.slice(0, 3));
-            setSource(cached.source || 'GROQ_LLM');
-          }
-        }
-      } catch (e) {
-        console.warn('Could not restore cached alternatives:', e);
-      }
+      setRecommendations([]);
     }
   }, [isReconsider, loadRecommendations]);
 
@@ -146,21 +119,6 @@ export function AlternativeOpportunitiesCard({ reportData, onOpenWizard }) {
         additional_business_details: `Switched from reconsidered project to recommended alternative #${rec.rank} (${rec.enterprise_name}). Rationale: ${rec.rationale}`,
       };
 
-      // Ensure alternatives remain cached in sessionStorage
-      try {
-        sessionStorage.setItem(
-          STORAGE_KEY_ALTERNATIVES,
-          JSON.stringify({
-            recommendations,
-            source,
-            originalEnterpriseName: originalParams.enterprise_name || activeBusiness?.business_name,
-            switchedTo: newEnterpriseName,
-          })
-        );
-      } catch (e) {
-        console.warn('Could not update alternatives cache:', e);
-      }
-
       // Generate report and create/save business in BusinessContext
       const created = await createAndSaveBusiness(payload);
 
@@ -181,8 +139,8 @@ export function AlternativeOpportunitiesCard({ reportData, onOpenWizard }) {
     }
   };
 
-  // If no recommendations and not reconsider, do not render
-  if (recommendations.length === 0 && !loading && !isReconsider) {
+  // Strictly hide if verdict is not RECONSIDER (e.g. SUITABLE or CAUTION)
+  if (!isReconsider) {
     return null;
   }
 
