@@ -399,4 +399,18 @@ export const chatApi = {
   },
 };
 
+// --- Alternative Enterprise Recommendations API ---
+export const recommendationsApi = {
+  async fetchRecommendations(formData, token = null) {
+    return await authFetch(`${API_BASE}/feasibility/recommendations`, token, {
+      method: 'POST',
+      body: JSON.stringify(formData),
+    });
+  },
 
+  async fetchRecommendationsFromReport(reportId, token = null) {
+    return await authFetch(`${API_BASE}/feasibility/recommendations/from-report?report_id=${encodeURIComponent(reportId)}`, token, {
+      method: 'POST',
+    });
+  },
+};

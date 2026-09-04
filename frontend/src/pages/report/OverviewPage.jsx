@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ViabilityMeterCard } from '../../components/Dashboard/ViabilityMeterCard';
 import { ExecutiveNarrativeCard } from '../../components/Dashboard/ExecutiveNarrativeCard';
+import { AlternativeOpportunitiesCard } from '../../components/Dashboard/AlternativeOpportunitiesCard';
 import {
   BrainCircuit,
   Target,
@@ -369,6 +370,9 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
           />
         </div>
       </div>
+
+      {/* Alternative Enterprise Recommendations (Rendered exclusively when Verdict === RECONSIDER) */}
+      <AlternativeOpportunitiesCard reportData={reportData} onOpenWizard={onOpenWizard} />
 
       {/* Row 2: Appraisal Module Cards Grid with Colored Accents */}
       <div>

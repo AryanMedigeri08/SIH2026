@@ -10,6 +10,7 @@ import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ChatProvider } from './context/ChatContext';
 import { FloatingChatWindow } from './components/Chat/FloatingChatWindow';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { LanguageTransitionOverlay } from './components/LanguageTransitionOverlay';
 
 // Public & Auth Pages
 import { LandingPage } from './pages/LandingPage';
@@ -571,6 +572,7 @@ export function App() {
     <BrowserRouter>
       <AuthProvider>
         <LanguageProvider>
+          <LanguageTransitionOverlay />
           <BusinessProvider>
             <ChatProvider>
               <AppContent />

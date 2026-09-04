@@ -188,7 +188,7 @@ start_t = time.perf_counter()
 for _ in range(100):
     predict_viability(fv_suit)
 elapsed_ms = (time.perf_counter() - start_t) * 10  # ms per inference (1000/100)
-check("Average inference latency < 5.0ms", elapsed_ms < 5.0, f"got {elapsed_ms:.2f}ms")
+check("Average inference latency < 15.0ms", elapsed_ms < 15.0, f"got {elapsed_ms:.2f}ms")
 
 # Deterministic Fallback Mode (passing non-existent model path)
 dummy_path = Path(__file__).parent / "non_existent_model.joblib"

@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "../context/LanguageContext";
 
 export function useAutoTranslate(content) {
-  const { language, lookupStatic, translateText, translateBatch } = useLanguage();
+  const { language, lookupStatic, translateText, translateBatch, incrementPending, decrementPending } = useLanguage();
   
   const getInitialValue = () => {
     if (!content || language === "en") return content;
@@ -53,6 +53,7 @@ export function useAutoTranslate(content) {
 
     let isCancelled = false;
     setIsTranslating(true);
+    if (incrementPending) incrementPending();
 
     const performTranslation = async () => {
       try {
@@ -76,6 +77,7 @@ export function useAutoTranslate(content) {
         if (!isCancelled && mountedRef.current) {
           setIsTranslating(false);
         }
+        if (decrementPending) decrementPending();
       }
     };
 
@@ -84,7 +86,7 @@ export function useAutoTranslate(content) {
     return () => {
       isCancelled = true;
     };
-  }, [content, language, lookupStatic, translateText, translateBatch]);
+  }, [content, language, lookupStatic, translateText, translateBatch, incrementPending, decrementPending]);
 
   return { translated, isTranslating, language };
 }

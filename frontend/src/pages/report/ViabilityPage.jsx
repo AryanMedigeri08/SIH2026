@@ -2,6 +2,7 @@ import React from 'react';
 import { ViabilityMeterCard } from '../../components/Dashboard/ViabilityMeterCard';
 import { FeatureContributionChart } from '../../components/Dashboard/FeatureContributionChart';
 import { ViabilityRadarChart } from '../../components/Dashboard/ViabilityRadarChart';
+import { AlternativeOpportunitiesCard } from '../../components/Dashboard/AlternativeOpportunitiesCard';
 import { BrainCircuit, Info, ShieldCheck, Sparkles, CheckCircle2, Table, TrendingUp, TrendingDown, Layers } from 'lucide-react';
 import { TranslatedText } from '../../components/TranslatedText';
 
@@ -53,6 +54,9 @@ export function ViabilityPage({ reportData }) {
 
       {/* Viability Gauge Hero Card */}
       <ViabilityMeterCard mlViability={ml} dscrInfo={fin.dscr} />
+
+      {/* Alternative Enterprise Recommendations (Rendered exclusively when Verdict === RECONSIDER) */}
+      <AlternativeOpportunitiesCard reportData={reportData} />
 
       {/* Visuals Grid: SHAP Horizontal Bar Chart + 10-D Viability Radar */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

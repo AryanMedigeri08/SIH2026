@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ViabilityMeterCard } from './ViabilityMeterCard';
+import { AlternativeOpportunitiesCard } from './AlternativeOpportunitiesCard';
 import { FeatureContributionChart } from './FeatureContributionChart';
 import { ViabilityRadarChart } from './ViabilityRadarChart';
 import { DscrGaugeChart } from './DscrGaugeChart';
@@ -163,6 +164,9 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
 
       {/* Viability Gauge Hero Card */}
       <ViabilityMeterCard mlViability={ml} dscrInfo={fin.dscr} />
+
+      {/* Alternative Enterprise Recommendations (Rendered exclusively when Verdict === RECONSIDER) */}
+      <AlternativeOpportunitiesCard reportData={reportData} onOpenWizard={onOpenWizard} />
 
       {/* SECTION 1: ML Viability & Lundberg TreeSHAP Explainability Visuals */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
