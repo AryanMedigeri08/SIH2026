@@ -32,7 +32,8 @@ export function MarketDemandPage({ reportData }) {
   const density = msmeDens.msme_density_per_10k || demographics.msme_density_per_10k || 0;
   const totalMsmes = msmeDet.total_msme || msmeDens.district_msme_total || 0;
   const competitorsCount = comp.estimated_local_competitors || 0;
-  const competitionNormalized = comp.competition_intensity_normalized ? (comp.competition_intensity_normalized * 100).toFixed(1) : '30.0';
+  const rawCompNorm = comp.competition_intensity_normalized !== undefined ? comp.competition_intensity_normalized : 0.05;
+  const marketRoomPct = Math.max(0, 100 - (rawCompNorm * 100)).toFixed(1);
 
   // Pricing Engine Numbers
   const unitFloor = pricing.unit_cost_floor || 0;
@@ -58,93 +59,97 @@ export function MarketDemandPage({ reportData }) {
         </p>
       </div>
 
-      {/* Demographics Summary Metrics Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="glass-panel p-4 bg-gradient-to-b from-sky-50/30 via-white to-white border border-slate-200/90 border-t-2 border-t-sky-500 shadow-card hover:shadow-card-hover transition-all">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold uppercase tracking-wider">
-            <Users className="w-3.5 h-3.5 text-sky-600" />
-            <span><TranslatedText text="2026 Catchment Pop" /></span>
+      {/* Grid: 4-Stage Demand Conversion Funnel + Demographic Catchment */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Left: 4-Stage Demand Conversion Funnel */}
+        <TamFunnelChart demographics={demographics} pricing={pricing} />
+
+        {/* Right: Demographic Growth & Catchment Base Card */}
+        <div className="glass-panel p-6 bg-white border border-slate-200 rounded-2xl shadow-card space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-sky-50 text-sky-700 border border-sky-200">
+                <Users className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-base font-outfit font-bold text-slate-900">
+                  <TranslatedText text="Demographic Growth & Consumer Base" />
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  {demographics.census_details?.provenance || 'Census 2011 Rural Catchment Database (census_raw)'}
+                </p>
+              </div>
+            </div>
+            <span className="text-xs px-2.5 py-1 rounded-lg bg-sky-50 border border-sky-200 text-sky-800 font-mono font-bold">
+              +{growthRate}% <TranslatedText text="CAGR" />
+            </span>
           </div>
-          <strong className="text-xl sm:text-2xl font-mono font-extrabold text-slate-900 block mt-1">
-            {pop2026.toLocaleString('en-IN')}
-          </strong>
-          <span className="text-[10px] text-emerald-700 font-semibold mt-0.5 block">
-            +{totalGrowthPct}% ({growthRate}% CAGR) from {pop2011.toLocaleString('en-IN')}
-          </span>
+
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="text-slate-500 font-medium"><TranslatedText text="Base Pop (2011)" /></div>
+              <div className="text-lg font-mono font-bold text-slate-800 mt-0.5">{pop2011.toLocaleString('en-IN')}</div>
+              <div className="text-[10px] text-slate-500"><TranslatedText text="Census Benchmark" /></div>
+            </div>
+            <div className="p-3 rounded-xl bg-sky-50/60 border border-sky-100">
+              <div className="text-sky-800 font-medium"><TranslatedText text="Projected Pop (2026)" /></div>
+              <div className="text-lg font-mono font-bold text-sky-950 mt-0.5">{pop2026.toLocaleString('en-IN')}</div>
+              <div className="text-[10px] text-sky-700 font-semibold">+{totalGrowthPct}% <TranslatedText text="Cumulative" /></div>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="text-slate-500 font-medium"><TranslatedText text="Projected Households" /></div>
+              <div className="text-lg font-mono font-bold text-slate-800 mt-0.5">{households2026.toLocaleString('en-IN')}</div>
+              <div className="text-[10px] text-slate-500"><TranslatedText text="4.8 persons / household" /></div>
+            </div>
+            <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-100">
+              <div className="text-emerald-800 font-medium"><TranslatedText text="Targeted Households" /></div>
+              <div className="text-lg font-mono font-bold text-emerald-950 mt-0.5">{tam.target_households?.toLocaleString('en-IN') || Math.round(households2026 * 0.25).toLocaleString('en-IN')}</div>
+              <div className="text-[10px] text-emerald-700 font-semibold">{penetrationRate}% <TranslatedText text="Penetration" /></div>
+            </div>
+          </div>
+
+          {/* Location Lineage */}
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-slate-900">
+              <MapPin className="w-3.5 h-3.5 text-sky-700 shrink-0" />
+              <span><TranslatedText text="Resolved Demographic Catchment" />:</span>
+            </div>
+            <p className="text-[11px] text-slate-600 font-medium pl-5">
+              {p.village_name || 'Village'}, {p.block_name ? `${p.block_name} Block, ` : ''}{p.district_name || 'District'}, {p.state_name || 'State'}
+            </p>
+          </div>
         </div>
 
-        <div className="glass-panel p-4 bg-gradient-to-b from-emerald-50/30 via-white to-white border border-slate-200/90 border-t-2 border-t-emerald-500 shadow-card hover:shadow-card-hover transition-all">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold uppercase tracking-wider">
-            <Target className="w-3.5 h-3.5 text-emerald-600" />
-            <span><TranslatedText text="Annual TAM Demand" /></span>
-          </div>
-          <strong className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-700 block mt-1">
-            ₹{(annualTam / 100000).toFixed(2)} Lakhs
-          </strong>
-          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">
-            ₹{Math.round(monthlyTam).toLocaleString('en-IN')}/mo <TranslatedText text="Spending" />
-          </span>
-        </div>
-
-        <div className="glass-panel p-4 bg-gradient-to-b from-sovereign-50/30 via-white to-white border border-slate-200/90 border-t-2 border-t-sovereign-600 shadow-card hover:shadow-card-hover transition-all">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold uppercase tracking-wider">
-            <Building2 className="w-3.5 h-3.5 text-sovereign-700" />
-            <span><TranslatedText text="MSME Density" /></span>
-          </div>
-          <strong className="text-xl sm:text-2xl font-mono font-extrabold text-sovereign-900 block mt-1">
-            {density.toFixed(1)} / 10k
-          </strong>
-          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">
-            {totalMsmes.toLocaleString('en-IN')} <TranslatedText text="Total District Units" />
-          </span>
-        </div>
-
-        <div className="glass-panel p-4 bg-gradient-to-b from-amber-50/30 via-white to-white border border-slate-200/90 border-t-2 border-t-amber-500 shadow-card hover:shadow-card-hover transition-all">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold uppercase tracking-wider">
-            <MapPin className="w-3.5 h-3.5 text-amber-600" />
-            <span><TranslatedText text="Location Hierarchy" /></span>
-          </div>
-          <strong className="text-sm font-bold text-slate-900 block mt-1 truncate">
-            {p.village_name || 'Village'}, {p.district_name || 'District'}
-          </strong>
-          <span className="text-[10px] text-slate-500 mt-0.5 block font-medium">{p.state_name || 'State'} (LGD Verified)</span>
-        </div>
       </div>
 
-      {/* Conversion Funnel & Stage Cards */}
-      <TamFunnelChart demographics={demographics} pricing={pricing} />
-
-      {/* Deep-Dive Grid: Micro-Demand Parameters + Competition Saturation + CPI Pricing Guidance */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {/* Row 2: 3-Column Grounded Telemetry Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        {/* Card 1: Sector Micro-Demand Parameters */}
+        {/* Card 1: TAM Spending Profile */}
         <div className="glass-panel p-5 bg-white border border-slate-200 rounded-2xl shadow-card space-y-3">
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
             <div className="p-2 rounded-xl bg-sky-50 text-sky-700 border border-sky-200">
               <ShoppingCart className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900"><TranslatedText text="Sector Micro-Demand Model" /></h3>
-              <p className="text-[11px] text-slate-500 font-medium"><TranslatedText text="Catchment Consumer Behavior" /></p>
+              <h3 className="text-sm font-bold text-slate-900"><TranslatedText text="Consumer Spending Profile" /></h3>
+              <p className="text-[11px] text-slate-500 font-medium"><TranslatedText text="Sector Consumption Sizing" /></p>
             </div>
           </div>
 
           <div className="space-y-2.5 text-xs">
             <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
-              <span className="text-slate-600"><TranslatedText text="Catchment Households" />:</span>
-              <span className="font-mono font-bold text-slate-900">{households2026.toLocaleString('en-IN')}</span>
+              <span className="text-slate-600"><TranslatedText text="Annual TAM Outlay" />:</span>
+              <span className="font-mono font-bold text-slate-900">₹{(annualTam / 100000).toFixed(2)} Lakh</span>
             </div>
             <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
-              <span className="text-slate-600"><TranslatedText text="Sector Penetration Rate" />:</span>
-              <span className="font-mono font-bold text-sky-800">{penetrationRate}%</span>
+              <span className="text-slate-600"><TranslatedText text="Monthly TAM Outlay" />:</span>
+              <span className="font-mono font-bold text-sky-900">₹{(monthlyTam / 100000).toFixed(2)} Lakh</span>
             </div>
             <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
               <span className="text-slate-600"><TranslatedText text="Purchase Frequency" />:</span>
               <span className="font-mono font-bold text-slate-900">{monthlyFrequency} <TranslatedText text="cycles / month" /></span>
-            </div>
-            <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
-              <span className="text-slate-600"><TranslatedText text="Average Ticket Size" />:</span>
-              <span className="font-mono font-bold text-emerald-800">₹{avgTicketSize} / <TranslatedText text="purchase" /></span>
             </div>
           </div>
         </div>
@@ -176,7 +181,7 @@ export function MarketDemandPage({ reportData }) {
             </div>
             <div className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
               <span className="text-slate-600"><TranslatedText text="Market Room Index" />:</span>
-              <span className="font-mono font-bold text-emerald-700">{competitionNormalized}% <TranslatedText text="Room" /></span>
+              <span className="font-mono font-bold text-emerald-700">{marketRoomPct}% <TranslatedText text="Room" /></span>
             </div>
           </div>
         </div>

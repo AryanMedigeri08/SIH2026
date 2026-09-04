@@ -34,7 +34,8 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
   });
 
   const avgDscr = (years.reduce((acc, y) => acc + y.dscr, 0) / years.length).toFixed(2);
-  const bep = pricingData?.break_even_monthly_units ? `${pricingData.break_even_monthly_units} Units/mo` : '74.5%';
+  const breakEvenPct = Number(financialData?.break_even_pct) || 68.0;
+  const bep = `${breakEvenPct.toFixed(1)}% Capacity`;
 
   return (
     <div className="glass-panel p-6 space-y-6 bg-white shadow-card border border-slate-200">
@@ -83,7 +84,18 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
             <Bar yAxisId="left" dataKey="EBITDA" fill="#0284c7" radius={[4, 4, 0, 0]} />
             <Bar yAxisId="left" dataKey="PAT" fill="#059669" radius={[4, 4, 0, 0]} />
             <Line yAxisId="right" type="monotone" dataKey="DSCR" stroke="#0b3b60" strokeWidth={3} dot={{ r: 4, fill: '#0b3b60' }} />
-            <ReferenceLine yAxisId="left" y={turnover * 0.62} stroke="#d97706" strokeDasharray="4 4" label={{ value: 'Break-Even Threshold (62%)', fill: '#b45309', fontSize: 10, position: 'insideBottomRight' }} />
+            <ReferenceLine 
+              yAxisId="left" 
+              y={turnover * (breakEvenPct / 100)} 
+              stroke="#d97706" 
+              strokeDasharray="4 4" 
+              label={{ 
+                value: `Break-Even Threshold (${breakEvenPct.toFixed(1)}%)`, 
+                fill: '#b45309', 
+                fontSize: 10, 
+                position: 'insideBottomRight' 
+              }} 
+            />
             <ReferenceLine yAxisId="right" y={1.33} stroke="#dc2626" strokeDasharray="3 3" label={{ value: 'RBI DSCR 1.33', fill: '#b91c1c', fontSize: 10, position: 'insideTopLeft' }} />
           </ComposedChart>
         </ResponsiveContainer>

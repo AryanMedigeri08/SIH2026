@@ -61,11 +61,13 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         village_name=input_data.village_name,
     )
     base_pop = census_data["base_population_2011"]
+    dist_base_pop = census_data.get("district_population_2011") or max(base_pop * 250, 1000000)
     pop = project_population(base_pop, input_data.state_name, 2026)
+    dist_pop = project_population(dist_base_pop, input_data.state_name, 2026)
     tam = estimate_tam(pop.projected_households, input_data.sector)
     logger.info(
         f"📊 [TIER 1 DEMOGRAPHICS] Querying Table: 'census_raw' | State: '{input_data.state_name}' | "
-        f"District: '{input_data.district_name}' -> Base Pop 2011: {base_pop:,}, Projected 2026: {pop.projected_population:,}, TAM: ₹{tam.annual_tam:,.0f}"
+        f"District: '{input_data.district_name}' -> Base Catchment Pop 2011: {base_pop:,}, Projected 2026: {pop.projected_population:,}, District Pop 2026: {dist_pop.projected_population:,}, TAM: ₹{tam.annual_tam:,.0f}"
     )
 
     msme_data = await db_manager.get_district_msme_stats(
@@ -73,11 +75,11 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         district_name=input_data.district_name,
     )
     msme_total = msme_data["total_msme"]
-    dens = compute_msme_density(msme_total, pop.projected_population)
-    comp = compute_competition_intensity(msme_total, 0.05, pop.projected_population)
+    dens = compute_msme_density(msme_total, dist_pop.projected_population)
+    comp = compute_competition_intensity(msme_total, 0.05, pop.projected_population, district_population=dist_pop.projected_population)
     logger.info(
         f"🏢 [TIER 1 MSME] Querying Table: 'msme_district' | District: '{input_data.district_name}' -> "
-        f"Total MSMEs: {msme_total:,}, MSME Density: {dens.msme_density_per_10k:.2f}/10k"
+        f"Total MSMEs: {msme_total:,}, District MSME Density: {dens.msme_density_per_10k:.2f}/10k | Est. Catchment Competitors: {comp.estimated_local_competitors}"
     )
 
     # 2. Financial & Scheme Optimization (Tier 1)
