@@ -83,10 +83,10 @@ def test_deterministic_fallback_ranking():
         weather_risk_score=0.25,
         cpi_inflation_pct=5.2,
         promoter_category="obc",
-        max_results=5,
+        max_results=3,
     )
     
-    assert len(recs) == 5, f"Expected 5 recommendations, got {len(recs)}"
+    assert len(recs) == 3, f"Expected 3 recommendations, got {len(recs)}"
     
     # Verify rejected sector was excluded
     sectors = [r.sector.lower() for r in recs]
@@ -100,7 +100,7 @@ def test_deterministic_fallback_ranking():
         assert r.suitability_score > 0
         assert r.source == "DETERMINISTIC_FALLBACK"
     
-    print(f"✅ Generated 5 diverse recommendations:")
+    print(f"✅ Generated 3 diverse recommendations:")
     for r in recs:
         print(f"   #{r.rank} [{r.relevant_scheme}] {r.enterprise_name} (Cost: ₹{r.estimated_project_cost:,.0f} | DSCR: {r.estimated_dscr})")
 

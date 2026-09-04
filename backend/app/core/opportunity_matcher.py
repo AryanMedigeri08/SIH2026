@@ -331,7 +331,7 @@ def _deterministic_recommendations(
     weather_risk_score: float,
     cpi_inflation_pct: float,
     promoter_category: str,
-    max_results: int = 5,
+    max_results: int = 3,
 ) -> list[AlternativeRecommendation]:
     """
     Deterministic fallback: scores each of the 16 sectors against the
@@ -436,7 +436,7 @@ def _build_llm_prompt(context: dict) -> str:
     return f"""You are an expert MSME credit advisor and rural enterprise consultant for the Indian banking system.
 
 An entrepreneur's proposed enterprise has been flagged as RECONSIDER by our ML viability classifier. 
-Your task is to suggest 5 alternative enterprise ideas that are better suited for their location, 
+Your task is to suggest exactly 3 diverse, high-solvency alternative enterprise ideas that are better suited for their location, 
 financial capacity, and local conditions.
 
 ## Rejected Enterprise Context
@@ -461,14 +461,14 @@ financial capacity, and local conditions.
 - **Competition Intensity**: {context.get('competition_intensity', 0.3):.2f}/1.0
 
 ## Requirements
-Suggest exactly 5 alternative enterprises that:
+Suggest exactly 3 alternative enterprises that:
 1. Are viable for this specific location and infrastructure level
 2. Fit within the applicant's financial capacity (margin capital and project cost range)
 3. Would likely achieve DSCR ≥ 1.40
 4. Are eligible for PMEGP/PMFME/MUDRA/Stand-Up India schemes
 5. Do NOT repeat the rejected sector
 
-Respond ONLY with valid JSON array. Each object must have exactly these fields:
+Respond ONLY with valid JSON array of exactly 3 objects. Each object must have exactly these fields:
 ```json
 [
   {{
@@ -488,7 +488,7 @@ Respond ONLY with valid JSON array. Each object must have exactly these fields:
 async def _groq_llm_recommendations(
     context: dict,
     api_key: str,
-    max_results: int = 5,
+    max_results: int = 3,
 ) -> list[AlternativeRecommendation]:
     """
     Call Groq Cloud LLM for intelligent, context-aware recommendations.
@@ -630,7 +630,7 @@ async def get_alternative_recommendations(context: dict) -> dict:
             weather_risk_score=context.get("weather_risk_score", 0.2),
             cpi_inflation_pct=context.get("cpi_inflation_pct", 5.0),
             promoter_category=context.get("promoter_category", "general"),
-            max_results=5,
+            max_results=3,
         )
         logger.info(f"📊 Deterministic fallback returned {len(recommendations)} recommendations")
 
