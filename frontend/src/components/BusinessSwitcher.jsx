@@ -30,10 +30,10 @@ export function BusinessStatusPill({ status, showReason = false, size = "sm" }) 
   const reason = status?.reason || "";
 
   const sizeClasses = size === "xs" 
-    ? "text-[9px] px-1.5 py-0.5" 
+    ? "text-[9px] px-2 py-0.5" 
     : size === "lg" 
     ? "text-xs px-3 py-1 font-bold" 
-    : "text-[10px] px-2 py-0.5 font-bold";
+    : "text-[10px] px-2.5 py-0.5 font-bold";
 
   let badgeStyle = "bg-slate-50 text-slate-700 border-slate-200";
   let IconComponent = Clock;
@@ -53,14 +53,19 @@ export function BusinessStatusPill({ status, showReason = false, size = "sm" }) 
     iconColor = "text-rose-600";
   }
 
+  // Use compact text for xs navbar pill to avoid overflowing
+  const displayLabel = size === "xs" 
+    ? (code === "healthy" ? "Bank Viable" : (code === "critical" ? "Critical Risk" : "Reconsider"))
+    : label;
+
   return (
-    <div className="inline-flex flex-col items-start gap-0.5">
+    <div className="inline-flex flex-col items-start gap-0.5 shrink-0">
       <span
         title={reason || label}
-        className={`inline-flex items-center gap-1.5 rounded-full border ${badgeStyle} ${sizeClasses} transition-all`}
+        className={`inline-flex items-center gap-1.5 rounded-full border ${badgeStyle} ${sizeClasses} whitespace-nowrap shrink-0 transition-all`}
       >
         <IconComponent className={`w-3 h-3 ${iconColor} shrink-0`} />
-        <span className="font-semibold tracking-tight">{label}</span>
+        <span className="font-semibold tracking-tight whitespace-nowrap">{displayLabel}</span>
       </span>
       {showReason && reason && (
         <span className="text-[10px] text-slate-500 line-clamp-1 mt-0.5 font-medium">
@@ -130,15 +135,15 @@ export function BusinessSwitcher({ compact = false }) {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`group inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 shadow-subtle text-xs text-slate-800 transition-all ${compact ? "w-full justify-between" : ""}`}
+        className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 shadow-subtle text-xs text-slate-800 transition-all max-h-11 ${compact ? "w-full justify-between" : ""}`}
         aria-expanded={isOpen}
       >
-        <div className="w-6 h-6 rounded-lg bg-sovereign-100 border border-sovereign-200 flex items-center justify-center text-sovereign-800 shrink-0">
-          <Building2 className="w-3.5 h-3.5" />
+        <div className="w-7 h-7 rounded-lg bg-sovereign-50 border border-sovereign-200 flex items-center justify-center text-sovereign-800 shrink-0">
+          <Building2 className="w-3.5 h-3.5 text-sovereign-700" />
         </div>
 
-        <div className="text-left max-w-[140px] sm:max-w-[180px] truncate">
-          <div className="font-outfit font-extrabold text-slate-900 truncate leading-tight">
+        <div className="text-left min-w-0 max-w-[120px] sm:max-w-[150px] md:max-w-[180px] lg:max-w-[210px] truncate">
+          <div className="font-outfit font-extrabold text-xs text-slate-900 truncate leading-tight">
             {activeBusiness?.business_name || "Select Business"}
           </div>
           <div className="text-[10px] text-slate-500 font-medium capitalize truncate">
@@ -148,12 +153,12 @@ export function BusinessSwitcher({ compact = false }) {
 
         {/* Real Status Badge */}
         {!compact && (
-          <div className="hidden sm:block ml-1">
+          <div className="hidden sm:flex shrink-0 ml-1">
             <BusinessStatusPill status={currentStatus} size="xs" />
           </div>
         )}
 
-        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-slate-400 group-hover:text-slate-600 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {/* Dropdown Menu */}

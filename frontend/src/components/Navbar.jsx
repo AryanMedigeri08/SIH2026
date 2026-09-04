@@ -63,7 +63,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
         </div>
 
         {/* Center: Persistent Multi-Business Switcher with Real Data Status Indicators */}
-        <div className="flex-1 max-w-md mx-2 hidden sm:flex justify-center">
+        <div className="flex-1 max-w-lg mx-2 hidden sm:flex justify-center items-center min-w-0">
           {isAuthenticated && <BusinessSwitcher />}
         </div>
 
