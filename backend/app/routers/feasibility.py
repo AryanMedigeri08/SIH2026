@@ -46,7 +46,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
       - Tier 1 (Financial Optimization): PMEGP, PMFME, MUDRA, Stand-Up India Slabs
       - Tier 2 (Amenities & Climate): 613 District Resource APIs + cpi_data + IMD Weather
       - Tier 2 (ML Viability): 10-Dimensional XGBoost Classifier
-      - Tier 3 (Executive Narrative): Groq Cloud Llama-3-70B AI Synthesis
+      - Tier 3 (Executive Narrative): Groq Cloud GPT-OSS-20B AI Synthesis
       - Tier 4 (Bank Memorandum): 7-Section Bank DPR Compilation
     """
     logger.info(

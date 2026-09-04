@@ -100,7 +100,7 @@ export function AlternativeOpportunitiesCard({ reportData, onOpenWizard }) {
             {source === 'GROQ_LLM' ? (
               <>
                 <Cpu className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Groq Llama-3.3-70B AI</span>
+                <span>Groq GPT-OSS-20B AI</span>
               </>
             ) : (
               <>
