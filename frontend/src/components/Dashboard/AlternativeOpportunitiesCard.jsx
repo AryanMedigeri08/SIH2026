@@ -123,15 +123,11 @@ export function AlternativeOpportunitiesCard({ reportData, onOpenWizard }) {
 
     try {
       const originalParams = reportData?.input_parameters || {};
-      // Use the SAME enterprise name as entered by the user
-      const originalName =
-        originalParams.enterprise_name ||
-        activeBusiness?.business_name ||
-        activeBusiness?.project_name ||
-        rec.enterprise_name;
+      // Use the recommended alternative's enterprise name for the new dashboard
+      const newEnterpriseName = rec.enterprise_name || originalParams.enterprise_name || 'Alternative Enterprise';
 
       const payload = {
-        enterprise_name: originalName,
+        enterprise_name: newEnterpriseName,
         business_category: rec.business_category || 'manufacturing',
         sector: rec.sector || 'general',
         project_cost: Number(rec.estimated_project_cost),
@@ -157,7 +153,8 @@ export function AlternativeOpportunitiesCard({ reportData, onOpenWizard }) {
           JSON.stringify({
             recommendations,
             source,
-            originalEnterpriseName: originalName,
+            originalEnterpriseName: originalParams.enterprise_name || activeBusiness?.business_name,
+            switchedTo: newEnterpriseName,
           })
         );
       } catch (e) {
