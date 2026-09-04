@@ -362,6 +362,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
           <ViabilityMeterCard 
             mlViability={reportData.ml_viability} 
             confidenceScore={reportData.ml_viability?.confidence_pct} 
+            dscrInfo={reportData.financial_feasibility?.debt_service_coverage_ratio || reportData.financial_feasibility?.dscr}
           />
         </div>
         <div className="lg:col-span-7">

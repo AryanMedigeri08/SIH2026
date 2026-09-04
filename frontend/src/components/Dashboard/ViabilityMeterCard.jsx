@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, AlertOctagon, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, AlertOctagon, CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react';
 import { TranslatedText } from '../TranslatedText';
 
 export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confidenceScore }) {
@@ -21,12 +21,42 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
 
   const VerdictIcon = isSuitable ? CheckCircle2 : isCaution ? AlertTriangle : AlertOctagon;
 
+  // Dynamic calculation for UDYAM SAATHI SCORE (0-100)
+  // Higher score = More doable & suitable (SUITABLE: ~80-98)
+  // Moderate score = Needs caution (CAUTION: ~55-75)
+  // Lower score = Reconsider cases (RECONSIDER: ~15-40)
+  const udyamSaathiScore = React.useMemo(() => {
+    const pSuitable = Number(probs?.SUITABLE ?? (isSuitable ? 0.95 : 0.05));
+    const pCaution = Number(probs?.CAUTION ?? (isCaution ? 0.85 : 0.10));
+    const pReconsider = Number(probs?.RECONSIDER ?? (isReconsider ? 0.90 : 0.05));
+    const confNorm = Number(confidence) / 100;
+    
+    // Extract DSCR value if present
+    const dscrVal = typeof dscrInfo === 'object' 
+      ? Number(dscrInfo?.dscr ?? dscrInfo?.average_dscr ?? 1.33)
+      : Number(dscrInfo ?? data?.feature_values?.dscr ?? 1.33);
+    
+    const dscrBonus = Math.min(Math.max((dscrVal - 1.25) * 6, -8), 8);
+
+    let base = 50;
+    if (isSuitable) {
+      base = 74 + (pSuitable * 15) + (confNorm * 6) + Math.max(dscrBonus, 0);
+    } else if (isCaution) {
+      base = 50 + (pCaution * 14) + (confNorm * 5) + (pSuitable * 8) + dscrBonus;
+    } else {
+      // RECONSIDER
+      base = 18 + (pSuitable * 20) + (pCaution * 10) - (pReconsider * 10) + Math.min(dscrBonus, 2);
+    }
+
+    return Math.min(Math.max(Math.round(base), 10), 99);
+  }, [probs, verdict, isSuitable, isCaution, isReconsider, confidence, dscrInfo, data]);
+
   return (
     <div className={`glass-panel p-6 border-l-4 ${colorBorder} bg-white shadow-card h-full flex flex-col justify-between`}>
       
       <div>
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-5">
           <div className="space-y-1">
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 font-mono">
               <span className={`w-2.5 h-2.5 rounded-full ${isSuitable ? 'bg-emerald-500' : isCaution ? 'bg-amber-500' : 'bg-rose-500'}`} />
@@ -43,12 +73,37 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
             </div>
           </div>
 
-          <div className="sm:text-right bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-200 shrink-0">
-            <div className="text-[10px] text-slate-500 font-semibold font-mono uppercase">
-              <TranslatedText text="Model Confidence" />
+          <div className="flex items-center gap-2.5 shrink-0">
+            {/* Udyam Saathi Score Card */}
+            <div className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border text-center transition-all ${
+              isSuitable 
+                ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950 shadow-sm' 
+                : isCaution 
+                ? 'bg-amber-50/90 border-amber-300 text-amber-950 shadow-sm' 
+                : 'bg-rose-50/90 border-rose-300 text-rose-950 shadow-sm'
+            }`}>
+              <div className="text-[10px] font-bold font-mono uppercase tracking-wider flex items-center justify-center gap-1 text-slate-600">
+                <Sparkles className={`w-3 h-3 ${isSuitable ? 'text-emerald-600' : isCaution ? 'text-amber-600' : 'text-rose-600'}`} />
+                <TranslatedText text="Udyam Saathi Score" />
+              </div>
+              <div className="flex items-baseline justify-center gap-0.5">
+                <span className={`text-xl sm:text-2xl font-outfit font-black ${
+                  isSuitable ? 'text-emerald-700' : isCaution ? 'text-amber-700' : 'text-rose-700'
+                }`}>
+                  {udyamSaathiScore}
+                </span>
+                <span className="text-[10px] font-bold text-slate-400 font-mono">/100</span>
+              </div>
             </div>
-            <div className="text-xl sm:text-2xl font-outfit font-black text-sovereign-800">
-              {Number(confidence).toFixed(1)}%
+
+            {/* Model Confidence */}
+            <div className="bg-slate-50 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200 text-center shrink-0">
+              <div className="text-[10px] text-slate-500 font-semibold font-mono uppercase">
+                <TranslatedText text="Model Confidence" />
+              </div>
+              <div className="text-xl sm:text-2xl font-outfit font-black text-sovereign-800">
+                {Number(confidence).toFixed(1)}%
+              </div>
             </div>
           </div>
         </div>
