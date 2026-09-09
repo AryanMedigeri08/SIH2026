@@ -127,9 +127,13 @@ ENTERPRISE_B1_PAYLOAD = {
 }
 
 
+_shared_id_1 = None
+_shared_id_2 = None
+
+
 def test_1_enterprise_persistence_across_logout_and_login():
     """REQUIRED TEST 1: Enterprise Persistence After Logout and Login."""
-    global USER_A_HEADERS
+    global USER_A_HEADERS, _shared_id_1, _shared_id_2
     print("\n--- TEST 1: Enterprise Persistence Across Logout and Login ---")
     
     # 1. User A creates Enterprise A1 & A2
@@ -181,11 +185,15 @@ def test_1_enterprise_persistence_across_logout_and_login():
     assert restored_1["business_status"]["code"] in ["healthy", "reconsideration", "critical"]
     print("  [PASS] Both enterprises and complete generated analytical data restored after re-login")
 
+    _shared_id_1 = id_1
+    _shared_id_2 = id_2
     return id_1, id_2
 
 
-def test_2_returning_user_vs_new_user_flow(id_1: str):
+def test_2_returning_user_vs_new_user_flow(id_1: str = None):
     """REQUIRED TEST 2: Returning User (Dashboard) vs. New User (Registration/Wizard)."""
+    if id_1 is None:
+        id_1 = _shared_id_1
     print("\n--- TEST 2: Returning User Flow vs. New User Flow ---")
     
     # 1. Returning user with existing enterprises
@@ -228,9 +236,11 @@ def test_3_logout_clears_authenticated_state():
     assert client.post("/api/v2/auth/session", headers=USER_A_HEADERS).status_code == 200
 
 
-def test_4_protected_api_access_after_logout(id_1: str):
-    """REQUIRED TEST 4: Protected API Access Rejection After Logout."""
-    print("\n--- TEST 4: Protected Endpoints Reject Unauthenticated Access ---")
+def test_4_protected_api_access_after_logout(id_1: str = None):
+    """REQUIRED TEST 4: Protected API Access After Logout."""
+    if id_1 is None:
+        id_1 = _shared_id_1
+    print("\n--- TEST 4: Protected API Access After Logout ---")
     
     # Unauthenticated requests to protected endpoints
     endpoints_to_test = [
@@ -255,9 +265,13 @@ def test_4_protected_api_access_after_logout(id_1: str):
         print(f"  [PASS] {method} {url} without credentials -> 401 Unauthorized (Protected)")
 
 
-def test_5_multiple_enterprise_restoration_and_switching(id_1: str, id_2: str):
+def test_5_multiple_enterprise_restoration_and_switching(id_1: str = None, id_2: str = None):
     """REQUIRED TEST 5: Multiple Enterprise Restoration & Switching."""
-    print("\n--- TEST 5: Multiple Enterprise Restoration & Switching ---")
+    if id_1 is None:
+        id_1 = _shared_id_1
+    if id_2 is None:
+        id_2 = _shared_id_2
+    print("\n--- TEST 5: Multiple Enterprise Restoration and Switching ---")
     
     # 1. User A creates a 3rd enterprise (Critical Solvency)
     resp3 = client.post("/api/v2/projects/create-and-analyze", json=ENTERPRISE_A3_CRITICAL_PAYLOAD, headers=USER_A_HEADERS)
@@ -292,9 +306,11 @@ def test_5_multiple_enterprise_restoration_and_switching(id_1: str, id_2: str):
     return id_3
 
 
-def test_6_cross_user_data_isolation(id_1: str):
-    """REQUIRED TEST 6: Cross-User IDOR Data Isolation."""
-    print("\n--- TEST 6: Strict Cross-User Data Isolation & IDOR Protection ---")
+def test_6_cross_user_data_isolation(id_1: str = None):
+    """REQUIRED TEST 6: Cross-User Data Isolation."""
+    if id_1 is None:
+        id_1 = _shared_id_1
+    print("\n--- TEST 6: Cross-User Data Isolation ---")
     
     # 1. User B creates Enterprise B1
     resp_b = client.post("/api/v2/projects/create-and-analyze", json=ENTERPRISE_B1_PAYLOAD, headers=USER_B_HEADERS)
