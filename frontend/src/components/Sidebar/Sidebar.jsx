@@ -192,8 +192,8 @@ export function Sidebar({
 
       {/* Fixed Sticky Sidebar Container */}
       <aside
-        className={`fixed top-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-r border-slate-200 flex flex-col justify-between transition-all duration-300 shadow-card lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:overflow-y-auto lg:overflow-x-hidden lg:shrink-0 ${
-          isMobileOpen ? 'left-0 w-72' : '-left-full lg:left-0'
+        className={`fixed top-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-r border-slate-200 flex flex-col justify-between transition-all duration-300 shadow-card lg:sticky lg:top-14 sm:lg:top-16 lg:h-[calc(100vh-3.5rem)] sm:lg:h-[calc(100vh-4rem)] lg:overflow-y-auto lg:overflow-x-hidden lg:shrink-0 ${
+          isMobileOpen ? 'left-0 w-[min(72vw,18rem)]' : '-left-full lg:left-0'
         } ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}`}
       >
         {/* Top Header / Collapse Control (Non-redundant branding) */}

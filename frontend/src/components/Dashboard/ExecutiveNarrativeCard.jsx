@@ -37,16 +37,16 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
   const paragraphs = typeof summary === 'string' ? summary.split('\n\n').filter(Boolean) : [rawSummary];
 
   return (
-    <div className="glass-panel p-6 border-l-4 border-sovereign-800 bg-white shadow-card space-y-4">
+    <div className="glass-panel p-4 sm:p-6 border-l-4 border-sovereign-800 bg-white shadow-card space-y-4">
       
       {/* Header with Clear Source Badge Distinction */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
         <div className="flex items-center gap-2.5">
-          <span className="p-2 rounded-xl bg-sovereign-50 text-sovereign-800 border border-sovereign-200">
+          <span className="p-2 rounded-xl bg-sovereign-50 text-sovereign-800 border border-sovereign-200 shrink-0">
             {isFallback ? <FileCheck className="w-5 h-5 text-amber-700" /> : <Bot className="w-5 h-5 text-sovereign-800" />}
           </span>
           <div>
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <h3 className="text-base font-bold text-slate-900 flex flex-wrap items-center gap-2">
               <span><TranslatedText text="Executive Feasibility & Credit Appraisal Synthesis" /></span>
               {isSummaryTranslating && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-sovereign-700 bg-sovereign-50 px-2 py-0.5 rounded-full border border-sovereign-200">
@@ -97,7 +97,7 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
       </div>
 
       {/* Synthesis Narrative with Paragraph Formatting */}
-      <div className={`p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 leading-relaxed space-y-3 font-normal transition-opacity duration-200 ${isSummaryTranslating ? "opacity-75" : "opacity-100"}`}>
+      <div className={`p-3.5 sm:p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 leading-relaxed space-y-3 font-normal transition-opacity duration-200 ${isSummaryTranslating ? "opacity-75" : "opacity-100"}`}>
         {paragraphs.map((p, idx) => (
           <p key={idx} className="leading-relaxed">
             {formatMarkdown(p)}
@@ -126,7 +126,7 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
       )}
 
       {/* Bank Credit Memorandum Notes */}
-      <div className="p-3.5 rounded-xl bg-sovereign-50 border border-sovereign-200 text-xs text-slate-800 flex items-start gap-2.5">
+      <div className="p-3 sm:p-3.5 rounded-xl bg-sovereign-50 border border-sovereign-200 text-xs text-slate-800 flex items-start gap-2.5">
         <BookmarkCheck className="w-4 h-4 text-sovereign-800 shrink-0 mt-0.5" />
         <div className="leading-normal">
           <strong className="text-sovereign-900 font-bold">

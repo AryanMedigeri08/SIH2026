@@ -13,13 +13,13 @@ export function SwotMatrixCard({ swotData, synthesisData }) {
   const modelLabel = synthesisData?.model_name ? synthesisData.model_name.split('/').pop() : 'gpt-oss-20b';
 
   return (
-    <div className="glass-panel p-6 bg-white shadow-card border border-slate-200">
+    <div className="glass-panel p-4 sm:p-6 bg-white shadow-card border border-slate-200">
       <div className="mb-4">
         <div className="text-[11px] font-bold uppercase tracking-wider text-sovereign-700 flex items-center gap-1.5 mb-1">
           <Target className="w-3.5 h-3.5" />
           Strategic Commercial Evaluation
         </div>
-        <h3 className="text-lg font-outfit font-bold text-slate-900 flex items-center gap-2">
+        <h3 className="text-lg font-outfit font-bold text-slate-900 flex flex-wrap items-center gap-2">
           <span>Grounded SWOT Analysis Matrix</span>
           {isAiGenerated ? (
             <span className="text-[10px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
@@ -41,7 +41,7 @@ export function SwotMatrixCard({ swotData, synthesisData }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
         {/* Strengths */}
-        <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 space-y-2 transition-all hover:shadow-subtle">
+        <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 sm:p-4 space-y-2 transition-all hover:shadow-subtle">
           <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5 mb-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>Internal Strengths</span>
@@ -68,7 +68,7 @@ export function SwotMatrixCard({ swotData, synthesisData }) {
         </div>
 
         {/* Weaknesses */}
-        <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-4 space-y-2 transition-all hover:shadow-subtle">
+        <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 sm:p-4 space-y-2 transition-all hover:shadow-subtle">
           <div className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5 mb-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>Internal Weaknesses</span>
@@ -95,7 +95,7 @@ export function SwotMatrixCard({ swotData, synthesisData }) {
         </div>
 
         {/* Opportunities */}
-        <div className="bg-sky-50/70 border border-sky-200 rounded-xl p-4 space-y-2 transition-all hover:shadow-subtle">
+        <div className="bg-sky-50/70 border border-sky-200 rounded-xl p-3.5 sm:p-4 space-y-2 transition-all hover:shadow-subtle">
           <div className="text-xs font-bold text-sky-900 uppercase tracking-wider flex items-center gap-1.5 mb-2">
             <Lightbulb className="w-4 h-4 text-sky-700 shrink-0" />
             <span>Market Opportunities</span>
@@ -122,7 +122,7 @@ export function SwotMatrixCard({ swotData, synthesisData }) {
         </div>
 
         {/* Threats */}
-        <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-4 space-y-2 transition-all hover:shadow-subtle">
+        <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-3.5 sm:p-4 space-y-2 transition-all hover:shadow-subtle">
           <div className="text-xs font-bold text-rose-900 uppercase tracking-wider flex items-center gap-1.5 mb-2">
             <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
             <span>Macro & External Threats</span>

@@ -103,7 +103,7 @@ export const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-sovereign-100 selection:text-sovereign-900">
+    <div className="min-h-screen bg-slate-50 py-8 sm:py-12 px-3.5 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-sovereign-100 selection:text-sovereign-900 overflow-x-hidden w-full max-w-full">
       <div className="absolute right-4 top-4 z-20">
         <LanguageSelector />
       </div>
@@ -114,7 +114,7 @@ export const RegisterPage = () => {
 
       <div className="max-w-xl mx-auto relative z-10">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 sm:mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-4 group">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-sovereign-900 via-sovereign-800 to-sovereign-700 flex items-center justify-center text-white font-black text-xl shadow-md shadow-sovereign-950/20 group-hover:scale-105 transition-transform">
               उ
@@ -132,7 +132,7 @@ export const RegisterPage = () => {
         </div>
 
         {/* Form Container */}
-        <div className="bg-white py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-200">
+        <div className="bg-white py-6 px-4 sm:py-8 sm:px-10 shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-200">
           
           {/* Quick Demo One-Click Access Button */}
           <div className="mb-6">

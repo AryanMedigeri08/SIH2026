@@ -46,7 +46,7 @@ export function MarketDemandPage({ reportData }) {
     <div className="space-y-6">
       
       {/* Header Banner */}
-      <div className="glass-panel p-6 border-l-4 border-sky-600 bg-gradient-to-r from-white via-sky-50/20 to-white shadow-card border border-slate-200/90">
+      <div className="glass-panel p-4 sm:p-6 border-l-4 border-sky-600 bg-gradient-to-r from-white via-sky-50/20 to-white shadow-card border border-slate-200/90">
         <div className="text-xs font-bold uppercase tracking-wider text-sky-700 mb-1 flex items-center gap-1.5">
           <Target className="w-4 h-4 text-sky-600" />
           <span><TranslatedText text="Dimension 2 • Demographic Catchment & Total Addressable Market (TAM)" /></span>
@@ -66,8 +66,8 @@ export function MarketDemandPage({ reportData }) {
         <TamFunnelChart demographics={demographics} pricing={pricing} />
 
         {/* Right: Demographic Growth & Catchment Base Card */}
-        <div className="glass-panel p-6 bg-white border border-slate-200 rounded-2xl shadow-card space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="glass-panel p-4 sm:p-6 bg-white border border-slate-200 rounded-2xl shadow-card space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-xl bg-sky-50 text-sky-700 border border-sky-200">
                 <Users className="w-4 h-4" />
@@ -81,7 +81,7 @@ export function MarketDemandPage({ reportData }) {
                 </p>
               </div>
             </div>
-            <span className="text-xs px-2.5 py-1 rounded-lg bg-sky-50 border border-sky-200 text-sky-800 font-mono font-bold">
+            <span className="text-xs px-2.5 py-1 rounded-lg bg-sky-50 border border-sky-200 text-sky-800 font-mono font-bold self-start sm:self-auto">
               +{growthRate}% <TranslatedText text="CAGR" />
             </span>
           </div>
@@ -124,10 +124,10 @@ export function MarketDemandPage({ reportData }) {
       </div>
 
       {/* Row 2: 3-Column Grounded Telemetry Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         
         {/* Card 1: TAM Spending Profile */}
-        <div className="glass-panel p-5 bg-white border border-slate-200 rounded-2xl shadow-card space-y-3">
+        <div className="glass-panel p-4 sm:p-5 bg-white border border-slate-200 rounded-2xl shadow-card space-y-3">
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
             <div className="p-2 rounded-xl bg-sky-50 text-sky-700 border border-sky-200">
               <ShoppingCart className="w-4 h-4" />

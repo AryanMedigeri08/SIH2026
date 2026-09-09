@@ -64,6 +64,15 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 export function FeatureContributionChart({ mlViability }) {
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const shapExp = mlViability?.shap_explanation;
   const rawContribs = shapExp?.contributions || [];
   const predictedClass = shapExp?.predicted_class || mlViability?.verdict || 'SUITABLE';
@@ -85,7 +94,7 @@ export function FeatureContributionChart({ mlViability }) {
 
   if (!rawContribs.length) {
     return (
-      <div className="glass-panel p-6 border-slate-200 flex flex-col items-center justify-center text-center min-h-[280px] bg-white shadow-card">
+      <div className="glass-panel p-4 sm:p-6 border-slate-200 flex flex-col items-center justify-center text-center min-h-[280px] bg-white shadow-card">
         <BrainCircuit className="w-10 h-10 text-slate-400 mb-3" />
         <h3 className="text-sm font-bold text-slate-800 mb-1">SHAP Explainability Waterfall</h3>
         <p className="text-xs text-slate-500 max-w-md">
@@ -101,7 +110,7 @@ export function FeatureContributionChart({ mlViability }) {
   const negativeTotal = chartData.filter((d) => d.shapValue < 0).reduce((acc, cur) => acc + cur.shapValue, 0);
 
   return (
-    <div className="glass-panel p-6 border-slate-200 flex flex-col justify-between bg-white shadow-card">
+    <div className="glass-panel p-4 sm:p-6 border-slate-200 flex flex-col justify-between bg-white shadow-card">
       {/* Header */}
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
@@ -114,7 +123,7 @@ export function FeatureContributionChart({ mlViability }) {
               Feature Attribution Margin Impact ({predictedClass})
             </h3>
           </div>
-          <div className="flex items-center gap-3 text-xs bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 font-mono">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs bg-slate-50 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 font-mono">
             <span className="text-slate-600">Base: <strong className="text-slate-900">{baseValue.toFixed(3)}</strong></span>
             <span className="text-emerald-700 font-bold flex items-center gap-0.5">
               <TrendingUp className="w-3 h-3" /> +{positiveTotal.toFixed(2)}
@@ -137,13 +146,13 @@ export function FeatureContributionChart({ mlViability }) {
           <BarChart
             data={chartData}
             layout="vertical"
-            margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+            margin={{ top: 5, right: isMobile ? 12 : 30, left: 0, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
             <XAxis
               type="number"
               stroke="#64748b"
-              fontSize={11}
+              fontSize={10}
               tickFormatter={(v) => (v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2))}
               domain={['auto', 'auto']}
             />
@@ -151,8 +160,8 @@ export function FeatureContributionChart({ mlViability }) {
               type="category"
               dataKey="label"
               stroke="#334155"
-              fontSize={11}
-              width={160}
+              fontSize={isMobile ? 9.5 : 11}
+              width={isMobile ? 115 : 160}
               tickLine={false}
             />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
@@ -171,10 +180,10 @@ export function FeatureContributionChart({ mlViability }) {
       </div>
 
       {/* Footer Lineage */}
-      <div className="text-[10px] text-slate-500 pt-3 mt-3 border-t border-slate-200 flex items-center justify-between">
+      <div className="text-[10px] text-slate-500 pt-3 mt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-1 text-slate-600">
-          <Info className="w-3 h-3 text-sovereign-700" />
-          Native XGBoost Booster Attributions • Exact Lundberg TreeSHAP Path Attribution
+          <Info className="w-3 h-3 text-sovereign-700 shrink-0" />
+          <span>Native XGBoost Booster Attributions • Exact Lundberg TreeSHAP Path Attribution</span>
         </span>
         <span className="font-mono text-slate-500 font-medium">10 Input Features Evaluated</span>
       </div>

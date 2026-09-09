@@ -149,7 +149,7 @@ export function AlternativeOpportunitiesCard({ reportData, onOpenWizard }) {
 
   return (
     <div
-      className={`glass-panel p-6 bg-gradient-to-br from-amber-50/60 via-white to-sky-50/40 border-2 rounded-2xl shadow-card space-y-5 relative overflow-hidden transition-all duration-300 ${
+      className={`glass-panel p-3 sm:p-6 bg-gradient-to-br from-amber-50/60 via-white to-sky-50/40 border-2 rounded-2xl shadow-card space-y-4 sm:space-y-5 relative overflow-hidden transition-all duration-300 ${
         isReconsider ? 'border-amber-300/90' : 'border-emerald-300/90'
       }`}
     >
@@ -158,7 +158,7 @@ export function AlternativeOpportunitiesCard({ reportData, onOpenWizard }) {
       <div className="absolute -bottom-16 -left-16 w-56 h-56 bg-emerald-200/25 rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Header & Context Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-amber-200/60 relative z-10">
+      <div className="flex flex-col gap-3 pb-3 sm:pb-4 border-b border-amber-200/60 relative z-10">
         <div className="flex items-start gap-3">
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-md shrink-0 text-white ${
@@ -201,7 +201,7 @@ export function AlternativeOpportunitiesCard({ reportData, onOpenWizard }) {
         </div>
 
         {/* Engine Source Badge, Refresh & Collapse */}
-        <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+        <div className="flex flex-wrap items-center gap-2 self-start shrink-0">
           <span className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-subtle flex items-center gap-1.5">
             {source === 'GROQ_LLM' ? (
               <>
@@ -279,7 +279,7 @@ export function AlternativeOpportunitiesCard({ reportData, onOpenWizard }) {
       {!loading && !isCollapsed && displayRecs.length > 0 && (
         <div className="relative z-10 space-y-4">
           {/* 3-Column Grid Cards Matrix */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-5 items-stretch">
             {displayRecs.map((rec, idx) => {
               const isTopMatch = rec.rank === 1 || idx === 0;
               const isCurrentActive =

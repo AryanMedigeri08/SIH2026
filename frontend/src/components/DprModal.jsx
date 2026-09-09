@@ -49,27 +49,27 @@ export function DprModal({ isOpen, onClose, reportId, reportData }) {
       <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         
         {/* Modal Top Bar */}
-        <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 shrink-0">
+        <div className="bg-slate-50 px-3.5 py-3 sm:px-6 sm:py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 sm:gap-4 shrink-0">
           <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-sovereign-50 text-sovereign-800 border border-sovereign-200">
+            <span className="p-2 rounded-xl bg-sovereign-50 text-sovereign-800 border border-sovereign-200 shrink-0">
               <FileText className="w-5 h-5" />
             </span>
             <div>
               <h2 className="text-base sm:text-lg font-outfit font-bold text-slate-900">
                 Official 7-Section Statutory Bank DPR
               </h2>
-              <p className="text-[11px] text-slate-500 font-mono font-medium">
+              <p className="text-[11px] text-slate-500 font-mono font-medium truncate max-w-[200px] sm:max-w-none">
                 Report Ref ID: {reportId}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Format toggle */}
             <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
               <button
                 onClick={() => setFormat('html')}
-                className={`px-3 py-1 rounded-lg font-semibold transition ${
+                className={`px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition ${
                   format === 'html' ? 'bg-sovereign-800 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -77,7 +77,7 @@ export function DprModal({ isOpen, onClose, reportId, reportData }) {
               </button>
               <button
                 onClick={() => setFormat('markdown')}
-                className={`px-3 py-1 rounded-lg font-semibold transition ${
+                className={`px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition ${
                   format === 'markdown' ? 'bg-sovereign-800 text-white shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -88,7 +88,7 @@ export function DprModal({ isOpen, onClose, reportId, reportData }) {
             {/* Print action button */}
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-3.5 py-1.5 rounded-xl shadow-sm transition"
+              className="flex items-center gap-1.5 text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-3 py-1.5 rounded-xl shadow-sm transition"
             >
               <Printer className="w-4 h-4" />
               <span>Print / Save PDF</span>
@@ -104,7 +104,7 @@ export function DprModal({ isOpen, onClose, reportId, reportData }) {
         </div>
 
         {/* Modal Document Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100/70">
+        <div className="flex-1 overflow-y-auto p-2 sm:p-6 bg-slate-100/70">
           {loading ? (
             <div className="h-full flex items-center justify-center text-slate-600 gap-2 text-sm font-medium">
               <Loader2 className="w-5 h-5 animate-spin text-sovereign-700" />
@@ -112,11 +112,11 @@ export function DprModal({ isOpen, onClose, reportId, reportData }) {
             </div>
           ) : format === 'html' ? (
             <div 
-              className="bg-white text-slate-900 rounded-xl p-6 sm:p-10 shadow-card max-w-4xl mx-auto overflow-x-auto border border-slate-200 print:p-0 print:shadow-none"
+              className="bg-white text-slate-900 rounded-xl p-3.5 sm:p-10 shadow-card max-w-4xl mx-auto overflow-x-auto scroll-touch-x border border-slate-200 print:p-0 print:shadow-none"
               dangerouslySetInnerHTML={{ __html: dprContent }}
             />
           ) : (
-            <pre className="font-mono text-xs text-slate-800 p-6 bg-white rounded-xl border border-slate-200 whitespace-pre-wrap max-w-4xl mx-auto overflow-x-auto shadow-card">
+            <pre className="font-mono text-xs text-slate-800 p-3.5 sm:p-6 bg-white rounded-xl border border-slate-200 whitespace-pre-wrap max-w-4xl mx-auto overflow-x-auto scroll-touch-x shadow-card">
               {typeof dprContent === 'string' ? dprContent : JSON.stringify(dprContent, null, 2)}
             </pre>
           )}

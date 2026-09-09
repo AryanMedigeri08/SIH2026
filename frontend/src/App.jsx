@@ -11,6 +11,7 @@ import { ChatProvider } from './context/ChatContext';
 import { FloatingChatWindow } from './components/Chat/FloatingChatWindow';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LanguageTransitionOverlay } from './components/LanguageTransitionOverlay';
+import { MobileReportTabs } from './components/MobileReportTabs';
 
 // Public & Auth Pages
 import { LandingPage } from './pages/LandingPage';
@@ -263,7 +264,7 @@ export function AppContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-sovereign-200 selection:text-sovereign-900">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-sovereign-200 selection:text-sovereign-900 overflow-x-hidden">
       
       {/* Top Navbar with Persistent Chatbot button & Multi-Business Switcher */}
       <Navbar
@@ -272,7 +273,7 @@ export function AppContent() {
       />
 
       {/* Main Workspace Layout with Collapsible Sidebar */}
-      <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
+      <div className="flex-1 flex max-w-[1600px] w-full mx-auto overflow-x-hidden">
         
         {/* Collapsible Left Sidebar */}
         <Sidebar
@@ -284,7 +285,7 @@ export function AppContent() {
         />
 
         {/* Main Content Body */}
-        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-x-hidden">
+        <main className="flex-1 min-w-0 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 overflow-x-hidden">
           
           {/* Top Benchmark Pitch Cases Bar — ONLY visible in Quick Login / Evaluator Demo Mode */}
           {isDemoMode && (
@@ -295,7 +296,6 @@ export function AppContent() {
             />
           )}
 
-          {/* Staged Full-Page Loader for New Assessment Generation */}
           {isGenerating ? (
             <ReportGenerationLoader
               enterpriseName={generatingMeta.enterpriseName}
@@ -303,7 +303,14 @@ export function AppContent() {
               sector={generatingMeta.sector}
             />
           ) : (
-            <Routes>
+            <>
+              {/* Mobile Horizontal Appraisal Dimensions Bar (Visible on mobile/tablet when report data is loaded) */}
+              {reportData &&
+                !['/wizard', '/new-assessment', '/calculator', '/data-sources', '/master-schemes'].includes(location.pathname) && (
+                  <MobileReportTabs reportId={reportData?.report_id} />
+                )}
+
+              <Routes>
               {/* Protected Overview & Core Synthesis Dashboard */}
               <Route
                 path="/dashboard"
@@ -532,17 +539,18 @@ export function AppContent() {
               />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
+            </>
           )}
 
         </main>
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-5 text-center text-xs text-slate-600 shadow-subtle">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span className="font-medium">🇮🇳 Udyam Saathi (उद्यम साथी) • Smart India Hackathon 2026</span>
-          <span className="font-mono text-[11px] text-slate-500 font-medium">
-            Multi-Page Institutional Architecture • Multi-Business State Persistence • FastAPI • PostgreSQL • XGBoost • Groq LLM
+      <footer className="border-t border-slate-200 bg-white py-3 sm:py-5 text-center text-xs text-slate-600 shadow-subtle">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 flex flex-col sm:flex-row items-center justify-between gap-1.5 sm:gap-2">
+          <span className="font-medium text-[11px] sm:text-xs">🇮🇳 Udyam Saathi (उद्यम साथी) • SIH 2026</span>
+          <span className="font-mono text-[10px] sm:text-[11px] text-slate-500 font-medium text-center leading-relaxed break-words">
+            FastAPI • PostgreSQL • XGBoost • Groq LLM
           </span>
         </div>
       </footer>

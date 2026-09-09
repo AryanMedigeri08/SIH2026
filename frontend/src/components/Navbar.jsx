@@ -26,7 +26,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
       {/* Sovereign Top Gradient Accent Line */}
       <div className="h-[3px] w-full bg-gradient-to-r from-sovereign-900 via-sky-500 via-indigo-600 to-emerald-500" />
       
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-[1600px] mx-auto px-2.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
         
         {/* Left: Mobile Toggle & Brand Logo */}
         <div className="flex items-center gap-3 shrink-0">
@@ -34,7 +34,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
           <button
             type="button"
             onClick={onToggleMobileSidebar}
-            className="md:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors"
+            className="lg:hidden p-1.5 sm:p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors"
             aria-label="Toggle navigation menu"
             title="Open navigation menu"
           >
@@ -43,7 +43,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
 
           {/* Institutional Brand Logo & Tagline */}
           <Link to={isAuthenticated ? "/dashboard" : "/"} className="flex items-center gap-2.5 cursor-pointer group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sovereign-800 via-sovereign-900 to-indigo-950 text-white flex items-center justify-center shadow-md shadow-sovereign-900/20 text-lg font-bold border border-sovereign-700/50 transition-transform group-hover:scale-105">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-sovereign-800 via-sovereign-900 to-indigo-950 text-white flex items-center justify-center shadow-md shadow-sovereign-900/20 text-lg font-bold border border-sovereign-700/50 transition-transform group-hover:scale-105">
               <Landmark className="w-5 h-5 text-sky-400" />
             </div>
             <div>
@@ -63,12 +63,12 @@ export function Navbar({ health, onToggleMobileSidebar }) {
         </div>
 
         {/* Center: Persistent Multi-Business Switcher with Real Data Status Indicators */}
-        <div className="flex-1 max-w-lg mx-2 hidden sm:flex justify-center items-center min-w-0">
+        <div className="flex-1 max-w-lg mx-2 hidden md:flex justify-center items-center min-w-0">
           {isAuthenticated && <BusinessSwitcher />}
         </div>
 
         {/* Right: Action Controls & User Identity */}
-        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           
           {/* Persistent AI Chatbot Navigation Button (Placed immediately to the left of Live Telemetry) */}
           <ChatbotNavButton />
@@ -93,11 +93,11 @@ export function Navbar({ health, onToggleMobileSidebar }) {
           {/* + Create New Business / Assessment */}
           <Link
             to="/wizard"
-            className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-sovereign-800 via-sky-700 to-sovereign-800 hover:from-sovereign-700 hover:to-sky-600 px-3.5 py-1.5 rounded-xl shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition-all group"
+            className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-sovereign-800 via-sky-700 to-sovereign-800 hover:from-sovereign-700 hover:to-sky-600 px-2.5 sm:px-3.5 py-1.5 rounded-xl shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition-all group"
             title={t('newEnterprise')}
           >
             <PlusCircle className="w-3.5 h-3.5 text-sky-200 group-hover:rotate-90 transition-transform" />
-            <span className="hidden sm:inline">{t('newEnterprise')}</span>
+            <span className="hidden md:inline">{t('newEnterprise')}</span>
           </Link>
 
           {/* User Auth Section */}

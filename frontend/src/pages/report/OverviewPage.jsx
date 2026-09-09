@@ -192,7 +192,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
     <div className="space-y-6">
       
       {/* Enterprise Title Header Card */}
-      <div className="glass-panel p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-white via-slate-50 to-sovereign-50/40 border border-slate-200/90 shadow-card">
+      <div className="glass-panel p-4 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 bg-gradient-to-r from-white via-slate-50 to-sovereign-50/40 border border-slate-200/90 shadow-card">
         <div>
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-xl sm:text-2xl font-outfit font-extrabold text-slate-900 tracking-tight">
@@ -208,18 +208,18 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
             <BusinessStatusPill status={currentBusinessStatus} size="sm" />
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 mt-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] sm:text-xs text-slate-600 mt-2">
             <span className="flex items-center gap-1.5 font-medium">
               <MapPin className="w-3.5 h-3.5 text-sovereign-700" />
               {p.village_name || 'Village'}, {p.district_name || 'District'}, {p.state_name || 'State'}
             </span>
-            <span>•</span>
+            <span className="hidden sm:inline">•</span>
             <span className="flex items-center gap-1.5 font-medium">
               <User className="w-3.5 h-3.5 text-slate-600" />
               <TranslatedText text="Promoter Profile" />: <strong className="text-slate-900">{p.promoter_name || 'Promoter'}</strong> ({(p.promoter_category || 'general').toUpperCase()})
             </span>
-            <span>•</span>
-            <span className="font-mono text-slate-600">
+            <span className="hidden sm:inline">•</span>
+            <span className="font-mono text-slate-600 hidden sm:inline">
               Ref: <code className="font-mono text-sovereign-900 font-bold bg-white px-1.5 py-0.5 rounded border border-slate-200">{reportData.report_id}</code>
             </span>
           </div>
@@ -252,7 +252,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
       </div>
 
       {/* Key Financial Appraisal Metrics Summary Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
         <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-indigo-600">
           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
             <TranslatedText text="Total Capital Outlay" />
@@ -317,8 +317,8 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
       </div>
 
       {/* Verified Ground-Truth Data Sources & Lineage Audit Bar */}
-      <div className="glass-panel p-4 sm:p-5 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200/90 space-y-3">
-        <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setShowLineage(prev => !prev)}>
+      <div className="glass-panel p-3 sm:p-5 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200/90 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer select-none" onClick={() => setShowLineage(prev => !prev)}>
           <div className="flex items-center gap-2">
             <Database className="w-4 h-4 text-sovereign-800" />
             <h4 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider">
@@ -387,7 +387,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
           {sectionTeasers.map((sec, idx) => {
             const Icon = sec.icon;
             return (
