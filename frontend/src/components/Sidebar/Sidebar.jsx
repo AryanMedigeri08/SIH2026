@@ -11,18 +11,16 @@ import {
   FileText,
   Calculator,
   Database,
-  Landmark,
   ChevronLeft,
   ChevronRight,
   Sparkles,
   X,
   Building2,
   PlusCircle,
-  MapPin,
-  Coins,
+  Layers,
 } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
-import { BusinessStatusPill, BusinessSwitcher } from '../BusinessSwitcher';
+import { BusinessStatusPill } from '../BusinessSwitcher';
 import { useLanguage } from '../../context/LanguageContext';
 
 export function Sidebar({
@@ -33,62 +31,62 @@ export function Sidebar({
   reportId,
 }) {
   const location = useLocation();
-  const { activeBusiness, businesses } = useBusiness();
+  const { activeBusiness } = useBusiness();
   const { t } = useLanguage();
 
   const reportNavItems = [
     {
       id: 'overview',
-      name: t('overview'),
+      name: t('overview') || 'Overview',
       path: reportId ? `/reports/${reportId}` : '/dashboard',
       icon: LayoutDashboard,
       badge: null,
     },
     {
       id: 'viability',
-      name: t('viability'),
+      name: t('viability') || 'ML Viability',
       path: reportId ? `/reports/${reportId}/viability` : '/viability',
       icon: BrainCircuit,
       badge: 'TreeSHAP',
     },
     {
       id: 'market',
-      name: t('market'),
+      name: t('market') || 'Market & Demand',
       path: reportId ? `/reports/${reportId}/market` : '/market',
       icon: Target,
       badge: 'Census 2011',
     },
     {
       id: 'schemes',
-      name: t('schemes'),
+      name: t('schemes') || 'Scheme Optimizer',
       path: reportId ? `/reports/${reportId}/schemes` : '/schemes',
       icon: Award,
       badge: '10 Slabs',
     },
     {
       id: 'financials',
-      name: t('financials'),
+      name: t('financials') || 'Financials & Cashflow',
       path: reportId ? `/reports/${reportId}/financials` : '/financials',
       icon: TrendingUp,
       badge: '5-Yr Horiz.',
     },
     {
       id: 'risk',
-      name: t('risk'),
+      name: t('risk') || 'Risk Assessment',
       path: reportId ? `/reports/${reportId}/risk` : '/risk',
       icon: ShieldAlert,
       badge: '8 Pillars',
     },
     {
       id: 'swot',
-      name: t('swot'),
+      name: t('swot') || 'SWOT Matrix',
       path: reportId ? `/reports/${reportId}/swot` : '/swot',
       icon: Grid3X3,
       badge: null,
     },
     {
       id: 'dpr',
-      name: t('dpr'),
+      name: t('dpr') || 'Bank DPR Memorandum',
       path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
       icon: FileText,
       badge: '7-Section',
@@ -98,13 +96,13 @@ export function Sidebar({
   const utilityNavItems = [
     {
       id: 'calculator',
-      name: t('calculator'),
+      name: t('calculator') || 'Quick Calculator',
       path: '/calculator',
       icon: Calculator,
     },
     {
       id: 'data-sources',
-      name: t('dataSources'),
+      name: t('dataSources') || 'Data Sources Lineage',
       path: '/data-sources',
       icon: Database,
     },
@@ -116,7 +114,14 @@ export function Sidebar({
       return (
         current === '/dashboard' ||
         current === `/reports/${reportId}` ||
-        (/^\/reports\/[^\/]+$/.test(current) && !current.includes('/viability') && !current.includes('/market') && !current.includes('/schemes') && !current.includes('/financials') && !current.includes('/risk') && !current.includes('/swot') && !current.includes('/dpr'))
+        (/^\/reports\/[^\/]+$/.test(current) &&
+          !current.includes('/viability') &&
+          !current.includes('/market') &&
+          !current.includes('/schemes') &&
+          !current.includes('/financials') &&
+          !current.includes('/risk') &&
+          !current.includes('/swot') &&
+          !current.includes('/dpr'))
       );
     }
     return current === itemPath || current === `/${itemId}` || current.endsWith(`/${itemId}`);
@@ -135,16 +140,18 @@ export function Sidebar({
               to={item.path}
               onClick={onCloseMobile}
               title={isCollapsed ? item.name : undefined}
-              className={`group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ${
+              className={`group relative flex items-center ${
+                isCollapsed ? 'justify-center px-2 py-2.5' : 'justify-between px-3 py-2.5'
+              } rounded-xl text-xs font-medium transition-all duration-200 ${
                 isActive
-                  ? 'sidebar-item-active font-bold shadow-md shadow-sovereign-900/20'
-                  : 'sidebar-item-inactive hover:bg-slate-100/90'
+                  ? 'sidebar-item-active font-bold shadow-md shadow-sovereign-900/20 text-white'
+                  : 'sidebar-item-inactive hover:bg-slate-100/90 text-slate-700'
               }`}
             >
-              <div className="flex items-center gap-3 min-w-0">
+              <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} min-w-0`}>
                 <Icon
-                  className={`w-4 h-4 shrink-0 transition-all duration-200 sidebar-icon ${
-                    isActive ? 'text-sky-300' : 'text-slate-500'
+                  className={`w-4 h-4 shrink-0 transition-all duration-200 ${
+                    isActive ? 'text-sky-300' : 'text-slate-500 group-hover:text-slate-900'
                   }`}
                 />
                 {!isCollapsed && (
@@ -155,9 +162,7 @@ export function Sidebar({
               </div>
 
               {!isCollapsed && item.badge && (
-                <span
-                  className="sidebar-badge text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold shrink-0 transition-colors"
-                >
+                <span className="sidebar-badge text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold shrink-0 transition-colors">
                   {item.badge}
                 </span>
               )}
@@ -173,7 +178,7 @@ export function Sidebar({
     );
   };
 
-  const activeStatus = activeBusiness?.business_status || { code: "draft", label: "Draft" };
+  const activeStatus = activeBusiness?.business_status || { code: 'draft', label: 'Draft' };
 
   return (
     <>
@@ -185,26 +190,25 @@ export function Sidebar({
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Fixed Sticky Sidebar Container */}
       <aside
-        className={`fixed top-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-r border-slate-200 flex flex-col justify-between transition-all duration-300 shadow-card lg:static lg:z-auto ${
+        className={`fixed top-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-r border-slate-200 flex flex-col justify-between transition-all duration-300 shadow-card lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:overflow-y-auto lg:overflow-x-hidden lg:shrink-0 ${
           isMobileOpen ? 'left-0 w-72' : '-left-full lg:left-0'
         } ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}`}
       >
-        {/* Top Header / Branding */}
+        {/* Top Header / Collapse Control (Non-redundant branding) */}
         <div>
-          <div className="h-16 px-4 border-b border-slate-200/80 flex items-center justify-between bg-gradient-to-b from-slate-50/80 to-white">
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sovereign-800 via-sovereign-900 to-indigo-900 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-sovereign-900/20 border border-sovereign-700/50">
-                🏛️
+          <div className="h-14 px-3.5 border-b border-slate-200/80 flex items-center justify-between bg-gradient-to-b from-slate-50/80 to-white">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <div className="p-1.5 rounded-lg bg-sovereign-50 text-sovereign-800 border border-sovereign-200 shrink-0">
+                <Layers className="w-4 h-4 text-sovereign-800" />
               </div>
               {!isCollapsed && (
                 <div className="leading-tight truncate">
-                  <div className="font-outfit font-black text-sm text-slate-900 tracking-tight flex items-center gap-1.5">
-                    <span>Udyam Saathi</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <div className="font-outfit font-black text-xs text-slate-800 uppercase tracking-wider">
+                    Navigation
                   </div>
-                  <div className="text-[10px] text-sovereign-700 font-bold uppercase tracking-wider">
+                  <div className="text-[10px] text-slate-500 font-medium">
                     Credit Appraisal
                   </div>
                 </div>
@@ -220,43 +224,33 @@ export function Sidebar({
               <X className="w-5 h-5" />
             </button>
 
-            {/* Desktop Collapse Toggle */}
+            {/* Desktop Collapse / Expand Toggle */}
             <button
               onClick={onToggleCollapse}
               className="hidden lg:flex text-slate-400 hover:text-slate-800 p-1.5 rounded-xl hover:bg-slate-100 transition border border-transparent hover:border-slate-200"
-              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
-              {isCollapsed ? (
-                <ChevronRight className="w-4 h-4" />
-              ) : (
-                <ChevronLeft className="w-4 h-4" />
-              )}
+              {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
             </button>
           </div>
 
-          {/* Active Enterprise Banner Card in Sidebar */}
+          {/* Active Enterprise Banner Pill (Clean info view - NO duplicate dropdown) */}
           {!isCollapsed && activeBusiness && (
-            <div className="p-3 mx-3 mt-3 rounded-2xl bg-gradient-to-br from-slate-50 to-sky-50/50 border border-slate-200/90 shadow-xs space-y-1.5">
+            <div className="p-3 mx-3 mt-3 rounded-xl bg-slate-50 border border-slate-200/90 shadow-xs space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 font-mono flex items-center gap-1">
                   <Building2 className="w-3 h-3 text-sovereign-700" />
-                  {t('activeEnterprise')}
+                  Active Enterprise
                 </span>
                 <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded bg-white border border-slate-200 text-slate-700">
-                  {activeBusiness.sector}
+                  {activeBusiness.sector || 'MSME'}
                 </span>
               </div>
               <div className="font-outfit font-extrabold text-xs text-slate-900 truncate">
                 {activeBusiness.business_name}
               </div>
-              <div className="pt-1">
+              <div className="pt-0.5">
                 <BusinessStatusPill status={activeStatus} size="xs" />
-              </div>
-              <div className="pt-1.5 border-t border-slate-200/70">
-                <div className="mb-1.5 text-[9px] uppercase font-bold tracking-wider text-slate-500">
-                  {t('yourEnterprises')} ({businesses.length})
-                </div>
-                <BusinessSwitcher compact />
               </div>
             </div>
           )}
@@ -315,3 +309,4 @@ export function Sidebar({
 }
 
 export default Sidebar;
+

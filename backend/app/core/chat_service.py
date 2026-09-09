@@ -353,8 +353,6 @@ class ChatService:
             models_to_try = [
                 os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b"),
                 "openai/gpt-oss-20b",
-                "llama-3.3-70b-versatile",
-                "llama3-70b-8192",
             ]
             models_to_try = list(dict.fromkeys(models_to_try))
 

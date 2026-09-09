@@ -8,9 +8,9 @@ export function SwotMatrixCard({ swotData, synthesisData }) {
   const o = swotData?.opportunities || [];
   const t = swotData?.threats || [];
 
-  const genSource = swotData?.generation_source || (synthesisData?.is_fallback === false ? `AI_GROQ (${synthesisData?.model_name || 'Llama-3.3-70B'})` : 'DETERMINISTIC_FALLBACK');
+  const genSource = swotData?.generation_source || (synthesisData?.is_fallback === false ? `AI_GROQ (${synthesisData?.model_name || 'GPT-OSS-20B'})` : 'DETERMINISTIC_FALLBACK');
   const isAiGenerated = genSource.startsWith('AI_GROQ') || (swotData?.is_fallback === false || synthesisData?.is_fallback === false);
-  const modelLabel = synthesisData?.model_name ? synthesisData.model_name.split('/').pop() : 'Llama-3.3-70B';
+  const modelLabel = synthesisData?.model_name ? synthesisData.model_name.split('/').pop() : 'gpt-oss-20b';
 
   return (
     <div className="glass-panel p-6 bg-white shadow-card border border-slate-200">

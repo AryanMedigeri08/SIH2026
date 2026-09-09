@@ -25,6 +25,7 @@ TEST_SCRIPTS = [
     "test_chat_service.py",
     "test_audio_chat_service.py",
     "test_translation_service.py",
+    "test_opportunity_matcher.py",
 ]
 
 

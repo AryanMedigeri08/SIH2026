@@ -28,6 +28,7 @@ from inference import predict_viability
 from executive_synthesizer import generate_executive_synthesis
 from dpr_generator import build_bank_dpr, dpr_to_printable_markdown, dpr_to_html, BankDPRDocument
 from amenities_client import fetch_village_amenities
+from opportunity_matcher import get_alternative_recommendations
 
 from app.config import settings
 from app.database import db_manager
@@ -45,7 +46,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
       - Tier 1 (Financial Optimization): PMEGP, PMFME, MUDRA, Stand-Up India Slabs
       - Tier 2 (Amenities & Climate): 613 District Resource APIs + cpi_data + IMD Weather
       - Tier 2 (ML Viability): 10-Dimensional XGBoost Classifier
-      - Tier 3 (Executive Narrative): Groq Cloud Llama-3-70B AI Synthesis
+      - Tier 3 (Executive Narrative): Groq Cloud GPT-OSS-20B AI Synthesis
       - Tier 4 (Bank Memorandum): 7-Section Bank DPR Compilation
     """
     logger.info(
@@ -60,11 +61,13 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         village_name=input_data.village_name,
     )
     base_pop = census_data["base_population_2011"]
+    dist_base_pop = census_data.get("district_population_2011") or max(base_pop * 250, 1000000)
     pop = project_population(base_pop, input_data.state_name, 2026)
+    dist_pop = project_population(dist_base_pop, input_data.state_name, 2026)
     tam = estimate_tam(pop.projected_households, input_data.sector)
     logger.info(
         f"📊 [TIER 1 DEMOGRAPHICS] Querying Table: 'census_raw' | State: '{input_data.state_name}' | "
-        f"District: '{input_data.district_name}' -> Base Pop 2011: {base_pop:,}, Projected 2026: {pop.projected_population:,}, TAM: ₹{tam.annual_tam:,.0f}"
+        f"District: '{input_data.district_name}' -> Base Catchment Pop 2011: {base_pop:,}, Projected 2026: {pop.projected_population:,}, District Pop 2026: {dist_pop.projected_population:,}, TAM: ₹{tam.annual_tam:,.0f}"
     )
 
     msme_data = await db_manager.get_district_msme_stats(
@@ -72,11 +75,11 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         district_name=input_data.district_name,
     )
     msme_total = msme_data["total_msme"]
-    dens = compute_msme_density(msme_total, pop.projected_population)
-    comp = compute_competition_intensity(msme_total, 0.05, pop.projected_population)
+    dens = compute_msme_density(msme_total, dist_pop.projected_population)
+    comp = compute_competition_intensity(msme_total, 0.05, pop.projected_population, district_population=dist_pop.projected_population)
     logger.info(
         f"🏢 [TIER 1 MSME] Querying Table: 'msme_district' | District: '{input_data.district_name}' -> "
-        f"Total MSMEs: {msme_total:,}, MSME Density: {dens.msme_density_per_10k:.2f}/10k"
+        f"Total MSMEs: {msme_total:,}, District MSME Density: {dens.msme_density_per_10k:.2f}/10k | Est. Catchment Competitors: {comp.estimated_local_competitors}"
     )
 
     # 2. Financial & Scheme Optimization (Tier 1)
@@ -437,3 +440,109 @@ async def get_report_dpr(
             return PlainTextResponse(content=res.get("translated_text", raw_md), media_type="text/markdown")
         return PlainTextResponse(content=raw_md, media_type="text/markdown")
     return dpr_dict
+
+
+@router.post("/recommendations")
+async def generate_recommendations(
+    input_data: UserInput,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """
+    Generate alternative enterprise recommendations when the original enterprise
+    is flagged as RECONSIDER by the ML Viability Classifier.
+    Uses Groq LLM (primary) with deterministic 16-sector catalog fallback.
+    """
+    try:
+        # Build recommendation context from input data
+        promoter_pct = 0.05 if input_data.promoter_category.lower() != "general" else 0.10
+        margin_capital = input_data.project_cost * promoter_pct
+
+        context = {
+            "enterprise_name": input_data.enterprise_name,
+            "sector": input_data.sector,
+            "business_category": input_data.business_category,
+            "state_name": input_data.state_name,
+            "district_name": input_data.district_name,
+            "village_name": input_data.village_name,
+            "is_rural": input_data.is_rural,
+            "project_cost": input_data.project_cost,
+            "margin_capital": margin_capital,
+            "annual_turnover_estimate": input_data.annual_turnover_estimate,
+            "promoter_category": input_data.promoter_category,
+            "infrastructure_score": input_data.infrastructure_score or 6.0,
+            "cpi_inflation_pct": input_data.cpi_inflation_pct or 5.0,
+            "weather_risk_score": input_data.weather_risk_score or 0.2,
+            "msme_density_per_10k": 8.0,  # Default; actual value computed in pipeline
+            "competition_intensity": 0.3,  # Default
+            "dscr": 0.0,  # Will be populated from report if available
+            "ml_confidence_pct": 0.0,
+            "top_risk_factor": "Financial stress indicators",
+        }
+
+        result = await get_alternative_recommendations(context)
+        logger.info(
+            f"🔄 [RECOMMENDATIONS] Enterprise: '{input_data.enterprise_name}' | "
+            f"Source: {result['source']} | Count: {result['count']}"
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Recommendation engine error: {e}")
+        raise HTTPException(status_code=400, detail=f"Recommendation engine error: {str(e)}")
+
+
+@router.post("/recommendations/from-report")
+async def generate_recommendations_from_report(
+    report_id: str = Query(..., description="Existing feasibility report ID"),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """
+    Generate alternative recommendations using data from an existing feasibility report.
+    This extracts the full context (DSCR, ML confidence, risk factors, etc.) from the
+    stored report for more accurate LLM and fallback recommendations.
+    """
+    try:
+        cached = await db_manager.get_feasibility_report(report_id, current_user.uid)
+        if not cached:
+            raise HTTPException(status_code=404, detail=f"Report '{report_id}' not found.")
+
+        report = cached.get("report", {})
+        inp = report.get("input_parameters", {})
+        fin = report.get("financial_analysis", {})
+        ml = report.get("ml_viability", {})
+        market = report.get("market_demographics", {})
+
+        promoter_pct = 0.05 if str(inp.get("promoter_category", "general")).lower() != "general" else 0.10
+
+        context = {
+            "enterprise_name": inp.get("enterprise_name", ""),
+            "sector": inp.get("sector", ""),
+            "business_category": inp.get("business_category", ""),
+            "state_name": inp.get("state_name", ""),
+            "district_name": inp.get("district_name", ""),
+            "village_name": inp.get("village_name", ""),
+            "is_rural": inp.get("is_rural", True),
+            "project_cost": inp.get("project_cost", 500000),
+            "margin_capital": inp.get("project_cost", 500000) * promoter_pct,
+            "annual_turnover_estimate": inp.get("annual_turnover_estimate", 800000),
+            "promoter_category": inp.get("promoter_category", "general"),
+            "infrastructure_score": fin.get("infrastructure_score", 6.0),
+            "cpi_inflation_pct": fin.get("cpi_inflation_pct", 5.0),
+            "weather_risk_score": ml.get("feature_values", {}).get("weather_risk_score", 0.2),
+            "msme_density_per_10k": market.get("msme_density", {}).get("msme_density_per_10k", 8.0),
+            "competition_intensity": market.get("competition", {}).get("competition_intensity_normalized", 0.3),
+            "dscr": fin.get("dscr", {}).get("dscr", 0.0),
+            "ml_confidence_pct": ml.get("confidence_pct", 0.0),
+            "top_risk_factor": ml.get("top_risk_factors", ["Financial stress"])[0] if ml.get("top_risk_factors") else "Financial stress indicators",
+        }
+
+        result = await get_alternative_recommendations(context)
+        logger.info(
+            f"🔄 [RECOMMENDATIONS FROM REPORT] Report: '{report_id}' | "
+            f"Source: {result['source']} | Count: {result['count']}"
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Recommendation from report error: {e}")
+        raise HTTPException(status_code=400, detail=f"Recommendation engine error: {str(e)}")

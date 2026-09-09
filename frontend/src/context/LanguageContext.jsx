@@ -772,12 +772,39 @@ export function LanguageProvider({ children }) {
     }
   });
 
+  // Language transition overlay state
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [previousLanguage, setPreviousLanguage] = useState(null);
+  const pendingTranslationCount = useRef(0);
+  const transitionTimerRef = useRef(null);
+
   const { isAuthenticated, userProfile, updateProfile } = useAuth();
   const cacheRef = useRef(dynamicCache);
   cacheRef.current = dynamicCache;
 
+  // Track pending translations for overlay intelligence
+  const incrementPending = useCallback(() => { pendingTranslationCount.current += 1; }, []);
+  const decrementPending = useCallback(() => { pendingTranslationCount.current = Math.max(0, pendingTranslationCount.current - 1); }, []);
+
+  // Dismiss transition overlay (called by the overlay component when it decides to close)
+  const dismissTransition = useCallback(() => {
+    setIsTransitioning(false);
+    setPreviousLanguage(null);
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+  }, []);
+
   const setLanguage = useCallback((nextLanguage) => {
     const valid = LANGUAGES.some(({ code }) => code === nextLanguage) ? nextLanguage : "en";
+    if (valid === language) return; // No-op for same language
+
+    // Trigger transition overlay
+    setPreviousLanguage(language);
+    pendingTranslationCount.current = 0;
+    setIsTransitioning(true);
+
     localStorage.setItem(LANGUAGE_STORAGE_KEY, valid);
     setLanguageState(valid);
     
@@ -786,7 +813,7 @@ export function LanguageProvider({ children }) {
         console.warn("Could not persist preferred language:", error);
       });
     }
-  }, [isAuthenticated, updateProfile, userProfile?.firebase_uid, userProfile?.preferred_language]);
+  }, [language, isAuthenticated, updateProfile, userProfile?.firebase_uid, userProfile?.preferred_language]);
 
   useEffect(() => {
     const preferred = userProfile?.preferred_language;
@@ -932,7 +959,14 @@ export function LanguageProvider({ children }) {
     lookupStatic,
     translateText,
     translateBatch,
-  }), [language, setLanguage, lookupStatic, translateText, translateBatch]);
+    // Transition overlay state
+    isTransitioning,
+    previousLanguage,
+    dismissTransition,
+    pendingTranslationCount,
+    incrementPending,
+    decrementPending,
+  }), [language, setLanguage, lookupStatic, translateText, translateBatch, isTransitioning, previousLanguage, dismissTransition, incrementPending, decrementPending]);
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }

@@ -19,7 +19,7 @@ export function ExecutiveNarrativeCard({ synthesisData }) {
   const activeLangCode = language ? language.toUpperCase() : (synth.language || synth.target_language || "en").toUpperCase();
   const isFallback = synth.is_fallback ?? true;
   const isCached = synth.is_cached ?? false;
-  const modelName = synth.model_name || (isFallback ? "deterministic_narrative_engine_v1.0" : "groq:llama-3.3-70b");
+  const modelName = synth.model_name || (isFallback ? "deterministic_narrative_engine_v1.0" : "groq:openai/gpt-oss-20b");
   const latencyMs = synth.latency_ms ?? 0;
 
   // Simple Markdown bold formatter for synthesis narrative

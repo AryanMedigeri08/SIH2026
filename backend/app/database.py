@@ -618,6 +618,18 @@ class DatabaseManager:
         if self.pool:
             try:
                 async with self.pool.acquire() as conn:
+                    # 1. Fetch District population baseline
+                    d_clean = district_name.strip()
+                    row_dist = await conn.fetchrow("""
+                        SELECT total_population, total_households, sc_population, st_population, literate_population, area_name
+                        FROM census_raw
+                        WHERE area_name ILIKE $1 AND administrative_level IN ('DISTRICT', 'SUB-DISTRICT')
+                        ORDER BY total_population DESC
+                        LIMIT 1
+                    """, f"%{d_clean}%")
+                    dist_pop = int(row_dist["total_population"]) if (row_dist and row_dist["total_population"]) else 1250000
+
+                    # 2. Fetch Village / Catchment population baseline if provided
                     if village_name and village_name.strip() and village_name.strip() != "N/A":
                         v_clean = village_name.strip()
                         row = await conn.fetchrow("""
@@ -628,9 +640,11 @@ class DatabaseManager:
                             LIMIT 1
                         """, f"%{v_clean}%")
                         if row and row["total_population"] and row["total_population"] > 0:
+                            v_pop = int(row["total_population"])
                             return {
-                                "base_population_2011": int(row["total_population"]),
-                                "base_households_2011": int(row["total_households"] or max(int(row["total_population"] / 4.8), 1)),
+                                "base_population_2011": v_pop,
+                                "district_population_2011": max(dist_pop, v_pop),
+                                "base_households_2011": int(row["total_households"] or max(int(v_pop / 4.8), 1)),
                                 "sc_population": int(row["sc_population"] or 0),
                                 "st_population": int(row["st_population"] or 0),
                                 "literate_population": int(row["literate_population"] or 0),
@@ -638,18 +652,11 @@ class DatabaseManager:
                                 "provenance": "census_exact_village",
                             }
 
-                    d_clean = district_name.strip()
-                    row_dist = await conn.fetchrow("""
-                        SELECT total_population, total_households, sc_population, st_population, literate_population, area_name
-                        FROM census_raw
-                        WHERE area_name ILIKE $1 AND administrative_level IN ('DISTRICT', 'SUB-DISTRICT')
-                        LIMIT 1
-                    """, f"%{d_clean}%")
                     if row_dist and row_dist["total_population"] and row_dist["total_population"] > 0:
-                        tot_pop = int(row_dist["total_population"])
-                        derived_village_pop = min(max(int(tot_pop / 350), 1200), 15000)
+                        derived_village_pop = min(max(int(dist_pop / 350), 1200), 15000)
                         return {
                             "base_population_2011": derived_village_pop,
+                            "district_population_2011": dist_pop,
                             "base_households_2011": max(int(derived_village_pop / 4.8), 1),
                             "sc_population": int(row_dist["sc_population"] or 0),
                             "st_population": int(row_dist["st_population"] or 0),
@@ -662,6 +669,7 @@ class DatabaseManager:
 
         return {
             "base_population_2011": 3850,
+            "district_population_2011": 1250000,
             "base_households_2011": 802,
             "sc_population": 540,
             "st_population": 120,

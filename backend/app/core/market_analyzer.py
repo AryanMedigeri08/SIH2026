@@ -196,17 +196,23 @@ def compute_competition_intensity(
     district_msme_total: Optional[int],
     sector_share_estimate: float,
     catchment_population: int,
+    district_population: Optional[int] = None,
 ) -> CompetitionIntensity:
     """
     ML feature x8. Estimated local competitors = district MSME total scaled by an
-    assumed sector share of that district's registered enterprises, then normalized
-    per 1k catchment population, then min-max normalized to [0,1] against a
-    saturation ceiling of 20 competitors per 1k (empirical rural-market ceiling).
+    assumed sector share of that district's registered enterprises, scaled by the
+    catchment's share of the district population, then normalized per 1k catchment population,
+    then min-max normalized to [0,1] against a saturation ceiling of 20 competitors per 1k.
     """
     if catchment_population <= 0:
         raise ValueError("catchment_population must be > 0")
     msme_total = district_msme_total or 0
-    est_competitors = msme_total * sector_share_estimate
+    if district_population and district_population > catchment_population:
+        catchment_ratio = catchment_population / district_population
+        est_competitors = max(msme_total * sector_share_estimate * catchment_ratio, 1.0)
+    else:
+        est_competitors = msme_total * sector_share_estimate
+
     per_1k = (est_competitors / catchment_population) * 1000
     SATURATION_CEILING_PER_1K = 20.0
     normalized = min(per_1k / SATURATION_CEILING_PER_1K, 1.0)

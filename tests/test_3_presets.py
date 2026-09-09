@@ -2,11 +2,11 @@ import sys
 import asyncio
 from pathlib import Path
 
-# Add project root and backend paths
-sys.path.insert(0, str(Path(__file__).parent.parent))
-sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent / "app"))
-sys.path.insert(0, str(Path(__file__).parent / "app" / "core"))
+ROOT_DIR = Path(__file__).resolve().parent.parent
+BACKEND_DIR = ROOT_DIR / "backend"
+for p in (str(BACKEND_DIR / "app" / "core"), str(BACKEND_DIR / "app"), str(BACKEND_DIR), str(ROOT_DIR)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from app.routers.feasibility import _run_pipeline
 from app.models.schemas import UserInput
