@@ -4,8 +4,8 @@ import { Play, Sparkles } from 'lucide-react';
 
 export function CaseStudiesBar({ activeCaseId, onSelectCase, isLoading }) {
   return (
-    <div className="bg-white/90 backdrop-blur-sm border border-slate-200/90 rounded-2xl p-2.5 shadow-card mb-4 overflow-hidden">
-      <div className="flex items-center gap-2.5 overflow-x-auto pb-1 pt-0.5 scrollbar-thin">
+    <div className="bg-white/90 backdrop-blur-sm border border-slate-200/90 rounded-2xl p-2 sm:p-2.5 shadow-card mb-4 overflow-hidden">
+      <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto scroll-touch-x no-scrollbar pb-1 pt-0.5">
         <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-sovereign-50 border border-sovereign-200/80 text-sovereign-800 text-[11px] font-bold uppercase tracking-wider shrink-0 font-mono shadow-xs">
           <Sparkles className="w-3.5 h-3.5 text-sovereign-700" />
           <span>Preset Scenarios:</span>

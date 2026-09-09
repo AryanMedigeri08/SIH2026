@@ -32,20 +32,20 @@ export const LandingPage = () => {
   const { t } = useLanguage();
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-sovereign-100 selection:text-sovereign-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-sovereign-100 selection:text-sovereign-900 overflow-x-hidden w-full max-w-full">
       {/* Top Banner / Ticker */}
-      <div className="border-b border-sovereign-200 bg-gradient-to-r from-sovereign-50 via-white to-sky-50 px-4 py-2 text-center text-xs text-sovereign-800 flex items-center justify-center gap-2 shadow-xs">
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sovereign-100 text-sovereign-900 border border-sovereign-300 font-mono">
+      <div className="border-b border-sovereign-200 bg-gradient-to-r from-sovereign-50 via-white to-sky-50 px-2.5 py-1.5 sm:px-4 sm:py-2 text-center text-xs text-sovereign-800 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 shadow-xs">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sovereign-100 text-sovereign-900 border border-sovereign-300 font-mono shrink-0">
           SIH 2026 PS 26091
         </span>
-        <span className="font-semibold">
+        <span className="font-semibold text-[11px] sm:text-xs">
           National Micro-Enterprise Feasibility & Bank DPR Advisory Engine
         </span>
       </div>
 
       {/* Main Top Header */}
       <header className="border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-0 z-30 shadow-subtle">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sovereign-900 via-sovereign-800 to-sovereign-700 flex items-center justify-center text-white font-black text-lg shadow-md shadow-sovereign-950/20 group-hover:scale-105 transition-transform">
               उ
@@ -268,7 +268,7 @@ export const LandingPage = () => {
             <span className="font-mono text-slate-500">SIH 2026 PS 26091</span>
           </div>
 
-          <div className="flex items-center gap-6 font-semibold">
+          <div className="flex flex-wrap justify-center items-center gap-3 sm:gap-6 font-semibold">
             <Link to="/schemes" className="hover:text-sovereign-800 transition-colors">Schemes Catalog</Link>
             <Link to="/data-sources" className="hover:text-sovereign-800 transition-colors">Data Lineage</Link>
             <Link to="/calculator" className="hover:text-sovereign-800 transition-colors">Quick Calculator</Link>

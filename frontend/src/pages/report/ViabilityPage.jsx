@@ -39,7 +39,7 @@ export function ViabilityPage({ reportData }) {
     <div className="space-y-6">
       
       {/* Header Banner */}
-      <div className="glass-panel p-6 border-l-4 border-indigo-600 bg-gradient-to-r from-white via-indigo-50/20 to-white shadow-card border border-slate-200/90">
+      <div className="glass-panel p-4 sm:p-6 border-l-4 border-indigo-600 bg-gradient-to-r from-white via-indigo-50/20 to-white shadow-card border border-slate-200/90">
         <div className="text-xs font-bold uppercase tracking-wider text-indigo-700 mb-1 flex items-center gap-1.5">
           <BrainCircuit className="w-4 h-4 text-indigo-600" />
           <span><TranslatedText text="Dimension 1 • Machine Learning Viability & TreeSHAP Explainability" /></span>
@@ -65,7 +65,7 @@ export function ViabilityPage({ reportData }) {
       </div>
 
       {/* 10-Dimensional Input Feature Vector & Audit Inspection Table */}
-      <div className="glass-panel p-6 bg-white border border-slate-200 shadow-card space-y-4">
+      <div className="glass-panel p-4 sm:p-6 bg-white border border-slate-200 shadow-card space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200">
@@ -85,8 +85,8 @@ export function ViabilityPage({ reportData }) {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="overflow-x-auto scroll-touch-x">
+          <table className="w-full text-left text-xs border-collapse min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
                 <th className="py-3 px-3">#</th>
@@ -148,7 +148,7 @@ export function ViabilityPage({ reportData }) {
       </div>
 
       {/* Model Metadata & Lineage Box */}
-      <div className="glass-panel p-5 bg-white border border-slate-200/90 shadow-card flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
+      <div className="glass-panel p-4 sm:p-5 bg-white border border-slate-200/90 shadow-card flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 text-xs text-slate-600">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
             <ShieldCheck className="w-5 h-5" />
@@ -163,7 +163,7 @@ export function ViabilityPage({ reportData }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 font-mono text-xs text-slate-700 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-slate-700 shrink-0">
           <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 font-bold">
             <TranslatedText text="Execution Latency: <3ms" />
           </span>

@@ -25,12 +25,12 @@ export function FinancialsPage({ reportData }) {
     <div className="space-y-6">
       
       {/* Header Banner */}
-      <div className="glass-panel p-6 border-l-4 border-sovereign-800 bg-gradient-to-r from-white via-sovereign-50/20 to-white shadow-card border border-slate-200/90">
+      <div className="glass-panel p-4 sm:p-6 border-l-4 border-sovereign-800 bg-gradient-to-r from-white via-sovereign-50/20 to-white shadow-card border border-slate-200/90">
         <div className="text-xs font-bold uppercase tracking-wider text-sovereign-700 mb-1 flex items-center gap-1.5">
           <TrendingUp className="w-4 h-4 text-sovereign-700" />
           <span><TranslatedText text="Dimension 4 • Deterministic Financial Engineering & Solvency Analysis" /></span>
         </div>
-        <h1 className="text-2xl font-outfit font-extrabold text-slate-900 tracking-tight">
+        <h1 className="text-lg sm:text-2xl font-outfit font-extrabold text-slate-900 tracking-tight">
           <TranslatedText text="Capital Outlay Deployment, Means of Finance & 5-Year Cash Flow Projections" />
         </h1>
         <p className="text-xs text-slate-600 mt-1 max-w-3xl font-medium leading-relaxed">
@@ -39,7 +39,7 @@ export function FinancialsPage({ reportData }) {
       </div>
 
       {/* Financial Appraisal Telemetry Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
         <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
             <PieChart className="w-3 h-3 text-sovereign-700" />

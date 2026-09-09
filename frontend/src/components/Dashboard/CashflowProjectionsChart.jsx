@@ -38,10 +38,10 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
   const bep = `${breakEvenPct.toFixed(1)}% Capacity`;
 
   return (
-    <div className="glass-panel p-6 space-y-6 bg-white shadow-card border border-slate-200">
+    <div className="glass-panel p-4 sm:p-6 space-y-5 sm:space-y-6 bg-white shadow-card border border-slate-200">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wider text-sovereign-700 flex items-center gap-1.5 mb-1">
             <TrendingUp className="w-3.5 h-3.5" />
@@ -55,7 +55,7 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs">
             <span className="text-slate-500"><TranslatedText text="5-Yr Avg DSCR" />: </span>
             <strong className="text-sovereign-800 font-mono font-bold text-sm ml-1">{avgDscr}</strong>
@@ -68,7 +68,7 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
       </div>
 
       {/* Interactive Recharts Combo Chart */}
-      <div className="h-72 w-full bg-slate-50/70 rounded-xl p-3 border border-slate-200">
+      <div className="h-64 sm:h-72 w-full bg-slate-50/70 rounded-xl p-2 sm:p-3 border border-slate-200">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={{ top: 15, right: 20, bottom: 5, left: 10 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -102,8 +102,8 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
       </div>
 
       {/* Data Table */}
-      <div className="overflow-x-auto border border-slate-200 rounded-xl">
-        <table className="w-full text-left text-xs">
+      <div className="overflow-x-auto scroll-touch-x border border-slate-200 rounded-xl">
+        <table className="w-full min-w-[560px] text-left text-xs">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 font-bold uppercase text-[10px]">
               <th className="py-2.5 px-3"><TranslatedText text="Line Item (₹)" /></th>

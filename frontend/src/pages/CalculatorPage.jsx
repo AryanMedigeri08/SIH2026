@@ -42,16 +42,16 @@ export function CalculatorPage() {
   const isCaution = dscr >= 1.0 && dscr < 1.33;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-5 sm:space-y-6">
       
       {/* Header Banner */}
-      <div className="glass-panel p-6 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="glass-panel p-4 sm:p-6 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="text-xs font-bold uppercase tracking-wider text-sovereign-700 mb-1 flex items-center gap-1.5">
             <Calculator className="w-4 h-4" />
             <span>Interactive Financial Engineering Engine</span>
           </div>
-          <h1 className="text-2xl font-outfit font-extrabold text-slate-900">
+          <h1 className="text-xl sm:text-2xl font-outfit font-extrabold text-slate-900">
             Standalone MSME Loan Sizing & DSCR Sensitivity Tool
           </h1>
           <p className="text-xs text-slate-600 mt-1 max-w-2xl font-medium">
@@ -76,7 +76,7 @@ export function CalculatorPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Form Column (Inputs) */}
-        <div className="lg:col-span-5 glass-panel p-6 space-y-5 bg-white shadow-card border border-slate-200">
+        <div className="lg:col-span-5 glass-panel p-4 sm:p-6 space-y-5 bg-white shadow-card border border-slate-200">
           <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">
             1. Enterprise Capital & Operating Parameters
           </h3>
@@ -228,18 +228,18 @@ export function CalculatorPage() {
         <div className="lg:col-span-7 space-y-4">
           
           {/* Top Matched Scheme Card */}
-          <div className="glass-panel p-6 border-l-4 border-emerald-600 bg-white shadow-card border border-slate-200 space-y-4">
-            <div className="flex items-start justify-between gap-2">
+          <div className="glass-panel p-4 sm:p-6 border-l-4 border-emerald-600 bg-white shadow-card border border-slate-200 space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded">
                   Optimal Financing Vehicle
                 </span>
-                <h2 className="text-lg sm:text-xl font-bold font-outfit text-slate-900 mt-1">
+                <h2 className="text-base sm:text-xl font-bold font-outfit text-slate-900 mt-1">
                   {result?.top_scheme_id || 'PMEGP'} — {result?.top_scheme_name || "Prime Minister's Employment Generation Programme"}
                 </h2>
               </div>
 
-              <div className="text-right">
+              <div className="text-left sm:text-right">
                 <span className="text-[10px] text-slate-500 font-medium block">Capital Subsidy Grant</span>
                 <strong className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-700">
                   ₹{(result?.subsidy_grant_amount || 225000).toLocaleString('en-IN')}
@@ -248,28 +248,28 @@ export function CalculatorPage() {
             </div>
 
             {/* Key Metrics Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 pt-2">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                <span className="text-slate-500 text-[11px] block font-medium">Net Bank Loan</span>
-                <strong className="text-slate-900 font-mono text-sm mt-0.5 block font-bold">
+                <span className="text-slate-500 text-[10px] sm:text-[11px] block font-medium truncate">Net Bank Loan</span>
+                <strong className="text-slate-900 font-mono text-xs sm:text-sm mt-0.5 block font-bold truncate">
                   ₹{(result?.loan_principal || 585000).toLocaleString('en-IN')}
                 </strong>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                <span className="text-slate-500 text-[11px] block font-medium">Monthly EMI</span>
-                <strong className="text-sovereign-800 font-mono text-sm mt-0.5 block font-bold">
+                <span className="text-slate-500 text-[10px] sm:text-[11px] block font-medium truncate">Monthly EMI</span>
+                <strong className="text-sovereign-800 font-mono text-xs sm:text-sm mt-0.5 block font-bold truncate">
                   ₹{(result?.monthly_emi || 10530).toLocaleString('en-IN')}
                 </strong>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                <span className="text-slate-500 text-[11px] block font-medium">Working Capital</span>
-                <strong className="text-blue-900 font-mono text-sm mt-0.5 block font-bold">
+                <span className="text-slate-500 text-[10px] sm:text-[11px] block font-medium truncate">Working Capital</span>
+                <strong className="text-blue-900 font-mono text-xs sm:text-sm mt-0.5 block font-bold truncate">
                   ₹{(result?.working_capital_required || 190000).toLocaleString('en-IN')}
                 </strong>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                <span className="text-slate-500 text-[11px] block font-medium">Total Interest</span>
-                <strong className="text-slate-800 font-mono text-sm mt-0.5 block font-bold">
+                <span className="text-slate-500 text-[10px] sm:text-[11px] block font-medium truncate">Total Interest</span>
+                <strong className="text-slate-800 font-mono text-xs sm:text-sm mt-0.5 block font-bold truncate">
                   ₹{(result?.total_interest_payable || 230000).toLocaleString('en-IN')}
                 </strong>
               </div>
@@ -277,9 +277,9 @@ export function CalculatorPage() {
           </div>
 
           {/* Scheme Comparison Leaderboard */}
-          <div className="glass-panel p-6 space-y-3 bg-white shadow-card border border-slate-200">
+          <div className="glass-panel p-4 sm:p-6 space-y-3 bg-white shadow-card border border-slate-200">
             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Award className="w-4 h-4 text-sovereign-700" />
+              <Award className="w-4 h-4 text-sovereign-700 shrink-0" />
               <span>Ranked Scheme Options for Selected Outlay</span>
             </h3>
 
@@ -305,7 +305,7 @@ export function CalculatorPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 text-right">
+                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 sm:gap-4 text-left sm:text-right">
                     <div>
                       <span className="text-[10px] text-slate-500 block font-medium">Financial Incentive</span>
                       <strong className="font-mono text-emerald-700 font-bold block text-xs">

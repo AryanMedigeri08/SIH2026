@@ -67,9 +67,9 @@ export function RiskRadarCard({ riskData }) {
   }, [risks]);
 
   return (
-    <div className="glass-panel p-6 bg-white shadow-card border border-slate-200">
+    <div className="glass-panel p-4 sm:p-6 bg-white shadow-card border border-slate-200">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-5">
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wider text-rose-700 flex items-center gap-1.5 mb-1">
             <ShieldAlert className="w-3.5 h-3.5" />
@@ -83,7 +83,7 @@ export function RiskRadarCard({ riskData }) {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 text-xs">
             <span className="text-slate-500">Composite Risk: </span>
             <strong className="text-amber-800 font-mono font-bold ml-1">{avgScore.toFixed(2)} / 10</strong>
@@ -129,18 +129,18 @@ export function RiskRadarCard({ riskData }) {
               The polygon outlines exposure across raw material volatility, power interruptions, debt pressure, and climate shock.
               Smaller area indicates lower systemic credit risk.
             </p>
-            <div className="grid grid-cols-3 gap-2 pt-2">
-              <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-[10px] text-emerald-800 font-mono flex items-center gap-1.5 font-bold">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 pt-2">
+              <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-[9px] sm:text-[10px] text-emerald-800 font-mono flex items-center gap-1 sm:gap-1.5 font-bold">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>{risks.filter((r) => r.severity === 'LOW').length} Low Risk</span>
+                <span className="truncate">{risks.filter((r) => r.severity === 'LOW').length} Low Risk</span>
               </div>
-              <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-mono flex items-center gap-1.5 font-bold">
+              <div className="p-1.5 sm:p-2 rounded-lg bg-amber-50 border border-amber-200 text-[9px] sm:text-[10px] text-amber-800 font-mono flex items-center gap-1 sm:gap-1.5 font-bold">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span>{risks.filter((r) => r.severity === 'MODERATE').length} Moderate</span>
+                <span className="truncate">{risks.filter((r) => r.severity === 'MODERATE').length} Moderate</span>
               </div>
-              <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-[10px] text-rose-800 font-mono flex items-center gap-1.5 font-bold">
+              <div className="p-1.5 sm:p-2 rounded-lg bg-rose-50 border border-rose-200 text-[9px] sm:text-[10px] text-rose-800 font-mono flex items-center gap-1 sm:gap-1.5 font-bold">
                 <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                <span>{risks.filter((r) => r.severity === 'HIGH' || r.severity === 'SEVERE').length} Attention</span>
+                <span className="truncate">{risks.filter((r) => r.severity === 'HIGH' || r.severity === 'SEVERE').length} Attention</span>
               </div>
             </div>
           </div>
@@ -156,7 +156,7 @@ export function RiskRadarCard({ riskData }) {
           return (
             <div
               key={r.risk_id}
-              className={`p-4 rounded-xl border transition-all ${
+              className={`p-3.5 sm:p-4 rounded-xl border transition-all ${
                 isHigh
                   ? 'bg-rose-50/70 border-rose-200 hover:border-rose-300'
                   : isMod
@@ -164,7 +164,7 @@ export function RiskRadarCard({ riskData }) {
                   : 'bg-emerald-50/50 border-emerald-200 hover:border-emerald-300'
               }`}
             >
-              <div className="flex justify-between items-start mb-2">
+              <div className="flex flex-wrap sm:flex-nowrap justify-between items-start gap-1.5 mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono font-bold text-sovereign-800">{r.risk_id}</span>
                   <strong className="text-xs text-slate-900 font-bold"><TranslatedText text={r.title} /></strong>

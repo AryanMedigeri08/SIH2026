@@ -20,8 +20,8 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
   const isBalanced = Math.abs(totalMeans - projectCost) < 1.0;
 
   return (
-    <div className="glass-panel p-6 bg-white shadow-card border border-slate-200">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
+    <div className="glass-panel p-4 sm:p-6 bg-white shadow-card border border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 sm:mb-5">
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wider text-sovereign-700 flex items-center gap-1.5 mb-1">
             <Layers className="w-3.5 h-3.5" />
@@ -47,10 +47,10 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         
         {/* Outlay Breakdown */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 sm:p-4 space-y-3">
           <div className="text-xs font-bold text-slate-900 uppercase tracking-wider flex justify-between">
             <span><TranslatedText text="A. Capital Outlay Deployment" /></span>
             <span className="text-sovereign-800 font-mono font-bold">₹{projectCost.toLocaleString('en-IN')}</span>
@@ -77,7 +77,7 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
         </div>
 
         {/* Means of Finance */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 sm:p-4 space-y-3">
           <div className="text-xs font-bold text-slate-900 uppercase tracking-wider flex justify-between">
             <span><TranslatedText text="B. Means of Finance (Sources)" /></span>
             <span className="text-emerald-700 font-mono font-bold">₹{Math.round(totalMeans).toLocaleString('en-IN')}</span>

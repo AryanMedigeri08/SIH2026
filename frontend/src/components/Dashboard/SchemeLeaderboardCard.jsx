@@ -6,7 +6,7 @@ export function SchemeLeaderboardCard({ schemes, isReconsider = false }) {
   const schemeList = schemes || [];
 
   return (
-    <div className="glass-panel p-6 bg-white shadow-card border border-slate-200">
+    <div className="glass-panel p-4 sm:p-6 bg-white shadow-card border border-slate-200">
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wider text-sovereign-700 flex items-center gap-1.5 mb-1">

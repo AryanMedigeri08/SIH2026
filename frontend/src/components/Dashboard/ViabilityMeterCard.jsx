@@ -52,11 +52,11 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
   }, [probs, verdict, isSuitable, isCaution, isReconsider, confidence, dscrInfo, data]);
 
   return (
-    <div className={`glass-panel p-6 border-l-4 ${colorBorder} bg-white shadow-card h-full flex flex-col justify-between`}>
+    <div className={`glass-panel p-4 sm:p-6 border-l-4 ${colorBorder} bg-white shadow-card h-full flex flex-col justify-between`}>
       
       <div>
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
           <div className="space-y-1">
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 font-mono">
               <span className={`w-2.5 h-2.5 rounded-full ${isSuitable ? 'bg-emerald-500' : isCaution ? 'bg-amber-500' : 'bg-rose-500'}`} />
@@ -73,9 +73,9 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-2.5 shrink-0 w-full sm:w-auto">
             {/* Udyam Saathi Score Card */}
-            <div className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border text-center transition-all ${
+            <div className={`flex-1 sm:flex-initial px-2.5 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border text-center transition-all ${
               isSuitable 
                 ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950 shadow-sm' 
                 : isCaution 
@@ -97,7 +97,7 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
             </div>
 
             {/* Model Confidence */}
-            <div className="bg-slate-50 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200 text-center shrink-0">
+            <div className="flex-1 sm:flex-initial bg-slate-50 px-2.5 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200 text-center shrink-0">
               <div className="text-[10px] text-slate-500 font-semibold font-mono uppercase">
                 <TranslatedText text="Model Confidence" />
               </div>

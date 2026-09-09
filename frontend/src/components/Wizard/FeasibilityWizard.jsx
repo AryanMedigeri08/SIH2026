@@ -281,11 +281,11 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-8 transform transition-all duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-4 sm:my-8 transform transition-all duration-300">
         
         {/* Header */}
-        <div className="bg-slate-50 px-6 py-5 border-b border-slate-200 flex justify-between items-center">
+        <div className="bg-slate-50 px-4 sm:px-6 py-3.5 sm:py-5 border-b border-slate-200 flex justify-between items-center">
           <div>
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-sovereign-50 text-sovereign-800 border border-sovereign-200 shadow-sm animate-pulse">
@@ -308,7 +308,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
         </div>
 
         {/* Stepper Progress Bar */}
-        <div className="bg-slate-100/70 px-4 sm:px-6 py-3 border-b border-slate-200 flex justify-between items-center overflow-x-auto gap-2">
+        <div className="bg-slate-100/70 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 flex items-center justify-start sm:justify-between overflow-x-auto gap-2 sm:gap-3 scroll-touch-x no-scrollbar">
           {steps.map((s, idx) => {
             const Icon = s.icon;
             const isDone = s.num < currentStep;
@@ -343,7 +343,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-4 sm:space-y-6">
           
           {/* Step 1: Enterprise Profile */}
           {currentStep === 1 && (
@@ -1007,12 +1007,12 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
           )}
 
           {/* Navigation Controls */}
-          <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+          <div className="flex justify-between items-center gap-2 pt-4 border-t border-slate-200">
             {currentStep > 1 ? (
               <button
                 type="button"
                 onClick={handleBack}
-                className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 transition shadow-subtle"
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 px-3 sm:px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 transition shadow-subtle shrink-0"
               >
                 <ChevronLeft className="w-4 h-4" /> Back
               </button>
@@ -1022,7 +1022,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
               <button
                 type="button"
                 onClick={handleNext}
-                className="flex items-center gap-1.5 text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-5 py-2.5 rounded-xl shadow-sm transition group"
+                className="flex items-center gap-1.5 text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-4 sm:px-5 py-2.5 rounded-xl shadow-sm transition group shrink-0"
               >
                 <span>Next Step</span>
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -1031,17 +1031,17 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex items-center gap-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-600 px-6 py-2.5 rounded-xl shadow-md shadow-emerald-900/15 transition-all duration-200 hover:scale-[1.02] disabled:opacity-50"
+                className="flex items-center justify-center gap-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-600 px-4 sm:px-6 py-2.5 rounded-xl shadow-md shadow-emerald-900/15 transition-all duration-200 hover:scale-[1.02] disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Executing 4-Tier Pipeline...</span>
+                    <span>Executing Pipeline...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 text-emerald-200" />
-                    <span>Run Bank Feasibility Appraisal</span>
+                    <Sparkles className="w-4 h-4 text-emerald-200 shrink-0" />
+                    <span className="truncate">Run Bank Appraisal</span>
                   </>
                 )}
               </button>

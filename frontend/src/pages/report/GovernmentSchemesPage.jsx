@@ -86,7 +86,7 @@ export function GovernmentSchemesPage({ reportData }) {
     <div className="space-y-6">
       
       {/* Header Banner */}
-      <div className="glass-panel p-6 border-l-4 border-emerald-600 bg-gradient-to-r from-white via-emerald-50/20 to-white shadow-card border border-slate-200/90">
+      <div className="glass-panel p-4 sm:p-6 border-l-4 border-emerald-600 bg-gradient-to-r from-white via-emerald-50/20 to-white shadow-card border border-slate-200/90">
         <div className="text-xs font-bold uppercase tracking-wider text-emerald-700 mb-1 flex items-center gap-1.5">
           <Award className="w-4 h-4 text-emerald-600" />
           <span><TranslatedText text="Dimension 3 • Statutory MSME Schemes & Incentive Optimization" /></span>
@@ -100,8 +100,8 @@ export function GovernmentSchemesPage({ reportData }) {
       </div>
 
       {/* Top Scheme Recommendation Hero Banner */}
-      <div className={`p-6 bg-white rounded-2xl shadow-card border border-slate-200/90 ${cardBorderClass}`}>
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div className={`p-4 sm:p-6 bg-white rounded-2xl shadow-card border border-slate-200/90 ${cardBorderClass}`}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               {isReconsider ? (
@@ -131,8 +131,8 @@ export function GovernmentSchemesPage({ reportData }) {
           </div>
 
           {/* Quick Metrics Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 shrink-0">
-            <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 shrink-0">
+            <div className="p-3 sm:p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200">
               <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
                 <TranslatedText text="Capital Subsidy" />
               </div>
@@ -195,7 +195,7 @@ export function GovernmentSchemesPage({ reportData }) {
       <SchemeLeaderboardCard schemes={schemes} isReconsider={isReconsider} />
 
       {/* Statutory Scheme Specifications & Norms Reference Matrix */}
-      <div className="glass-panel p-6 bg-white border border-slate-200 shadow-card space-y-4">
+      <div className="glass-panel p-4 sm:p-6 bg-white border border-slate-200 shadow-card space-y-4">
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
           <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
             <BookOpen className="w-4 h-4" />
@@ -210,8 +210,8 @@ export function GovernmentSchemesPage({ reportData }) {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="overflow-x-auto scroll-touch-x">
+          <table className="w-full text-left text-xs border-collapse min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
                 <th className="py-3 px-3"><TranslatedText text="Scheme ID" /></th>

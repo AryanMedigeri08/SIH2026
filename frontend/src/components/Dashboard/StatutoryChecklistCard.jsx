@@ -26,8 +26,8 @@ export function StatutoryChecklistCard() {
   const completedCount = Object.values(checkedItems).filter(Boolean).length;
 
   return (
-    <div className="glass-panel p-6 bg-white shadow-card border border-slate-200">
-      <div className="flex items-center justify-between mb-4">
+    <div className="glass-panel p-4 sm:p-6 bg-white shadow-card border border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wider text-sovereign-700 flex items-center gap-1.5 mb-1">
             <ClipboardCheck className="w-3.5 h-3.5" />
@@ -41,7 +41,7 @@ export function StatutoryChecklistCard() {
           </p>
         </div>
 
-        <span className="text-xs font-bold px-3 py-1 rounded-full bg-sovereign-50 border border-sovereign-200 text-sovereign-800">
+        <span className="text-xs font-bold px-3 py-1 rounded-full bg-sovereign-50 border border-sovereign-200 text-sovereign-800 self-start sm:self-auto shrink-0">
           {completedCount} <TranslatedText text="of" /> {docs.length} <TranslatedText text="Documents Ready" />
         </span>
       </div>

@@ -100,7 +100,7 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-sovereign-100 selection:text-sovereign-900">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-8 sm:py-12 px-3.5 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-sovereign-100 selection:text-sovereign-900 overflow-x-hidden w-full max-w-full">
       <div className="absolute right-4 top-4 z-20">
         <LanguageSelector />
       </div>
@@ -126,8 +126,8 @@ export const LoginPage = () => {
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4 sm:px-0">
-        <div className="bg-white py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-200">
+      <div className="mt-6 sm:mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-0 sm:px-0">
+        <div className="bg-white py-6 px-4 sm:py-8 sm:px-10 shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-200">
           
           {/* Quick Demo One-Click Access Button */}
           <div className="mb-6">

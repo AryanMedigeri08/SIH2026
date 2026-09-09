@@ -85,7 +85,7 @@ export function BankDprPage({ reportData }) {
     <div className="space-y-6">
       
       {/* Header Banner */}
-      <div className="glass-panel p-6 border-l-4 border-purple-600 bg-gradient-to-r from-white via-purple-50/20 to-white shadow-card border border-slate-200/90 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="glass-panel p-4 sm:p-6 border-l-4 border-purple-600 bg-gradient-to-r from-white via-purple-50/20 to-white shadow-card border border-slate-200/90 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
         <div>
           <div className="text-xs font-bold uppercase tracking-wider text-purple-700 mb-1 flex items-center gap-1.5">
             <FileText className="w-4 h-4 text-purple-600" />
@@ -169,8 +169,8 @@ export function BankDprPage({ reportData }) {
       </div>
 
       {/* Credit Appraisal Summary Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+        <div className="glass-panel p-3 sm:p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
             <PieChart className="w-3.5 h-3.5 text-sovereign-700" />
             <span><TranslatedText text="Total Outlay" /></span>
@@ -181,7 +181,7 @@ export function BankDprPage({ reportData }) {
           <span className="text-[10px] text-slate-500 font-medium">100% Sourced</span>
         </div>
 
-        <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
+        <div className="glass-panel p-3 sm:p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
             <span><TranslatedText text="Capital Grant" /></span>
@@ -192,7 +192,7 @@ export function BankDprPage({ reportData }) {
           <span className="text-[10px] text-emerald-700 font-semibold">{topScheme.scheme_id || 'Scheme'} <TranslatedText text="Subsidy" /></span>
         </div>
 
-        <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
+        <div className="glass-panel p-3 sm:p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
             <Landmark className="w-3.5 h-3.5 text-amber-700" />
             <span><TranslatedText text="Term Loan" /></span>
@@ -203,7 +203,7 @@ export function BankDprPage({ reportData }) {
           <span className="text-[10px] text-amber-700 font-semibold">@ {fin.amortization?.annual_rate_pct || 11}% p.a.</span>
         </div>
 
-        <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
+        <div className="glass-panel p-3 sm:p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
             <IndianRupee className="w-3.5 h-3.5 text-indigo-700" />
             <span><TranslatedText text="Monthly EMI" /></span>
@@ -214,7 +214,7 @@ export function BankDprPage({ reportData }) {
           <span className="text-[10px] text-slate-500 font-medium">60 Mo Amortized</span>
         </div>
 
-        <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all col-span-2 sm:col-span-1">
+        <div className="glass-panel p-3 sm:p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all col-span-2 sm:col-span-1">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-sovereign-700" />
             <span><TranslatedText text="DSCR Solvency" /></span>
@@ -232,15 +232,15 @@ export function BankDprPage({ reportData }) {
       <StatutoryChecklistCard />
 
       {/* Embedded 7-Section DPR Paper Container */}
-      <div className="glass-panel p-6 bg-slate-50/70 border border-slate-200/90 shadow-card rounded-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6">
+      <div className="glass-panel p-4 sm:p-6 bg-slate-50/70 border border-slate-200/90 shadow-card rounded-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 sm:pb-4 border-b border-slate-200 mb-4 sm:mb-6">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
               <TranslatedText text="Statutory 7-Section Bank Memorandum Output" />
             </span>
           </div>
-          <span className="text-xs font-mono font-bold text-sovereign-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-subtle">
+          <span className="text-xs font-mono font-bold text-sovereign-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-subtle self-start sm:self-auto">
             Report Ref: {reportId}
           </span>
         </div>
@@ -252,11 +252,11 @@ export function BankDprPage({ reportData }) {
           </div>
         ) : format === 'html' ? (
           <div 
-            className="bg-white text-slate-900 rounded-xl p-6 sm:p-10 shadow-card max-w-4xl mx-auto overflow-x-auto border border-slate-200/90 print:p-0 print:shadow-none"
+            className="bg-white text-slate-900 rounded-xl p-3.5 sm:p-10 shadow-card max-w-4xl mx-auto overflow-x-auto scroll-touch-x border border-slate-200/90 print:p-0 print:shadow-none"
             dangerouslySetInnerHTML={{ __html: dprContent }}
           />
         ) : (
-          <pre className="font-mono text-xs text-slate-800 p-6 bg-white rounded-xl border border-slate-200/90 whitespace-pre-wrap max-w-4xl mx-auto overflow-x-auto shadow-card">
+          <pre className="font-mono text-xs text-slate-800 p-3.5 sm:p-6 bg-white rounded-xl border border-slate-200/90 whitespace-pre-wrap max-w-4xl mx-auto overflow-x-auto scroll-touch-x shadow-card">
             {typeof dprContent === 'string' ? dprContent : JSON.stringify(dprContent, null, 2)}
           </pre>
         )}

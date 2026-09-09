@@ -33,27 +33,27 @@ export function QuickCalculatorModal({ isOpen, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden my-4 sm:my-8">
         
         {/* Header */}
-        <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+        <div className="bg-slate-50 px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-200 flex justify-between items-center gap-2">
           <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-sovereign-50 text-sovereign-800 border border-sovereign-200">
+            <span className="p-2 rounded-xl bg-sovereign-50 text-sovereign-800 border border-sovereign-200 shrink-0">
               <Calculator className="w-5 h-5" />
             </span>
             <div>
-              <h2 className="text-base font-bold text-slate-900 font-outfit">Instant DSCR & Loan Sizing Calculator</h2>
-              <p className="text-[11px] text-slate-500">Deterministic banking underwriting calculator</p>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 font-outfit">Instant DSCR & Loan Sizing Calculator</h2>
+              <p className="text-[10px] sm:text-[11px] text-slate-500">Deterministic banking underwriting calculator</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleCompute} className="p-6 space-y-4">
+        <form onSubmit={handleCompute} className="p-4 sm:p-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-[11px] font-bold text-slate-700 mb-1">Project Cost (₹)</label>
@@ -115,15 +115,15 @@ export function QuickCalculatorModal({ isOpen, onClose }) {
 
           {/* Results Display */}
           {calcResult && (
-            <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 animate-in fade-in">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+            <div className="mt-4 p-3.5 sm:p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 animate-in fade-in">
+              <div className="flex flex-wrap justify-between items-center gap-1 border-b border-slate-200 pb-2">
                 <span className="text-xs font-bold text-slate-900">Debt Service Coverage (DSCR):</span>
                 <span className="text-base font-outfit font-extrabold text-sovereign-800 font-mono">
                   {calcResult.dscr?.dscr?.toFixed(2)}x ({calcResult.dscr?.verdict})
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs text-slate-700">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700">
                 <div>Monthly EMI: <strong className="font-mono text-slate-900">₹{Math.round(calcResult.amortization?.monthly_emi || 0).toLocaleString('en-IN')}</strong></div>
                 <div>Principal Loan: <strong className="font-mono text-slate-900">₹{Math.round(calcResult.loan_principal || 0).toLocaleString('en-IN')}</strong></div>
                 <div>Promoter Margin: <strong className="font-mono text-sovereign-800">₹{Math.round(calcResult.promoter_margin_amount || 0).toLocaleString('en-IN')}</strong></div>
