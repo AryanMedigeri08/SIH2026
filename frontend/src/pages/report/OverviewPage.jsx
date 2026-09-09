@@ -23,15 +23,20 @@ import {
   BarChart3,
   Building2,
   AlertTriangle,
+  Tag,
+  Megaphone,
+  Calculator,
 } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import { BusinessStatusPill } from '../../components/BusinessSwitcher';
 import { TranslatedText } from '../../components/TranslatedText';
+import { useViewMode } from '../../context/ViewModeContext';
 
 export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   const navigate = useNavigate();
   const [showLineage, setShowLineage] = React.useState(true);
   const { activeBusiness } = useBusiness();
+  const { isBeneficiary } = useViewMode();
 
   if (!reportData) {
     return (
@@ -107,86 +112,144 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
     { layer: "Tier 2: ML Viability", logical_source: "Supervised 10-D XGBoost Viability Classifier (TreeSHAP)", table_or_file: "viability_xgb.joblib", status: ml.is_fallback ? "Rule Fallback" : "TreeSHAP Evaluated", attribution: `Verdict: ${ml.verdict || "SUITABLE"}` },
   ];
 
-  // Teaser Navigation Cards linking to the other 7 sections with expressive color accents
-  const sectionTeasers = [
-    {
-      title: 'ML Viability & Explainability',
-      path: reportId ? `/reports/${reportId}/viability` : '/viability',
-      icon: BrainCircuit,
-      color: 'indigo',
-      iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-600 group-hover:text-white',
-      accentTop: 'border-t-2 border-indigo-500',
-      primaryMetric: `${ml.verdict || 'SUITABLE'} (${(ml.confidence_pct || 98.5).toFixed(1)}%)`,
-      teaserText: ml.top_positive_factors?.[0] || ml.top_positive_driver || 'TreeSHAP 10-D factor attribution',
-      badge: 'TreeSHAP',
-    },
-    {
-      title: 'Market & Local Demand',
-      path: reportId ? `/reports/${reportId}/market` : '/market',
-      icon: Target,
-      color: 'sky',
-      iconBg: 'bg-sky-50 text-sky-700 border-sky-200 group-hover:bg-sky-600 group-hover:text-white',
-      accentTop: 'border-t-2 border-sky-500',
-      primaryMetric: annualTam > 0 ? `₹${(annualTam / 100000).toFixed(1)}L TAM` : 'Market Sizing',
-      teaserText: pop2026 > 0 ? `${pop2026.toLocaleString('en-IN')} Catchment · MSME Density: ${msmeDensity.toFixed(1)}/10k` : 'Census 2011 Catchment Demographics',
-      badge: 'Census 2011',
-    },
-    {
-      title: 'Government Scheme Optimizer',
-      path: reportId ? `/reports/${reportId}/schemes` : '/schemes',
-      icon: Award,
-      color: 'emerald',
-      iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200 group-hover:bg-emerald-600 group-hover:text-white',
-      accentTop: 'border-t-2 border-emerald-500',
-      primaryMetric: `₹${Math.round(subsidyAmount).toLocaleString('en-IN')} Grant`,
-      teaserText: `Top Match: ${topScheme.scheme_id || 'PMEGP'} (${subsidyPct.toFixed(0)}% Subsidy)`,
-      badge: '10 Slabs',
-    },
-    {
-      title: 'Financials & Cash Flow',
-      path: reportId ? `/reports/${reportId}/financials` : '/financials',
-      icon: TrendingUp,
-      color: 'sovereign',
-      iconBg: 'bg-sovereign-50 text-sovereign-800 border-sovereign-200 group-hover:bg-sovereign-800 group-hover:text-white',
-      accentTop: 'border-t-2 border-sovereign-700',
-      primaryMetric: `DSCR ${dscr.toFixed(2)}`,
-      teaserText: `₹${Math.round(emi).toLocaleString('en-IN')}/mo EMI · 5-Yr Projections`,
-      badge: '5-Yr Horiz.',
-    },
-    {
-      title: 'Comprehensive Risk Matrix',
-      path: reportId ? `/reports/${reportId}/risk` : '/risk',
-      icon: ShieldAlert,
-      color: 'rose',
-      iconBg: 'bg-rose-50 text-rose-700 border-rose-200 group-hover:bg-rose-600 group-hover:text-white',
-      accentTop: 'border-t-2 border-rose-500',
-      primaryMetric: `${avgRisk.toFixed(1)}/10 (${riskSeverity})`,
-      teaserText: `${risks.risk_points?.length || 8}-Pillar Prudential Risk Assessment`,
-      badge: '8 Pillars',
-    },
-    {
-      title: 'Grounded SWOT Matrix',
-      path: reportId ? `/reports/${reportId}/swot` : '/swot',
-      icon: Grid3X3,
-      color: 'teal',
-      iconBg: 'bg-teal-50 text-teal-700 border-teal-200 group-hover:bg-teal-600 group-hover:text-white',
-      accentTop: 'border-t-2 border-teal-500',
-      primaryMetric: totalSwotCount > 0 ? `${totalSwotCount} Grounded Factors` : '4 Quadrants',
-      teaserText: `${sCount}S · ${wCount}W · ${oCount}O · ${tCount}T Factor Matrix`,
-      badge: 'Grounded',
-    },
-    {
-      title: 'Official Bank DPR Package',
-      path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
-      icon: FileText,
-      color: 'indigo',
-      iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-700 group-hover:text-white',
-      accentTop: 'border-t-2 border-indigo-600',
-      primaryMetric: '7 Sections',
-      teaserText: 'Bank Credit Memorandum · HTML / Markdown / JSON',
-      badge: 'Statutory',
-    },
-  ];
+  // Teaser Navigation Cards tailored by persona
+  const sectionTeasers = isBeneficiary
+    ? [
+        {
+          title: 'Product Pricing & Profit Margins',
+          path: reportId ? `/reports/${reportId}/pricing` : '/pricing',
+          icon: Tag,
+          color: 'amber',
+          iconBg: 'bg-amber-50 text-amber-700 border-amber-200 group-hover:bg-amber-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-amber-500',
+          primaryMetric: pricing.recommended_selling_price ? `₹${pricing.recommended_selling_price} / unit` : 'Unit Economics',
+          teaserText: 'Unit cost breakdown, daily break-even sales & monthly profit simulator',
+          badge: 'Unit Profit',
+        },
+        {
+          title: 'Village Marketing & Local Ads',
+          path: reportId ? `/reports/${reportId}/marketing` : '/marketing',
+          icon: Megaphone,
+          color: 'sky',
+          iconBg: 'bg-sky-50 text-sky-700 border-sky-200 group-hover:bg-sky-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-sky-500',
+          primaryMetric: 'WhatsApp & Haat',
+          teaserText: 'Ready-made WhatsApp promo copy, Weekly Haat pitch & Loudspeaker Munadi script',
+          badge: 'WhatsApp/Haat',
+        },
+        {
+          title: 'Government Subsidy Schemes',
+          path: reportId ? `/reports/${reportId}/schemes` : '/schemes',
+          icon: Award,
+          color: 'emerald',
+          iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200 group-hover:bg-emerald-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-emerald-500',
+          primaryMetric: `₹${Math.round(subsidyAmount).toLocaleString('en-IN')} Grant`,
+          teaserText: `Top Match: ${topScheme.scheme_id || 'PMEGP'} (${subsidyPct.toFixed(0)}% Subsidy)`,
+          badge: 'Grant ₹',
+        },
+        {
+          title: 'Loan Repayment & EMI Calculator',
+          path: '/calculator',
+          icon: Calculator,
+          color: 'sovereign',
+          iconBg: 'bg-sovereign-50 text-sovereign-800 border-sovereign-200 group-hover:bg-sovereign-800 group-hover:text-white',
+          accentTop: 'border-t-2 border-sovereign-700',
+          primaryMetric: `₹${Math.round(emi).toLocaleString('en-IN')}/mo EMI`,
+          teaserText: 'Interactive 10% margin input & quarterly repayment schedule with moratorium',
+          badge: 'Quarterly',
+        },
+        {
+          title: 'Official Bank DPR Package',
+          path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
+          icon: FileText,
+          color: 'indigo',
+          iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-700 group-hover:text-white',
+          accentTop: 'border-t-2 border-indigo-600',
+          primaryMetric: '7 Sections',
+          teaserText: 'Bank Credit Memorandum · Printable PDF / HTML',
+          badge: 'Download PDF',
+        },
+      ]
+    : [
+        {
+          title: 'ML Viability & Explainability',
+          path: reportId ? `/reports/${reportId}/viability` : '/viability',
+          icon: BrainCircuit,
+          color: 'indigo',
+          iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-indigo-500',
+          primaryMetric: `${ml.verdict || 'SUITABLE'} (${(ml.confidence_pct || 98.5).toFixed(1)}%)`,
+          teaserText: ml.top_positive_factors?.[0] || ml.top_positive_driver || 'TreeSHAP 10-D factor attribution',
+          badge: 'TreeSHAP',
+        },
+        {
+          title: 'Market & Local Demand',
+          path: reportId ? `/reports/${reportId}/market` : '/market',
+          icon: Target,
+          color: 'sky',
+          iconBg: 'bg-sky-50 text-sky-700 border-sky-200 group-hover:bg-sky-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-sky-500',
+          primaryMetric: annualTam > 0 ? `₹${(annualTam / 100000).toFixed(1)}L TAM` : 'Market Sizing',
+          teaserText: pop2026 > 0 ? `${pop2026.toLocaleString('en-IN')} Catchment · MSME Density: ${msmeDensity.toFixed(1)}/10k` : 'Census 2011 Catchment Demographics',
+          badge: 'Census 2011',
+        },
+        {
+          title: 'Government Scheme Optimizer',
+          path: reportId ? `/reports/${reportId}/schemes` : '/schemes',
+          icon: Award,
+          color: 'emerald',
+          iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200 group-hover:bg-emerald-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-emerald-500',
+          primaryMetric: `₹${Math.round(subsidyAmount).toLocaleString('en-IN')} Grant`,
+          teaserText: `Top Match: ${topScheme.scheme_id || 'PMEGP'} (${subsidyPct.toFixed(0)}% Subsidy)`,
+          badge: '10 Slabs',
+        },
+        {
+          title: 'Financials & Cash Flow',
+          path: reportId ? `/reports/${reportId}/financials` : '/financials',
+          icon: TrendingUp,
+          color: 'sovereign',
+          iconBg: 'bg-sovereign-50 text-sovereign-800 border-sovereign-200 group-hover:bg-sovereign-800 group-hover:text-white',
+          accentTop: 'border-t-2 border-sovereign-700',
+          primaryMetric: `DSCR ${dscr.toFixed(2)}`,
+          teaserText: `₹${Math.round(emi).toLocaleString('en-IN')}/mo EMI · 5-Yr Projections`,
+          badge: '5-Yr Horiz.',
+        },
+        {
+          title: 'Comprehensive Risk Matrix',
+          path: reportId ? `/reports/${reportId}/risk` : '/risk',
+          icon: ShieldAlert,
+          color: 'rose',
+          iconBg: 'bg-rose-50 text-rose-700 border-rose-200 group-hover:bg-rose-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-rose-500',
+          primaryMetric: `${avgRisk.toFixed(1)}/10 (${riskSeverity})`,
+          teaserText: `${risks.risk_points?.length || 8}-Pillar Prudential Risk Assessment`,
+          badge: '8 Pillars',
+        },
+        {
+          title: 'Grounded SWOT Matrix',
+          path: reportId ? `/reports/${reportId}/swot` : '/swot',
+          icon: Grid3X3,
+          color: 'teal',
+          iconBg: 'bg-teal-50 text-teal-700 border-teal-200 group-hover:bg-teal-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-teal-500',
+          primaryMetric: totalSwotCount > 0 ? `${totalSwotCount} Grounded Factors` : '4 Quadrants',
+          teaserText: `${sCount}S · ${wCount}W · ${oCount}O · ${tCount}T Factor Matrix`,
+          badge: 'Grounded',
+        },
+        {
+          title: 'Official Bank DPR Package',
+          path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
+          icon: FileText,
+          color: 'indigo',
+          iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-700 group-hover:text-white',
+          accentTop: 'border-t-2 border-indigo-600',
+          primaryMetric: '7 Sections',
+          teaserText: 'Bank Credit Memorandum · HTML / Markdown / JSON',
+          badge: 'Statutory',
+        },
+      ];
 
   return (
     <div className="space-y-6">
@@ -316,45 +379,47 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
         </div>
       </div>
 
-      {/* Verified Ground-Truth Data Sources & Lineage Audit Bar */}
-      <div className="glass-panel p-3 sm:p-5 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200/90 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer select-none" onClick={() => setShowLineage(prev => !prev)}>
-          <div className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-sovereign-800" />
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider">
-              <TranslatedText text="Verified Ground-Truth Data Sources & Audit Lineage" />
-            </h4>
-            <span className="text-[10px] bg-sovereign-50 border border-sovereign-200 text-sovereign-800 px-2 py-0.5 rounded-full font-mono font-bold">
-              {dataSources.length} <TranslatedText text="Sources Connected" />
-            </span>
+      {/* Verified Ground-Truth Data Sources & Lineage Audit Bar (Exclusive to Banker / Auditor Mode) */}
+      {!isBeneficiary && (
+        <div className="glass-panel p-3 sm:p-5 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200/90 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer select-none" onClick={() => setShowLineage(prev => !prev)}>
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-sovereign-800" />
+              <h4 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider">
+                <TranslatedText text="Verified Ground-Truth Data Sources & Audit Lineage" />
+              </h4>
+              <span className="text-[10px] bg-sovereign-50 border border-sovereign-200 text-sovereign-800 px-2 py-0.5 rounded-full font-mono font-bold">
+                {dataSources.length} <TranslatedText text="Sources Connected" />
+              </span>
+            </div>
+            <button className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 font-semibold">
+              <span><TranslatedText text={showLineage ? "Hide Lineage" : "Show Lineage"} /></span>
+              {showLineage ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
           </div>
-          <button className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 font-semibold">
-            <span><TranslatedText text={showLineage ? "Hide Lineage" : "Show Lineage"} /></span>
-            {showLineage ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-        </div>
 
-        {showLineage && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2 border-t border-slate-100 animate-in fade-in duration-200">
-            {dataSources.map((ds, idx) => (
-              <div key={idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] space-y-0.5 hover:bg-slate-100 transition-colors">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sovereign-800 truncate">
-                    <TranslatedText text={ds.logical_source} />
-                  </span>
-                  <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold shrink-0">
-                    <TranslatedText text={ds.status} />
-                  </span>
+          {showLineage && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2 border-t border-slate-100 animate-in fade-in duration-200">
+              {dataSources.map((ds, idx) => (
+                <div key={idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] space-y-0.5 hover:bg-slate-100 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sovereign-800 truncate">
+                      <TranslatedText text={ds.logical_source} />
+                    </span>
+                    <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold shrink-0">
+                      <TranslatedText text={ds.status} />
+                    </span>
+                  </div>
+                  <div className="text-slate-600 font-mono text-[10px] truncate">{ds.table_or_file}</div>
+                  <div className="text-slate-500 text-[10px] line-clamp-1">
+                    <TranslatedText text={ds.attribution} />
+                  </div>
                 </div>
-                <div className="text-slate-600 font-mono text-[10px] truncate">{ds.table_or_file}</div>
-                <div className="text-slate-500 text-[10px] line-clamp-1">
-                  <TranslatedText text={ds.attribution} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Row 1: ML Viability Card & AI Executive Synthesis Narrative */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">

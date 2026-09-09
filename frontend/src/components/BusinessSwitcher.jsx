@@ -135,14 +135,14 @@ export function BusinessSwitcher({ compact = false }) {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 shadow-subtle text-xs text-slate-800 transition-all max-h-11 ${compact ? "w-full justify-between" : ""}`}
+        className={`group inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 shadow-subtle text-xs text-slate-800 transition-all max-h-11 shrink-0 ${compact ? "w-full justify-between" : ""}`}
         aria-expanded={isOpen}
       >
         <div className="w-7 h-7 rounded-lg bg-sovereign-50 border border-sovereign-200 flex items-center justify-center text-sovereign-800 shrink-0">
           <Building2 className="w-3.5 h-3.5 text-sovereign-700" />
         </div>
 
-        <div className="text-left min-w-0 max-w-[120px] sm:max-w-[150px] md:max-w-[180px] lg:max-w-[210px] truncate">
+        <div className="text-left min-w-0 max-w-[110px] sm:max-w-[130px] md:max-w-[150px] lg:max-w-[170px] truncate">
           <div className="font-outfit font-extrabold text-xs text-slate-900 truncate leading-tight">
             {activeBusiness?.business_name || "Select Business"}
           </div>
@@ -153,7 +153,7 @@ export function BusinessSwitcher({ compact = false }) {
 
         {/* Real Status Badge */}
         {!compact && (
-          <div className="hidden sm:flex shrink-0 ml-1">
+          <div className="hidden 2xl:flex shrink-0 ml-1">
             <BusinessStatusPill status={currentStatus} size="xs" />
           </div>
         )}

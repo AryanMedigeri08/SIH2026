@@ -1,8 +1,10 @@
 import React from 'react';
-import { AlertTriangle, AlertOctagon, CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react';
+import { AlertTriangle, AlertOctagon, CheckCircle2, ShieldCheck, Sparkles, Info } from 'lucide-react';
 import { TranslatedText } from '../TranslatedText';
+import { useViewMode } from '../../context/ViewModeContext';
 
 export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confidenceScore }) {
+  const { isBeneficiary } = useViewMode();
   const data = mlViability || viabilityData || {};
   const verdict = data?.verdict || "SUITABLE";
   const confidence = confidenceScore ?? (data?.confidence_pct ?? 98.5);
@@ -60,7 +62,7 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
           <div className="space-y-1">
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 font-mono">
               <span className={`w-2.5 h-2.5 rounded-full ${isSuitable ? 'bg-emerald-500' : isCaution ? 'bg-amber-500' : 'bg-rose-500'}`} />
-              <TranslatedText text="Tier 2 Supervised XGBoost Viability Engine (10-D)" />
+              <TranslatedText text={isBeneficiary ? "Official Bank Loan Feasibility Assessment" : "Tier 2 Supervised XGBoost Viability Engine (10-D TreeSHAP)"} />
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <h2 className="text-xl sm:text-2xl font-outfit font-extrabold text-slate-900">
@@ -71,6 +73,13 @@ export function ViabilityMeterCard({ mlViability, viabilityData, dscrInfo, confi
                 <span><TranslatedText text={verdict} /></span>
               </div>
             </div>
+            {isBeneficiary && (
+              <div className="text-xs font-semibold mt-1">
+                {isSuitable && <span className="text-emerald-800">✓ <TranslatedText text="Loan Approval Recommended: High cash flow viability for scheduled bank financing." /></span>}
+                {isCaution && <span className="text-amber-800">⚠ <TranslatedText text="Conditional Approval: Bank may ask for 5% higher margin or an extended moratorium." /></span>}
+                {isReconsider && <span className="text-rose-800">✕ <TranslatedText text="Loan Restructuring Needed: Outlay is high relative to sales. See viable alternatives below!" /></span>}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-2.5 shrink-0 w-full sm:w-auto">
