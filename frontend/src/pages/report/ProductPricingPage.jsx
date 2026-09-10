@@ -8,7 +8,10 @@ import {
   YAxis,
   Tooltip,
   ReferenceLine,
-  CartesianGrid
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell
 } from 'recharts';
 import {
   Tag,
@@ -70,6 +73,10 @@ export function ProductPricingPage({ reportData }) {
   // Set default daily units to realistic healthy operating capacity (~1.5x break-even)
   const defaultDailyUnits = Math.max(Math.ceil(breakEvenDailyUnits * 1.5), 20);
 
+  // Realistic bounds for daily volume based on micro-enterprise physical capacity (fixed constants)
+  const minDailyUnits = Math.max(5, Math.floor(breakEvenDailyUnits * 0.4));
+  const maxDailyUnits = Math.max(120, Math.ceil(defaultDailyUnits * 2.5), Math.ceil(breakEvenDailyUnits * 3.0));
+
   // Interactive Simulator States
   const [sellingPrice, setSellingPrice] = useState(defaultPrice);
   const [dailyUnits, setDailyUnits] = useState(defaultDailyUnits);
@@ -119,6 +126,14 @@ export function ProductPricingPage({ reportData }) {
     const profitPct = Math.max(0, 100 - (rawPct + emiPct + overheadPct));
     return { raw: rawPct, overhead: overheadPct, emi: emiPct, profit: profitPct };
   }, [sellingPrice, variableCostPerUnit, monthlyVolume, monthlyRevenue, monthlyEmi, fixedMonthlyCosts]);
+
+  // Donut Chart Dataset for ₹100 of Sales Breakdown
+  const donutData = useMemo(() => [
+    { name: 'Raw Materials', value: costStack.raw, color: '#2563eb', bg: 'bg-blue-50/70', border: 'border-blue-200', text: 'text-blue-900' },
+    { name: 'Power & Overheads', value: costStack.overhead, color: '#f59e0b', bg: 'bg-amber-50/70', border: 'border-amber-200', text: 'text-amber-900' },
+    { name: 'Bank Loan EMI', value: costStack.emi, color: '#4f46e5', bg: 'bg-indigo-50/70', border: 'border-indigo-200', text: 'text-indigo-900' },
+    { name: 'Family Net Income', value: costStack.profit, color: '#10b981', bg: 'bg-emerald-50/70', border: 'border-emerald-200', text: 'text-emerald-900' },
+  ], [costStack]);
 
   // Middleman Distress vs Fair Price Comparison
   const distressPrice = Math.round(unitCostFloor * 1.06); // Middleman offers barely 6% over cost
@@ -287,17 +302,17 @@ export function ProductPricingPage({ reportData }) {
               </div>
               <input
                 type="range"
-                min={Math.max(5, Math.floor(breakEvenDailyUnits * 0.5))}
-                max={Math.max(100, Math.ceil(dailyUnits * 2.2))}
+                min={minDailyUnits}
+                max={maxDailyUnits}
                 step={1}
                 value={dailyUnits}
                 onChange={(e) => setDailyUnits(Number(e.target.value))}
                 className="w-full accent-indigo-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
               />
               <div className="flex justify-between text-[10px] font-mono text-slate-400">
-                <span>{Math.max(5, Math.floor(breakEvenDailyUnits * 0.5))} units</span>
+                <span>{minDailyUnits} units (Min)</span>
                 <span className="text-indigo-700 font-bold">{breakEvenDailyUnits} (<TranslatedText text="Break-Even" />)</span>
-                <span>{Math.max(100, Math.ceil(dailyUnits * 2.2))} units</span>
+                <span>{maxDailyUnits} units (Max Capacity)</span>
               </div>
             </div>
           </div>
@@ -430,82 +445,81 @@ export function ProductPricingPage({ reportData }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         
         {/* Card A: Where Does Every ₹100 Go? */}
-        <div className="glass-panel p-5 bg-white border border-slate-200 rounded-2xl shadow-card space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <Coins className="w-4 h-4 text-emerald-700" />
-              <h3 className="font-outfit font-bold text-slate-900 text-sm sm:text-base">
-                <TranslatedText text="Where Does Every ₹100 of Sales Go?" />
-              </h3>
+        <div className="glass-panel p-5 bg-white border border-slate-200 rounded-2xl shadow-card space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Coins className="w-4 h-4 text-emerald-700" />
+                <h3 className="font-outfit font-bold text-slate-900 text-sm sm:text-base">
+                  <TranslatedText text="Where Does Every ₹100 of Sales Go?" />
+                </h3>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <TranslatedText text="Unit Cost Stack" />
+              </span>
             </div>
-            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-              <TranslatedText text="Cost Stack" />
-            </span>
+
+            {/* Donut Chart + Breakdown Legend */}
+            <div className="flex flex-col sm:flex-row items-center gap-4 py-2">
+              {/* Donut with Center Text */}
+              <div className="relative w-40 h-40 shrink-0 flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Tooltip
+                      formatter={(val, name) => [`₹${val} (${val}%)`, name]}
+                      contentStyle={{
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                      }}
+                    />
+                    <Pie
+                      data={donutData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={46}
+                      outerRadius={68}
+                      paddingAngle={3}
+                      dataKey="value"
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                    >
+                      {donutData.map((entry, index) => (
+                        <Cell key={`donut-cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                
+                {/* Center Badge inside the Donut */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">Per</span>
+                  <span className="text-lg font-outfit font-extrabold text-slate-900 leading-tight">₹100</span>
+                  <span className="text-[9px] font-semibold text-emerald-700 leading-none">Sales</span>
+                </div>
+              </div>
+
+              {/* Legend Stack */}
+              <div className="grid grid-cols-1 gap-2 text-xs w-full">
+                {donutData.map((item, idx) => (
+                  <div key={idx} className={`flex items-center justify-between p-2 rounded-xl ${item.bg} border ${item.border}`}>
+                    <span className={`flex items-center gap-2 font-medium ${item.text}`}>
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <TranslatedText text={item.name} />
+                    </span>
+                    <span className={`font-mono font-bold text-sm ${item.text}`}>
+                      ₹{item.value} <span className="text-[10px] font-normal opacity-80">({item.value}%)</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* Stacked Horizontal Bar */}
-          <div className="space-y-2">
-            <div className="h-5 w-full rounded-xl overflow-hidden flex shadow-xs border border-slate-200">
-              <div 
-                style={{ width: `${costStack.raw}%` }} 
-                className="bg-blue-600 transition-all" 
-                title={`Raw Materials: ${costStack.raw}%`} 
-              />
-              <div 
-                style={{ width: `${costStack.overhead}%` }} 
-                className="bg-amber-500 transition-all" 
-                title={`Overheads: ${costStack.overhead}%`} 
-              />
-              <div 
-                style={{ width: `${costStack.emi}%` }} 
-                className="bg-indigo-600 transition-all" 
-                title={`Bank EMI: ${costStack.emi}%`} 
-              />
-              <div 
-                style={{ width: `${costStack.profit}%` }} 
-                className="bg-emerald-500 transition-all" 
-                title={`Family Profit: ${costStack.profit}%`} 
-              />
-            </div>
-
-            {/* Legend Grid */}
-            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-blue-50/60 border border-blue-100">
-                <span className="flex items-center gap-1.5 text-blue-900">
-                  <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
-                  <TranslatedText text="Raw Materials" />
-                </span>
-                <span className="font-mono font-bold text-blue-900">₹{costStack.raw}</span>
-              </div>
-
-              <div className="flex items-center justify-between p-2 rounded-lg bg-amber-50/60 border border-amber-100">
-                <span className="flex items-center gap-1.5 text-amber-900">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                  <TranslatedText text="Power & Overheads" />
-                </span>
-                <span className="font-mono font-bold text-amber-900">₹{costStack.overhead}</span>
-              </div>
-
-              <div className="flex items-center justify-between p-2 rounded-lg bg-indigo-50/60 border border-indigo-100">
-                <span className="flex items-center gap-1.5 text-indigo-900">
-                  <span className="w-2 h-2 rounded-full bg-indigo-600 shrink-0" />
-                  <TranslatedText text="Bank Loan EMI" />
-                </span>
-                <span className="font-mono font-bold text-indigo-900">₹{costStack.emi}</span>
-              </div>
-
-              <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-50/60 border border-emerald-100">
-                <span className="flex items-center gap-1.5 text-emerald-900">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                  <TranslatedText text="Family Net Income" />
-                </span>
-                <span className="font-mono font-bold text-emerald-900">₹{costStack.profit}</span>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-[11px] text-slate-500 font-medium">
-            <TranslatedText text="Your production model ensures that after clearing every supplier invoice and monthly bank installment, your household retains an honest, dignifying profit margin." />
+          <p className="text-[11px] text-slate-500 font-medium pt-2 border-t border-slate-100">
+            <TranslatedText text="Your production model ensures that after clearing every supplier invoice, power bill, and monthly bank loan EMI, your household retains an honest, dignifying profit margin." />
           </p>
         </div>
 

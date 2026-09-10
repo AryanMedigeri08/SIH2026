@@ -219,6 +219,89 @@ export async function fetchVillages(districtName, blockName, districtCode, block
   ];
 }
 
+export async function fetchOdopProduct(stateName, districtName) {
+  try {
+    const params = new URLSearchParams();
+    if (stateName) params.append('state_name', stateName);
+    if (districtName) params.append('district_name', districtName);
+    const res = await fetch(`${API_BASE}/locations/odop?${params.toString()}`);
+    if (res.ok) return await res.json();
+  } catch (e) {}
+
+  // Fallback ODOP mapping for offline / mock resilience
+  const d = (districtName || '').toLowerCase();
+  if (d.includes('bankura')) {
+    return {
+      has_odop_record: true,
+      district_name: 'Bankura',
+      state_name: 'West Bengal',
+      odop_product: 'Terracotta Pottery & Dokra Metal Craft',
+      secondary_product: 'Baluchari Handloom Silk Sarees',
+      category: 'Handicrafts & Handlooms',
+      matching_sectors: ['artisan_trades', 'apparel'],
+      pmfme_eligible: false,
+      gem_category: 'Handicrafts, Terracotta Artefacts & Silk Textiles',
+      cfc_available: true,
+      key_benefits: [
+        'GI-tagged Bankura Terracotta Horse & Baluchari provenance protection',
+        'Access to Bishnupur & Bikna Common Facility Centre (CFC)',
+        'GeM ODOP seller portal direct onboarding without minimum turnover criteria',
+        'KVIC / SFURTI artisan cluster capital assistance'
+      ]
+    };
+  }
+  if (d.includes('bulandshahr')) {
+    return {
+      has_odop_record: true,
+      district_name: 'Bulandshahr',
+      state_name: 'Uttar Pradesh',
+      odop_product: 'Khurja Glazed Pottery & Ceramic Ware',
+      category: 'Ceramics & Handicrafts',
+      matching_sectors: ['fabrication', 'artisan_trades', 'manufacturing'],
+      pmfme_eligible: false,
+      gem_category: 'Ceramics, Tableware & Insulators',
+      cfc_available: true,
+      key_benefits: [
+        'UP ODOP Margin Money Scheme (up to 20% state subsidy convergence)',
+        'Access to Central Glass & Ceramic Research Institute (CGCRI) Khurja Centre',
+        'Energy-efficient PNG furnace conversion grants',
+        'GeM ODOP National Portal listing for public institutional procurement'
+      ]
+    };
+  }
+  if (d.includes('ujjain')) {
+    return {
+      has_odop_record: true,
+      district_name: 'Ujjain',
+      state_name: 'Madhya Pradesh',
+      odop_product: 'Bhairavgarh Batik Print Textiles',
+      category: 'Handloom & Textiles',
+      matching_sectors: ['apparel', 'artisan_trades'],
+      pmfme_eligible: false,
+      gem_category: 'Batik Printed Sarees, Bedcovers & Fabrics',
+      cfc_available: true,
+      key_benefits: [
+        'Bhairavgarh Batik GI tag brand recognition',
+        'Mrignayani MP Government Emporium marketing corridor',
+        'Common dying & wastewater treatment facility access',
+        'GeM ODOP textile listing'
+      ]
+    };
+  }
+  return {
+    has_odop_record: false,
+    district_name: districtName || 'District',
+    state_name: stateName || 'State',
+    odop_product: 'Regional Agro & MSME Products',
+    category: 'General Commercial MSME',
+    matching_sectors: ['general'],
+    pmfme_eligible: false,
+    gem_category: 'Standard MSME Portal',
+    cfc_available: false,
+    key_benefits: ['PMEGP 25-35% Capital Subsidy', 'MUDRA Collateral-free Credit']
+  };
+}
+
 // --- Feasibility Analysis & DPR Endpoints ---
 export async function generateFeasibility(formData, token = null) {
   return await authFetch(`${API_BASE}/feasibility/generate`, token, {

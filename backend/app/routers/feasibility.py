@@ -34,6 +34,7 @@ from app.config import settings
 from app.database import db_manager
 from app.core.auth_dependency import get_current_user, get_current_user_optional, AuthenticatedUser
 from app.core.translation_service import TranslationService
+from app.core.odop_matcher import match_odop
 from app.models.schemas import UserInput, FeasibilityReport
 
 router = APIRouter(prefix="/feasibility", tags=["Feasibility Analysis & DPR"])
@@ -220,6 +221,14 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         deterministic_swot.is_fallback = True
         final_swot = deterministic_swot
 
+    # ODOP Statutory Cluster Evaluation (PMFME & DPIIT)
+    odop_alignment = match_odop(
+        state_name=input_data.state_name,
+        district_name=input_data.district_name,
+        sector=input_data.sector,
+        enterprise_name=input_data.enterprise_name,
+    )
+
     # 9. Bank DPR Assembly (Tier 4)
     dpr_doc = build_bank_dpr(
         enterprise_name=input_data.enterprise_name,
@@ -249,6 +258,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         pricing_result=pricing,
         ml_prediction=ml_pred,
         ai_synthesis=synthesis,
+        odop_info=odop_alignment,
     )
 
     report_id = f"REP-{uuid.uuid4().hex[:10].upper()}"
@@ -307,6 +317,15 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         },
     ]
 
+    data_sources_used.append({
+        "layer": "Tier 1: ODOP Cluster Registry",
+        "logical_source": "MoFPI PMFME & DPIIT One District One Product Registry",
+        "table_or_file": "odop_registry.json",
+        "records_matched": 1 if odop_alignment.get("has_odop_record") else 0,
+        "status": "Cluster Aligned" if odop_alignment.get("is_aligned") else "Queried OK",
+        "attribution": f"District: {odop_alignment.get('district_name')}, Product: {odop_alignment.get('odop_product')} ({odop_alignment.get('status_text')})",
+    })
+
     feasibility_report = FeasibilityReport(
         report_id=report_id,
         generated_at_utc=now_iso,
@@ -344,6 +363,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         pricing_recommendation=pricing.to_dict(),
         executive_synthesis=synthesis.to_dict(),
         data_sources_used=data_sources_used,
+        odop_alignment=odop_alignment,
     )
 
     return feasibility_report, dpr_doc

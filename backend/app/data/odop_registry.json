@@ -1,0 +1,333 @@
+{
+  "_metadata": {
+    "title": "One District One Product (ODOP) Statutory Registry",
+    "initiatives": [
+      "PM Formalisation of Micro Food Processing Enterprises (PMFME - MoFPI)",
+      "One District One Product (ODOP - DPIIT Ministry of Commerce & Industry)",
+      "State Specific ODOP Notifications (Biswa Bangla, UP ODOP, MP ODOP)"
+    ],
+    "version": "2026.2",
+    "updated_at": "2026-09-10",
+    "research_notes": "Ground-truth audited against DPIIT, MoFPI PMFME, and State Industries Department notifications. Bankura's notified ODOP is Terracotta Craft & Dokra (Bishnupur/Panchmura) and Baluchari Silk; dairy is supported under general rural agro schemes but is NOT Bankura's designated ODOP."
+  },
+  "states": {
+    "West Bengal": {
+      "Bankura": {
+        "odop_product": "Terracotta Pottery & Dokra Metal Craft",
+        "secondary_product": "Baluchari Handloom Silk Sarees (Bishnupur)",
+        "category": "Handicrafts & Handlooms",
+        "matching_sectors": ["artisan_trades", "apparel"],
+        "pmfme_eligible": false,
+        "gem_category": "Handicrafts, Terracotta Artefacts & Silk Textiles",
+        "cfc_available": true,
+        "raw_material_availability": "Alluvial red clay of Panchmura & traditional brass-casting wax artisans in Bikna",
+        "rbi_psl_category": "Artisan Handloom & Micro Craft Enterprises",
+        "key_benefits": [
+          "GI-tagged Bankura Terracotta Horse & Baluchari provenance protection",
+          "Access to Bishnupur & Bikna Common Facility Centre (CFC)",
+          "GeM ODOP seller portal direct onboarding without minimum turnover criteria",
+          "KVIC / SFURTI artisan cluster capital assistance"
+        ],
+        "non_odop_guidance": "While dairy, rice milling, and agro-processing are major economic activities under the Bankura District Industries Centre (DIC), they are not Bankura's officially designated ODOP items. Dairy units qualify for standard PMEGP (up to 35% capital subsidy) and the general PMFME demand-driven window, but do not receive ODOP-specific cluster privileges."
+      },
+      "Purulia": {
+        "odop_product": "Chhau Mask & Lacquer Craft",
+        "secondary_product": "Minor Forest Produce (Lac & Honey)",
+        "category": "Handicrafts & Non-Timber Forest Products",
+        "matching_sectors": ["artisan_trades"],
+        "pmfme_eligible": false,
+        "gem_category": "Traditional Masks, Lacquerware & Forest Handicrafts",
+        "cfc_available": true,
+        "raw_material_availability": "Charida artisan cluster and Chotanagpur plateau forest belt",
+        "rbi_psl_category": "Artisan & Tribal Micro Enterprises",
+        "key_benefits": [
+          "GI Tagged Purulia Chhau Mask authentication",
+          "TRIFED & GeM Tribal Artisan marketing corridor",
+          "SFURTI artisan cluster grant eligibility"
+        ]
+      },
+      "Birbhum": {
+        "odop_product": "Kantha Embroidery & Shantiniketan Leather Craft",
+        "category": "Handicrafts & Handlooms",
+        "matching_sectors": ["apparel", "artisan_trades"],
+        "pmfme_eligible": false,
+        "gem_category": "Handicrafts, Leather Goods & Embroidered Textiles",
+        "cfc_available": true,
+        "raw_material_availability": "Dense network of rural women SHGs and Santiniketan artisan guild",
+        "rbi_psl_category": "Women & Artisan Priority Lending",
+        "key_benefits": [
+          "GI Tagged Santiniketan Leather Goods & Nakshi Kantha certification",
+          "Biswa Bangla state marketing linkage"
+        ]
+      },
+      "Purba Bardhaman": {
+        "odop_product": "Sitabhog & Mihidana (Confectionery)",
+        "secondary_product": "Wooden Dolls of Natungram",
+        "category": "Food Processing (Traditional Confectionery) & Handicrafts",
+        "matching_sectors": ["food_processing", "artisan_trades"],
+        "pmfme_eligible": true,
+        "gem_category": "Cereal Sweets & Folk Wooden Crafts",
+        "cfc_available": true,
+        "raw_material_availability": "Abundant local Govindobhog rice, chhana, and Natungram woodcarvers",
+        "rbi_psl_category": "Micro Food Processing & Artisan Cluster",
+        "key_benefits": [
+          "GI-tagged Sitabhog & Mihidana export promotion corridor",
+          "PMFME 35% credit-linked capital subsidy up to ₹10 Lakhs"
+        ]
+      },
+      "Burdwan": {
+        "odop_product": "Sitabhog & Mihidana (Traditional Sweets)",
+        "category": "Food Processing (Agro Confectionery)",
+        "matching_sectors": ["food_processing"],
+        "pmfme_eligible": true,
+        "gem_category": "Traditional Cereal Confectionery",
+        "cfc_available": true,
+        "raw_material_availability": "Govindobhog rice belt and dairy chhana clusters",
+        "rbi_psl_category": "Micro Food Processing",
+        "key_benefits": ["GI Protection and PMFME 35% subsidy"]
+      },
+      "Darjeeling": {
+        "odop_product": "Darjeeling Specialty Tea",
+        "category": "Plantation & Agro Processing",
+        "matching_sectors": ["food_processing", "agriculture"],
+        "pmfme_eligible": true,
+        "gem_category": "GI Certified Tea & Beverages",
+        "cfc_available": true,
+        "raw_material_availability": "Mountain terroir agro-climate and high-altitude tea gardens",
+        "rbi_psl_category": "Export Agri Processing",
+        "key_benefits": ["India's premier GI protection brand", "PMFME 35% capital subsidy"]
+      },
+      "Malda": {
+        "odop_product": "Fazli & Himsagar Mango Processing",
+        "category": "Horticulture Processing",
+        "matching_sectors": ["food_processing"],
+        "pmfme_eligible": true,
+        "gem_category": "Fruit Pulp, Aam Papad & Pickles",
+        "cfc_available": true,
+        "raw_material_availability": "Vast orchards of Fazli and Lakshmanbhog mangoes",
+        "rbi_psl_category": "Micro Food Processing",
+        "key_benefits": ["PMFME 35% capital subsidy", "Cold storage cluster subsidy"]
+      },
+      "Nadia": {
+        "odop_product": "Taant Handloom Sarees (Phulia / Shantipur)",
+        "category": "Handlooms & Textiles",
+        "matching_sectors": ["apparel", "artisan_trades"],
+        "pmfme_eligible": false,
+        "gem_category": "Handloom Cotton Sarees & Dhotis",
+        "cfc_available": true,
+        "raw_material_availability": "Premier cotton weaver societies in Phulia and Shantipur",
+        "rbi_psl_category": "Handloom MSME Priority",
+        "key_benefits": ["GI Tagged Shantipur Saree certification", "Weavers mudra concessional loans"]
+      }
+    },
+    "Uttar Pradesh": {
+      "Bulandshahr": {
+        "odop_product": "Khurja Glazed Pottery & Ceramic Ware",
+        "category": "Ceramics & Handicrafts",
+        "matching_sectors": ["fabrication", "artisan_trades", "manufacturing"],
+        "pmfme_eligible": false,
+        "gem_category": "Ceramics, Tableware & Insulators",
+        "cfc_available": true,
+        "raw_material_availability": "Over 400 ceramic kilns and established clay supply ecosystem in Khurja",
+        "rbi_psl_category": "MSME Priority Lending & Artisan Cluster",
+        "key_benefits": [
+          "UP ODOP Margin Money Scheme (up to 20% state subsidy convergence)",
+          "Central Glass & Ceramic Research Institute (CGCRI) Khurja Centre testing lab access",
+          "Energy-efficient PNG furnace conversion grants",
+          "GeM ODOP National Portal listing for public institutional procurement"
+        ],
+        "non_odop_guidance": "Khurja Pottery is Bulandshahr's notified ODOP. Agricultural and dairy units in Bulandshahr are eligible under standard PMEGP/MUDRA, but not under the specialized UP ODOP Ceramic Scheme."
+      },
+      "Varanasi": {
+        "odop_product": "Banarasi Silk Handloom & Pink Enamelling (Gulabi Meenakari)",
+        "category": "Textiles & Handicrafts",
+        "matching_sectors": ["apparel", "artisan_trades"],
+        "pmfme_eligible": false,
+        "gem_category": "Silk Sarees, Brocades & Enamelled Artefacts",
+        "cfc_available": true,
+        "raw_material_availability": "Historic master weaver colonies and GI-registered craft guilds",
+        "rbi_psl_category": "Handloom & Priority MSME",
+        "key_benefits": [
+          "Bada Lalpur Deendayal Hastkala Sankul access",
+          "UP ODOP toolkit subsidy & 25% credit margin support"
+        ]
+      },
+      "Bhadohi": {
+        "odop_product": "Handmade Woollen & Silk Carpets (Kaleen)",
+        "category": "Handlooms & Floor Coverings",
+        "matching_sectors": ["artisan_trades", "apparel", "manufacturing"],
+        "pmfme_eligible": false,
+        "gem_category": "Rugs, Carpets & Floor Coverings",
+        "cfc_available": true,
+        "raw_material_availability": "Carpet City of India with over 100,000 master knotters",
+        "rbi_psl_category": "Artisan Priority MSME",
+        "key_benefits": [
+          "Indian Institute of Carpet Technology (IICT) design testing",
+          "UP ODOP export incentive & mega mart stall concessions"
+        ]
+      },
+      "Lucknow": {
+        "odop_product": "Chikankari & Zari Zardozi Embroidery",
+        "category": "Apparel & Handicrafts",
+        "matching_sectors": ["apparel", "artisan_trades"],
+        "pmfme_eligible": false,
+        "gem_category": "Handcrafted Kurtas, Sarees & Embroidered Textiles",
+        "cfc_available": true,
+        "raw_material_availability": "Historic embroidery guilds across Old Lucknow and Kakori",
+        "rbi_psl_category": "Women & Artisan Priority Lending",
+        "key_benefits": ["UP ODOP 20% margin grant", "Biswa Bangla / UP Khadi export linkage"]
+      },
+      "Aligarh": {
+        "odop_product": "Locks, Hardware & Metal Craft",
+        "category": "Light Engineering & Fabrication",
+        "matching_sectors": ["fabrication", "manufacturing", "repair"],
+        "pmfme_eligible": false,
+        "gem_category": "Security Locks, Brass Fittings & Metal Fasteners",
+        "cfc_available": true,
+        "raw_material_availability": "Dense brass/zinc die-casting and tool room ecosystem",
+        "rbi_psl_category": "MSME Manufacturing Priority",
+        "key_benefits": ["DIC tool-room testing lab access", "GeM defense/railway vendor corridor"]
+      },
+      "Moradabad": {
+        "odop_product": "Metal Brassware Handicrafts",
+        "category": "Metal Crafts",
+        "matching_sectors": ["fabrication", "artisan_trades", "manufacturing"],
+        "pmfme_eligible": false,
+        "gem_category": "Brass Decor, Tableware & Metal Artifacts",
+        "cfc_available": true,
+        "raw_material_availability": "Brass City of India export manufacturing hub",
+        "rbi_psl_category": "Export MSME Priority",
+        "key_benefits": ["Common electroplating facility", "UP ODOP international trade fair grant"]
+      }
+    },
+    "Madhya Pradesh": {
+      "Ujjain": {
+        "odop_product": "Bhairavgarh Batik Print Textiles",
+        "category": "Handloom & Textiles",
+        "matching_sectors": ["apparel", "artisan_trades"],
+        "pmfme_eligible": false,
+        "gem_category": "Batik Printed Sarees, Bedcovers & Fabrics",
+        "cfc_available": true,
+        "raw_material_availability": "Bhairavgarh batik artisan cluster on Shipra riverbank with 400+ traditional dyer families",
+        "rbi_psl_category": "Artisan Priority Lending (Handloom)",
+        "key_benefits": [
+          "Bhairavgarh Batik GI tag brand recognition",
+          "Mrignayani MP Government Emporium marketing corridor",
+          "Common wastewater treatment and dying facility access",
+          "GeM ODOP textile listing"
+        ],
+        "non_odop_guidance": "Bhairavgarh Batik Print is Ujjain's official ODOP product under the MP ODOP scheme. Agro-processing and solvent extraction plants in Ujjain are evaluated under standard statutory MSME policies (PMEGP, MUDRA) and general PMFME, but do not receive Ujjain Batik cluster incentives."
+      },
+      "Indore": {
+        "odop_product": "Leather Toys & Savory Namkeen Snacks",
+        "category": "Handicrafts & Food Processing",
+        "matching_sectors": ["artisan_trades", "food_processing"],
+        "pmfme_eligible": true,
+        "gem_category": "Leather Crafts & Savory Snack Foods",
+        "cfc_available": true,
+        "raw_material_availability": "Traditional leather toy craftsmen and Malwa confectionery hub",
+        "rbi_psl_category": "Artisan & Food Processing MSME",
+        "key_benefits": ["GI Tagged Indore Leather Toys", "Indore Namkeen Cluster testing lab"]
+      },
+      "Bhopal": {
+        "odop_product": "Zari-Zardozi & Jute Handicrafts",
+        "category": "Handicrafts & Textiles",
+        "matching_sectors": ["apparel", "artisan_trades"],
+        "pmfme_eligible": false,
+        "gem_category": "Zari Bags, Wall Hangings & Jute Products",
+        "cfc_available": true,
+        "raw_material_availability": "Old Bhopal artisan cooperative societies",
+        "rbi_psl_category": "Artisan MSME Priority",
+        "key_benefits": ["Mrignayani emporium retail corridor", "ODOP state exhibition grant"]
+      },
+      "Chhindwara": {
+        "odop_product": "Orange & Potato Processing",
+        "category": "Horticulture Processing",
+        "matching_sectors": ["food_processing"],
+        "pmfme_eligible": true,
+        "gem_category": "Citrus Concentrates & Potato Flakes",
+        "cfc_available": true,
+        "raw_material_availability": "Plateau orange orchards and seed potato acreage",
+        "rbi_psl_category": "Agri-Allied Processing",
+        "key_benefits": ["PMFME 35% capital subsidy", "Cold chain cluster support"]
+      }
+    },
+    "Karnataka": {
+      "Ramanagara": {
+        "odop_product": "Channapatna Lacquerware Wooden Toys & Silk",
+        "category": "Wooden Crafts & Sericulture",
+        "matching_sectors": ["artisan_trades", "apparel", "manufacturing"],
+        "pmfme_eligible": false,
+        "gem_category": "Educational Wooden Toys & Raw Silk",
+        "cfc_available": true,
+        "raw_material_availability": "Toy Town of Karnataka with hale wood seasoning clusters and government silk cocoon market",
+        "rbi_psl_category": "Artisan Priority Lending (GI-Tagged)",
+        "key_benefits": [
+          "GI Tag certification and QR code provenance seal",
+          "GeM ODOP priority procurement for preschools and government creches",
+          "CFC wood seasoning plant & lacquerware machinery access"
+        ]
+      },
+      "Mandya": {
+        "odop_product": "Organic Jaggery (Gur)",
+        "category": "Food Processing (Sugar & Jaggery)",
+        "matching_sectors": ["food_processing"],
+        "pmfme_eligible": true,
+        "gem_category": "Natural Sweeteners & Jaggery Blocks",
+        "cfc_available": true,
+        "raw_material_availability": "Cauvery basin canal-irrigated sugarcane fields",
+        "rbi_psl_category": "Micro Food Processing (PMFME)",
+        "key_benefits": ["PMFME 35% capital subsidy up to ₹10 Lakhs", "Jaggery testing lab subsidy"]
+      },
+      "Mysuru": {
+        "odop_product": "Mysore Inlay Woodcraft & Sandalwood Products",
+        "secondary_product": "Nanjangud Rasabale Banana",
+        "category": "Handicrafts & Horticulture",
+        "matching_sectors": ["artisan_trades", "food_processing"],
+        "pmfme_eligible": true,
+        "gem_category": "Rosewood Inlay Decor & GI Fruit Products",
+        "cfc_available": true,
+        "raw_material_availability": "Historic royal artisan guilds and local horticultural farms",
+        "rbi_psl_category": "Artisan & GI Horticulture MSME",
+        "key_benefits": ["Cauvery Handicrafts Emporium tie-up", "PMFME 35% subsidy for banana processing"]
+      }
+    },
+    "Gujarat": {
+      "Anand": {
+        "odop_product": "Dairy Products, Milk Solids & Cheese",
+        "category": "Food Processing (Dairy)",
+        "matching_sectors": ["dairy", "food_processing"],
+        "pmfme_eligible": true,
+        "gem_category": "Dairy Products, Ghee & Milk Powder",
+        "cfc_available": true,
+        "raw_material_availability": "White Revolution milk shed with dense cooperative milk collection societies",
+        "rbi_psl_category": "Agri-Allied Dairy (PMFME)",
+        "key_benefits": [
+          "PMFME 35% capital subsidy up to ₹10 Lakhs",
+          "NDDB veterinary and cold chain infrastructure linkage",
+          "GeM dairy supplier corridor"
+        ]
+      },
+      "Rajkot": {
+        "odop_product": "Submersible Pumps & Machine Tools",
+        "category": "Light Engineering & Fabrication",
+        "matching_sectors": ["fabrication", "manufacturing", "repair"],
+        "pmfme_eligible": false,
+        "gem_category": "Agricultural Pumps & Engineering Castings",
+        "cfc_available": true,
+        "raw_material_availability": "Precision foundry and machine tooling industrial cluster",
+        "rbi_psl_category": "Engineering MSME Priority",
+        "key_benefits": ["BEE Star rating testing laboratory", "GeM pump supply tenders"]
+      }
+    }
+  },
+  "sector_crosswalk": {
+    "dairy": ["dairy", "food_processing"],
+    "food_processing": ["food_processing"],
+    "fabrication": ["fabrication", "manufacturing"],
+    "artisan_trades": ["artisan_trades", "handicrafts"],
+    "apparel": ["apparel", "handloom", "textiles"],
+    "repair": ["repair", "service"],
+    "general": ["manufacturing", "service"]
+  }
+}

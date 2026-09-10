@@ -20,7 +20,8 @@ import {
   MapPin,
   Phone,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Landmark
 } from 'lucide-react';
 import { TranslatedText } from '../../components/TranslatedText';
 import { useLanguage } from '../../context/LanguageContext';
@@ -53,6 +54,56 @@ export function MarketingPage({ reportData }) {
   const turnover = Number(p.annual_turnover_estimate) || 1200000;
   const dailyCustomersGoal = Math.max(15, Math.round(turnover / (unitPrice * 312)) || 25);
   const catchmentSharePct = ((dailyCustomersGoal / households) * 100).toFixed(1);
+
+  // ODOP Cluster Alignment & Statutory Benefits
+  const districtLower = (district || '').toLowerCase();
+  const sectorLower = (sector || '').toLowerCase();
+  let fallbackProduct = "District Specialty Product";
+  let fallbackAligned = false;
+
+  if (districtLower.includes('bankura')) {
+    fallbackProduct = "Terracotta Pottery & Dokra Metal Craft";
+    fallbackAligned = sectorLower === 'artisan_trades' || sectorLower === 'apparel';
+  } else if (districtLower.includes('bulandshahr')) {
+    fallbackProduct = "Khurja Glazed Pottery & Ceramic Ware";
+    fallbackAligned = sectorLower === 'fabrication' || sectorLower === 'artisan_trades' || sectorLower === 'manufacturing';
+  } else if (districtLower.includes('ujjain')) {
+    fallbackProduct = "Bhairavgarh Batik Print Textiles";
+    fallbackAligned = sectorLower === 'apparel' || sectorLower === 'artisan_trades';
+  }
+
+  const odop = reportData?.odop_alignment || {
+    is_aligned: fallbackAligned,
+    odop_product: fallbackProduct,
+    district_name: district,
+    state_name: state,
+    category: fallbackAligned ? 'Food / Craft Processing (ODOP)' : 'Rural Commercial Enterprise',
+    pmfme_eligible: fallbackAligned,
+    gem_category: fallbackAligned ? 'ODOP Official Catalog' : 'General MSME Direct Procurement',
+    cfc_available: true,
+    key_benefits: fallbackAligned ? [
+      'PMFME 35% credit-linked capital subsidy up to ₹10 Lakhs',
+      'GeM ODOP seller corridor priority listing without tender',
+      'Common Facility Centre (CFC) testing & cold-chain access',
+      'District ODOP packaging seal authorization'
+    ] : [
+      'PMEGP 25%–35% rural capital subsidy via KVIC / DIC',
+      'GeM MSME Public Procurement corridor (25% reserved quota)',
+      'DIC District Industries Centre general enterprise support',
+      'FSSAI & local Gram Panchayat provenance branding'
+    ],
+    branding_seal: fallbackAligned ? {
+      seal_title: `District ODOP Certified Product — ${district}`,
+      recommended_price_premium_pct: 18.0,
+      labeling_compliance: 'FSSAI / Agmark / ODOP Registered Cluster',
+      is_seal_eligible: true,
+    } : {
+      seal_title: `Local Rural Enterprise — ${district}`,
+      recommended_price_premium_pct: 8.0,
+      labeling_compliance: 'Standard FSSAI / Gram Panchayat Certified',
+      is_seal_eligible: false,
+    }
+  };
 
   // Interactive Tab State
   const [activeTab, setActiveTab] = useState('whatsapp');
@@ -347,6 +398,29 @@ Support your local village entrepreneur! Please share this with your village Wha
             <Building2 className="w-4 h-4" />
             <span><TranslatedText text="Local B2B Buyer Tie-Ups" /></span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('odop')}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'odop'
+                ? odop.is_aligned
+                  ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-xs'
+                  : 'bg-gradient-to-r from-slate-700 to-slate-800 text-white shadow-xs'
+                : odop.is_aligned
+                ? 'bg-amber-50/90 text-amber-900 hover:bg-amber-100 border border-amber-200/80'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+            }`}
+          >
+            <Sparkles className={`w-4 h-4 ${odop.is_aligned ? 'text-amber-500 fill-amber-400' : 'text-sky-600'}`} />
+            <span>
+              {odop.is_aligned ? (
+                <TranslatedText text="ODOP & GeM Marketplace" />
+              ) : (
+                <TranslatedText text="ODOP Synergy & GeM Hub" />
+              )}
+            </span>
+          </button>
         </div>
 
         {/* Tab 1: WhatsApp Broadcast */}
@@ -491,6 +565,289 @@ Support your local village entrepreneur! Please share this with your village Wha
               ))}
             </div>
           </div>
+        )}
+
+        {/* Tab 5: ODOP & GeM Marketplace Linkage */}
+        {activeTab === 'odop' && (
+          odop.is_aligned ? (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div>
+                  <span className="font-bold text-slate-900 block text-sm font-outfit">
+                    <TranslatedText text="One District One Product (ODOP) Branding & Government GeM Corridor" />
+                  </span>
+                  <span className="text-slate-500 text-[11px]">
+                    <TranslatedText text="Leverage official district GI/ODOP credentials to command a 15–25% price premium and access direct institutional orders." />
+                  </span>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-900 font-bold text-[10px] font-mono shrink-0 self-start sm:self-auto">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 fill-emerald-500" />
+                  <span>ODOP Aligned: {district} {odop.odop_product}</span>
+                </span>
+              </div>
+
+              {/* 4 Specialized ODOP Action Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                
+                {/* Card 1: Official Packaging Seal & 18% Price Premium */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/70 to-white border border-amber-200/90 shadow-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-slate-900 font-outfit">
+                      <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center">
+                        <Award className="w-4 h-4" />
+                      </div>
+                      <span><TranslatedText text="1. Official District Packaging Seal" /></span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold font-mono">
+                      +18% <TranslatedText text="Price Premium" />
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    <TranslatedText text="By printing the official ODOP district emblem and FSSAI/Udyam license number on pouches and packaging, rural producers charge 15–25% higher prices in district towns, highway eateries, and tourist markets." />
+                  </p>
+                  <div className="p-3 rounded-xl bg-white border border-amber-200/80 text-[11px] font-mono text-slate-700 flex items-center justify-between">
+                    <div>
+                      <strong className="block text-slate-900 font-bold">"{district} ODOP Authentic {p.sector ? p.sector.toUpperCase() : 'PRODUCE'}"</strong>
+                      <span className="text-[10px] text-slate-500">Tagline: Pure Local Origin • MoFPI Cluster Aligned</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(`Authentic ${district} ODOP Certified - Pure Local Quality`, 'seal_tag')}
+                      className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition shrink-0 ml-2"
+                      title="Copy packaging seal tagline"
+                    >
+                      {copiedKey === 'seal_tag' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Card 2: Government e-Marketplace (GeM) ODOP Corridor */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-sky-50/70 to-white border border-sky-200/90 shadow-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-slate-900 font-outfit">
+                      <div className="w-7 h-7 rounded-lg bg-sky-700 text-white flex items-center justify-center">
+                        <Store className="w-4 h-4" />
+                      </div>
+                      <span><TranslatedText text="2. GeM ODOP Onboarding" /></span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[10px] font-bold font-mono">
+                      <TranslatedText text="Direct B2G Orders" />
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    <TranslatedText text="Government departments, hostels, and public institutions can purchase ODOP products directly up to ₹5 Lakhs without tenders on the Government e-Marketplace (GeM) with guaranteed 10-day payment." />
+                  </p>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-slate-500 font-mono">Category: {odop.gem_category || 'ODOP Catalog'}</span>
+                    <a
+                      href="https://gem.gov.in/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-700 hover:text-sky-800 hover:underline"
+                    >
+                      <span><TranslatedText text="Visit GeM Portal" /></span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Card 3: District Common Facility Centre (CFC) */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/70 to-white border border-emerald-200/90 shadow-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-slate-900 font-outfit">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <span><TranslatedText text="3. District CFC & Testing Labs" /></span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold font-mono">
+                      75% <TranslatedText text="Govt Subsidized" />
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    <TranslatedText text="Access shared cold storage, modern vacuum packaging, and quality testing apparatus at your district's Common Facility Centre (CFC) without investing large capital in private equipment." />
+                  </p>
+                  <div className="text-[10px] text-emerald-900 bg-emerald-50/80 p-2 rounded-lg border border-emerald-200/60 font-medium">
+                    ✓ <TranslatedText text="District Hub: Available via District Industries Centre (DIC) cluster facilitation." />
+                  </div>
+                </div>
+
+                {/* Card 4: PMFME 35% Subsidy & DIC Linkage */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/70 to-white border border-indigo-200/90 shadow-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-slate-900 font-outfit">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-700 text-white flex items-center justify-center">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <span><TranslatedText text="4. PMFME 35% Capital Grant" /></span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold font-mono">
+                      Max ₹10L <TranslatedText text="Grant" />
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    <TranslatedText text="Submit your credit-linked DPR to the District Level Committee (DLC) headed by the District Collector to receive the back-ended 35% capital subsidy credited directly into your loan account." />
+                  </p>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-slate-500 font-mono">Admin: MoFPI / DIC {district}</span>
+                    <a
+                      href="https://pmfme.mofpi.gov.in/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-800 hover:underline"
+                    >
+                      <span><TranslatedText text="PMFME Portal" /></span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div>
+                  <span className="font-bold text-slate-900 block text-sm font-outfit">
+                    <TranslatedText text="District ODOP Context, Synergies & GeM Institutional Sales" />
+                  </span>
+                  <span className="text-slate-500 text-[11px]">
+                    <TranslatedText text={`While ${enterpriseName} operates in the ${(p.sector || 'dairy').toUpperCase()} sector (Non-ODOP), discover strategic local cluster packaging synergies with ${district}'s official ODOP item, institutional GeM sales, and PMEGP capital subsidies.`} />
+                  </span>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-300 text-slate-700 font-bold text-[10px] font-mono shrink-0 self-start sm:self-auto">
+                  <Landmark className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Non-ODOP Sector • District ODOP: {odop.odop_product}</span>
+                </span>
+              </div>
+
+              {/* 4 Specialized Non-ODOP Strategic Action Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                
+                {/* Card 1: Cluster Synergy Packaging Innovation */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/70 to-white border border-amber-200/90 shadow-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-slate-900 font-outfit">
+                      <div className="w-7 h-7 rounded-lg bg-amber-700 text-white flex items-center justify-center">
+                        <Award className="w-4 h-4" />
+                      </div>
+                      <span><TranslatedText text="1. Earthenware Cluster Packaging Synergy" /></span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold font-mono">
+                      +15%–20% <TranslatedText text="Artisanal Premium" />
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    {districtLower.includes('bankura') ? (
+                      <TranslatedText text="Partner with Bankura's famous Panchmura terracotta artisans (the district's notified ODOP craft) to package your curd (Mishti Doi), paneer, and ghee in authentic terracotta handis/matkas. Commands a 15–20% price premium over standard pouches while celebrating local GI heritage and 100% plastic-free sustainability." />
+                    ) : (
+                      <TranslatedText text="Collaborate with local artisanal packaging producers to provide eco-friendly, traditional container packaging that commands an authentic rural premium over industrial mass products while complying with FSSAI standards." />
+                    )}
+                  </p>
+                  <div className="p-3 rounded-xl bg-white border border-amber-200/80 text-[11px] font-mono text-slate-700 flex items-center justify-between">
+                    <div>
+                      <strong className="block text-slate-900 font-bold">
+                        {districtLower.includes('bankura') ? `"${enterpriseName} — Authentic Bankura Terracotta Packaged"` : `"${enterpriseName} — Pure Rural Origin • Authentic Local Quality"`}
+                      </strong>
+                      <span className="text-[10px] text-slate-500">
+                        {districtLower.includes('bankura') ? "Eco-Friendly Earthen Matka • GI Cluster Synergy" : "FSSAI Registered • Natural Local Produce"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(districtLower.includes('bankura') ? `${enterpriseName} - Handcrafted in Bankura Terracotta` : `${enterpriseName} - Pure Rural Origin`, 'synergy_tag')}
+                      className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition shrink-0 ml-2"
+                      title="Copy packaging tagline"
+                    >
+                      {copiedKey === 'synergy_tag' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Card 2: Government e-Marketplace (GeM) MSME Direct Procurement */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-sky-50/70 to-white border border-sky-200/90 shadow-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-slate-900 font-outfit">
+                      <div className="w-7 h-7 rounded-lg bg-sky-700 text-white flex items-center justify-center">
+                        <Store className="w-4 h-4" />
+                      </div>
+                      <span><TranslatedText text="2. GeM MSME Direct Procurement" /></span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[10px] font-bold font-mono">
+                      <TranslatedText text="25% Public Quota" />
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    <TranslatedText text="Under the Public Procurement Policy for MSEs, Central & State government departments, residential schools, hospitals, and Anganwadis must purchase 25% of annual supplies from micro enterprises. Micro dairy & agro units can supply up to ₹5 Lakhs directly without tender." />
+                  </p>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-slate-500 font-mono">Corridor: GeM MSE Direct Purchase</span>
+                    <a
+                      href="https://gem.gov.in/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-700 hover:text-sky-800 hover:underline"
+                    >
+                      <span><TranslatedText text="Visit GeM Portal" /></span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Card 3: District Industries Centre (DIC) Facilitation */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-50 to-white border border-slate-200/90 shadow-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-slate-900 font-outfit">
+                      <div className="w-7 h-7 rounded-lg bg-slate-800 text-white flex items-center justify-center">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <span><TranslatedText text={`3. DIC ${district} Support Cell`} /></span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10px] font-bold font-mono">
+                      <TranslatedText text="District Nodal Agency" />
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    <TranslatedText text={`While ${p.sector || 'dairy'} is not ${district}'s notified ODOP, the District Industries Centre (DIC) actively supports rural dairy processing and agro-enterprises through Udyam registration, FSSAI facilitation, power subsidy NOCs, and State Rural Livelihood linkages.`} />
+                  </p>
+                  <div className="text-[10px] text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-200 font-medium">
+                    ✓ <TranslatedText text={`Office: General Manager, District Industries Centre (DIC), ${district}`} />
+                  </div>
+                </div>
+
+                {/* Card 4: PMEGP 35% Capital Subsidy (Optimal Statutory Scheme) */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/70 to-white border border-emerald-200/90 shadow-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-slate-900 font-outfit">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-700 text-white flex items-center justify-center">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <span><TranslatedText text="4. PMEGP 35% Rural Subsidy" /></span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold font-mono">
+                      <TranslatedText text="Up to ₹17.5 Lakhs" />
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    <TranslatedText text="PMEGP is the most financially advantageous statutory scheme for non-ODOP rural manufacturing and processing units. Qualified rural special category promoters receive a 35% non-repayable capital subsidy with only 5% promoter equity contribution required." />
+                  </p>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-slate-500 font-mono">Admin: KVIC / KVIB / DIC</span>
+                    <a
+                      href="https://pmegp.msme.gov.in/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
+                    >
+                      <span><TranslatedText text="PMEGP Portal" /></span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )
         )}
       </div>
 
