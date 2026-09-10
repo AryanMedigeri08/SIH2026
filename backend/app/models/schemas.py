@@ -127,6 +127,21 @@ class FeasibilityReport(BaseModel):
     pricing_recommendation: dict[str, Any]
     executive_synthesis: dict[str, Any]
     data_sources_used: Optional[list[dict[str, Any]]] = Field(default_factory=list, description="Audit lineage of database tables, APIs and ML models queried")
+    odop_alignment: Optional[dict[str, Any]] = Field(default=None, description="One District One Product (ODOP) alignment and PMFME/DPIIT cluster incentives")
+
+
+class ODOPLookupResponse(BaseModel):
+    has_odop_record: bool
+    district_name: str
+    state_name: str
+    odop_product: str
+    secondary_product: Optional[str] = None
+    category: str
+    matching_sectors: list[str] = Field(default_factory=list)
+    pmfme_eligible: bool = False
+    gem_category: str = ""
+    cfc_available: bool = False
+    key_benefits: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

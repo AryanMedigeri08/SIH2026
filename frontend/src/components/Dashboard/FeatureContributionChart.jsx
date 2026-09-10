@@ -10,7 +10,9 @@ import {
   Cell,
   ReferenceLine,
 } from 'recharts';
-import { BrainCircuit, Info, TrendingUp, TrendingDown } from 'lucide-react';
+import { BrainCircuit, Info, TrendingUp, TrendingDown, CheckCircle2, AlertTriangle, ShieldCheck, Sparkles } from 'lucide-react';
+import { useViewMode, VIEW_MODES } from '../../context/ViewModeContext';
+import { TranslatedText } from '../TranslatedText';
 
 const FEATURE_LABELS = {
   dscr: 'Debt Service Coverage (DSCR)',
@@ -65,6 +67,7 @@ const CustomTooltip = ({ active, payload }) => {
 
 export function FeatureContributionChart({ mlViability }) {
   const [isMobile, setIsMobile] = React.useState(false);
+  const { isBeneficiary, setViewMode } = useViewMode();
 
   React.useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 640);
@@ -77,6 +80,81 @@ export function FeatureContributionChart({ mlViability }) {
   const rawContribs = shapExp?.contributions || [];
   const predictedClass = shapExp?.predicted_class || mlViability?.verdict || 'SUITABLE';
   const baseValue = shapExp?.base_value ?? 0.85;
+  const topPositives = mlViability?.top_positive_factors || [];
+  const topRisks = mlViability?.top_risk_factors || [];
+
+  // Beneficiary Friendly Rendering
+  if (isBeneficiary) {
+    return (
+      <div className="glass-panel p-4 sm:p-6 border-slate-200 flex flex-col justify-between bg-white shadow-card space-y-4">
+        <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5 mb-1">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <TranslatedText text="Beneficiary Business Health Breakdown" />
+              </div>
+              <h3 className="text-lg font-outfit font-bold text-slate-900">
+                <TranslatedText text="Why the Bank Approves Your Project" />
+              </h3>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 self-start sm:self-auto">
+              <TranslatedText text="Grounded Strengths" />
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-600 mt-2 mb-3 leading-relaxed font-medium">
+            <TranslatedText text="Our AI verified these grounded operational and financial strengths for your loan application:" />
+          </p>
+
+          <div className="space-y-2">
+            {topPositives.slice(0, 3).map((pos, idx) => (
+              <div key={idx} className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-200/80 flex items-start gap-2.5 shadow-subtle">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-emerald-950 font-medium leading-relaxed">
+                  <TranslatedText text={pos} />
+                </div>
+              </div>
+            ))}
+
+            {topRisks.length > 0 && (
+              <div className="pt-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-amber-800 mb-2 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  <TranslatedText text="Things to Prepare Before Visiting the Bank Branch" />
+                </div>
+                <div className="space-y-2">
+                  {topRisks.slice(0, 2).map((risk, idx) => (
+                    <div key={idx} className="p-3 rounded-xl bg-amber-50/50 border border-amber-200/80 flex items-start gap-2.5 shadow-subtle">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="text-xs text-amber-950 font-medium leading-relaxed">
+                        <TranslatedText text={risk} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Auditor Toggle Switch Tip */}
+        <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1 font-medium">
+            <Sparkles className="w-3 h-3 text-sovereign-700 shrink-0" />
+            <TranslatedText text="Beneficiary View active. Need raw C++ TreeSHAP marginal math?" />
+          </span>
+          <button
+            type="button"
+            onClick={() => setViewMode(VIEW_MODES.BANKER)}
+            className="text-sovereign-800 font-bold hover:underline cursor-pointer"
+          >
+            <TranslatedText text="Switch to Banker & Auditor Mode →" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Format and sort contributions for chart display
   const chartData = React.useMemo(() => {

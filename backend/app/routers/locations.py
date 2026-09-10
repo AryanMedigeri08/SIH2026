@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Query, HTTPException
 
 from app.database import db_manager
-from app.models.schemas import StateInfo, DistrictInfo, BlockInfo, VillageInfo
+from app.models.schemas import StateInfo, DistrictInfo, BlockInfo, VillageInfo, ODOPLookupResponse
 
 router = APIRouter(prefix="/locations", tags=["LGD Location Hierarchy"])
 
@@ -57,3 +57,43 @@ async def list_villages(
         search=search,
     )
     return [VillageInfo(**v) for v in villages_data]
+
+
+@router.get("/odop", response_model=ODOPLookupResponse)
+async def get_district_odop(
+    state_name: str = Query(..., description="Indian State Name (e.g. West Bengal, Uttar Pradesh)"),
+    district_name: str = Query(..., description="District Name (e.g. Bankura, Bulandshahr)"),
+):
+    """
+    Returns official One District One Product (ODOP) data for a given district.
+    """
+    from app.core.odop_matcher import find_district_odop
+
+    record = find_district_odop(state_name=state_name, district_name=district_name)
+    if record:
+        return ODOPLookupResponse(
+            has_odop_record=True,
+            district_name=record.get("matched_district_name", district_name),
+            state_name=record.get("matched_state_name", state_name),
+            odop_product=record.get("odop_product", ""),
+            secondary_product=record.get("secondary_product"),
+            category=record.get("category", "MSME Cluster"),
+            matching_sectors=record.get("matching_sectors", []),
+            pmfme_eligible=record.get("pmfme_eligible", False),
+            gem_category=record.get("gem_category", ""),
+            cfc_available=record.get("cfc_available", False),
+            key_benefits=record.get("key_benefits", []),
+        )
+
+    return ODOPLookupResponse(
+        has_odop_record=False,
+        district_name=district_name,
+        state_name=state_name,
+        odop_product="Regional Agro & MSME Products",
+        category="General Commercial MSME",
+        matching_sectors=["general"],
+        pmfme_eligible=False,
+        gem_category="Standard MSME Portal",
+        cfc_available=False,
+        key_benefits=["PMEGP 25-35% Capital Subsidy", "MUDRA Collateral-free Credit"],
+    )

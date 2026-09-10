@@ -23,15 +23,21 @@ import {
   BarChart3,
   Building2,
   AlertTriangle,
+  Tag,
+  Megaphone,
+  Calculator,
+  Info,
 } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import { BusinessStatusPill } from '../../components/BusinessSwitcher';
 import { TranslatedText } from '../../components/TranslatedText';
+import { useViewMode } from '../../context/ViewModeContext';
 
 export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   const navigate = useNavigate();
   const [showLineage, setShowLineage] = React.useState(true);
   const { activeBusiness } = useBusiness();
+  const { isBeneficiary } = useViewMode();
 
   if (!reportData) {
     return (
@@ -80,6 +86,31 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   const avgRisk = risks.average_risk_score ?? (risks.verdict?.average_risk_score ?? 3.0);
   const riskSeverity = risks.composite_grade || (risks.verdict?.overall_severity || 'MODERATE');
   const reportId = reportData.report_id;
+  const districtLower = (p.district_name || '').toLowerCase();
+  const sectorLower = (p.sector || '').toLowerCase();
+
+  let fallbackAligned = false;
+  let fallbackProduct = "District Handicrafts & Produce";
+  if (districtLower.includes('bankura')) {
+    fallbackProduct = "Terracotta Pottery & Dokra Metal Craft";
+    fallbackAligned = sectorLower === 'artisan_trades' || sectorLower === 'apparel';
+  } else if (districtLower.includes('bulandshahr')) {
+    fallbackProduct = "Khurja Glazed Pottery & Ceramic Ware";
+    fallbackAligned = sectorLower === 'fabrication' || sectorLower === 'artisan_trades' || sectorLower === 'manufacturing';
+  } else if (districtLower.includes('ujjain')) {
+    fallbackProduct = "Bhairavgarh Batik Print Textiles";
+    fallbackAligned = sectorLower === 'apparel' || sectorLower === 'artisan_trades';
+  }
+
+  const odop = reportData.odop_alignment || {
+    is_aligned: fallbackAligned,
+    odop_product: fallbackProduct,
+    status_text: fallbackAligned ? "ODOP ALIGNED" : "NON-ODOP SECTOR",
+    badge_title: fallbackAligned ? `Official ODOP Enterprise — ${p.district_name || 'District'} ${fallbackProduct}` : `Non-ODOP (${p.district_name || 'District'} ODOP: ${fallbackProduct})`,
+    pmfme_eligible: false,
+    rbi_psl_category: sectorLower === 'dairy' ? 'Agri-Allied Dairy (General PSL)' : 'General MSME Priority Lending',
+    supply_chain_resilience_verdict: fallbackAligned ? 'HIGH (ODOP Cluster Integrated)' : 'STANDARD (Independent Enterprise)',
+  };
 
   // Exact Demographic & TAM Values
   const pop2026 = demographics.population_projection?.projected_population || demographics.catchment_population_2026 || demographics.census_details?.total_population || 0;
@@ -107,86 +138,144 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
     { layer: "Tier 2: ML Viability", logical_source: "Supervised 10-D XGBoost Viability Classifier (TreeSHAP)", table_or_file: "viability_xgb.joblib", status: ml.is_fallback ? "Rule Fallback" : "TreeSHAP Evaluated", attribution: `Verdict: ${ml.verdict || "SUITABLE"}` },
   ];
 
-  // Teaser Navigation Cards linking to the other 7 sections with expressive color accents
-  const sectionTeasers = [
-    {
-      title: 'ML Viability & Explainability',
-      path: reportId ? `/reports/${reportId}/viability` : '/viability',
-      icon: BrainCircuit,
-      color: 'indigo',
-      iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-600 group-hover:text-white',
-      accentTop: 'border-t-2 border-indigo-500',
-      primaryMetric: `${ml.verdict || 'SUITABLE'} (${(ml.confidence_pct || 98.5).toFixed(1)}%)`,
-      teaserText: ml.top_positive_factors?.[0] || ml.top_positive_driver || 'TreeSHAP 10-D factor attribution',
-      badge: 'TreeSHAP',
-    },
-    {
-      title: 'Market & Local Demand',
-      path: reportId ? `/reports/${reportId}/market` : '/market',
-      icon: Target,
-      color: 'sky',
-      iconBg: 'bg-sky-50 text-sky-700 border-sky-200 group-hover:bg-sky-600 group-hover:text-white',
-      accentTop: 'border-t-2 border-sky-500',
-      primaryMetric: annualTam > 0 ? `₹${(annualTam / 100000).toFixed(1)}L TAM` : 'Market Sizing',
-      teaserText: pop2026 > 0 ? `${pop2026.toLocaleString('en-IN')} Catchment · MSME Density: ${msmeDensity.toFixed(1)}/10k` : 'Census 2011 Catchment Demographics',
-      badge: 'Census 2011',
-    },
-    {
-      title: 'Government Scheme Optimizer',
-      path: reportId ? `/reports/${reportId}/schemes` : '/schemes',
-      icon: Award,
-      color: 'emerald',
-      iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200 group-hover:bg-emerald-600 group-hover:text-white',
-      accentTop: 'border-t-2 border-emerald-500',
-      primaryMetric: `₹${Math.round(subsidyAmount).toLocaleString('en-IN')} Grant`,
-      teaserText: `Top Match: ${topScheme.scheme_id || 'PMEGP'} (${subsidyPct.toFixed(0)}% Subsidy)`,
-      badge: '10 Slabs',
-    },
-    {
-      title: 'Financials & Cash Flow',
-      path: reportId ? `/reports/${reportId}/financials` : '/financials',
-      icon: TrendingUp,
-      color: 'sovereign',
-      iconBg: 'bg-sovereign-50 text-sovereign-800 border-sovereign-200 group-hover:bg-sovereign-800 group-hover:text-white',
-      accentTop: 'border-t-2 border-sovereign-700',
-      primaryMetric: `DSCR ${dscr.toFixed(2)}`,
-      teaserText: `₹${Math.round(emi).toLocaleString('en-IN')}/mo EMI · 5-Yr Projections`,
-      badge: '5-Yr Horiz.',
-    },
-    {
-      title: 'Comprehensive Risk Matrix',
-      path: reportId ? `/reports/${reportId}/risk` : '/risk',
-      icon: ShieldAlert,
-      color: 'rose',
-      iconBg: 'bg-rose-50 text-rose-700 border-rose-200 group-hover:bg-rose-600 group-hover:text-white',
-      accentTop: 'border-t-2 border-rose-500',
-      primaryMetric: `${avgRisk.toFixed(1)}/10 (${riskSeverity})`,
-      teaserText: `${risks.risk_points?.length || 8}-Pillar Prudential Risk Assessment`,
-      badge: '8 Pillars',
-    },
-    {
-      title: 'Grounded SWOT Matrix',
-      path: reportId ? `/reports/${reportId}/swot` : '/swot',
-      icon: Grid3X3,
-      color: 'teal',
-      iconBg: 'bg-teal-50 text-teal-700 border-teal-200 group-hover:bg-teal-600 group-hover:text-white',
-      accentTop: 'border-t-2 border-teal-500',
-      primaryMetric: totalSwotCount > 0 ? `${totalSwotCount} Grounded Factors` : '4 Quadrants',
-      teaserText: `${sCount}S · ${wCount}W · ${oCount}O · ${tCount}T Factor Matrix`,
-      badge: 'Grounded',
-    },
-    {
-      title: 'Official Bank DPR Package',
-      path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
-      icon: FileText,
-      color: 'indigo',
-      iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-700 group-hover:text-white',
-      accentTop: 'border-t-2 border-indigo-600',
-      primaryMetric: '7 Sections',
-      teaserText: 'Bank Credit Memorandum · HTML / Markdown / JSON',
-      badge: 'Statutory',
-    },
-  ];
+  // Teaser Navigation Cards tailored by persona
+  const sectionTeasers = isBeneficiary
+    ? [
+        {
+          title: 'Product Pricing & Profit Margins',
+          path: reportId ? `/reports/${reportId}/pricing` : '/pricing',
+          icon: Tag,
+          color: 'amber',
+          iconBg: 'bg-amber-50 text-amber-700 border-amber-200 group-hover:bg-amber-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-amber-500',
+          primaryMetric: pricing.recommended_selling_price ? `₹${pricing.recommended_selling_price} / unit` : 'Unit Economics',
+          teaserText: 'Unit cost breakdown, daily break-even sales & monthly profit simulator',
+          badge: 'Unit Profit',
+        },
+        {
+          title: 'Village Marketing & Local Ads',
+          path: reportId ? `/reports/${reportId}/marketing` : '/marketing',
+          icon: Megaphone,
+          color: 'sky',
+          iconBg: 'bg-sky-50 text-sky-700 border-sky-200 group-hover:bg-sky-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-sky-500',
+          primaryMetric: 'WhatsApp & Haat',
+          teaserText: 'Ready-made WhatsApp promo copy, Weekly Haat pitch & Loudspeaker Munadi script',
+          badge: 'WhatsApp/Haat',
+        },
+        {
+          title: 'Government Subsidy Schemes',
+          path: reportId ? `/reports/${reportId}/schemes` : '/schemes',
+          icon: Award,
+          color: 'emerald',
+          iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200 group-hover:bg-emerald-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-emerald-500',
+          primaryMetric: `₹${Math.round(subsidyAmount).toLocaleString('en-IN')} Grant`,
+          teaserText: `Top Match: ${topScheme.scheme_id || 'PMEGP'} (${subsidyPct.toFixed(0)}% Subsidy)`,
+          badge: 'Grant ₹',
+        },
+        {
+          title: 'Loan Repayment & EMI Calculator',
+          path: '/calculator',
+          icon: Calculator,
+          color: 'sovereign',
+          iconBg: 'bg-sovereign-50 text-sovereign-800 border-sovereign-200 group-hover:bg-sovereign-800 group-hover:text-white',
+          accentTop: 'border-t-2 border-sovereign-700',
+          primaryMetric: `₹${Math.round(emi).toLocaleString('en-IN')}/mo EMI`,
+          teaserText: 'Interactive 10% margin input & quarterly repayment schedule with moratorium',
+          badge: 'Quarterly',
+        },
+        {
+          title: 'Official Bank DPR Package',
+          path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
+          icon: FileText,
+          color: 'indigo',
+          iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-700 group-hover:text-white',
+          accentTop: 'border-t-2 border-indigo-600',
+          primaryMetric: '7 Sections',
+          teaserText: 'Bank Credit Memorandum · Printable PDF / HTML',
+          badge: 'Download PDF',
+        },
+      ]
+    : [
+        {
+          title: 'ML Viability & Explainability',
+          path: reportId ? `/reports/${reportId}/viability` : '/viability',
+          icon: BrainCircuit,
+          color: 'indigo',
+          iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-indigo-500',
+          primaryMetric: `${ml.verdict || 'SUITABLE'} (${(ml.confidence_pct || 98.5).toFixed(1)}%)`,
+          teaserText: ml.top_positive_factors?.[0] || ml.top_positive_driver || 'TreeSHAP 10-D factor attribution',
+          badge: 'TreeSHAP',
+        },
+        {
+          title: 'Market & Local Demand',
+          path: reportId ? `/reports/${reportId}/market` : '/market',
+          icon: Target,
+          color: 'sky',
+          iconBg: 'bg-sky-50 text-sky-700 border-sky-200 group-hover:bg-sky-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-sky-500',
+          primaryMetric: annualTam > 0 ? `₹${(annualTam / 100000).toFixed(1)}L TAM` : 'Market Sizing',
+          teaserText: pop2026 > 0 ? `${pop2026.toLocaleString('en-IN')} Catchment · MSME Density: ${msmeDensity.toFixed(1)}/10k` : 'Census 2011 Catchment Demographics',
+          badge: 'Census 2011',
+        },
+        {
+          title: 'Government Scheme Optimizer',
+          path: reportId ? `/reports/${reportId}/schemes` : '/schemes',
+          icon: Award,
+          color: 'emerald',
+          iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200 group-hover:bg-emerald-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-emerald-500',
+          primaryMetric: `₹${Math.round(subsidyAmount).toLocaleString('en-IN')} Grant`,
+          teaserText: `Top Match: ${topScheme.scheme_id || 'PMEGP'} (${subsidyPct.toFixed(0)}% Subsidy)`,
+          badge: '10 Slabs',
+        },
+        {
+          title: 'Financials & Cash Flow',
+          path: reportId ? `/reports/${reportId}/financials` : '/financials',
+          icon: TrendingUp,
+          color: 'sovereign',
+          iconBg: 'bg-sovereign-50 text-sovereign-800 border-sovereign-200 group-hover:bg-sovereign-800 group-hover:text-white',
+          accentTop: 'border-t-2 border-sovereign-700',
+          primaryMetric: `DSCR ${dscr.toFixed(2)}`,
+          teaserText: `₹${Math.round(emi).toLocaleString('en-IN')}/mo EMI · 5-Yr Projections`,
+          badge: '5-Yr Horiz.',
+        },
+        {
+          title: 'Comprehensive Risk Matrix',
+          path: reportId ? `/reports/${reportId}/risk` : '/risk',
+          icon: ShieldAlert,
+          color: 'rose',
+          iconBg: 'bg-rose-50 text-rose-700 border-rose-200 group-hover:bg-rose-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-rose-500',
+          primaryMetric: `${avgRisk.toFixed(1)}/10 (${riskSeverity})`,
+          teaserText: `${risks.risk_points?.length || 8}-Pillar Prudential Risk Assessment`,
+          badge: '8 Pillars',
+        },
+        {
+          title: 'Grounded SWOT Matrix',
+          path: reportId ? `/reports/${reportId}/swot` : '/swot',
+          icon: Grid3X3,
+          color: 'teal',
+          iconBg: 'bg-teal-50 text-teal-700 border-teal-200 group-hover:bg-teal-600 group-hover:text-white',
+          accentTop: 'border-t-2 border-teal-500',
+          primaryMetric: totalSwotCount > 0 ? `${totalSwotCount} Grounded Factors` : '4 Quadrants',
+          teaserText: `${sCount}S · ${wCount}W · ${oCount}O · ${tCount}T Factor Matrix`,
+          badge: 'Grounded',
+        },
+        {
+          title: 'Official Bank DPR Package',
+          path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
+          icon: FileText,
+          color: 'indigo',
+          iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:bg-indigo-700 group-hover:text-white',
+          accentTop: 'border-t-2 border-indigo-600',
+          primaryMetric: '7 Sections',
+          teaserText: 'Bank Credit Memorandum · HTML / Markdown / JSON',
+          badge: 'Statutory',
+        },
+      ];
 
   return (
     <div className="space-y-6">
@@ -204,6 +293,19 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
             <span className="text-[11px] font-bold uppercase tracking-wider bg-slate-100 border border-slate-200 text-slate-800 px-2.5 py-0.5 rounded-full shadow-subtle">
               {p.business_category ? p.business_category.toUpperCase() : 'MANUFACTURING'}
             </span>
+            {odop?.odop_product && (
+              odop.is_aligned ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-gradient-to-r from-amber-50 to-amber-100/70 border border-amber-300 text-amber-900 px-3 py-0.5 rounded-full shadow-subtle">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600 fill-amber-500 shrink-0" />
+                  <span>ODOP Aligned: {odop.odop_product}</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-slate-100 border border-slate-300 text-slate-700 px-3 py-0.5 rounded-full shadow-subtle" title={`Official ODOP for ${p.district_name || 'District'} is ${odop.odop_product}`}>
+                  <Info className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>Non-ODOP ({p.district_name || 'District'} ODOP: {odop.odop_product})</span>
+                </span>
+              )
+            )}
             {/* Real Data-Driven Status Badge */}
             <BusinessStatusPill status={currentBusinessStatus} size="sm" />
           </div>
@@ -250,6 +352,145 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
           <span><TranslatedText text="View Official 7-Section Bank DPR" /></span>
         </button>
       </div>
+
+      {/* Persona-Tailored ODOP Program Advantage / District Context Banner */}
+      {isBeneficiary ? (
+        odop.is_aligned ? (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50/80 via-white to-emerald-50/70 border border-amber-200/90 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                <Award className="w-5 h-5 text-white" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-amber-700 text-white text-[10px] font-bold uppercase font-mono tracking-wider">
+                    <TranslatedText text="One District One Product (ODOP)" />
+                  </span>
+                  <strong className="text-sm font-bold text-slate-900 font-outfit">{odop.odop_product}</strong>
+                  {odop.pmfme_eligible && (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-bold">
+                      <TranslatedText text="35% PMFME Capital Subsidy" />
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed font-medium max-w-3xl">
+                  <TranslatedText text="Your enterprise directly matches your district's official ODOP mandate. You qualify for an upfront 35% capital subsidy under PMFME (up to ₹10 Lakhs), official ODOP branding seal privileges, and prioritized listing on the Government e-Marketplace (GeM)." />
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-start md:self-auto">
+              <Link
+                to={reportId ? `/reports/${reportId}/marketing` : '/marketing'}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold transition shadow-sm"
+              >
+                <span><TranslatedText text="ODOP Market Linkage" /></span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-50 via-white to-sky-50/40 border border-slate-200/90 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                <Info className="w-5 h-5 text-slate-600" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-slate-700 text-white text-[10px] font-bold uppercase font-mono tracking-wider">
+                    <TranslatedText text="District ODOP Clarification" />
+                  </span>
+                  <span className="text-xs text-slate-600 font-medium">
+                    <TranslatedText text="Official District ODOP Item:" /> <strong className="text-slate-900 font-bold">{odop.odop_product}</strong>
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-slate-700 text-[10px] font-bold font-mono">
+                    <TranslatedText text="Non-ODOP Enterprise" />
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed font-medium max-w-3xl">
+                  <TranslatedText text={`While dairy and agro-processing are major economic focus areas under the District Industries Centre (DIC) of ${p.district_name || 'Bankura'}, dairy itself is not officially designated as the exclusive One District One Product (ODOP) item for this district (which is ${odop.odop_product}). Your enterprise remains fully eligible for statutory Central MSME schemes like PMEGP (up to 35% capital subsidy) and MUDRA under standard policy guidelines.`} />
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-start md:self-auto">
+              <Link
+                to={reportId ? `/reports/${reportId}/schemes` : '/schemes'}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sovereign-800 hover:bg-sovereign-700 text-white text-xs font-bold transition shadow-sm"
+              >
+                <span><TranslatedText text="View Standard Schemes (PMEGP)" /></span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        )
+      ) : (
+        odop.is_aligned ? (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50/90 via-white to-slate-50 border border-indigo-200/90 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-700 to-indigo-800 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                <ShieldAlert className="w-5 h-5 text-indigo-100" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-indigo-800 text-white text-[10px] font-bold uppercase font-mono tracking-wider">
+                    <TranslatedText text="RBI Priority Sector Underwriting Memo" />
+                  </span>
+                  <span className="text-xs font-bold text-slate-800 font-mono">
+                    {odop.rbi_psl_category || 'Micro Enterprise PSL'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-bold font-mono">
+                    Supply Chain Resilience: {odop.supply_chain_resilience_verdict || 'HIGH'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed font-medium max-w-3xl">
+                  <TranslatedText text="Enterprise operates within the notified ODOP cluster. High local raw material density and established vendor cooperatives reduce working capital default risks, supporting favorable credit committee sanction under RBI Priority Sector Lending guidelines." />
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-start md:self-auto">
+              <button
+                onClick={onOpenDpr}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold transition shadow-sm"
+              >
+                <span><TranslatedText text="Credit Appraisal Memo" /></span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-50 via-white to-slate-50 border border-slate-200/90 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                <ShieldAlert className="w-5 h-5 text-slate-600" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-slate-800 text-white text-[10px] font-bold uppercase font-mono tracking-wider">
+                    <TranslatedText text="Cluster Assessment & Credit Memo" />
+                  </span>
+                  <span className="text-xs font-bold text-slate-800 font-mono">
+                    {odop.rbi_psl_category || 'Agri-Allied Dairy (General PSL)'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-slate-700 text-[10px] font-bold font-mono">
+                    Status: Non-ODOP Enterprise
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed font-medium max-w-3xl">
+                  <TranslatedText text={`Enterprise operates in the dairy sector, whereas ${p.district_name || 'Bankura'}'s notified ODOP cluster is ${odop.odop_product}. Enterprise does not receive ODOP cluster fast-track underwriting. Standard commercial credit appraisal applies under RBI Priority Sector Lending guidelines for Dairy/Agri-Allied.`} />
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-start md:self-auto">
+              <button
+                onClick={onOpenDpr}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition shadow-sm"
+              >
+                <span><TranslatedText text="Standard Credit Memo" /></span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )
+      )}
 
       {/* Key Financial Appraisal Metrics Summary Ribbon */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
@@ -316,45 +557,47 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
         </div>
       </div>
 
-      {/* Verified Ground-Truth Data Sources & Lineage Audit Bar */}
-      <div className="glass-panel p-3 sm:p-5 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200/90 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer select-none" onClick={() => setShowLineage(prev => !prev)}>
-          <div className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-sovereign-800" />
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider">
-              <TranslatedText text="Verified Ground-Truth Data Sources & Audit Lineage" />
-            </h4>
-            <span className="text-[10px] bg-sovereign-50 border border-sovereign-200 text-sovereign-800 px-2 py-0.5 rounded-full font-mono font-bold">
-              {dataSources.length} <TranslatedText text="Sources Connected" />
-            </span>
+      {/* Verified Ground-Truth Data Sources & Lineage Audit Bar (Exclusive to Banker / Auditor Mode) */}
+      {!isBeneficiary && (
+        <div className="glass-panel p-3 sm:p-5 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200/90 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer select-none" onClick={() => setShowLineage(prev => !prev)}>
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-sovereign-800" />
+              <h4 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider">
+                <TranslatedText text="Verified Ground-Truth Data Sources & Audit Lineage" />
+              </h4>
+              <span className="text-[10px] bg-sovereign-50 border border-sovereign-200 text-sovereign-800 px-2 py-0.5 rounded-full font-mono font-bold">
+                {dataSources.length} <TranslatedText text="Sources Connected" />
+              </span>
+            </div>
+            <button className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 font-semibold">
+              <span><TranslatedText text={showLineage ? "Hide Lineage" : "Show Lineage"} /></span>
+              {showLineage ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
           </div>
-          <button className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 font-semibold">
-            <span><TranslatedText text={showLineage ? "Hide Lineage" : "Show Lineage"} /></span>
-            {showLineage ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-        </div>
 
-        {showLineage && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2 border-t border-slate-100 animate-in fade-in duration-200">
-            {dataSources.map((ds, idx) => (
-              <div key={idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] space-y-0.5 hover:bg-slate-100 transition-colors">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sovereign-800 truncate">
-                    <TranslatedText text={ds.logical_source} />
-                  </span>
-                  <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold shrink-0">
-                    <TranslatedText text={ds.status} />
-                  </span>
+          {showLineage && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2 border-t border-slate-100 animate-in fade-in duration-200">
+              {dataSources.map((ds, idx) => (
+                <div key={idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] space-y-0.5 hover:bg-slate-100 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sovereign-800 truncate">
+                      <TranslatedText text={ds.logical_source} />
+                    </span>
+                    <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold shrink-0">
+                      <TranslatedText text={ds.status} />
+                    </span>
+                  </div>
+                  <div className="text-slate-600 font-mono text-[10px] truncate">{ds.table_or_file}</div>
+                  <div className="text-slate-500 text-[10px] line-clamp-1">
+                    <TranslatedText text={ds.attribution} />
+                  </div>
                 </div>
-                <div className="text-slate-600 font-mono text-[10px] truncate">{ds.table_or_file}</div>
-                <div className="text-slate-500 text-[10px] line-clamp-1">
-                  <TranslatedText text={ds.attribution} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Row 1: ML Viability Card & AI Executive Synthesis Narrative */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">

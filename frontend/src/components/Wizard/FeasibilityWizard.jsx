@@ -4,7 +4,7 @@ import {
   ChevronRight, ChevronLeft, Sparkles, X, Loader2, Compass, 
   AlertCircle, Info, ShieldCheck, Languages, Check
 } from 'lucide-react';
-import { fetchStates, fetchDistricts, fetchBlocks, fetchVillages } from '../../services/api';
+import { fetchStates, fetchDistricts, fetchBlocks, fetchVillages, fetchOdopProduct } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -21,6 +21,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
   const { userProfile } = useAuth() || {};
   const { language: appLanguage, setLanguage, languages, t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(1);
+  const [odopHint, setOdopHint] = useState(null);
   const [formData, setFormData] = useState(() => {
     const initCat = initialData?.promoter_category || "general";
     const marginPct = getMarginPct(initCat);
@@ -127,6 +128,25 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
     }
     loadSubunits();
   }, [formData.district_name]);
+
+  // Sync ODOP data for selected district
+  useEffect(() => {
+    if (!formData.district_name) {
+      setOdopHint(null);
+      return;
+    }
+    let isCurrent = true;
+    async function checkOdop() {
+      const data = await fetchOdopProduct(formData.state_name, formData.district_name);
+      if (isCurrent && data?.has_odop_record) {
+        setOdopHint(data);
+      } else if (isCurrent) {
+        setOdopHint(null);
+      }
+    }
+    checkOdop();
+    return () => { isCurrent = false; };
+  }, [formData.state_name, formData.district_name]);
 
   // Browser Geolocation Auto-Detection
   const handleDetectLocation = () => {
@@ -393,6 +413,19 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                     <option value="artisan_trades">Artisan & Craft Trades</option>
                     <option value="general">General Commercial MSME</option>
                   </select>
+                  {odopHint?.odop_product && (
+                    <div className="mt-2 text-[11px] font-medium flex items-center gap-1.5 text-amber-900 bg-amber-50 border border-amber-200/80 px-2.5 py-1.5 rounded-lg">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>
+                        <strong>{formData.district_name || "District"} ODOP:</strong> {odopHint.odop_product}
+                        {odopHint.matching_sectors?.includes(formData.sector) && (
+                          <span className="ml-1.5 font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-1.5 py-0.5 rounded text-[10px]">
+                            ✓ Matches District ODOP!
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -497,6 +530,33 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                   </select>
                 </div>
               </div>
+
+              {/* Real-Time ODOP Cluster Discovery Banner */}
+              {odopHint && (
+                <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-50 via-sky-50/40 to-amber-50 border border-amber-200 shadow-xs flex items-start gap-2.5 text-xs text-amber-950 animate-in fade-in">
+                  <div className="p-1.5 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+                    <Sparkles className="w-4 h-4 text-amber-700" />
+                  </div>
+                  <div className="space-y-1 w-full">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-md bg-amber-600 text-white font-bold text-[10px] font-mono uppercase tracking-wider">
+                          One District One Product (ODOP)
+                        </span>
+                        <span className="font-bold text-slate-900 text-xs sm:text-sm">{odopHint.odop_product}</span>
+                      </div>
+                      {odopHint.pmfme_eligible && (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-bold">
+                          35% PMFME Subsidy
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Statutory cluster identified under MoFPI & DPIIT. Enterprises in this cluster receive <strong>priority bank sanction</strong>, GeM ODOP corridor access, and testing lab subsidies.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Area Classification (Kept as user confirmation choice, untouched by GPS) */}
               <div className="pt-3 border-t border-slate-100">

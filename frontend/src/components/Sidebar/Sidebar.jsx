@@ -18,10 +18,14 @@ import {
   Building2,
   PlusCircle,
   Layers,
+  Tag,
+  Megaphone,
 } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import { BusinessStatusPill } from '../BusinessSwitcher';
+import { TranslatedText } from '../TranslatedText';
 import { useLanguage } from '../../context/LanguageContext';
+import { useViewMode } from '../../context/ViewModeContext';
 
 export function Sidebar({
   isCollapsed,
@@ -32,81 +36,130 @@ export function Sidebar({
 }) {
   const location = useLocation();
   const { activeBusiness } = useBusiness();
+  const { isBeneficiary } = useViewMode();
   const { t } = useLanguage();
 
-  const reportNavItems = [
-    {
-      id: 'overview',
-      name: t('overview') || 'Overview',
-      path: reportId ? `/reports/${reportId}` : '/dashboard',
-      icon: LayoutDashboard,
-      badge: null,
-    },
-    {
-      id: 'viability',
-      name: t('viability') || 'ML Viability',
-      path: reportId ? `/reports/${reportId}/viability` : '/viability',
-      icon: BrainCircuit,
-      badge: 'TreeSHAP',
-    },
-    {
-      id: 'market',
-      name: t('market') || 'Market & Demand',
-      path: reportId ? `/reports/${reportId}/market` : '/market',
-      icon: Target,
-      badge: 'Census 2011',
-    },
-    {
-      id: 'schemes',
-      name: t('schemes') || 'Scheme Optimizer',
-      path: reportId ? `/reports/${reportId}/schemes` : '/schemes',
-      icon: Award,
-      badge: '10 Slabs',
-    },
-    {
-      id: 'financials',
-      name: t('financials') || 'Financials & Cashflow',
-      path: reportId ? `/reports/${reportId}/financials` : '/financials',
-      icon: TrendingUp,
-      badge: '5-Yr Horiz.',
-    },
-    {
-      id: 'risk',
-      name: t('risk') || 'Risk Assessment',
-      path: reportId ? `/reports/${reportId}/risk` : '/risk',
-      icon: ShieldAlert,
-      badge: '8 Pillars',
-    },
-    {
-      id: 'swot',
-      name: t('swot') || 'SWOT Matrix',
-      path: reportId ? `/reports/${reportId}/swot` : '/swot',
-      icon: Grid3X3,
-      badge: null,
-    },
-    {
-      id: 'dpr',
-      name: t('dpr') || 'Bank DPR Memorandum',
-      path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
-      icon: FileText,
-      badge: '7-Section',
-    },
-  ];
+  const reportNavItems = isBeneficiary
+    ? [
+        {
+          id: 'overview',
+          name: 'My Business Plan',
+          path: reportId ? `/reports/${reportId}` : '/dashboard',
+          icon: LayoutDashboard,
+          badge: null,
+        },
+        {
+          id: 'pricing',
+          name: 'Pricing & Margins',
+          path: reportId ? `/reports/${reportId}/pricing` : '/pricing',
+          icon: Tag,
+          badge: 'Unit Profit',
+        },
+        {
+          id: 'marketing',
+          name: 'Village Marketing Kit',
+          path: reportId ? `/reports/${reportId}/marketing` : '/marketing',
+          icon: Megaphone,
+          badge: 'WhatsApp/Haat',
+        },
+        {
+          id: 'schemes',
+          name: 'Government Subsidies',
+          path: reportId ? `/reports/${reportId}/schemes` : '/schemes',
+          icon: Award,
+          badge: 'Grant ₹',
+        },
+        {
+          id: 'calculator',
+          name: 'Loan Calculator & EMI',
+          path: '/calculator',
+          icon: Calculator,
+          badge: 'Quarterly',
+        },
+        {
+          id: 'dpr',
+          name: 'Print Bank Application',
+          path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
+          icon: FileText,
+          badge: 'Download PDF',
+        },
+      ]
+    : [
+        {
+          id: 'overview',
+          name: 'Master Appraisal Memo',
+          path: reportId ? `/reports/${reportId}` : '/dashboard',
+          icon: LayoutDashboard,
+          badge: null,
+        },
+        {
+          id: 'viability',
+          name: '10-D ML Viability & TreeSHAP',
+          path: reportId ? `/reports/${reportId}/viability` : '/viability',
+          icon: BrainCircuit,
+          badge: 'TreeSHAP',
+        },
+        {
+          id: 'market',
+          name: 'Market Demographics & TAM',
+          path: reportId ? `/reports/${reportId}/market` : '/market',
+          icon: Target,
+          badge: 'Census 2011',
+        },
+        {
+          id: 'schemes',
+          name: 'Scheme Optimizer',
+          path: reportId ? `/reports/${reportId}/schemes` : '/schemes',
+          icon: Award,
+          badge: '10 Slabs',
+        },
+        {
+          id: 'financials',
+          name: 'Financials & DSCR Solvency',
+          path: reportId ? `/reports/${reportId}/financials` : '/financials',
+          icon: TrendingUp,
+          badge: '5-Yr Horiz.',
+        },
+        {
+          id: 'risk',
+          name: '8-Pillar Risk Radar',
+          path: reportId ? `/reports/${reportId}/risk` : '/risk',
+          icon: ShieldAlert,
+          badge: '8 Pillars',
+        },
+        {
+          id: 'swot',
+          name: 'SWOT Appraisal Matrix',
+          path: reportId ? `/reports/${reportId}/swot` : '/swot',
+          icon: Grid3X3,
+          badge: 'Grounded',
+        },
+        {
+          id: 'dpr',
+          name: 'Bank DPR Memorandum',
+          path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
+          icon: FileText,
+          badge: '7-Section',
+        },
+      ];
 
-  const utilityNavItems = [
-    {
-      id: 'calculator',
-      name: t('calculator') || 'Quick Calculator',
-      path: '/calculator',
-      icon: Calculator,
-    },
-    {
-      id: 'data-sources',
-      name: t('dataSources') || 'Data Sources Lineage',
-      path: '/data-sources',
-      icon: Database,
-    },
-  ];
+  const utilityNavItems = isBeneficiary
+    ? []
+    : [
+        {
+          id: 'calculator',
+          name: 'DSCR Sensitivity Engine',
+          path: '/calculator',
+          icon: Calculator,
+        },
+        {
+          id: 'data-sources',
+          name: 'Data Sources Lineage',
+          path: '/data-sources',
+          icon: Database,
+          badge: 'Audit',
+        },
+      ];
 
   const checkIsActive = (itemId, itemPath) => {
     const current = location.pathname;
@@ -121,6 +174,8 @@ export function Sidebar({
           !current.includes('/financials') &&
           !current.includes('/risk') &&
           !current.includes('/swot') &&
+          !current.includes('/pricing') &&
+          !current.includes('/marketing') &&
           !current.includes('/dpr'))
       );
     }
@@ -156,14 +211,14 @@ export function Sidebar({
                 />
                 {!isCollapsed && (
                   <span className={`truncate ${isActive ? 'text-white font-bold' : 'text-slate-700'}`}>
-                    {item.name}
+                    <TranslatedText text={item.name} />
                   </span>
                 )}
               </div>
 
               {!isCollapsed && item.badge && (
                 <span className="sidebar-badge text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold shrink-0 transition-colors">
-                  {item.badge}
+                  <TranslatedText text={item.badge} />
                 </span>
               )}
 
@@ -255,30 +310,32 @@ export function Sidebar({
             </div>
           )}
 
-          {/* Nav Section: 8 Dedicated Report Views */}
+          {/* Nav Section: Dedicated Views */}
           <div className="px-3 py-3">
             <div className="flex items-center justify-between px-2 mb-2">
               <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-500">
-                {isCollapsed ? 'Views' : 'Appraisal Sections'}
+                {isCollapsed ? (isBeneficiary ? 'Biz' : 'Audit') : (isBeneficiary ? 'Business Toolkit' : 'Appraisal Sections')}
               </span>
               {!isCollapsed && (
                 <span className="text-[9px] font-mono font-bold bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.2 rounded">
-                  8 Views
+                  {reportNavItems.length} {isBeneficiary ? 'Tools' : 'Views'}
                 </span>
               )}
             </div>
             {renderNavLinks(reportNavItems)}
           </div>
 
-          {/* Nav Section: System Utilities */}
-          <div className="px-3 py-1 border-t border-slate-100">
-            <div className="flex items-center justify-between px-2 mb-2 mt-2">
-              <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-500">
-                {isCollapsed ? 'Tools' : 'System Tools'}
-              </span>
+          {/* Nav Section: System Utilities (Rendered only when utilities exist) */}
+          {utilityNavItems.length > 0 && (
+            <div className="px-3 py-1 border-t border-slate-100">
+              <div className="flex items-center justify-between px-2 mb-2 mt-2">
+                <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-500">
+                  {isCollapsed ? 'Tools' : 'Underwriting Tools'}
+                </span>
+              </div>
+              {renderNavLinks(utilityNavItems)}
             </div>
-            {renderNavLinks(utilityNavItems)}
-          </div>
+          )}
         </div>
 
         {/* Bottom Bar / Quick Action */}

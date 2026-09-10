@@ -13,6 +13,9 @@ import { CashflowProjectionsChart } from './CashflowProjectionsChart';
 import { SwotMatrixCard } from './SwotMatrixCard';
 import { RiskRadarCard } from './RiskRadarCard';
 import { StatutoryChecklistCard } from './StatutoryChecklistCard';
+import { ProductPricingCard } from './ProductPricingCard';
+import { VillageMarketingCard } from './VillageMarketingCard';
+import { useViewMode } from '../../context/ViewModeContext';
 import {
   Building2,
   MapPin,
@@ -31,6 +34,7 @@ import {
 
 export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
   const [showLineage, setShowLineage] = useState(true);
+  const { isBeneficiary } = useViewMode();
 
   if (!reportData) {
     return (
@@ -116,51 +120,53 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
         </button>
       </div>
 
-      {/* Verified Ground-Truth Data Sources & Lineage Audit Bar */}
-      <div className="glass-panel p-3 sm:p-5 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer select-none" onClick={() => setShowLineage(prev => !prev)}>
-          <div className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-sovereign-800" />
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider">
-              Verified Ground-Truth Data Sources & Audit Lineage
-            </h4>
-            <span className="text-[10px] bg-sovereign-50 border border-sovereign-200 text-sovereign-800 px-2 py-0.5 rounded-full font-mono font-bold">
-              {dataSources.length} Sources Connected
-            </span>
+      {/* Verified Ground-Truth Data Sources & Lineage Audit Bar (Exclusive to Banker / Auditor Mode) */}
+      {!isBeneficiary && (
+        <div className="glass-panel p-3 sm:p-5 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer select-none" onClick={() => setShowLineage(prev => !prev)}>
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-sovereign-800" />
+              <h4 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider">
+                Verified Ground-Truth Data Sources & Audit Lineage
+              </h4>
+              <span className="text-[10px] bg-sovereign-50 border border-sovereign-200 text-sovereign-800 px-2 py-0.5 rounded-full font-mono font-bold">
+                {dataSources.length} Sources Connected
+              </span>
+            </div>
+            <button className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 font-semibold">
+              <span>{showLineage ? "Hide Lineage" : "Show Lineage"}</span>
+              {showLineage ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
           </div>
-          <button className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 font-semibold">
-            <span>{showLineage ? "Hide Lineage" : "Show Lineage"}</span>
-            {showLineage ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-        </div>
 
-        {showLineage && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2 border-t border-slate-200">
-            {dataSources.map((ds, idx) => (
-              <div key={idx} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs flex flex-col justify-between gap-1.5 shadow-subtle">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-bold text-slate-500">{ds.layer}</span>
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                    <CheckCircle2 className="w-2.5 h-2.5" />
-                    {ds.status || "OK"}
-                  </span>
-                </div>
-                <div>
-                  <div className="font-bold text-slate-900">{ds.logical_source}</div>
-                  <div className="text-[10px] font-mono text-slate-600 mt-0.5">
-                    Source: <code className="bg-white border border-slate-200 px-1 py-0.5 rounded text-sovereign-900 font-bold">{ds.table_or_file}</code>
+          {showLineage && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2 border-t border-slate-200">
+              {dataSources.map((ds, idx) => (
+                <div key={idx} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs flex flex-col justify-between gap-1.5 shadow-subtle">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-slate-500">{ds.layer}</span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                      <CheckCircle2 className="w-2.5 h-2.5" />
+                      {ds.status || "OK"}
+                    </span>
                   </div>
-                </div>
-                {ds.attribution && (
-                  <div className="text-[10px] text-slate-600 truncate font-medium">
-                    {ds.attribution}
+                  <div>
+                    <div className="font-bold text-slate-900">{ds.logical_source}</div>
+                    <div className="text-[10px] font-mono text-slate-600 mt-0.5">
+                      Source: <code className="bg-white border border-slate-200 px-1 py-0.5 rounded text-sovereign-900 font-bold">{ds.table_or_file}</code>
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                  {ds.attribution && (
+                    <div className="text-[10px] text-slate-600 truncate font-medium">
+                      {ds.attribution}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Viability Gauge Hero Card */}
       <ViabilityMeterCard mlViability={ml} dscrInfo={fin.dscr} />
@@ -168,41 +174,67 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
       {/* Alternative Enterprise Recommendations (Rendered exclusively when Verdict === RECONSIDER) */}
       <AlternativeOpportunitiesCard reportData={reportData} onOpenWizard={onOpenWizard} />
 
-      {/* SECTION 1: ML Viability & Lundberg TreeSHAP Explainability Visuals */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <FeatureContributionChart mlViability={ml} />
-        <ViabilityRadarChart mlViability={ml} />
-      </div>
+      {/* BENEFICIARY MODE: Focused exclusively on practical enterprise launch & financing */}
+      {isBeneficiary ? (
+        <>
+          {/* Business Operations Toolkit: Product Pricing & Village Marketing */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <ProductPricingCard reportData={reportData} pricingData={pricing} />
+            <VillageMarketingCard reportData={reportData} />
+          </div>
 
-      {/* SECTION 2: Banking Solvency Gauge & Demographics TAM Funnel */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <DscrGaugeChart dscrInfo={fin.dscr} projections={fin.five_year_projections} />
-        <TamFunnelChart demographics={demographics} pricing={pricing} />
-      </div>
+          {/* Capital Outlay & Means of Finance Reconciliation (10% Margin vs 90% Loan) */}
+          <CapitalReconciliationCard inputData={p} financialData={fin} schemeData={schemes} />
 
-      {/* Multi-Lingual Executive Synthesis Narrative */}
-      <ExecutiveNarrativeCard synthesisData={synth} />
+          {/* Matched Government Schemes & Grants */}
+          <SchemeLeaderboardCard schemes={schemes} />
 
-      {/* Capital Outlay & Means of Finance Reconciliation */}
-      <CapitalReconciliationCard inputData={p} financialData={fin} schemeData={schemes} />
+          {/* What to Bring to the Bank: Mandatory Document Checklist */}
+          <StatutoryChecklistCard />
 
-      {/* Government Scheme Comparison Chart & Leaderboard */}
-      <div className="space-y-6">
-        <SchemeComparisonChart schemes={schemes} />
-        <SchemeLeaderboardCard schemes={schemes} />
-      </div>
+          {/* Plain-Language Regional Executive Summary */}
+          <ExecutiveNarrativeCard synthesisData={synth} />
+        </>
+      ) : (
+        /* BANKER / AUDITOR MODE: Full institutional underwriting & explainability suite */
+        <>
+          {/* SECTION 1: ML Viability & Lundberg TreeSHAP Explainability Visuals */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <FeatureContributionChart mlViability={ml} />
+            <ViabilityRadarChart mlViability={ml} />
+          </div>
 
-      {/* 5-Year Cash Flow & Capacity Ramp Schedule */}
-      <CashflowProjectionsChart inputData={p} financialData={fin} pricingData={pricing} />
+          {/* SECTION 2: Banking Solvency Gauge & Demographics TAM Funnel */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <DscrGaugeChart dscrInfo={fin.dscr} projections={fin.five_year_projections} />
+            <TamFunnelChart demographics={demographics} pricing={pricing} />
+          </div>
 
-      {/* Grounded SWOT Grid */}
-      <SwotMatrixCard swotData={swot} />
+          {/* Multi-Lingual Executive Credit Appraisal Narrative */}
+          <ExecutiveNarrativeCard synthesisData={synth} />
 
-      {/* 8-Point Quantified Risk Radar */}
-      <RiskRadarCard riskData={risks} />
+          {/* Capital Outlay & Means of Finance Reconciliation */}
+          <CapitalReconciliationCard inputData={p} financialData={fin} schemeData={schemes} />
 
-      {/* Statutory Bank Checklist */}
-      <StatutoryChecklistCard />
+          {/* Government Scheme Comparison Chart & Leaderboard */}
+          <div className="space-y-6">
+            <SchemeComparisonChart schemes={schemes} />
+            <SchemeLeaderboardCard schemes={schemes} />
+          </div>
+
+          {/* 5-Year Cash Flow & Capacity Ramp Schedule */}
+          <CashflowProjectionsChart inputData={p} financialData={fin} pricingData={pricing} />
+
+          {/* Grounded SWOT Grid */}
+          <SwotMatrixCard swotData={swot} />
+
+          {/* 8-Point Quantified Risk Radar */}
+          <RiskRadarCard riskData={risks} />
+
+          {/* Statutory Bank Checklist */}
+          <StatutoryChecklistCard />
+        </>
+      )}
 
     </div>
   );

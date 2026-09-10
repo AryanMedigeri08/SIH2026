@@ -51,6 +51,9 @@ class EnterpriseProfileHeader(BaseModel):
     is_rural: bool = True
     catchment_projected_population: int = 0
     nodal_lending_agency: str = "Scheduled Commercial Bank / District Industries Centre (DIC)"
+    odop_product: Optional[str] = Field(None, description="Designated One District One Product (ODOP)")
+    odop_alignment_status: Optional[str] = Field(None, description="ODOP Aligned | Cluster Adjacent")
+    rbi_psl_classification: Optional[str] = Field(None, description="RBI Priority Sector Lending Classification")
 
 
 class CapitalOutlayItem(BaseModel):
@@ -472,6 +475,7 @@ def build_bank_dpr(
     ml_prediction: Any,
     ai_synthesis: Any,
     constitution: str = "Sole Proprietorship",
+    odop_info: Optional[dict[str, Any]] = None,
 ) -> BankDPRDocument:
     """
     Compiles the complete 7-Section Bank DPR appraisal document.
@@ -499,6 +503,9 @@ def build_bank_dpr(
         is_rural=is_rural,
         catchment_projected_population=pop_projection.projected_population,
         nodal_lending_agency="Scheduled Commercial Bank / DIC",
+        odop_product=odop_info.get("odop_product") if odop_info else None,
+        odop_alignment_status=odop_info.get("status_text") if odop_info else None,
+        rbi_psl_classification=odop_info.get("rbi_psl_category") if odop_info else None,
     )
 
     # 2. Capital Outlay Breakdown (100% standard allocation)

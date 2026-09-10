@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { BusinessProvider, useBusiness } from './context/BusinessContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ChatProvider } from './context/ChatContext';
+import { ViewModeProvider } from './context/ViewModeContext';
 import { FloatingChatWindow } from './components/Chat/FloatingChatWindow';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LanguageTransitionOverlay } from './components/LanguageTransitionOverlay';
@@ -27,6 +28,8 @@ import { FinancialsPage } from './pages/report/FinancialsPage';
 import { RiskAssessmentPage } from './pages/report/RiskAssessmentPage';
 import { SwotAnalysisPage } from './pages/report/SwotAnalysisPage';
 import { BankDprPage } from './pages/report/BankDprPage';
+import { ProductPricingPage } from './pages/report/ProductPricingPage';
+import { MarketingPage } from './pages/report/MarketingPage';
 
 // Standalone System Pages
 import { WizardPage } from './pages/WizardPage';
@@ -501,6 +504,48 @@ export function AppContent() {
                 }
               />
 
+              {/* Beneficiary Toolkit Routes (Module 1, Req #1 & #6) */}
+              <Route
+                path="/pricing"
+                element={
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={FinancialsSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <ProductPricingPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reports/:reportId/pricing"
+                element={
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={FinancialsSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <ProductPricingPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/marketing"
+                element={
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <MarketingPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reports/:reportId/marketing"
+                element={
+                  <ProtectedRoute>
+                    <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
+                      <MarketingPage reportData={reportData} />
+                    </AppraisalSectionWrapper>
+                  </ProtectedRoute>
+                }
+              />
+
               {/* 7-Step Feasibility Wizard */}
               <Route
                 path="/wizard"
@@ -581,11 +626,13 @@ export function App() {
       <AuthProvider>
         <LanguageProvider>
           <LanguageTransitionOverlay />
-          <BusinessProvider>
-            <ChatProvider>
-              <AppContent />
-            </ChatProvider>
-          </BusinessProvider>
+          <ViewModeProvider>
+            <BusinessProvider>
+              <ChatProvider>
+                <AppContent />
+              </ChatProvider>
+            </BusinessProvider>
+          </ViewModeProvider>
         </LanguageProvider>
       </AuthProvider>
     </BrowserRouter>

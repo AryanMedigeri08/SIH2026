@@ -15,7 +15,7 @@ export function ChatbotNavButton() {
       ref={navButtonRef}
       type="button"
       onClick={toggleChat}
-      className={`relative inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all duration-200 cursor-pointer shadow-subtle group ${
+      className={`relative inline-flex items-center gap-1.5 sm:gap-2 text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-full border transition-all duration-200 cursor-pointer shadow-subtle group shrink-0 ${
         isChatOpen
           ? isEmerald
             ? 'bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-950 text-emerald-200 border-emerald-400/60 shadow-md shadow-emerald-950/20 ring-2 ring-emerald-400/30'
@@ -29,7 +29,7 @@ export function ChatbotNavButton() {
       aria-expanded={isChatOpen}
     >
       {/* Bot Icon with active glowing beacon */}
-      <span className="relative flex items-center justify-center">
+      <span className="relative flex items-center justify-center shrink-0">
         {isChatOpen && (
           <span
             className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 ${
@@ -51,13 +51,13 @@ export function ChatbotNavButton() {
       </span>
 
       {/* Label */}
-      <span className="font-semibold tracking-tight">
+      <span className="font-semibold tracking-tight whitespace-nowrap">
         {t('chatbot') || 'Chatbot'}
       </span>
 
       {/* Subtle AI Badge / Sparkle */}
       <span
-        className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-full uppercase tracking-wider ${
+        className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-full uppercase tracking-wider shrink-0 ${
           isChatOpen
             ? isEmerald
               ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'

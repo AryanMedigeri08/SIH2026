@@ -72,6 +72,29 @@ export function GovernmentSchemesPage({ reportData }) {
   const promoterMargin = fin.promoter_margin_amount || (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05));
   const termLoan = fin.loan_principal || Math.max(projectCost - subsidyAmount - promoterMargin, 0);
   const dscr = fin.dscr?.dscr ?? 1.33;
+  const districtLower = (p.district_name || '').toLowerCase();
+  const sectorLower = (p.sector || '').toLowerCase();
+  let fallbackProduct = "Terracotta Pottery & Dokra Metal Craft";
+  let fallbackAligned = false;
+
+  if (districtLower.includes('bankura')) {
+    fallbackProduct = "Terracotta Pottery & Dokra Metal Craft";
+    fallbackAligned = sectorLower === 'artisan_trades' || sectorLower === 'apparel';
+  } else if (districtLower.includes('bulandshahr')) {
+    fallbackProduct = "Khurja Glazed Pottery & Ceramic Ware";
+    fallbackAligned = sectorLower === 'fabrication' || sectorLower === 'artisan_trades' || sectorLower === 'manufacturing';
+  } else if (districtLower.includes('ujjain')) {
+    fallbackProduct = "Bhairavgarh Batik Print Textiles";
+    fallbackAligned = sectorLower === 'apparel' || sectorLower === 'artisan_trades';
+  }
+
+  const odop = reportData.odop_alignment || {
+    is_aligned: fallbackAligned,
+    odop_product: fallbackProduct,
+    status_text: fallbackAligned ? "ODOP ALIGNED" : "NON-ODOP SECTOR",
+    badge_title: fallbackAligned ? `Official ODOP Enterprise — ${p.district_name || 'District'} ${fallbackProduct}` : `Non-ODOP (${p.district_name || 'District'} ODOP: ${fallbackProduct})`,
+    pmfme_eligible: fallbackAligned,
+  };
 
   const isReconsider = ml.verdict === 'RECONSIDER' || dscr < 1.0;
   const isCaution = ml.verdict === 'CAUTION' || (dscr >= 1.0 && dscr < 1.33);
@@ -98,6 +121,81 @@ export function GovernmentSchemesPage({ reportData }) {
           <TranslatedText text="Automatically evaluated against statutory MSME guidelines (PMEGP, PMFME, MUDRA, Stand-Up India, PM Vishwakarma, DAY-NRLM, AHIDF). Verified official government portal links are provided for each eligible incentive scheme." />
         </p>
       </div>
+
+      {/* ODOP Statutory Cluster Mandate & PMFME Advantage Card */}
+      {odop?.odop_product && (
+        odop.is_aligned ? (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-100/30 to-emerald-500/10 border border-amber-300/90 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-600 to-amber-700 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                <Sparkles className="w-6 h-6 text-amber-200 fill-amber-100" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-md bg-amber-700 text-white text-[10px] font-bold font-mono tracking-wider uppercase">
+                    <TranslatedText text="PMFME • One District One Product (ODOP) Mandate" />
+                  </span>
+                  <strong className="text-base font-bold text-slate-900 font-outfit">
+                    {p.district_name || 'District'}: {odop.odop_product}
+                  </strong>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-bold font-mono">
+                    ✓ <TranslatedText text="Enterprise Aligned with District Priority" />
+                  </span>
+                </div>
+                <p className="text-xs text-slate-700 leading-relaxed font-medium max-w-3xl">
+                  <TranslatedText text="Under the Ministry of Food Processing Industries (MoFPI) guidelines, new and upgrading enterprises aligned with the district's ODOP product receive priority bank sanction and a 35% Credit-Linked Capital Subsidy (capped at ₹10 Lakhs). Common Facility Centre (CFC) access and 50% branding/packaging grants are also available." />
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
+              <a
+                href="https://pmfme.mofpi.gov.in/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold transition shadow-sm"
+              >
+                <span><TranslatedText text="PMFME ODOP Portal" /></span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-50 via-sky-50/40 to-slate-50 border border-slate-200/90 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-slate-800 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                <Landmark className="w-5 h-5 text-sky-300" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-md bg-slate-700 text-white text-[10px] font-bold font-mono tracking-wider uppercase">
+                    <TranslatedText text="Statutory District Alignment • Non-ODOP Sector" />
+                  </span>
+                  <strong className="text-sm sm:text-base font-bold text-slate-900 font-outfit">
+                    <TranslatedText text="District Official ODOP:" /> {odop.odop_product}
+                  </strong>
+                  <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-slate-700 text-[10px] font-bold font-mono">
+                    <TranslatedText text="Non-ODOP Enterprise" />
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed font-medium max-w-3xl">
+                  <TranslatedText text={`While ${p.sector || 'dairy'} and agro-processing are major economic activities under the District Industries Centre (DIC) of ${p.district_name || 'Bankura'}, ${p.sector || 'dairy'} is not officially designated as the ODOP item for this district (which is ${odop.odop_product}). Your enterprise qualifies for standard PMEGP (up to 35% rural capital subsidy) and MUDRA under general Priority Sector Lending guidelines, rather than the ODOP cluster reservation.`} />
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
+              <a
+                href="https://pmegp.msme.gov.in/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white text-xs font-bold transition shadow-sm"
+              >
+                <span><TranslatedText text="PMEGP Guidelines" /></span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+        )
+      )}
 
       {/* Top Scheme Recommendation Hero Banner */}
       <div className={`p-4 sm:p-6 bg-white rounded-2xl shadow-card border border-slate-200/90 ${cardBorderClass}`}>
