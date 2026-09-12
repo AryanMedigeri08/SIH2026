@@ -60,6 +60,12 @@ export function FloatingChatWindow() {
     stopAudio,
     playMessageTts,
     clearChat,
+    // Hey Siri wake-word state
+    isWakeWordSupported,
+    isWakeWordEnabled,
+    isWakeWordListening,
+    toggleWakeWord,
+    siriNotice,
   } = useChat();
 
   const { reportData, activeBusiness } = useBusiness();
@@ -369,6 +375,25 @@ export function FloatingChatWindow() {
             {autoPlayVoice ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
           </button>
 
+          {/* Wake on 'Hey Siri' Voice Activation Toggle (Always Visible) */}
+          <button
+            type="button"
+            onClick={toggleWakeWord}
+            className={`p-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+              isWakeWordEnabled
+                ? 'text-purple-300 hover:text-purple-200 bg-purple-950/60 ring-1 ring-purple-400/40'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'
+            }`}
+            title={
+              isWakeWordEnabled
+                ? "Wake on 'Hey Siri': ACTIVE (Listening in background - Click to Disable)"
+                : "Wake on 'Hey Siri': OFF (Click to Enable voice activation)"
+            }
+            aria-label="Toggle 'Hey Siri' Wake Word"
+          >
+            <Mic className={`w-3.5 h-3.5 ${isWakeWordListening ? 'text-purple-300 animate-pulse' : ''}`} />
+          </button>
+
           {/* Theme Switcher Button */}
           <div className="relative" ref={themeMenuRef}>
             <button
@@ -468,6 +493,35 @@ export function FloatingChatWindow() {
           </button>
         </div>
       </div>
+
+      {/* Siri Voice Trigger Live Banner */}
+      {siriNotice && (
+        <div className="mx-3.5 mt-2 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-950/95 via-indigo-950/95 to-slate-950/95 border border-purple-400/50 text-white shadow-lg flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2 duration-200 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-purple-500" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-purple-200 flex items-center gap-1.5">
+                <span>🎙️ "Hey Siri" Activated</span>
+              </p>
+              {siriNotice.trailingQuery ? (
+                <p className="text-[10px] text-purple-300/90 truncate font-mono">
+                  "{siriNotice.trailingQuery}"
+                </p>
+              ) : (
+                <p className="text-[10px] text-purple-300/80">
+                  Listening for your query...
+                </p>
+              )}
+            </div>
+          </div>
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-200 border border-purple-400/40 uppercase shrink-0">
+            Voice Sync
+          </span>
+        </div>
+      )}
 
       {/* Message List */}
       <div

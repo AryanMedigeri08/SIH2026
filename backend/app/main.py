@@ -32,7 +32,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.config import settings
+from app.config import settings, validate_production_config
 from app.database import db_manager
 from app.models.schemas import HealthStatus
 from app.routers import (
@@ -44,7 +44,9 @@ from app.routers import (
     auth_router,
     translation_router,
     chat_router,
+    market_intelligence_router,
 )
+from app.core.telemetry import TelemetryMiddleware
 from inference import ViabilityModelLoader
 
 
@@ -54,6 +56,17 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 80)
     logger.info("🚀 Udyam Saathi (उद्यम साथी) REST API Backend Starting...")
     logger.info("📡 Environment: Port 8000 | Docs: /docs | Health: /api/v2/health")
+    
+    # Safe production config audit
+    cfg_report = validate_production_config()
+    logger.info(f"⚙️ Configuration Audit: Status={cfg_report['status']} | Modes={cfg_report['modes']}")
+    if cfg_report["warnings"]:
+        for w in cfg_report["warnings"]:
+            logger.info(f"ℹ️ Config notice: {w}")
+    if cfg_report["missing_critical"]:
+        for m in cfg_report["missing_critical"]:
+            logger.error(f"❌ CRITICAL CONFIG MISSING: {m}")
+
     await db_manager.initialize()
     logger.info("💾 Database & In-Memory Fallback Subsystem Initialized.")
     # Preload ML model & SHAP Explainer into singleton memory
@@ -84,25 +97,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Request Tracing & Structured Logging Middleware
-@app.middleware("http")
-async def log_requests_middleware(request: Request, call_next):
-    req_id = f"REQ-{uuid.uuid4().hex[:8].upper()}"
-    request.state.request_id = req_id
-    start_time = time.perf_counter()
-    client_host = request.client.host if request.client else "unknown"
-    logger.info(f"[{req_id}] ➡️ INCOMING {request.method} {request.url.path} from {client_host}")
-
-    try:
-        response = await call_next(request)
-        latency = (time.perf_counter() - start_time) * 1000
-        logger.info(f"[{req_id}] ⬅️ RESPONSE {response.status_code} in {latency:.2f}ms")
-        response.headers["X-Request-ID"] = req_id
-        return response
-    except Exception as e:
-        latency = (time.perf_counter() - start_time) * 1000
-        logger.error(f"[{req_id}] ❌ ERROR in {latency:.2f}ms: {str(e)}", exc_info=True)
-        raise
+# Correlation ID, Tracing & Latency Middleware (Gates 20, 21, 24)
+app.add_middleware(TelemetryMiddleware)
 
 # Configure CORS Middleware (Explicit origins with credentials support)
 app.add_middleware(
@@ -164,6 +160,8 @@ app.include_router(projects_router, prefix=settings.API_V2_STR)
 app.include_router(data_sources_router, prefix=settings.API_V2_STR)
 app.include_router(translation_router, prefix=settings.API_V2_STR)
 app.include_router(chat_router, prefix=f"{settings.API_V2_STR}/chat", tags=["AI Chatbot & Groq Advisor"])
+app.include_router(market_intelligence_router, prefix=settings.API_V2_STR)
+app.include_router(market_intelligence_router, prefix="")
 
 
 if __name__ == "__main__":

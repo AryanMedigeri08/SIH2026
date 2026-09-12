@@ -41,7 +41,12 @@ def _parse_origins() -> list[str]:
     return origins if origins else default_origins
 
 
+from pydantic import ConfigDict
+
+
 class Settings(BaseSettings):
+    model_config = ConfigDict(case_sensitive=True, extra="ignore")
+
     APP_NAME: str = "Udyam Saathi REST API"
     APP_VERSION: str = "2.0.0"
     API_V2_STR: str = "/api/v2"
@@ -78,8 +83,57 @@ class Settings(BaseSettings):
     MODEL_FILE: Path = Path(__file__).resolve().parent / "data" / "viability_xgb.joblib"
     METADATA_FILE: Path = Path(__file__).resolve().parent / "data" / "model_metadata.json"
 
-    class Config:
-        case_sensitive = True
-
 
 settings = Settings()
+
+
+def validate_production_config() -> dict[str, Any]:
+    """
+    Safely validates presence of essential production files and environment configuration
+    without exposing or logging any plaintext secrets. (Document 4, Phase 2).
+    """
+    status_report = {
+        "status": "VALID",
+        "missing_critical": [],
+        "warnings": [],
+        "modes": {},
+    }
+
+    # Verify critical data files
+    if not settings.DATA_DIR.exists():
+        status_report["missing_critical"].append("backend/app/data directory missing")
+    if not settings.SCHEMES_FILE.exists():
+        status_report["missing_critical"].append("government_schemes.json missing")
+    if not settings.GROWTH_RATES_FILE.exists():
+        status_report["missing_critical"].append("growth_rates.json missing")
+
+    # Database status
+    if settings.DATABASE_URL and settings.DATABASE_URL.strip():
+        status_report["modes"]["database"] = "POSTGRESQL_NEON"
+    else:
+        status_report["modes"]["database"] = "LOCAL_SQLITE_DURABLE"
+        status_report["warnings"].append("DATABASE_URL not set; using local durable SQLite storage")
+
+    # LLM API status
+    if settings.GROQ_API_KEY and settings.GROQ_API_KEY.strip():
+        status_report["modes"]["llm_synthesis"] = "GROQ_CLOUD_ACTIVE"
+    else:
+        status_report["modes"]["llm_synthesis"] = "DETERMINISTIC_RULE_FALLBACK"
+        status_report["warnings"].append("GROQ_API_KEY not configured; rule-based synthesis active")
+
+    # Data.gov.in status
+    if settings.DATA_GOV_IN_API_KEY and settings.DATA_GOV_IN_API_KEY.strip():
+        status_report["modes"]["amenities_api"] = "DATA_GOV_IN_ACTIVE"
+    else:
+        status_report["modes"]["amenities_api"] = "REGIONAL_BASELINE_FALLBACK"
+
+    # ML Classifier binary
+    if settings.MODEL_FILE.exists():
+        status_report["modes"]["viability_classifier"] = "XGBOOST_SUPERVISED_ACTIVE"
+    else:
+        status_report["modes"]["viability_classifier"] = "DETERMINISTIC_RULES_ACTIVE"
+
+    if status_report["missing_critical"]:
+        status_report["status"] = "INVALID"
+
+    return status_report

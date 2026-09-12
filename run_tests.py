@@ -26,6 +26,15 @@ TEST_SCRIPTS = [
     "test_audio_chat_service.py",
     "test_translation_service.py",
     "test_opportunity_matcher.py",
+    "test_udyam_engine.py",
+    "test_udyam_api_and_pipeline.py",
+    "test_opportunity_engine.py",
+    "test_audit_gold_set.py",
+    "test_audit_regression.py",
+    "test_audit_cross_state.py",
+    "test_phase4_hardening.py",
+    "test_ecosystem_graph.py",
+    "test_integration_consistency.py",
 ]
 
 

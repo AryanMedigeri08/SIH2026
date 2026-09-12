@@ -319,6 +319,127 @@
         "rbi_psl_category": "Engineering MSME Priority",
         "key_benefits": ["BEE Star rating testing laboratory", "GeM pump supply tenders"]
       }
+    },
+    "Telangana": {
+      "Yadadri Bhuvanagiri": {
+        "odop_product": "Pochampally Ikat Handloom Silk & Cotton Sarees",
+        "secondary_product": "Cotton Textile Weaving",
+        "category": "Handicrafts & Handlooms (Textiles)",
+        "matching_sectors": ["apparel", "artisan_trades", "textile handloom", "manufacturing"],
+        "pmfme_eligible": false,
+        "gem_category": "Handloom Sarees & Traditional Fabrics",
+        "cfc_available": true,
+        "raw_material_availability": "Historic Pochampally weaver cooperatives and silk/cotton yarn depots",
+        "rbi_psl_category": "Handloom & Micro Textile Enterprises",
+        "key_benefits": [
+          "GI Tag Pochampally Ikat authenticity protection",
+          "Weaver Mudra loans up to ₹2 Lakhs with 7% interest subvention",
+          "Direct onboarding to GeM ODOP artisan store"
+        ]
+      },
+      "Medak": {
+        "odop_product": "Dairy Products & Cattle Feed",
+        "secondary_product": "Parboiled Rice & Cereal Processing",
+        "category": "Food Processing (Dairy & Livestock Feed)",
+        "matching_sectors": ["dairy", "food_processing", "agriculture"],
+        "pmfme_eligible": true,
+        "gem_category": "Fresh Milk, Ghee & Cattle Feed Supplements",
+        "cfc_available": true,
+        "raw_material_availability": "Dense milch cattle population and cooperative bulk milk chilling units",
+        "rbi_psl_category": "Agri-Allied Dairy (PMFME Priority)",
+        "key_benefits": [
+          "PMFME 35% capital subsidy up to ₹10 Lakhs",
+          "Priority dairy infrastructure development fund access",
+          "State animal husbandry department subsidized fodder linkage"
+        ]
+      },
+      "Warangal": {
+        "odop_product": "Warangal Dhurries (Handcrafted Cotton Carpets)",
+        "category": "Handicrafts & Handlooms",
+        "matching_sectors": ["apparel", "artisan_trades", "textiles"],
+        "pmfme_eligible": false,
+        "gem_category": "Handcrafted Cotton Rugs & Floor Coverings",
+        "cfc_available": true,
+        "key_benefits": ["GI Tagged Warangal Dhurrie certification", "SFURTI carpet cluster support"]
+      }
+    },
+    "Maharashtra": {
+      "Satara": {
+        "odop_product": "Strawberries (Mahabaleshwar) & Value-Added Dairy Products",
+        "secondary_product": "Turmeric Processing",
+        "category": "Horticulture & Dairy Food Processing",
+        "matching_sectors": ["food_processing", "dairy", "agriculture"],
+        "pmfme_eligible": true,
+        "gem_category": "Processed Fruits, Jams & Milk Byproducts",
+        "cfc_available": true,
+        "raw_material_availability": "Mahabaleshwar berry belt and Western Ghats dairy cooperatives",
+        "rbi_psl_category": "Micro Food Processing (PMFME Priority)",
+        "key_benefits": [
+          "GI-tagged Mahabaleshwar Strawberry export promotion",
+          "PMFME 35% credit-linked capital subsidy up to ₹10 Lakhs",
+          "Cold storage and reefer van cluster assistance"
+        ]
+      },
+      "Kolhapur": {
+        "odop_product": "Kolhapuri Chappal & Kolhapuri Jaggery",
+        "category": "Leather Craft & Food Processing",
+        "matching_sectors": ["artisan_trades", "food_processing", "manufacturing"],
+        "pmfme_eligible": true,
+        "cfc_available": true,
+        "key_benefits": ["GI Tagged Kolhapuri Footwear protection", "PMFME 35% subsidy for jaggery units"]
+      }
+    },
+    "Karnataka": {
+      "Belagavi": {
+        "odop_product": "Belagavi Kunda (Traditional Milk Sweet) & Jaggery",
+        "secondary_product": "Powerloom & Silk Weaving",
+        "category": "Food Processing (Traditional Dairy Confectionery)",
+        "matching_sectors": ["food_processing", "dairy", "agriculture"],
+        "pmfme_eligible": true,
+        "gem_category": "Traditional Milk Sweets & Desi Jaggery",
+        "cfc_available": true,
+        "raw_material_availability": "Abundant buffalo milk supply from Krishna river basin",
+        "rbi_psl_category": "Micro Food Processing (PMFME)",
+        "key_benefits": [
+          "GI Tag initiative for Belagavi Kunda",
+          "PMFME 35% capital subsidy up to ₹10 Lakhs",
+          "Common food testing laboratory support"
+        ]
+      },
+      "Ramanagara": {
+        "odop_product": "Channapatna Lacquerware Wooden Toys & Silk",
+        "category": "Wooden Crafts & Sericulture",
+        "matching_sectors": ["artisan_trades", "apparel", "manufacturing"],
+        "pmfme_eligible": false,
+        "gem_category": "Educational Wooden Toys & Raw Silk",
+        "cfc_available": true,
+        "raw_material_availability": "Toy Town of Karnataka with hale wood seasoning clusters and government silk cocoon market",
+        "rbi_psl_category": "Artisan Priority Lending (GI-Tagged)",
+        "key_benefits": ["GI Tag certification and QR code provenance seal", "GeM ODOP priority procurement for preschools and government creches", "CFC wood seasoning plant & lacquerware machinery access"]
+      },
+      "Mandya": {
+        "odop_product": "Organic Jaggery (Gur)",
+        "category": "Food Processing (Sugar & Jaggery)",
+        "matching_sectors": ["food_processing"],
+        "pmfme_eligible": true,
+        "gem_category": "Natural Sweeteners & Jaggery Blocks",
+        "cfc_available": true,
+        "raw_material_availability": "Cauvery basin canal-irrigated sugarcane fields",
+        "rbi_psl_category": "Micro Food Processing (PMFME)",
+        "key_benefits": ["PMFME 35% capital subsidy up to ₹10 Lakhs", "Jaggery testing lab subsidy"]
+      },
+      "Mysuru": {
+        "odop_product": "Mysore Inlay Woodcraft & Sandalwood Products",
+        "secondary_product": "Nanjangud Rasabale Banana",
+        "category": "Handicrafts & Horticulture",
+        "matching_sectors": ["artisan_trades", "food_processing"],
+        "pmfme_eligible": true,
+        "gem_category": "Rosewood Inlay Decor & GI Fruit Products",
+        "cfc_available": true,
+        "raw_material_availability": "Historic royal artisan guilds and local horticultural farms",
+        "rbi_psl_category": "Artisan & GI Horticulture MSME",
+        "key_benefits": ["Cauvery Handicrafts Emporium tie-up", "PMFME 35% subsidy for banana processing"]
+      }
     }
   },
   "sector_crosswalk": {

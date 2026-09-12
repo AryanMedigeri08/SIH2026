@@ -3,6 +3,8 @@ import { chatApi } from '../services/api';
 import { useAuth } from './AuthContext';
 import { useBusiness } from './BusinessContext';
 import { useLanguage } from './LanguageContext';
+import { useWakeWord } from '../hooks/useWakeWord';
+import { playSiriActivationChime } from '../utils/siriAudio';
 
 export const CHAT_THEMES = {
   sovereign: {
@@ -854,6 +856,48 @@ export function ChatProvider({ children }) {
     ]);
   }, [getActiveTabTelemetry, stopAudio]);
 
+  // Voice Wake-Word "Hey Siri" Detection Handler
+  const [siriNotice, setSiriNotice] = useState(null);
+
+  const handleWakeWordDetected = useCallback(
+    ({ phrase, transcript, trailingQuery }) => {
+      // 1. Play authentic Web Audio Siri Chime
+      playSiriActivationChime();
+
+      // 2. Open chat window
+      openChat();
+
+      // 3. Set visual toast notice
+      setSiriNotice({
+        phrase: phrase || 'Hey Siri',
+        transcript: transcript || '',
+        trailingQuery: trailingQuery || '',
+        timestamp: Date.now(),
+      });
+      setTimeout(() => setSiriNotice(null), 5000);
+
+      // 4. If trailing command is present, auto-dispatch to LLM
+      if (trailingQuery && trailingQuery.trim().length > 2) {
+        sendMessage(trailingQuery.trim());
+      }
+    },
+    [openChat, sendMessage]
+  );
+
+  const {
+    isSupported: isWakeWordSupported,
+    isEnabled: isWakeWordEnabled,
+    isListening: isWakeWordListening,
+    error: wakeWordError,
+    engineType: wakeWordEngine,
+    toggleWakeWord,
+    enableWakeWord,
+    disableWakeWord,
+  } = useWakeWord({
+    onWakeWordDetected: handleWakeWordDetected,
+    enabledByDefault: false,
+  });
+
   return (
     <ChatContext.Provider
       value={{
@@ -886,6 +930,16 @@ export function ChatProvider({ children }) {
         stopAudio,
         playMessageTts,
         clearChat,
+        // Wake-Word "Hey Siri" APIs
+        isWakeWordSupported,
+        isWakeWordEnabled,
+        isWakeWordListening,
+        wakeWordError,
+        wakeWordEngine,
+        toggleWakeWord,
+        enableWakeWord,
+        disableWakeWord,
+        siriNotice,
       }}
     >
       {children}

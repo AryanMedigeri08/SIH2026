@@ -81,6 +81,9 @@ Desktop.ini
 *.sqlite3
 .tempmediaStorage/
 browser/scratchpad_*.md
+scratch/
+backend/app/core/data/raw/
+backend/app/data/snapshots/
 
 SIH26091_Recursive_Rebels.pdf
 SIH Pitch.pdf
