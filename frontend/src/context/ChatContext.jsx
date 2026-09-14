@@ -1,10 +1,16 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { chatApi } from '../services/api';
 import { useAuth } from './AuthContext';
 import { useBusiness } from './BusinessContext';
 import { useLanguage } from './LanguageContext';
-import { useWakeWord } from '../hooks/useWakeWord';
-import { playSiriActivationChime } from '../utils/siriAudio';
+import { useWakeWord, extractTrailingPrompt, matchWakeWord } from '../hooks/useWakeWord';
+import {
+  playSiriActivationChime,
+  playSiriThinkingTone,
+  playSiriCompleteTone,
+  playSiriDeactivationChime,
+} from '../utils/siriAudio';
 
 export const CHAT_THEMES = {
   sovereign: {
@@ -176,9 +182,68 @@ export const CHAT_THEMES = {
 const ChatContext = createContext(null);
 
 export function ChatProvider({ children }) {
+  const navigate = useNavigate();
   const { token } = useAuth();
   const { reportData, activeBusiness } = useBusiness();
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
+
+  // ─── Voice Agent V2 Action Dispatcher ────────────────────────────────
+  // Map of UI actions supported by LLM tool-calling (matching action_registry.py)
+  const tabRoutes = useMemo(() => {
+    const rId = reportData?.report_id;
+    return {
+      business_plan: rId ? `/reports/${rId}` : '/dashboard',
+      dashboard: rId ? `/reports/${rId}` : '/dashboard',
+      govt_schemes: rId ? `/reports/${rId}/schemes` : '/schemes',
+      dpr: rId ? `/reports/${rId}/dpr` : '/dpr',
+      risk_analysis: rId ? `/reports/${rId}/risk` : '/risk',
+    };
+  }, [reportData?.report_id]);
+
+  const actionDispatchers = useMemo(() => ({
+    navigate_to_tab: ({ tab }) => {
+      const targetRoute = tabRoutes[tab];
+      if (targetRoute) {
+        console.log(`[VoiceAgent Action] Navigating to tab '${tab}' -> ${targetRoute}`);
+        navigate(targetRoute);
+      } else {
+        console.warn(`[VoiceAgent Action] Unknown tab: ${tab}`);
+      }
+    },
+    change_language: ({ language: targetLang }) => {
+      if (targetLang && typeof setLanguage === 'function') {
+        console.log(`[VoiceAgent Action] Switching UI language to: ${targetLang}`);
+        setLanguage(targetLang);
+      }
+    },
+    run_analysis: () => {
+      console.log('[VoiceAgent Action] Triggering project feasibility analysis run');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('udyam:run_analysis'));
+      }
+    },
+    export_dpr: ({ format = 'pdf' } = {}) => {
+      console.log(`[VoiceAgent Action] Triggering DPR export (${format})`);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('udyam:export_dpr', { detail: { format } }));
+      }
+    },
+  }), [tabRoutes, navigate, setLanguage]);
+
+  const dispatchToolCall = useCallback((toolCall) => {
+    if (!toolCall || !toolCall.name) return;
+    console.log('[VoiceAgent Action] Dispatching tool call:', toolCall);
+    const handler = actionDispatchers[toolCall.name];
+    if (typeof handler === 'function') {
+      try {
+        handler(toolCall.arguments || {});
+      } catch (err) {
+        console.error(`[VoiceAgent Action] Error executing '${toolCall.name}':`, err);
+      }
+    } else {
+      console.warn(`[VoiceAgent Action] No registered handler for action: '${toolCall.name}'`);
+    }
+  }, [actionDispatchers]);
 
   // Floating Window State
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -235,6 +300,14 @@ export function ChatProvider({ children }) {
 
   const navButtonRef = useRef(null);
   const chatInputRef = useRef(null);
+  const siriToggleRef = useRef(null);
+
+  // Voice Agent State Machine
+  // States: 'IDLE' | 'LISTENING' | 'THINKING' | 'SPEAKING' | 'ACTION'
+  const [voiceAgentState, setVoiceAgentState] = useState('IDLE');
+  const [voiceAgentReply, setVoiceAgentReply] = useState(null);
+  const voiceAgentAudioRef = useRef(null);
+  const voiceAgentTimeoutRef = useRef(null);
 
   // Active Project Identifier
   const activeProjectKey =
@@ -781,7 +854,6 @@ export function ChatProvider({ children }) {
         const data = await chatApi.sendVoiceAudio(
           audioBlob,
           activeContext,
-          language || 'en',
           payloadHistory,
           token
         );
@@ -789,6 +861,11 @@ export function ChatProvider({ children }) {
         const transcript = data?.user_transcript || '(Voice Input)';
         const replyText = data?.reply || 'I could not generate a response. Please try again.';
         const audioBase64 = data?.audio_base64 || null;
+
+        // Execute voice-triggered UI action if returned by tool-calling
+        if (data?.tool_call) {
+          dispatchToolCall(data.tool_call);
+        }
 
         // Update the user message with transcribed speech
         setMessages((prev) =>
@@ -803,8 +880,11 @@ export function ChatProvider({ children }) {
           audio_base64: audioBase64,
           timestamp: data?.timestamp || new Date().toISOString(),
           isFallback: data?.is_fallback || false,
-          model: data?.model || 'whisper-large-v3 + groq-llm',
+          model: data?.model || 'sarvam-saaras + groq-llm',
           sources: data?.sources || [],
+          detected_language: data?.detected_language,
+          tier_used: data?.tier_used,
+          tool_call: data?.tool_call || null,
           latencies: {
             stt_s: data?.stt_latency_s,
             llm_s: data?.llm_latency_s,
@@ -839,7 +919,7 @@ export function ChatProvider({ children }) {
         setIsLoading(false);
       }
     },
-    [isLoading, messages, getGroundedContext, language, token, autoPlayVoice, playAudio]
+    [isLoading, messages, getGroundedContext, token, autoPlayVoice, playAudio, dispatchToolCall]
   );
 
   // Clear conversation history
@@ -856,32 +936,281 @@ export function ChatProvider({ children }) {
     ]);
   }, [getActiveTabTelemetry, stopAudio]);
 
+  // ─── Voice Agent Pipeline ──────────────────────────────────────────
+  // Sends a query through the Groq pipeline and routes the response
+  // to the voice agent widget (NOT to the chat message history).
+  const sendVoiceAgentQuery = useCallback(
+    async (text) => {
+      const trimmed = (text || '').trim();
+      if (!trimmed) {
+        setVoiceAgentState('IDLE');
+        return;
+      }
+
+      setVoiceAgentState('THINKING');
+      playSiriThinkingTone();
+      const activeContext = getGroundedContext();
+
+      try {
+        // Build a minimal history for the voice agent query
+        const payloadHistory = [
+          { role: 'user', content: trimmed },
+        ];
+
+        const data = await chatApi.sendChatMessage(
+          payloadHistory,
+          activeContext,
+          language || 'en',
+          token
+        );
+
+        const replyText =
+          data?.reply ||
+          data?.message?.content ||
+          data?.content ||
+          (typeof data === 'string' ? data : 'I could not generate a response.');
+
+        // Execute tool call if returned
+        if (data?.tool_call) {
+          dispatchToolCall(data.tool_call);
+        }
+
+        setVoiceAgentReply({ text: replyText, timestamp: Date.now() });
+
+        // Transition to SPEAKING and play TTS
+        setVoiceAgentState('SPEAKING');
+
+        // Request TTS for the voice agent response
+        try {
+          const ttsRes = await chatApi.generateTts(replyText, language || 'en', token);
+          if (ttsRes?.audio_base64) {
+            const audio = new Audio(ttsRes.audio_base64);
+            voiceAgentAudioRef.current = audio;
+
+            audio.onended = () => {
+              playSiriCompleteTone();
+              voiceAgentAudioRef.current = null;
+              voiceAgentTimeoutRef.current = setTimeout(() => {
+                setVoiceAgentState('IDLE');
+                setVoiceAgentReply(null);
+              }, 800);
+            };
+
+            audio.onerror = () => {
+              voiceAgentAudioRef.current = null;
+              voiceAgentTimeoutRef.current = setTimeout(() => {
+                setVoiceAgentState('IDLE');
+                setVoiceAgentReply(null);
+              }, 2000);
+            };
+
+            await audio.play().catch(() => {
+              // Autoplay blocked — stay in SPEAKING briefly then IDLE
+              voiceAgentTimeoutRef.current = setTimeout(() => {
+                setVoiceAgentState('IDLE');
+                setVoiceAgentReply(null);
+              }, 3000);
+            });
+          } else {
+            // No audio available — hold SPEAKING state briefly then IDLE
+            voiceAgentTimeoutRef.current = setTimeout(() => {
+              playSiriCompleteTone();
+              setVoiceAgentState('IDLE');
+              setVoiceAgentReply(null);
+            }, 3000);
+          }
+        } catch (ttsErr) {
+          console.warn('[VoiceAgent] TTS failed:', ttsErr);
+          voiceAgentTimeoutRef.current = setTimeout(() => {
+            setVoiceAgentState('IDLE');
+            setVoiceAgentReply(null);
+          }, 3000);
+        }
+      } catch (err) {
+        console.error('[VoiceAgent] Query failed:', err);
+        setVoiceAgentReply({ text: 'Sorry, I could not process your request.', timestamp: Date.now() });
+        setVoiceAgentState('SPEAKING');
+        voiceAgentTimeoutRef.current = setTimeout(() => {
+          setVoiceAgentState('IDLE');
+          setVoiceAgentReply(null);
+        }, 3000);
+      }
+    },
+    [getGroundedContext, language, token, dispatchToolCall]
+  );
+
+  // Send voice audio through the voice agent pipeline (mic recording → STT → LLM → TTS)
+  const sendVoiceAgentAudio = useCallback(
+    async (audioBlob) => {
+      if (!audioBlob) {
+        setVoiceAgentState('IDLE');
+        return;
+      }
+
+      setVoiceAgentState('THINKING');
+      playSiriThinkingTone();
+      const activeContext = getGroundedContext();
+
+      try {
+        const data = await chatApi.sendVoiceAudio(
+          audioBlob,
+          activeContext,
+          [],
+          token
+        );
+
+        const replyText = data?.reply || 'I could not generate a response.';
+        const audioBase64 = data?.audio_base64 || null;
+
+        // Execute voice-triggered tool call (navigation, language change, etc.)
+        if (data?.tool_call) {
+          dispatchToolCall(data.tool_call);
+        }
+
+        setVoiceAgentReply({ text: replyText, timestamp: Date.now() });
+        setVoiceAgentState('SPEAKING');
+
+        if (audioBase64) {
+          const audio = new Audio(audioBase64);
+          voiceAgentAudioRef.current = audio;
+
+          audio.onended = () => {
+            playSiriCompleteTone();
+            voiceAgentAudioRef.current = null;
+            voiceAgentTimeoutRef.current = setTimeout(() => {
+              setVoiceAgentState('IDLE');
+              setVoiceAgentReply(null);
+            }, 800);
+          };
+
+          audio.onerror = () => {
+            voiceAgentAudioRef.current = null;
+            voiceAgentTimeoutRef.current = setTimeout(() => {
+              setVoiceAgentState('IDLE');
+              setVoiceAgentReply(null);
+            }, 2000);
+          };
+
+          await audio.play().catch(() => {
+            voiceAgentTimeoutRef.current = setTimeout(() => {
+              setVoiceAgentState('IDLE');
+              setVoiceAgentReply(null);
+            }, 3000);
+          });
+        } else {
+          // Try requesting TTS separately
+          try {
+            const ttsRes = await chatApi.generateTts(replyText, language || 'en', token);
+            if (ttsRes?.audio_base64) {
+              const audio = new Audio(ttsRes.audio_base64);
+              voiceAgentAudioRef.current = audio;
+              audio.onended = () => {
+                playSiriCompleteTone();
+                voiceAgentAudioRef.current = null;
+                voiceAgentTimeoutRef.current = setTimeout(() => {
+                  setVoiceAgentState('IDLE');
+                  setVoiceAgentReply(null);
+                }, 800);
+              };
+              await audio.play().catch(() => {});
+            } else {
+              voiceAgentTimeoutRef.current = setTimeout(() => {
+                playSiriCompleteTone();
+                setVoiceAgentState('IDLE');
+                setVoiceAgentReply(null);
+              }, 3000);
+            }
+          } catch {
+            voiceAgentTimeoutRef.current = setTimeout(() => {
+              setVoiceAgentState('IDLE');
+              setVoiceAgentReply(null);
+            }, 3000);
+          }
+        }
+      } catch (err) {
+        console.error('[VoiceAgent] Audio query failed:', err);
+        setVoiceAgentReply({ text: 'Sorry, I could not process your voice.', timestamp: Date.now() });
+        setVoiceAgentState('SPEAKING');
+        voiceAgentTimeoutRef.current = setTimeout(() => {
+          setVoiceAgentState('IDLE');
+          setVoiceAgentReply(null);
+        }, 3000);
+      }
+    },
+    [getGroundedContext, language, token, dispatchToolCall]
+  );
+
+  // Dismiss the voice agent window manually
+  const dismissVoiceAgent = useCallback(() => {
+    // Stop any playing audio
+    if (voiceAgentAudioRef.current) {
+      voiceAgentAudioRef.current.pause();
+      voiceAgentAudioRef.current = null;
+    }
+    if (voiceAgentTimeoutRef.current) {
+      clearTimeout(voiceAgentTimeoutRef.current);
+      voiceAgentTimeoutRef.current = null;
+    }
+    playSiriDeactivationChime();
+    setVoiceAgentState('IDLE');
+    setVoiceAgentReply(null);
+  }, []);
+
+  // Keep voiceAgentState ref for follow-up recognition
+  const voiceAgentStateRef = useRef(voiceAgentState);
+  useEffect(() => {
+    voiceAgentStateRef.current = voiceAgentState;
+  }, [voiceAgentState]);
+
+  // Handle follow-up speech when Voice Agent is actively LISTENING
+  const handleFollowUpSpeech = useCallback(
+    (transcript) => {
+      if (voiceAgentStateRef.current !== 'LISTENING') return;
+      const text = (transcript || '').trim();
+      if (!text || text.length < 2) return;
+      const cleaned = extractTrailingPrompt(text) || text;
+      if (cleaned && cleaned.length > 1 && !matchWakeWord(cleaned)) {
+        if (voiceAgentTimeoutRef.current) {
+          clearTimeout(voiceAgentTimeoutRef.current);
+          voiceAgentTimeoutRef.current = null;
+        }
+        sendVoiceAgentQuery(cleaned);
+      }
+    },
+    [sendVoiceAgentQuery]
+  );
+
   // Voice Wake-Word "Hey Siri" Detection Handler
   const [siriNotice, setSiriNotice] = useState(null);
 
   const handleWakeWordDetected = useCallback(
     ({ phrase, transcript, trailingQuery }) => {
-      // 1. Play authentic Web Audio Siri Chime
+      // 1. Play ONLY the single authentic Web Audio Siri Chime
       playSiriActivationChime();
 
-      // 2. Open chat window
-      openChat();
+      // 2. If trailing command is present, send directly to voice agent pipeline
+      if (trailingQuery && trailingQuery.trim().length > 2) {
+        setVoiceAgentState('THINKING');
+        sendVoiceAgentQuery(trailingQuery.trim());
+      } else {
+        // Otherwise: open Voice Agent window in LISTENING state
+        setVoiceAgentState('LISTENING');
+        if (voiceAgentTimeoutRef.current) clearTimeout(voiceAgentTimeoutRef.current);
+        voiceAgentTimeoutRef.current = setTimeout(() => {
+          setVoiceAgentState((curr) => (curr === 'LISTENING' ? 'IDLE' : curr));
+        }, 7000);
+      }
 
-      // 3. Set visual toast notice
+      // 3. Set visual toast notice (kept for accessibility)
       setSiriNotice({
         phrase: phrase || 'Hey Siri',
         transcript: transcript || '',
         trailingQuery: trailingQuery || '',
         timestamp: Date.now(),
       });
-      setTimeout(() => setSiriNotice(null), 5000);
-
-      // 4. If trailing command is present, auto-dispatch to LLM
-      if (trailingQuery && trailingQuery.trim().length > 2) {
-        sendMessage(trailingQuery.trim());
-      }
+      setTimeout(() => setSiriNotice(null), 4000);
     },
-    [openChat, sendMessage]
+    [sendVoiceAgentQuery]
   );
 
   const {
@@ -895,7 +1224,8 @@ export function ChatProvider({ children }) {
     disableWakeWord,
   } = useWakeWord({
     onWakeWordDetected: handleWakeWordDetected,
-    enabledByDefault: false,
+    onSpeechRecognized: handleFollowUpSpeech,
+    enabledByDefault: true,
   });
 
   return (
@@ -921,6 +1251,7 @@ export function ChatProvider({ children }) {
         getActiveTabTelemetry,
         navButtonRef,
         chatInputRef,
+        siriToggleRef,
         openChat,
         minimizeChat,
         toggleChat,
@@ -930,6 +1261,15 @@ export function ChatProvider({ children }) {
         stopAudio,
         playMessageTts,
         clearChat,
+        // Voice Agent APIs
+        voiceAgentState,
+        setVoiceAgentState,
+        voiceAgentReply,
+        sendVoiceAgentQuery,
+        sendVoiceAgentAudio,
+        dismissVoiceAgent,
+        dispatchToolCall,
+        actionDispatchers,
         // Wake-Word "Hey Siri" APIs
         isWakeWordSupported,
         isWakeWordEnabled,

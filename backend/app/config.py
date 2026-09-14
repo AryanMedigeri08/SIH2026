@@ -69,6 +69,15 @@ class Settings(BaseSettings):
     GROQ_STT_MODEL: str = os.getenv("GROQ_STT_MODEL", "whisper-large-v3")
     GROQ_LLM_MODEL: str = os.getenv("GROQ_LLM_MODEL", "openai/gpt-oss-20b")
 
+    # Sarvam AI — Primary Voice Layer (22 Indic Languages)
+    SARVAM_API_KEY: Optional[str] = os.getenv("SARVAM_API_KEY", None)
+    SARVAM_ASR_ENDPOINT: str = os.getenv("SARVAM_ASR_ENDPOINT", "https://api.sarvam.ai/speech-to-text")
+    SARVAM_TTS_ENDPOINT: str = os.getenv("SARVAM_TTS_ENDPOINT", "https://api.sarvam.ai/text-to-speech")
+
+    # Voice Cascade Controller
+    VOICE_CASCADE_TIMEOUT_MS: int = int(os.getenv("VOICE_CASCADE_TIMEOUT_MS", "4000"))
+    VOICE_FALLBACK_SUPPORTED_LANGS: str = os.getenv("VOICE_FALLBACK_SUPPORTED_LANGS", "en,hi,mr,bn,gu,ta,te,kn,pa,ur")
+
     # 613 Village Amenities API (Data.gov.in / Mission Antyodaya OGD API)
     DATA_GOV_IN_API_KEY: str = os.getenv("DATA_GOV_IN_API_KEY", os.getenv("AMENITIES_API_KEY", ""))
     AMENITIES_API_BASE_URL: str = os.getenv("AMENITIES_API_BASE_URL", "https://api.data.gov.in/resource")

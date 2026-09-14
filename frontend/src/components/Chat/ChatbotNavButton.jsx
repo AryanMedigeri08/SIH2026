@@ -2,6 +2,7 @@ import React from 'react';
 import { Bot, Sparkles, MessageSquareCode, Mic } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { initSiriAudio } from '../../utils/siriAudio';
 
 export function ChatbotNavButton() {
   const {
@@ -14,6 +15,7 @@ export function ChatbotNavButton() {
     isWakeWordListening,
     wakeWordEngine,
     toggleWakeWord,
+    siriToggleRef,
   } = useChat();
   const { t } = useLanguage();
 
@@ -82,46 +84,45 @@ export function ChatbotNavButton() {
         </span>
       </button>
 
-      {/* Voice Wake Word "Hey Siri" Activation Pill (Always Visible) */}
+      {/* Voice Wake Word "Hey Siri" — Small Circular Toggle */}
       <button
+        ref={siriToggleRef}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
+          initSiriAudio();
           toggleWakeWord();
         }}
-        className={`relative inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-full border transition-all duration-200 cursor-pointer shadow-subtle shrink-0 ${
+        className={`relative flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-300 cursor-pointer shrink-0 ${
           isWakeWordEnabled
-            ? 'bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-950 text-purple-200 border-purple-400/60 shadow-md shadow-purple-950/30 ring-2 ring-purple-400/30'
-            : 'bg-white/90 hover:bg-purple-50 text-slate-700 hover:text-purple-700 border-slate-200 hover:border-purple-300'
+            ? 'bg-gradient-to-br from-purple-600 via-indigo-600 to-cyan-500 border-purple-400/60 shadow-lg shadow-purple-900/30 ring-2 ring-purple-400/25'
+            : 'bg-white hover:bg-purple-50 border-slate-200 hover:border-purple-300 shadow-sm'
         }`}
         title={
           isWakeWordEnabled
             ? `🎙️ "Hey Siri" is LISTENING in background [${wakeWordEngine === 'native_webspeech' ? 'Chrome Native Speech' : 'Groq Whisper VAD'}]. Speak "Hey Siri" anytime to activate! (Click to mute)`
-            : '🎙️ Click to enable "Hey Siri" voice activation (Microphone will listen for "Hey Siri")'
+            : '🎙️ Click to enable "Hey Siri" voice activation'
         }
         aria-label="Toggle 'Hey Siri' Voice Activation"
         aria-pressed={isWakeWordEnabled}
       >
-        <span className="relative flex items-center justify-center shrink-0">
-          {isWakeWordListening && (
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
-          )}
-          <Mic
-            className={`w-3.5 h-3.5 transition-transform ${
-              isWakeWordEnabled ? 'text-purple-300 animate-pulse' : 'text-purple-600'
-            }`}
-          />
-        </span>
-        <span className="tracking-tight font-medium text-[11px] whitespace-nowrap">
-          {isWakeWordEnabled ? (
-            <span className="flex items-center gap-1">
-              <span>Hey Siri</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping inline-block" />
-            </span>
-          ) : (
-            'Hey Siri'
-          )}
-        </span>
+        {/* Active listening ping ring */}
+        {isWakeWordListening && (
+          <span className="animate-ping absolute inline-flex w-full h-full rounded-full bg-purple-400 opacity-40" />
+        )}
+        <Mic
+          className={`w-3.5 h-3.5 transition-all ${
+            isWakeWordEnabled
+              ? 'text-white drop-shadow-sm'
+              : 'text-slate-400 hover:text-purple-600'
+          }`}
+        />
+        {/* Tiny active dot indicator */}
+        {isWakeWordEnabled && (
+          <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-400 border border-white shadow-sm">
+            <span className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-75" />
+          </span>
+        )}
       </button>
     </div>
   );

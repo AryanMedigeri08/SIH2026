@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { chatApi } from '../services/api';
 
 /**
- * Phonetic patterns to catch "Hey Siri" across diverse accents and speech speeds.
+ * Phonetic patterns to catch "Hey Siri" across diverse accents, speech speeds,
+ * and speech-to-text interpretations.
  * Also accommodates trailing commands e.g. "Hey Siri what is dairy demand in Thane?"
  */
-const WAKE_WORD_REGEX = /\b(?:hey|hay|ay|hello|hi|ok|okay)?\s*(?:siri|seeree|sery|ciri|serious|sarah)\b/i;
-const SAATHI_ALIAS_REGEX = /\b(?:hey|namaste|hello|ok)?\s*(?:saathi|sathi|udyam)\b/i;
+export const WAKE_WORD_REGEX = /\b(?:hey|hay|ay|hai|hi|hello|ok|okay|a)?[\s,.]*(?:siri|seeree|sery|ciri|serious|sarah|shiri|suri|series|cereal|ceri|cere|sorry|cyril|theory|city|sweetie|cd|see ree)\b/i;
+export const SAATHI_ALIAS_REGEX = /\b(?:hey|namaste|hello|ok)?[\s,.]*(?:saathi|sathi|udyam)\b/i;
 
 /**
  * Extracts any trailing prompt that follows the wake phrase in the same utterance.
@@ -38,19 +39,23 @@ export function matchWakeWord(text) {
  * 
  * Dual-Engine Background Wake-Word Detection:
  * - Engine A (Native SpeechRecognition): High-speed client-side matching (Chrome, Edge, Safari, Opera).
+ *   Holds a persistent media stream so the browser microphone access NEVER flickers on/off.
  * - Engine B (Web Audio VAD + Groq Whisper): Universal fallback with micro-utterance transcription (Firefox & all modern browsers).
  */
 export function useWakeWord({
   onWakeWordDetected,
-  enabledByDefault = false,
-  cooldownMs = 2500,
+  onSpeechRecognized,
+  enabledByDefault = true,
+  cooldownMs = 2000,
   minSpeechThreshold = 0.022,
   silenceThresholdMs = 650,
   maxUtteranceMs = 3500,
 } = {}) {
   const [isEnabled, setIsEnabled] = useState(() => {
     try {
-      return localStorage.getItem('udyam_wake_word_siri_enabled') === 'true' || enabledByDefault;
+      const stored = localStorage.getItem('udyam_wake_word_siri_enabled_v2');
+      if (stored !== null) return stored === 'true';
+      return enabledByDefault;
     } catch {
       return enabledByDefault;
     }
@@ -73,6 +78,11 @@ export function useWakeWord({
   const lastTriggerTimeRef = useRef(0);
   const onWakeWordRef = useRef(onWakeWordDetected);
   onWakeWordRef.current = onWakeWordDetected;
+  const onSpeechRecognizedRef = useRef(onSpeechRecognized);
+  onSpeechRecognizedRef.current = onSpeechRecognized;
+
+  // Persistent background stream to keep Chrome's microphone indicator steadily active
+  const persistentMicStreamRef = useRef(null);
 
   // Engine A (Native Speech) Refs
   const recognitionRef = useRef(null);
@@ -95,7 +105,7 @@ export function useWakeWord({
   useEffect(() => {
     shouldListenRef.current = isEnabled;
     try {
-      localStorage.setItem('udyam_wake_word_siri_enabled', String(isEnabled));
+      localStorage.setItem('udyam_wake_word_siri_enabled_v2', String(isEnabled));
     } catch {
       // Storage ignored
     }
@@ -103,12 +113,15 @@ export function useWakeWord({
 
   // Unified detection trigger with cooldown
   const handleDetection = useCallback((transcript) => {
+    if (!transcript) return;
     const now = Date.now();
-    if (now - lastTriggerTimeRef.current < cooldownMs) {
-      return;
-    }
 
+    // Check if utterance contains wake word
     if (matchWakeWord(transcript)) {
+      if (now - lastTriggerTimeRef.current < cooldownMs) {
+        return;
+      }
+
       lastTriggerTimeRef.current = now;
       const trailingQuery = extractTrailingPrompt(transcript);
       setLastDetected({
@@ -118,7 +131,7 @@ export function useWakeWord({
         engine: engineType,
       });
 
-      console.info(`[useWakeWord] 🎙️ "Hey Siri" detected via [${engineType}]! Trailing prompt:`, trailingQuery || '(none)');
+      console.info(`[useWakeWord] 🎙️ "Hey Siri" detected! Trailing prompt:`, trailingQuery || '(none)');
 
       if (onWakeWordRef.current) {
         onWakeWordRef.current({
@@ -127,6 +140,11 @@ export function useWakeWord({
           trailingQuery,
           engine: engineType,
         });
+      }
+    } else {
+      // Non-wake-word speech: notify follow-up handler if active
+      if (onSpeechRecognizedRef.current) {
+        onSpeechRecognizedRef.current(transcript);
       }
     }
   }, [cooldownMs, engineType]);
@@ -151,8 +169,8 @@ export function useWakeWord({
       try {
         vadAudioCtxRef.current.close();
       } catch (e) {}
-      vadAudioCtxRef.current = null;
     }
+    vadAudioCtxRef.current = null;
     vadAnalyserRef.current = null;
     vadChunksRef.current = [];
     isCapturingRef.current = false;
@@ -162,101 +180,148 @@ export function useWakeWord({
   // ENGINE A: Native Web Speech Recognition (Chrome/Edge/Safari)
   // ----------------------------------------------------
   useEffect(() => {
-    if (!hasNativeSpeech) return; // Skip if in Firefox/Safari without SpeechRecognition
+    if (!hasNativeSpeech) return;
 
     if (!isEnabled) {
+      isStoppingRef.current = true;
+      clearTimeout(restartTimerRef.current);
       if (recognitionRef.current) {
-        isStoppingRef.current = true;
         try {
-          recognitionRef.current.stop();
-        } catch {
-          // ignore
-        }
+          recognitionRef.current.abort();
+        } catch {}
+        recognitionRef.current = null;
+      }
+      if (persistentMicStreamRef.current) {
+        persistentMicStreamRef.current.getTracks().forEach((t) => t.stop());
+        persistentMicStreamRef.current = null;
       }
       setIsListening(false);
       return;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let recognition;
+    isStoppingRef.current = false;
+    setIsListening(true);
 
-    try {
-      recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-    } catch (err) {
-      setError(err?.message || 'Failed to initialize SpeechRecognition');
-      return;
+    // Keep persistent audio track open so Chrome never switches the microphone on and off
+    if (!persistentMicStreamRef.current && navigator?.mediaDevices?.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        })
+        .then((stream) => {
+          if (isStoppingRef.current) {
+            stream.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          persistentMicStreamRef.current = stream;
+        })
+        .catch((err) => {
+          console.debug('[useWakeWord] Persistent mic stream notice:', err?.message);
+        });
     }
 
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-    recognition.maxAlternatives = 1;
+    // Factory to start fresh SpeechRecognition instance on every cycle
+    const startRecognition = () => {
+      if (!shouldListenRef.current || isStoppingRef.current) return;
 
-    recognition.onstart = () => {
-      isStoppingRef.current = false;
-      setIsListening(true);
-      setError(null);
-    };
-
-    recognition.onresult = (event) => {
-      if (!shouldListenRef.current) return;
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result && result[0]) {
-          const transcript = result[0].transcript || '';
-          handleDetection(transcript);
-        }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+        recognitionRef.current = null;
       }
-    };
 
-    recognition.onerror = (event) => {
-      if (event.error === 'no-speech') return;
-      if (event.error === 'not-allowed' || event.error === 'permission-denied') {
-        setError('Microphone permission was denied for Wake Word.');
-        setIsEnabled(false);
-        shouldListenRef.current = false;
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+
+      let recognition;
+      try {
+        recognition = new SpeechRecognition();
+        recognitionRef.current = recognition;
+      } catch (err) {
+        setError(err?.message || 'Failed to initialize SpeechRecognition');
         return;
       }
-      if (event.error !== 'aborted') {
-        console.warn('[useWakeWord] Native recognition notice:', event.error);
-      }
-    };
 
-    recognition.onend = () => {
-      setIsListening(false);
-      if (shouldListenRef.current && !isStoppingRef.current) {
-        clearTimeout(restartTimerRef.current);
-        restartTimerRef.current = setTimeout(() => {
-          if (shouldListenRef.current && recognitionRef.current) {
-            try {
-              recognitionRef.current.start();
-            } catch (e) {
-              console.debug('[useWakeWord] Restart attempt:', e?.message);
-            }
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = (typeof navigator !== 'undefined' && navigator.language) ? navigator.language : 'en-US';
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        isStoppingRef.current = false;
+        setIsListening(true);
+        setError(null);
+      };
+
+      recognition.onresult = (event) => {
+        if (!shouldListenRef.current) return;
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result && result[0]) {
+            const transcript = result[0].transcript || '';
+            handleDetection(transcript);
           }
-        }, 300);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        if (event.error === 'no-speech') return;
+        if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+          console.warn('[useWakeWord] Microphone permission notice:', event.error);
+          setError('Microphone permission required for "Hey Siri".');
+          setIsListening(false);
+          return;
+        }
+        if (event.error !== 'aborted') {
+          console.debug('[useWakeWord] Native recognition notice:', event.error);
+        }
+      };
+
+      recognition.onend = () => {
+        recognitionRef.current = null;
+        // Recreate new SpeechRecognition instance smoothly without dropping mic
+        if (shouldListenRef.current && !isStoppingRef.current) {
+          clearTimeout(restartTimerRef.current);
+          restartTimerRef.current = setTimeout(() => {
+            startRecognition();
+          }, 150);
+        }
+      };
+
+      try {
+        recognition.start();
+      } catch (err) {
+        console.debug('[useWakeWord] Start notice:', err?.message);
+        if (shouldListenRef.current && !isStoppingRef.current) {
+          clearTimeout(restartTimerRef.current);
+          restartTimerRef.current = setTimeout(() => {
+            startRecognition();
+          }, 600);
+        }
       }
     };
 
-    try {
-      recognition.start();
-    } catch (err) {
-      console.warn('[useWakeWord] Initial start failed:', err);
-    }
+    startRecognition();
 
     return () => {
       isStoppingRef.current = true;
       clearTimeout(restartTimerRef.current);
-      if (recognition) {
+      if (recognitionRef.current) {
         try {
-          recognition.abort();
-        } catch {
-          // ignore
-        }
+          recognitionRef.current.abort();
+        } catch {}
+        recognitionRef.current = null;
       }
-      recognitionRef.current = null;
+      if (persistentMicStreamRef.current) {
+        persistentMicStreamRef.current.getTracks().forEach((t) => t.stop());
+        persistentMicStreamRef.current = null;
+      }
     };
   }, [isEnabled, hasNativeSpeech, handleDetection]);
 
@@ -421,14 +486,20 @@ export function useWakeWord({
   ]);
 
   const toggleWakeWord = useCallback(() => {
-    setIsEnabled((prev) => !prev);
+    setIsEnabled((prev) => {
+      const next = !prev;
+      shouldListenRef.current = next;
+      return next;
+    });
   }, []);
 
   const enableWakeWord = useCallback(() => {
+    shouldListenRef.current = true;
     setIsEnabled(true);
   }, []);
 
   const disableWakeWord = useCallback(() => {
+    shouldListenRef.current = false;
     setIsEnabled(false);
   }, []);
 

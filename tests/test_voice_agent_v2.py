@@ -1,0 +1,327 @@
+"""
+test_voice_agent_v2.py — Comprehensive Test Suite for Voice Agent V2.
+
+Verifies:
+1. Sarvam AI happy path across Indic languages (Hindi, Tamil, Marathi) with tier_used: "sarvam".
+2. Cascade fallback to Groq Whisper + gTTS on Sarvam failure with tier_used: "fallback".
+3. Degraded language notice short-circuiting LLM when fallback language is unsupported.
+4. Voice-triggered UI actions via LLM tool-calling (navigate_to_tab, change_language, run_analysis, export_dpr).
+5. Action registry schema integrity.
+6. Full FastAPI endpoint POST /api/v2/chat/audio with tool_call payload.
+"""
+
+from __future__ import annotations
+import io
+import json
+import sys
+from unittest.mock import AsyncMock, MagicMock, patch
+import pytest
+from fastapi.testclient import TestClient
+
+from backend.app.main import app
+from backend.app.core.action_registry import ACTION_REGISTRY_SCHEMA, ACTION_NAMES
+from backend.app.core.sarvam_client import (
+    SarvamASRResult,
+    SarvamTTSResult,
+    SarvamUnavailableError,
+)
+from backend.app.core.audio_chat_service import (
+    audio_chat_service,
+    build_degraded_language_notice_response,
+    normalize_lang,
+)
+from backend.app.core.chat_service import LLMReplyResult
+
+client = TestClient(app)
+
+
+# Helper to patch across dual module namespaces (app.core vs backend.app.core)
+def patch_all(target_attr, new_val):
+    for mod_name in [
+        "app.core.sarvam_client",
+        "backend.app.core.sarvam_client",
+        "app.core.audio_chat_service",
+        "backend.app.core.audio_chat_service",
+        "app.core.chat_service",
+        "backend.app.core.chat_service",
+        "app.routers.chat",
+        "backend.app.routers.chat",
+    ]:
+        if mod_name in sys.modules:
+            mod = sys.modules[mod_name]
+            parts = target_attr.split(".")
+            obj = mod
+            for p in parts[:-1]:
+                obj = getattr(obj, p, None)
+                if obj is None:
+                    break
+            if obj is not None and hasattr(obj, parts[-1]):
+                setattr(obj, parts[-1], new_val)
+
+
+# ---------------------------------------------------------------------------
+# Test Action Registry
+# ---------------------------------------------------------------------------
+
+def test_action_registry_schema():
+    """Verify action registry contains required 4 tool types and valid schemas."""
+    expected_actions = {"navigate_to_tab", "change_language", "run_analysis", "export_dpr"}
+    assert set(ACTION_NAMES) == expected_actions
+
+    # Check navigate_to_tab schema
+    nav_tool = next(t for t in ACTION_REGISTRY_SCHEMA if t["function"]["name"] == "navigate_to_tab")
+    tab_enum = nav_tool["function"]["parameters"]["properties"]["tab"]["enum"]
+    assert "dashboard" in tab_enum
+    assert "govt_schemes" in tab_enum
+    assert "dpr" in tab_enum
+    assert "risk_analysis" in tab_enum
+    assert "business_plan" in tab_enum
+
+    # Check change_language schema
+    lang_tool = next(t for t in ACTION_REGISTRY_SCHEMA if t["function"]["name"] == "change_language")
+    lang_enum = lang_tool["function"]["parameters"]["properties"]["language"]["enum"]
+    assert set(lang_enum) == {"en", "hi", "mr", "ta", "te", "kn"}
+
+
+# ---------------------------------------------------------------------------
+# Test Language Normalization
+# ---------------------------------------------------------------------------
+
+def test_normalize_lang():
+    """Verify BCP-47 and regional codes normalize to 2-letter codes."""
+    assert normalize_lang("hi-IN") == "hi"
+    assert normalize_lang("ta-IN") == "ta"
+    assert normalize_lang("mr-IN") == "mr"
+    assert normalize_lang("en-US") == "en"
+    assert normalize_lang("hi") == "hi"
+
+
+# ---------------------------------------------------------------------------
+# Test Degraded Language Notice
+# ---------------------------------------------------------------------------
+
+def test_degraded_language_notice():
+    """Verify degraded notice provides bilingual guidance and skips LLM."""
+    result = build_degraded_language_notice_response()
+    assert result["tier_used"] == "fallback"
+    assert "Voice support for this language isn't available" in result["reply"]
+    assert "अभी इस भाषा में आवाज़ सहायता उपलब्ध नहीं है" in result["reply"]
+    assert result["tool_call"] is None
+    assert result["audio_base64"].startswith("data:audio/mp3;base64,")
+
+
+# ---------------------------------------------------------------------------
+# Test Sarvam Primary Path (3 Languages: Hindi, Tamil, Marathi)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang_code,transcript,sample_reply", [
+    ("hi-IN", "मुझे सरकारी योजनाएं दिखाओ", "यहाँ आपके लिए उपयुक्त सरकारी योजनाएं हैं।"),
+    ("ta-IN", "திட்டங்களை காட்டு", "உங்களுக்கான அரசு திட்டங்கள் இங்கே உள்ளன."),
+    ("mr-IN", "शासकीय योजना दाखवा", "येथे आपल्या व्यवसायासाठी शासकीय योजना आहेत."),
+])
+async def test_sarvam_happy_path_indic_languages(lang_code, transcript, sample_reply):
+    """Confirm primary Sarvam tier functions with exact language round-trip."""
+    fake_audio = b"\x00\x01\x02" * 100
+
+    mock_asr = AsyncMock(return_value=SarvamASRResult(
+        transcript=transcript,
+        detected_language_code=lang_code,
+        latency_s=0.25,
+    ))
+    mock_llm = MagicMock(return_value=LLMReplyResult(
+        text=sample_reply,
+        tool_call=None,
+        model="openai/gpt-oss-20b",
+        latency_ms=450.0,
+        sources=["Udyam Schemes Engine"],
+    ))
+    mock_tts = AsyncMock(return_value=b"\xff\xfb\x90\x00" * 50)
+
+    patch_all("sarvam_client.transcribe", mock_asr)
+    patch_all("chat_service.generate_grounded_reply", mock_llm)
+    patch_all("sarvam_client.synthesize", mock_tts)
+
+    turn_result = await audio_chat_service.process_voice_turn_v2(
+        audio_bytes=fake_audio,
+        context={"currentTab": "schemes"},
+    )
+
+    assert turn_result["tier_used"] == "sarvam"
+    assert turn_result["detected_language"] == lang_code
+    assert turn_result["user_transcript"] == transcript
+    assert turn_result["reply"] == sample_reply
+    assert turn_result["tool_call"] is None
+    assert turn_result["audio_base64"].startswith("data:audio/mp3;base64,")
+
+    # Verify round-trip language consistency (ASR detected_language passed to TTS)
+    mock_tts.assert_awaited_once()
+    tts_args = mock_tts.call_args[0]
+    assert tts_args[1] == lang_code
+
+
+# ---------------------------------------------------------------------------
+# Test Forced Sarvam Failure -> Fallback to Whisper + gTTS
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_forced_sarvam_failure_fallback():
+    """Verify graceful fallback to Whisper+gTTS when Sarvam fails."""
+    fake_audio = b"\x00\x01\x02" * 100
+
+    mock_asr = AsyncMock(side_effect=SarvamUnavailableError("Sarvam service timed out (4000ms)"))
+    mock_whisper = MagicMock(return_value={
+        "transcript": "नमस्ते, क्या हाल है",
+        "language": "hi",
+        "detected_language_code": "hi",
+        "language_name": "Hindi",
+        "latency_s": 0.5,
+    })
+    mock_llm = MagicMock(return_value=LLMReplyResult(
+        text="नमस्ते! मैं उद्यम साथी हूँ।",
+        tool_call=None,
+        model="openai/gpt-oss-20b",
+        latency_ms=300.0,
+        sources=[],
+    ))
+    mock_gtts = MagicMock(return_value={
+        "audio_base64": "data:audio/mp3;base64,AAAA",
+        "latency_s": 0.2,
+    })
+
+    patch_all("sarvam_client.transcribe", mock_asr)
+    patch_all("audio_chat_service.transcribe_audio", mock_whisper)
+    patch_all("chat_service.generate_grounded_reply", mock_llm)
+    patch_all("audio_chat_service.text_to_speech", mock_gtts)
+
+    turn_result = await audio_chat_service.process_voice_turn_v2(
+        audio_bytes=fake_audio,
+    )
+
+    assert turn_result["tier_used"] == "fallback"
+    assert turn_result["detected_language"] == "hi"
+    assert turn_result["reply"] == "नमस्ते! मैं उद्यम साथी हूँ।"
+    mock_whisper.assert_called_once()
+    mock_gtts.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Test Forced Sarvam Failure + Unsupported Language -> Degraded Notice (No LLM)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_sarvam_failure_unsupported_language_skips_llm():
+    """Verify degraded notice fires without LLM invocation when fallback language is unsupported."""
+    fake_audio = b"\x00\x01\x02" * 100
+
+    mock_asr = AsyncMock(side_effect=SarvamUnavailableError("Sarvam 503 Service Unavailable"))
+    mock_whisper = MagicMock(return_value={
+        "transcript": "Some unsupported dialect speech",
+        "language": "sd",  # Sindhi (not in VOICE_FALLBACK_SUPPORTED_LANGS)
+        "detected_language_code": "sd",
+        "language_name": "Sindhi",
+        "latency_s": 0.4,
+    })
+    mock_llm = MagicMock()
+
+    patch_all("sarvam_client.transcribe", mock_asr)
+    patch_all("audio_chat_service.transcribe_audio", mock_whisper)
+    patch_all("chat_service.generate_grounded_reply", mock_llm)
+
+    turn_result = await audio_chat_service.process_voice_turn_v2(audio_bytes=fake_audio)
+
+    # Assert LLM was completely SKIPPED
+    mock_llm.assert_not_called()
+    assert turn_result["tier_used"] == "fallback"
+    assert "Voice support for this language isn't available" in turn_result["reply"]
+    assert turn_result["tool_call"] is None
+
+
+# ---------------------------------------------------------------------------
+# Test Tool-Calling for All 4 UI Actions
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action_name,action_args,user_input", [
+    ("navigate_to_tab", {"tab": "govt_schemes"}, "योजनाएं खोलो"),
+    ("navigate_to_tab", {"tab": "dpr"}, "डीपीआर दिखाओ"),
+    ("change_language", {"language": "hi"}, "हिंदी में बदलो"),
+    ("run_analysis", {}, "विश्लेषण फिर से चलाओ"),
+    ("export_dpr", {"format": "pdf"}, "डीपीआर पीडीएफ डाउनलोड करो"),
+])
+async def test_voice_turn_tool_calling_actions(action_name, action_args, user_input):
+    """Verify all 4 UI actions return valid tool_call objects in VoiceTurnResult."""
+    fake_audio = b"\x00\x01\x02" * 100
+
+    mock_asr = AsyncMock(return_value=SarvamASRResult(
+        transcript=user_input,
+        detected_language_code="hi-IN",
+        latency_s=0.2,
+    ))
+    mock_llm = MagicMock(return_value=LLMReplyResult(
+        text="आदेशानुसार कर दिया गया है।",
+        tool_call={"name": action_name, "arguments": action_args},
+        model="openai/gpt-oss-20b",
+        latency_ms=300.0,
+        sources=[],
+    ))
+    mock_tts = AsyncMock(return_value=b"\xff\xfb\x90\x00" * 30)
+
+    patch_all("sarvam_client.transcribe", mock_asr)
+    patch_all("chat_service.generate_grounded_reply", mock_llm)
+    patch_all("sarvam_client.synthesize", mock_tts)
+
+    turn_result = await audio_chat_service.process_voice_turn_v2(audio_bytes=fake_audio)
+
+    assert turn_result["tool_call"] is not None
+    assert turn_result["tool_call"]["name"] == action_name
+    assert turn_result["tool_call"]["arguments"] == action_args
+    assert turn_result["reply"] == "आदेशानुसार कर दिया गया है।"
+    assert turn_result["tier_used"] == "sarvam"
+
+
+# ---------------------------------------------------------------------------
+# Test Full API Endpoint POST /api/v2/chat/audio
+# ---------------------------------------------------------------------------
+
+def test_api_audio_endpoint_with_tool_call():
+    """Verify POST /api/v2/chat/audio endpoint produces conforming JSON schema."""
+    mock_turn = AsyncMock(return_value={
+        "user_transcript": "योजनाएं दिखाओ",
+        "reply": "सरकारी योजनाएं खोली जा रही हैं।",
+        "language": "hi",
+        "language_name": "Hindi",
+        "detected_language": "hi-IN",
+        "tier_used": "sarvam",
+        "sources": ["Udyam Schemes DB"],
+        "audio_base64": "data:audio/mp3;base64,SUQzBAAAAAAA",
+        "is_fallback": False,
+        "model": "openai/gpt-oss-20b",
+        "tool_call": {"name": "navigate_to_tab", "arguments": {"tab": "govt_schemes"}},
+        "stt_latency_s": 0.25,
+        "llm_latency_s": 0.35,
+        "tts_latency_s": 0.15,
+        "total_latency_s": 0.75,
+    })
+
+    patch_all("audio_chat_service.process_voice_turn_v2", mock_turn)
+
+    fake_file = io.BytesIO(b"RIFF....WAVEfmt ....")
+    response = client.post(
+        "/api/v2/chat/audio",
+        files={"file": ("test.wav", fake_file, "audio/wav")},
+        data={"context": json.dumps({"activeTab": "dashboard"})},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["user_transcript"] == "योजनाएं दिखाओ"
+    assert data["reply"] == "सरकारी योजनाएं खोली जा रही हैं।"
+    assert data["detected_language"] == "hi-IN"
+    assert data["tier_used"] == "sarvam"
+    assert data["tool_call"] == {
+        "name": "navigate_to_tab",
+        "arguments": {"tab": "govt_schemes"},
+    }
+    assert data["audio_base64"].startswith("data:audio/mp3;base64,")
+    assert data["total_latency_s"] == 0.75

@@ -4,18 +4,21 @@ chat.py — REST API Router for Persistent Groq Chatbot, Audio Voice Agent & Ent
 
 from __future__ import annotations
 import json
+import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
 from pydantic import BaseModel, Field
 
 try:
     from app.core.chat_service import chat_service
     from app.core.audio_chat_service import audio_chat_service
+    from app.config import settings
 except ImportError:
     from backend.app.core.chat_service import chat_service
     from backend.app.core.audio_chat_service import audio_chat_service
+    from backend.app.config import settings
 
 logger = logging.getLogger("udyam_saathi.api.chat")
 
@@ -55,15 +58,24 @@ class TtsResponse(BaseModel):
     latency_s: float
 
 
+class ToolCallModel(BaseModel):
+    """Voice-triggered UI action returned by the LLM tool-calling layer."""
+    name: str = Field(..., description="Action name (navigate_to_tab, change_language, run_analysis, export_dpr)")
+    arguments: Dict[str, Any] = Field(default_factory=dict, description="Action arguments")
+
+
 class VoiceChatResponse(BaseModel):
     user_transcript: str
     reply: str
     language: str
     language_name: str
+    detected_language: str = Field(default="en", description="Auto-detected BCP-47 language code from ASR")
+    tier_used: str = Field(default="fallback", description="Speech tier used: 'sarvam' or 'fallback'")
     sources: List[str] = Field(default_factory=list)
     audio_base64: str
     is_fallback: bool
     model: str
+    tool_call: Optional[ToolCallModel] = Field(default=None, description="Voice-triggered UI action, if any")
     stt_latency_s: float
     llm_latency_s: float
     tts_latency_s: float
@@ -111,7 +123,7 @@ async def create_chat_completion(payload: ChatCompletionRequest):
 @router.post(
     "/audio",
     response_model=VoiceChatResponse,
-    summary="Full Audio Voice Turn: Microphone -> Whisper Large v3 -> Groq LLM -> gTTS Audio",
+    summary="V2 Cascade Voice Turn: Sarvam AI (primary) → Whisper+gTTS (fallback) with tool-calling",
 )
 @router.post(
     "/voice",
@@ -120,13 +132,16 @@ async def create_chat_completion(payload: ChatCompletionRequest):
 )
 async def process_voice_audio(
     file: UploadFile = File(..., description="Recorded audio file from microphone (webm/wav/mp3)"),
-    language: str = Form("en", description="Active conversation language code (en, hi, mr, ta, te, kn)"),
+    language: Optional[str] = Form(None, description="(Deprecated) Language hint — backend now auto-detects"),
     context: Optional[str] = Form(None, description="JSON-serialized enterprise context"),
     history: Optional[str] = Form(None, description="JSON-serialized previous chat message history"),
 ):
     """
-    Receives voice audio from user microphone, transcribes with Groq Whisper,
-    reasons with Groq LLM in the selected language, and generates natural spoken audio response.
+    V2 Voice Pipeline:
+    Receives voice audio, runs the cascade controller (Sarvam primary → Whisper fallback),
+    reasons with Groq LLM (with tool-calling for UI actions), and generates spoken response.
+    
+    Language is auto-detected — the `language` parameter is deprecated and ignored.
     """
     try:
         audio_bytes = await file.read()
@@ -150,15 +165,17 @@ async def process_voice_audio(
             except Exception:
                 parsed_history = []
 
-        result = audio_chat_service.process_voice_turn(
+        # Use V2 cascade controller (async)
+        result = await audio_chat_service.process_voice_turn_v2(
             audio_bytes=audio_bytes,
             filename=file.filename or "recording.webm",
-            language=language or "en",
             context=parsed_context,
             history=parsed_history,
         )
         result["timestamp"] = datetime.now(timezone.utc).isoformat()
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Audio voice turn error: %s", e, exc_info=True)
         raise HTTPException(
@@ -219,15 +236,23 @@ async def transcribe_audio_file(
     summary="Check Chatbot & Audio Voice Engine status",
 )
 async def get_chat_health():
-    """Returns active model, keys, and audio provider status for chatbot."""
+    """Returns active model, keys, audio provider status, and Sarvam tier availability."""
+    from app.core.audio_chat_service import _telemetry
+    
     llm_client = audio_chat_service._get_llm_client()
     stt_client = audio_chat_service._get_stt_client()
+    
+    sarvam_configured = bool(getattr(settings, "SARVAM_API_KEY", None))
+    
     return {
         "status": "ready" if (llm_client or stt_client) else "fallback_ready",
         "provider": "groq",
-        "has_stt_key": bool(audio_chat_service._get_stt_client()),
-        "has_llm_key": bool(audio_chat_service._get_llm_client()),
+        "has_stt_key": bool(stt_client),
+        "has_llm_key": bool(llm_client),
         "stt_model": audio_chat_service._stt_model,
         "llm_model": audio_chat_service._llm_model,
+        "sarvam_configured": sarvam_configured,
+        "voice_tier": "sarvam" if sarvam_configured else "fallback",
         "supported_voice_languages": list(audio_chat_service.VOICE_LANGUAGE_MAP.keys()) if hasattr(audio_chat_service, 'VOICE_LANGUAGE_MAP') else ["en", "hi", "mr", "te", "ta", "kn"],
+        "telemetry": _telemetry,
     }

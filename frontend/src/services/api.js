@@ -432,10 +432,10 @@ export const chatApi = {
     });
   },
 
-  async sendVoiceAudio(audioBlob, context = null, language = 'en', history = [], token = null) {
+  async sendVoiceAudio(audioBlob, context = null, history = [], token = null) {
     const formData = new FormData();
     formData.append('file', audioBlob, 'recording.webm');
-    formData.append('language', language || 'en');
+    // Backend auto-detects language per Voice Agent V2 specification
     if (context) {
       formData.append('context', JSON.stringify(context));
     }

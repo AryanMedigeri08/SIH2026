@@ -10,6 +10,7 @@ import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ChatProvider } from './context/ChatContext';
 import { ViewModeProvider } from './context/ViewModeContext';
 import { FloatingChatWindow } from './components/Chat/FloatingChatWindow';
+import { VoiceAgentWindow } from './components/Chat/VoiceAgentWindow';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LanguageTransitionOverlay } from './components/LanguageTransitionOverlay';
 import { MobileReportTabs } from './components/MobileReportTabs';
@@ -201,6 +202,24 @@ export function AppContent() {
       lastLoadedReportUrlRef.current = null;
     }
   }, [location.pathname, token, setReportData]);
+
+  // Listen for voice-triggered global UI events (DPR export & analysis re-run)
+  useEffect(() => {
+    const handleExportDpr = () => {
+      setIsDprOpen(true);
+    };
+    const handleRunAnalysis = () => {
+      navigate('/wizard');
+    };
+
+    window.addEventListener('udyam:export_dpr', handleExportDpr);
+    window.addEventListener('udyam:run_analysis', handleRunAnalysis);
+
+    return () => {
+      window.removeEventListener('udyam:export_dpr', handleExportDpr);
+      window.removeEventListener('udyam:run_analysis', handleRunAnalysis);
+    };
+  }, [navigate]);
 
   const handleSelectCase = async (pitchCase) => {
     isSelectingCaseRef.current = true;
@@ -615,6 +634,9 @@ export function AppContent() {
 
       {/* Persistent Movable Desktop AI Chatbot Window */}
       <FloatingChatWindow />
+
+      {/* Lightweight Siri Voice Agent Widget */}
+      <VoiceAgentWindow />
 
     </div>
   );

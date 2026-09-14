@@ -11,14 +11,27 @@ import time
 import json
 import logging
 from typing import Optional, Any, Dict, List
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 try:
     from app.config import settings
+    from app.core.action_registry import ACTION_REGISTRY_SCHEMA
 except ImportError:
     from backend.app.config import settings
+    from backend.app.core.action_registry import ACTION_REGISTRY_SCHEMA
 
 logger = logging.getLogger("udyam_saathi.chat")
+
+
+@dataclass
+class LLMReplyResult:
+    """Structured result from a grounded LLM call, supporting tool-calling."""
+    text: str = ""
+    tool_call: Optional[Dict[str, Any]] = None  # {"name": str, "arguments": dict} or None
+    model: str = ""
+    sources: List[str] = field(default_factory=list)
+    is_fallback: bool = False
+    latency_ms: float = 0.0
 
 LANGUAGE_NAMES = {
     "bn": "Bengali (বাংলা)",
@@ -118,6 +131,28 @@ STRICT DOMAIN GUARDRAILS & SECURITY RULES:
 RESPONSE ATTRIBUTION:
 At the very end of your response, include a single clean data source line:
 **Data Sources**: [Exact verified sources used, e.g. Ministry of MSME PMEGP Portal, RBI Prudential Guidelines, MoSPI Rural CPI Index]
+"""
+
+# Additional system prompt fragment for voice-agent tool-calling
+VOICE_TOOL_CALLING_PROMPT = """
+
+--- VOICE-DRIVEN UI CONTROL ---
+You have the ability to control the user's dashboard via tool calls. When the user expresses navigation intent or wants to change settings, use the appropriate tool call.
+
+IMPORTANT RULES FOR TOOL CALLS:
+1. When you call a tool, ALWAYS include a short natural-language confirmation in your response text (in the same language the user spoke).
+2. The spoken confirmation should be friendly and brief (1 sentence max).
+
+EXAMPLES (multi-language navigation intent):
+- "Show me government schemes" → call navigate_to_tab(tab="govt_schemes")
+- "सरकारी योजनाएँ दिखाओ" → call navigate_to_tab(tab="govt_schemes") + reply in Hindi
+- "मला DPR पहायचा आहे" → call navigate_to_tab(tab="dpr") + reply in Marathi
+- "भाषा हिंदी में बदलो" → call change_language(language="hi") + reply in Hindi
+- "language change to Tamil" → call change_language(language="ta")
+- "run the analysis again" → call run_analysis()
+- "export my DPR" → call export_dpr(format="pdf")
+- "risk analysis दिखाओ" → call navigate_to_tab(tab="risk_analysis") + reply in Hindi
+- "dashboard पर जाओ" → call navigate_to_tab(tab="dashboard") + reply in Hindi
 """
 
 
@@ -404,6 +439,172 @@ class ChatService:
                 "is_fallback": True,
                 "latency_ms": round(latency, 2),
             }
+
+    def generate_grounded_reply(
+        self,
+        transcript: str,
+        language: str = "en",
+        screen_context: Optional[Dict[str, Any]] = None,
+        tools: Optional[List[Dict]] = None,
+    ) -> LLMReplyResult:
+        """
+        Voice-Agent V2 entry point: generates a grounded LLM reply with
+        optional tool-calling for UI control actions.
+
+        Parameters
+        ----------
+        transcript : str
+            User's transcribed speech.
+        language : str
+            Detected language code (e.g. 'hi', 'ta-IN').
+        screen_context : dict, optional
+            Active dashboard telemetry context.
+        tools : list, optional
+            OpenAI-format tool schemas (ACTION_REGISTRY_SCHEMA).
+
+        Returns
+        -------
+        LLMReplyResult
+            Contains text reply, optional tool_call, model info, sources.
+        """
+        start_time = time.perf_counter()
+
+        # Normalize language for guardrails (strip region code)
+        lang_short = language.split("-")[0].lower() if language else "en"
+
+        # Application-side guardrail pre-check
+        guardrail_res = self._check_application_guardrails(transcript, lang_short)
+        if guardrail_res:
+            refusal_text, refusal_sources = guardrail_res
+            latency = (time.perf_counter() - start_time) * 1000
+            return LLMReplyResult(
+                text=refusal_text,
+                tool_call=None,
+                model="guardrail_safety_filter",
+                sources=refusal_sources,
+                is_fallback=True,
+                latency_ms=round(latency, 2),
+            )
+
+        api_key = self._get_api_key()
+        matched_sources = self._determine_data_sources(transcript, screen_context)
+
+        # Build system instruction with page grounding
+        system_instruction = BASE_SYSTEM_PROMPT + self._build_context_prompt(screen_context)
+
+        # Voice-agent tool-calling instructions
+        if tools:
+            system_instruction += VOICE_TOOL_CALLING_PROMPT
+
+        # Language directive
+        target_lang_name = LANGUAGE_NAMES.get(lang_short, "English")
+        if lang_short and lang_short != "en":
+            system_instruction += (
+                f"\n\n--- TARGET LANGUAGE DIRECTIVE ---\n"
+                f"The user spoke in: {target_lang_name}.\n"
+                f"You MUST generate your entire response in {target_lang_name}.\n"
+                f"Preserve all numerical figures, percentages (%), Rupee symbols (₹), and scheme acronyms clearly."
+            )
+        else:
+            system_instruction += (
+                f"\n\n--- TARGET LANGUAGE DIRECTIVE ---\n"
+                f"If the user asks their question in an Indian language (e.g. Hindi, Tamil, Marathi, Telugu, Bengali), respond fluently in that same language. Otherwise, respond in clear English."
+            )
+
+        groq_messages = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": transcript},
+        ]
+
+        # No API key → deterministic fallback
+        if not api_key:
+            fallback_text = self._generate_rule_based_fallback(
+                [{"role": "user", "content": transcript}],
+                screen_context,
+                lang_short,
+            )
+            latency = (time.perf_counter() - start_time) * 1000
+            return LLMReplyResult(
+                text=fallback_text,
+                tool_call=None,
+                model="deterministic_advisor_v2",
+                sources=matched_sources,
+                is_fallback=True,
+                latency_ms=round(latency, 2),
+            )
+
+        # Groq completion with tool-calling
+        try:
+            from groq import Groq
+
+            client = Groq(api_key=api_key, timeout=14.0)
+            model_name = os.environ.get("GROQ_LLM_MODEL", os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b"))
+
+            call_kwargs = {
+                "messages": groq_messages,
+                "model": model_name,
+                "temperature": 0.2,
+                "max_tokens": 1024,
+            }
+            if tools:
+                call_kwargs["tools"] = tools
+                call_kwargs["tool_choice"] = "auto"
+
+            chat_completion = client.chat.completions.create(**call_kwargs)
+            choice = chat_completion.choices[0]
+            message = choice.message
+
+            assistant_reply = message.content or ""
+            tool_call_result = None
+
+            # Parse tool calls if present
+            if message.tool_calls and len(message.tool_calls) > 0:
+                tc = message.tool_calls[0]  # Take first tool call
+                try:
+                    args = json.loads(tc.function.arguments) if tc.function.arguments else {}
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
+                tool_call_result = {
+                    "name": tc.function.name,
+                    "arguments": args,
+                }
+                logger.info(
+                    "Voice tool call: %s(%s)",
+                    tc.function.name,
+                    json.dumps(args, ensure_ascii=False),
+                )
+
+            # Ensure data sources attribution
+            if assistant_reply and "**data source" not in assistant_reply.lower() and matched_sources:
+                sources_str = ", ".join(matched_sources)
+                assistant_reply += f"\n\n**Data Sources**: {sources_str}"
+
+            latency = (time.perf_counter() - start_time) * 1000
+            return LLMReplyResult(
+                text=assistant_reply,
+                tool_call=tool_call_result,
+                model=f"groq:{model_name}",
+                sources=matched_sources,
+                is_fallback=False,
+                latency_ms=round(latency, 2),
+            )
+
+        except Exception as e:
+            logger.warning("Groq voice LLM call failed (%s); generating rule-based response.", e)
+            fallback_text = self._generate_rule_based_fallback(
+                [{"role": "user", "content": transcript}],
+                screen_context,
+                lang_short,
+            )
+            latency = (time.perf_counter() - start_time) * 1000
+            return LLMReplyResult(
+                text=fallback_text,
+                tool_call=None,
+                model="deterministic_advisor_v2",
+                sources=matched_sources,
+                is_fallback=True,
+                latency_ms=round(latency, 2),
+            )
 
     def _generate_rule_based_fallback(
         self,
