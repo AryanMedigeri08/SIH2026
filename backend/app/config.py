@@ -69,10 +69,18 @@ class Settings(BaseSettings):
     GROQ_STT_MODEL: str = os.getenv("GROQ_STT_MODEL", "whisper-large-v3")
     GROQ_LLM_MODEL: str = os.getenv("GROQ_LLM_MODEL", "openai/gpt-oss-20b")
 
-    # Sarvam AI — Primary Voice Layer (22 Indic Languages)
+    # Sarvam AI — Language Detection Layer (V3: Detection-only, 22 Indic Languages)
     SARVAM_API_KEY: Optional[str] = os.getenv("SARVAM_API_KEY", None)
+    SARVAM_STT_ENDPOINT: str = os.getenv("SARVAM_STT_ENDPOINT", os.getenv("SARVAM_ASR_ENDPOINT", "https://api.sarvam.ai/speech-to-text"))
     SARVAM_ASR_ENDPOINT: str = os.getenv("SARVAM_ASR_ENDPOINT", "https://api.sarvam.ai/speech-to-text")
     SARVAM_TTS_ENDPOINT: str = os.getenv("SARVAM_TTS_ENDPOINT", "https://api.sarvam.ai/text-to-speech")
+
+    # Bhashini AI — Primary ASR / STT & TTS Layer (V3: 100% of speech transcription & synthesis)
+    BHASHINI_USER_ID: Optional[str] = os.getenv("BHASHINI_USER_ID", None)
+    BHASHINI_API_KEY: Optional[str] = os.getenv("BHASHINI_API_KEY", None)
+    BHASHINI_CONFIG_ENDPOINT: str = os.getenv("BHASHINI_CONFIG_ENDPOINT", "https://meity-auth.ulcacontrib.org/ulca/apis/v0/model/getModelsPipeline")
+    BHASHINI_PIPELINE_ID: str = os.getenv("BHASHINI_PIPELINE_ID", "64392f96daac500b55c543cd")
+    BHASHINI_CONFIG_CACHE_TTL_SECONDS: int = int(os.getenv("BHASHINI_CONFIG_CACHE_TTL_SECONDS", "3600"))
 
     # Voice Cascade Controller
     VOICE_CASCADE_TIMEOUT_MS: int = int(os.getenv("VOICE_CASCADE_TIMEOUT_MS", "4000"))

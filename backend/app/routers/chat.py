@@ -70,7 +70,7 @@ class VoiceChatResponse(BaseModel):
     language: str
     language_name: str
     detected_language: str = Field(default="en", description="Auto-detected BCP-47 language code from ASR")
-    tier_used: str = Field(default="fallback", description="Speech tier used: 'sarvam' or 'fallback'")
+    tier_used: str = Field(default="fallback", description="Speech tier used: 'bhashini', 'bhashini_asr_gtts_tts', or 'fallback'")
     sources: List[str] = Field(default_factory=list)
     audio_base64: str
     is_fallback: bool
@@ -123,7 +123,7 @@ async def create_chat_completion(payload: ChatCompletionRequest):
 @router.post(
     "/audio",
     response_model=VoiceChatResponse,
-    summary="V2 Cascade Voice Turn: Sarvam AI (primary) → Whisper+gTTS (fallback) with tool-calling",
+    summary="V3 Cascade Voice Turn: Sarvam Detect -> Bhashini ASR -> Groq LLM -> Bhashini TTS",
 )
 @router.post(
     "/voice",
@@ -137,8 +137,8 @@ async def process_voice_audio(
     history: Optional[str] = Form(None, description="JSON-serialized previous chat message history"),
 ):
     """
-    V2 Voice Pipeline:
-    Receives voice audio, runs the cascade controller (Sarvam primary → Whisper fallback),
+    V3 Voice Pipeline:
+    Receives voice audio, runs the cascade controller (Sarvam detect -> Bhashini ASR -> Groq LLM -> Bhashini TTS / gTTS fallback),
     reasons with Groq LLM (with tool-calling for UI actions), and generates spoken response.
     
     Language is auto-detected — the `language` parameter is deprecated and ignored.
@@ -236,14 +236,27 @@ async def transcribe_audio_file(
     summary="Check Chatbot & Audio Voice Engine status",
 )
 async def get_chat_health():
-    """Returns active model, keys, audio provider status, and Sarvam tier availability."""
-    from app.core.audio_chat_service import _telemetry
+    """Returns active model, keys, audio provider status, Bhashini status, and telemetry."""
+    try:
+        from app.core.audio_chat_service import _telemetry
+    except ImportError:
+        from backend.app.core.audio_chat_service import _telemetry
     
     llm_client = audio_chat_service._get_llm_client()
     stt_client = audio_chat_service._get_stt_client()
     
     sarvam_configured = bool(getattr(settings, "SARVAM_API_KEY", None))
+    bhashini_configured = bool(
+        getattr(settings, "BHASHINI_API_KEY", None) and getattr(settings, "BHASHINI_USER_ID", None)
+    )
     
+    if bhashini_configured and sarvam_configured:
+        voice_tier = "bhashini"
+    elif bhashini_configured:
+        voice_tier = "bhashini_direct"
+    else:
+        voice_tier = "fallback"
+
     return {
         "status": "ready" if (llm_client or stt_client) else "fallback_ready",
         "provider": "groq",
@@ -252,7 +265,8 @@ async def get_chat_health():
         "stt_model": audio_chat_service._stt_model,
         "llm_model": audio_chat_service._llm_model,
         "sarvam_configured": sarvam_configured,
-        "voice_tier": "sarvam" if sarvam_configured else "fallback",
+        "bhashini_configured": bhashini_configured,
+        "voice_tier": voice_tier,
         "supported_voice_languages": list(audio_chat_service.VOICE_LANGUAGE_MAP.keys()) if hasattr(audio_chat_service, 'VOICE_LANGUAGE_MAP') else ["en", "hi", "mr", "te", "ta", "kn"],
         "telemetry": _telemetry,
     }

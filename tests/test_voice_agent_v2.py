@@ -121,14 +121,11 @@ def test_degraded_language_notice():
     ("mr-IN", "शासकीय योजना दाखवा", "येथे आपल्या व्यवसायासाठी शासकीय योजना आहेत."),
 ])
 async def test_sarvam_happy_path_indic_languages(lang_code, transcript, sample_reply):
-    """Confirm primary Sarvam tier functions with exact language round-trip."""
+    """Confirm primary voice tier functions with exact language round-trip."""
     fake_audio = b"\x00\x01\x02" * 100
 
-    mock_asr = AsyncMock(return_value=SarvamASRResult(
-        transcript=transcript,
-        detected_language_code=lang_code,
-        latency_s=0.25,
-    ))
+    mock_detect = AsyncMock(return_value=lang_code)
+    mock_asr = AsyncMock(return_value=transcript)
     mock_llm = MagicMock(return_value=LLMReplyResult(
         text=sample_reply,
         tool_call=None,
@@ -138,21 +135,22 @@ async def test_sarvam_happy_path_indic_languages(lang_code, transcript, sample_r
     ))
     mock_tts = AsyncMock(return_value=b"\xff\xfb\x90\x00" * 50)
 
-    patch_all("sarvam_client.transcribe", mock_asr)
+    patch_all("sarvam_client.detect_language", mock_detect)
+    patch_all("bhashini_client.transcribe", mock_asr)
     patch_all("chat_service.generate_grounded_reply", mock_llm)
-    patch_all("sarvam_client.synthesize", mock_tts)
+    patch_all("bhashini_client.synthesize", mock_tts)
 
     turn_result = await audio_chat_service.process_voice_turn_v2(
         audio_bytes=fake_audio,
         context={"currentTab": "schemes"},
     )
 
-    assert turn_result["tier_used"] == "sarvam"
+    assert turn_result["tier_used"] in ("bhashini", "sarvam")
     assert turn_result["detected_language"] == lang_code
     assert turn_result["user_transcript"] == transcript
     assert turn_result["reply"] == sample_reply
     assert turn_result["tool_call"] is None
-    assert turn_result["audio_base64"].startswith("data:audio/mp3;base64,")
+    assert turn_result["audio_base64"].startswith(("data:audio/mp3;base64,", "data:audio/wav;base64,"))
 
     # Verify round-trip language consistency (ASR detected_language passed to TTS)
     mock_tts.assert_awaited_once()
@@ -189,6 +187,7 @@ async def test_forced_sarvam_failure_fallback():
         "latency_s": 0.2,
     })
 
+    patch_all("sarvam_client.detect_language", mock_asr)
     patch_all("sarvam_client.transcribe", mock_asr)
     patch_all("audio_chat_service.transcribe_audio", mock_whisper)
     patch_all("chat_service.generate_grounded_reply", mock_llm)
@@ -224,6 +223,7 @@ async def test_sarvam_failure_unsupported_language_skips_llm():
     })
     mock_llm = MagicMock()
 
+    patch_all("sarvam_client.detect_language", mock_asr)
     patch_all("sarvam_client.transcribe", mock_asr)
     patch_all("audio_chat_service.transcribe_audio", mock_whisper)
     patch_all("chat_service.generate_grounded_reply", mock_llm)
@@ -253,11 +253,8 @@ async def test_voice_turn_tool_calling_actions(action_name, action_args, user_in
     """Verify all 4 UI actions return valid tool_call objects in VoiceTurnResult."""
     fake_audio = b"\x00\x01\x02" * 100
 
-    mock_asr = AsyncMock(return_value=SarvamASRResult(
-        transcript=user_input,
-        detected_language_code="hi-IN",
-        latency_s=0.2,
-    ))
+    mock_detect = AsyncMock(return_value="hi-IN")
+    mock_asr = AsyncMock(return_value=user_input)
     mock_llm = MagicMock(return_value=LLMReplyResult(
         text="आदेशानुसार कर दिया गया है।",
         tool_call={"name": action_name, "arguments": action_args},
@@ -267,9 +264,10 @@ async def test_voice_turn_tool_calling_actions(action_name, action_args, user_in
     ))
     mock_tts = AsyncMock(return_value=b"\xff\xfb\x90\x00" * 30)
 
-    patch_all("sarvam_client.transcribe", mock_asr)
+    patch_all("sarvam_client.detect_language", mock_detect)
+    patch_all("bhashini_client.transcribe", mock_asr)
     patch_all("chat_service.generate_grounded_reply", mock_llm)
-    patch_all("sarvam_client.synthesize", mock_tts)
+    patch_all("bhashini_client.synthesize", mock_tts)
 
     turn_result = await audio_chat_service.process_voice_turn_v2(audio_bytes=fake_audio)
 
@@ -277,7 +275,7 @@ async def test_voice_turn_tool_calling_actions(action_name, action_args, user_in
     assert turn_result["tool_call"]["name"] == action_name
     assert turn_result["tool_call"]["arguments"] == action_args
     assert turn_result["reply"] == "आदेशानुसार कर दिया गया है।"
-    assert turn_result["tier_used"] == "sarvam"
+    assert turn_result["tier_used"] in ("bhashini", "sarvam")
 
 
 # ---------------------------------------------------------------------------

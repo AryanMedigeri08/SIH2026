@@ -34,13 +34,23 @@ try:
     from app.config import settings
     from app.core.chat_service import chat_service, LANGUAGE_NAMES, LLMReplyResult
     from app.core import sarvam_client
-    from app.core.sarvam_client import SarvamUnavailableError
+    from app.core.sarvam_client import SarvamDetectionError, SarvamUnavailableError
+    from app.core.bhashini_client import (
+        bhashini_client,
+        BhashiniLanguageUnsupportedError,
+        BhashiniUnavailableError,
+    )
     from app.core.action_registry import ACTION_REGISTRY_SCHEMA
 except ImportError:
     from backend.app.config import settings
     from backend.app.core.chat_service import chat_service, LANGUAGE_NAMES, LLMReplyResult
     from backend.app.core import sarvam_client
-    from backend.app.core.sarvam_client import SarvamUnavailableError
+    from backend.app.core.sarvam_client import SarvamDetectionError, SarvamUnavailableError
+    from backend.app.core.bhashini_client import (
+        bhashini_client,
+        BhashiniLanguageUnsupportedError,
+        BhashiniUnavailableError,
+    )
     from backend.app.core.action_registry import ACTION_REGISTRY_SCHEMA
 
 logger = logging.getLogger("udyam_saathi.audio_chat")
@@ -69,11 +79,15 @@ FALLBACK_LANG_FRIENDLY_NAMES = {
     "ur": ("Urdu", "उर्दू"),
 }
 
-# Telemetry counters (in-memory for now)
+# Telemetry counters for Voice Agent V3
 _telemetry = {
+    "bhashini_total": 0,
+    "bhashini_asr_gtts_tts_total": 0,
+    "fallback_total": 0,
+    "bhashini_language_gap": 0,
+    "voice_degraded_language_notice_total": 0,
     "sarvam_tier_total": 0,
     "fallback_tier_total": 0,
-    "voice_degraded_language_notice_total": 0,
 }
 
 
@@ -305,6 +319,108 @@ class AudioChatService:
                 "error": str(e),
             }
 
+    async def run_fallback_turn(
+        self,
+        audio_bytes: bytes,
+        filename: str = "recording.webm",
+        context: Optional[dict[str, Any]] = None,
+        history: Optional[List[dict[str, str]]] = None,
+        overall_start: Optional[float] = None,
+    ) -> dict[str, Any]:
+        """
+        Executes the fallback voice turn pipeline (Whisper Large v3 + Groq LLM + gTTS).
+        Active when Sarvam detection or Bhashini ASR/TTS fails or is unsupported.
+        """
+        if overall_start is None:
+            overall_start = time.perf_counter()
+
+        stt_start = time.perf_counter()
+        try:
+            whisper_result = self.transcribe_audio(audio_bytes, filename, "en")
+            transcript = whisper_result["transcript"]
+            detected_lang = whisper_result.get("detected_language_code", whisper_result.get("language", "en"))
+            stt_latency = whisper_result["latency_s"]
+        except Exception as whisper_err:
+            logger.error("Whisper fallback STT failed: %s", whisper_err)
+            _telemetry["fallback_total"] += 1
+            return {
+                "user_transcript": "(Speech recognition failed)",
+                "reply": "I'm sorry, I couldn't process your audio. Please try again or type your question.",
+                "language": "en",
+                "language_name": "English",
+                "detected_language": "en",
+                "tier_used": "fallback",
+                "sources": [],
+                "audio_base64": "",
+                "is_fallback": True,
+                "model": "stt_failure",
+                "tool_call": None,
+                "stt_latency_s": round(time.perf_counter() - stt_start, 3),
+                "llm_latency_s": 0.0,
+                "tts_latency_s": 0.0,
+                "total_latency_s": round(time.perf_counter() - overall_start, 3),
+            }
+
+        norm_lang = normalize_lang(detected_lang)
+        supported = _get_fallback_supported_langs()
+        if norm_lang not in supported:
+            logger.info(
+                "Detected language '%s' not in fallback supported set %s — serving degraded notice",
+                norm_lang,
+                supported,
+            )
+            notice = build_degraded_language_notice_response()
+            notice["user_transcript"] = transcript or "(Unsupported language detected)"
+            notice["stt_latency_s"] = stt_latency
+            notice["total_latency_s"] = round(time.perf_counter() - overall_start, 3)
+            _telemetry["fallback_total"] += 1
+            return notice
+
+        if not transcript:
+            transcript = "(No speech detected)"
+
+        llm_start = time.perf_counter()
+        llm_response: LLMReplyResult = chat_service.generate_grounded_reply(
+            transcript=transcript,
+            language=detected_lang,
+            screen_context=context,
+            tools=ACTION_REGISTRY_SCHEMA,
+        )
+        llm_latency = round(time.perf_counter() - llm_start, 3)
+        bot_reply = llm_response.text
+        sources = llm_response.sources
+        is_fallback = llm_response.is_fallback
+        model_used = llm_response.model
+        tool_call = llm_response.tool_call
+
+        tts_start = time.perf_counter()
+        tts_res = self.text_to_speech(bot_reply, norm_lang)
+        audio_base64 = tts_res.get("audio_base64", "")
+        tts_latency = round(time.perf_counter() - tts_start, 3)
+        total_latency = round(time.perf_counter() - overall_start, 3)
+
+        _telemetry["fallback_total"] += 1
+
+        lang_name = LANGUAGE_NAMES.get(norm_lang, VOICE_LANGUAGE_MAP.get(norm_lang, {}).get("name", "Unknown"))
+
+        return {
+            "user_transcript": transcript,
+            "reply": bot_reply,
+            "language": norm_lang,
+            "language_name": lang_name,
+            "detected_language": detected_lang,
+            "tier_used": "fallback",
+            "sources": sources,
+            "audio_base64": audio_base64,
+            "is_fallback": is_fallback,
+            "model": model_used,
+            "tool_call": tool_call,
+            "stt_latency_s": stt_latency,
+            "llm_latency_s": llm_latency,
+            "tts_latency_s": tts_latency,
+            "total_latency_s": total_latency,
+        }
+
     async def process_voice_turn_v2(
         self,
         audio_bytes: bytes,
@@ -313,89 +429,63 @@ class AudioChatService:
         history: Optional[List[dict[str, str]]] = None,
     ) -> dict[str, Any]:
         """
-        V2 Cascade Voice Turn:
-          1. Try Sarvam ASR (auto-detect language) → on failure, fall back to Whisper
-          2. Check language support in fallback mode → degraded-language-notice if unsupported
-          3. LLM grounded reply with tool-calling
-          4. TTS in the same tier as STT (Sarvam Bulbul or gTTS)
+        Voice Agent V3 Cascade Voice Turn:
+          1. Sarvam AI: Detect spoken language (Sarvam STT auto-detect only; transcript discarded unconditionally).
+             -> On SarvamDetectionError, SarvamUnavailableError, or any failure: route to run_fallback_turn.
+          2. Bhashini ASR: Transcribe audio using detected language.
+             -> On BhashiniLanguageUnsupportedError: increment bhashini_language_gap telemetry and route to run_fallback_turn.
+             -> On BhashiniUnavailableError or any failure: route to run_fallback_turn.
+          3. Groq LLM: Generate grounded reply using active screen context & ACTION_REGISTRY_SCHEMA tools.
+          4. Bhashini TTS: Synthesize bot reply into speech using detected language.
+             -> On failure: synthesize via gTTS directly without re-invoking LLM (tier_used: "bhashini_asr_gtts_tts").
+             -> On success: tier_used: "bhashini".
         """
         overall_start = time.perf_counter()
-        
-        transcript = ""
-        detected_lang = "en"
-        used_tier = "sarvam"
 
-        # ── Step 1: Speech-to-Text (Sarvam primary, Whisper fallback) ──
+        # Step 1: Detect Language via Sarvam
         try:
-            asr_result = await sarvam_client.transcribe(audio_bytes, audio_format="wav")
-            transcript = asr_result.transcript
-            detected_lang = asr_result.detected_language_code
-            used_tier = "sarvam"
-            stt_latency = asr_result.latency_s
+            detected_lang = await sarvam_client.detect_language(audio_bytes, audio_format="wav")
+            logger.info("Sarvam language detection success: lang=%s", detected_lang)
+        except (SarvamDetectionError, SarvamUnavailableError, Exception) as e:
+            logger.warning("Sarvam language detection failed (%s), falling back to Whisper+gTTS", e)
+            return await self.run_fallback_turn(
+                audio_bytes, filename=filename, context=context, history=history, overall_start=overall_start
+            )
+
+        # Step 2: Speech-to-Text via Bhashini ASR
+        stt_start = time.perf_counter()
+        try:
+            transcript = await bhashini_client.transcribe(audio_bytes, language_code=detected_lang)
+            stt_latency = round(time.perf_counter() - stt_start, 3)
             logger.info(
-                "Sarvam ASR success: lang=%s, transcript_len=%d",
+                "Bhashini ASR success: lang=%s, transcript_len=%d, latency=%.3fs",
                 detected_lang,
                 len(transcript),
+                stt_latency,
             )
-        except (SarvamUnavailableError, Exception) as e:
-            logger.warning("Sarvam ASR unavailable (%s), falling back to Whisper+gTTS", e)
-            used_tier = "fallback"
-            
-            # Whisper fallback — use 'en' as the forced language since we can't auto-detect
-            # Whisper will transcribe in whatever language it hears, even with language hint
-            try:
-                whisper_result = self.transcribe_audio(audio_bytes, filename, "en")
-                transcript = whisper_result["transcript"]
-                detected_lang = whisper_result.get("detected_language_code", whisper_result.get("language", "en"))
-                stt_latency = whisper_result["latency_s"]
-            except Exception as whisper_err:
-                logger.error("Whisper fallback also failed: %s", whisper_err)
-                return {
-                    "user_transcript": "(Speech recognition failed)",
-                    "reply": "I'm sorry, I couldn't process your audio. Please try again or type your question.",
-                    "language": "en",
-                    "language_name": "English",
-                    "detected_language": "en",
-                    "tier_used": "fallback",
-                    "sources": [],
-                    "audio_base64": "",
-                    "is_fallback": True,
-                    "model": "stt_failure",
-                    "tool_call": None,
-                    "stt_latency_s": round(time.perf_counter() - overall_start, 3),
-                    "llm_latency_s": 0.0,
-                    "tts_latency_s": 0.0,
-                    "total_latency_s": round(time.perf_counter() - overall_start, 3),
-                }
-            
-            # Check if the detected language is supported by the fallback tier
-            norm_lang = normalize_lang(detected_lang)
-            supported = _get_fallback_supported_langs()
-            if norm_lang not in supported:
-                logger.info(
-                    "Detected language '%s' not in fallback supported set %s — serving degraded notice",
-                    norm_lang,
-                    supported,
+        except Exception as e:
+            if isinstance(e, BhashiniLanguageUnsupportedError) or e.__class__.__name__ == "BhashiniLanguageUnsupportedError":
+                logger.warning("Bhashini does not support language '%s' (%s), routing to fallback", detected_lang, e)
+                _telemetry["bhashini_language_gap"] += 1
+                return await self.run_fallback_turn(
+                    audio_bytes, filename=filename, context=context, history=history, overall_start=overall_start
                 )
-                notice = build_degraded_language_notice_response()
-                notice["user_transcript"] = transcript or "(Unsupported language detected)"
-                notice["stt_latency_s"] = stt_latency
-                notice["total_latency_s"] = round(time.perf_counter() - overall_start, 3)
-                return notice
-        
+            logger.warning("Bhashini ASR unavailable (%s), falling back to Whisper+gTTS", e)
+            return await self.run_fallback_turn(
+                audio_bytes, filename=filename, context=context, history=history, overall_start=overall_start
+            )
+
         if not transcript:
             transcript = "(No speech detected)"
 
-        # ── Step 2: LLM Generation (with tool-calling) ──
+        # Step 3: LLM Generation (Groq Cloud LLM with tool-calling)
         llm_start = time.perf_counter()
-        
         llm_response: LLMReplyResult = chat_service.generate_grounded_reply(
             transcript=transcript,
             language=detected_lang,
             screen_context=context,
             tools=ACTION_REGISTRY_SCHEMA,
         )
-        
         llm_latency = round(time.perf_counter() - llm_start, 3)
         bot_reply = llm_response.text
         sources = llm_response.sources
@@ -403,38 +493,32 @@ class AudioChatService:
         model_used = llm_response.model
         tool_call = llm_response.tool_call
 
-        # ── Step 3: Text-to-Speech (same tier as STT) ──
+        # Step 4: Text-to-Speech (Bhashini primary, gTTS fallback without re-invoking LLM)
         tts_start = time.perf_counter()
-        audio_base64 = ""
-        
-        # Clean the reply for speech
         speech_text = _clean_markdown_for_speech(bot_reply)
         if not speech_text:
             speech_text = bot_reply or "Response ready."
-        
-        if used_tier == "sarvam":
-            try:
-                tts_audio_bytes = await sarvam_client.synthesize(speech_text, detected_lang)
-                b64 = base64.b64encode(tts_audio_bytes).decode("utf-8")
-                audio_base64 = f"data:audio/mp3;base64,{b64}"
-            except (SarvamUnavailableError, Exception) as e:
-                logger.warning("Sarvam TTS failed (%s), falling back to gTTS", e)
-                # Fall back to gTTS for TTS even if Sarvam was used for ASR
-                norm = normalize_lang(detected_lang)
-                tts_res = self.text_to_speech(bot_reply, norm)
-                audio_base64 = tts_res.get("audio_base64", "")
-        else:
-            # Fallback tier: use gTTS
+
+        audio_base64 = ""
+        used_tier = "bhashini"
+
+        try:
+            tts_audio_bytes = await bhashini_client.synthesize(speech_text, detected_lang)
+            b64 = base64.b64encode(tts_audio_bytes).decode("utf-8")
+            audio_base64 = f"data:audio/wav;base64,{b64}"
+            used_tier = "bhashini"
+            _telemetry["bhashini_total"] += 1
+        except Exception as e:
+            logger.warning("Bhashini TTS failed (%s), falling back to gTTS without re-invoking LLM", e)
             norm = normalize_lang(detected_lang)
             tts_res = self.text_to_speech(bot_reply, norm)
             audio_base64 = tts_res.get("audio_base64", "")
-        
+            used_tier = "bhashini_asr_gtts_tts"
+            _telemetry["bhashini_asr_gtts_tts_total"] += 1
+
         tts_latency = round(time.perf_counter() - tts_start, 3)
         total_latency = round(time.perf_counter() - overall_start, 3)
 
-        # Telemetry counters
-        _telemetry[f"{used_tier}_tier_total"] = _telemetry.get(f"{used_tier}_tier_total", 0) + 1
-        
         norm_detected = normalize_lang(detected_lang)
         lang_name = LANGUAGE_NAMES.get(norm_detected, VOICE_LANGUAGE_MAP.get(norm_detected, {}).get("name", "Unknown"))
 
