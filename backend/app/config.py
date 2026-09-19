@@ -87,6 +87,8 @@ class Settings(BaseSettings):
 
     # Voice Cascade Controller
     VOICE_CASCADE_TIMEOUT_MS: int = int(os.getenv("VOICE_CASCADE_TIMEOUT_MS", "4000"))
+    VOICE_TTS_TIMEOUT_SECONDS: float = float(os.getenv("VOICE_TTS_TIMEOUT_SECONDS", "25.0"))
+    TTS_MAX_CHARS: int = int(os.getenv("TTS_MAX_CHARS", "4000"))
     VOICE_FALLBACK_SUPPORTED_LANGS: str = os.getenv("VOICE_FALLBACK_SUPPORTED_LANGS", "en,hi,mr,bn,gu,ta,te,kn,pa,ur")
 
     # 613 Village Amenities API (Data.gov.in / Mission Antyodaya OGD API)

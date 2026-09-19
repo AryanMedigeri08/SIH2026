@@ -302,6 +302,9 @@ def _clean_markdown_for_speech(text: str) -> str:
     cleaned = re.sub(r'\b(Data Sources|தரவு ஆதாரங்கள்|డేటా మూலாలు|ಡೇಟಾ ಮೂಲಗಳು|डेटा स्रोत):\s*.*$', '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
     # Replace exclamation marks to avoid TTS engines pronouncing them as 'Factorial'
     cleaned = re.sub(r'!', '.', cleaned)
+    # Strip emojis so speech engines don't stumble or glitch
+    cleaned = re.sub(r'[\U00010000-\U0010ffff]', '', cleaned)
+    cleaned = re.sub(r'[\u2600-\u27bf\u2b50\u2b55]', '', cleaned)
     # Normalize multiple whitespace and newlines
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
     return cleaned
@@ -822,7 +825,7 @@ class AudioChatService:
             )
         except Exception as e:
             logger.warning("⚠️  [VOICE AGENT] Bhashini TTS unavailable (%s) -> using gTTS voice fallback", e)
-            tts_res = self.text_to_speech(bot_reply, norm_detected)
+            tts_res = self.text_to_speech(speech_text, norm_detected)
             audio_base64 = tts_res.get("audio_base64", "")
             used_tier = "bhashini_asr_gtts_tts"
             _telemetry["bhashini_asr_gtts_tts_total"] += 1

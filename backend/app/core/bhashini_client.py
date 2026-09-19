@@ -56,7 +56,7 @@ def normalize_bhashini_lang(lang_code: str) -> str:
     return lang_code.split("-")[0].lower().strip()
 
 
-_TTS_MAX_CHARS = 300
+_TTS_MAX_CHARS = 4000
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +78,10 @@ class BhashiniClient:
     def _get_timeout_seconds(self) -> float:
         ms = int(getattr(settings, "VOICE_CASCADE_TIMEOUT_MS", 4000))
         return ms / 1000.0
+
+    def _get_tts_timeout_seconds(self) -> float:
+        sec = float(getattr(settings, "VOICE_TTS_TIMEOUT_SECONDS", 25.0))
+        return sec
 
     def _get_credentials(self) -> Tuple[str, str]:
         user_id = getattr(settings, "BHASHINI_USER_ID", "") or ""
@@ -383,16 +387,17 @@ class BhashiniClient:
         norm_lang = normalize_bhashini_lang(language_code)
         config = await self._get_config("tts", norm_lang)
 
-        # Defensively cap text length (~300 chars / ~80 words) for cost and UX
+        # Allow full text synthesis up to generous threshold (default 4000 chars)
         cleaned_text = text.strip()
-        if len(cleaned_text) > _TTS_MAX_CHARS:
-            cleaned_text = cleaned_text[:_TTS_MAX_CHARS]
-            # Try to break at a sentence or word boundary
+        max_chars = int(getattr(settings, "TTS_MAX_CHARS", _TTS_MAX_CHARS))
+        if len(cleaned_text) > max_chars:
+            cleaned_text = cleaned_text[:max_chars]
+            # Try to break cleanly at sentence boundary only for extreme overflow
             last_punc = max(cleaned_text.rfind("."), cleaned_text.rfind("।"), cleaned_text.rfind("?"))
-            if last_punc > 150:
+            if last_punc > int(max_chars * 0.8):
                 cleaned_text = cleaned_text[:last_punc + 1]
 
-        timeout_s = self._get_timeout_seconds()
+        timeout_s = self._get_tts_timeout_seconds()
 
         payload = {
             "pipelineTasks": [
