@@ -44,40 +44,40 @@ function VoiceOrb({ state, volume = 0 }) {
     switch (state) {
       case 'LISTENING':
         return {
-          bg: 'radial-gradient(circle, rgba(34,211,238,0.45) 0%, rgba(6,182,212,0.2) 60%, transparent 75%)',
-          border: '2px solid rgba(34,211,238,0.7)',
-          ringColor: 'rgba(34,211,238,0.4)',
-          shadow: `0 0 ${24 + volume * 45}px rgba(34,211,238,${0.4 + volume * 0.4}), 0 0 ${48 + volume * 60}px rgba(6,182,212,${0.2 + volume * 0.2})`,
-          badgeColor: 'bg-cyan-400',
+          bg: 'radial-gradient(circle, rgba(6,182,212,0.2) 0%, rgba(14,165,233,0.1) 60%, transparent 75%)',
+          border: '2px solid rgba(6,182,212,0.85)',
+          ringColor: 'rgba(6,182,212,0.3)',
+          shadow: `0 0 ${20 + volume * 35}px rgba(6,182,212,${0.35 + volume * 0.35}), 0 0 ${40 + volume * 50}px rgba(14,165,233,${0.15 + volume * 0.2})`,
+          badgeColor: 'bg-cyan-500',
           badgePing: true,
           animation: 'none',
         };
       case 'THINKING':
         return {
-          bg: 'radial-gradient(circle, rgba(129,140,248,0.4) 0%, rgba(99,102,241,0.15) 60%, transparent 75%)',
-          border: '2px solid rgba(129,140,248,0.6)',
-          ringColor: 'rgba(129,140,248,0.3)',
-          shadow: '0 0 24px rgba(129,140,248,0.35), 0 0 48px rgba(99,102,241,0.15)',
-          badgeColor: 'bg-indigo-400',
+          bg: 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, rgba(129,140,248,0.1) 60%, transparent 75%)',
+          border: '2px solid rgba(99,102,241,0.75)',
+          ringColor: 'rgba(99,102,241,0.25)',
+          shadow: '0 0 20px rgba(99,102,241,0.3), 0 0 35px rgba(129,140,248,0.15)',
+          badgeColor: 'bg-indigo-500',
           badgePing: true,
           animation: 'voiceOrbBreathe 2.5s ease-in-out infinite',
         };
       case 'SPEAKING':
         return {
-          bg: 'radial-gradient(circle, rgba(52,211,153,0.45) 0%, rgba(16,185,129,0.2) 60%, transparent 75%)',
-          border: '2px solid rgba(52,211,153,0.7)',
-          ringColor: 'rgba(52,211,153,0.4)',
-          shadow: `0 0 ${24 + volume * 40}px rgba(52,211,153,${0.4 + volume * 0.35}), 0 0 ${48 + volume * 55}px rgba(16,185,129,${0.15 + volume * 0.2})`,
-          badgeColor: 'bg-emerald-400',
+          bg: 'radial-gradient(circle, rgba(16,185,129,0.22) 0%, rgba(52,211,153,0.1) 60%, transparent 75%)',
+          border: '2px solid rgba(16,185,129,0.85)',
+          ringColor: 'rgba(16,185,129,0.3)',
+          shadow: `0 0 ${20 + volume * 35}px rgba(16,185,129,${0.35 + volume * 0.3}), 0 0 ${40 + volume * 45}px rgba(52,211,153,${0.15 + volume * 0.15})`,
+          badgeColor: 'bg-emerald-500',
           badgePing: true,
           animation: 'none',
         };
       case 'WAITING_FOR_USER':
         return {
-          bg: 'radial-gradient(circle, rgba(148,163,184,0.2) 0%, rgba(100,116,139,0.08) 60%, transparent 75%)',
-          border: '2px solid rgba(148,163,184,0.35)',
-          ringColor: 'rgba(148,163,184,0.2)',
-          shadow: '0 0 16px rgba(148,163,184,0.15)',
+          bg: 'radial-gradient(circle, rgba(203,213,225,0.3) 0%, rgba(241,245,249,0.15) 60%, transparent 75%)',
+          border: '2px solid rgba(203,213,225,0.9)',
+          ringColor: 'rgba(203,213,225,0.25)',
+          shadow: '0 0 14px rgba(148,163,184,0.2)',
           badgeColor: 'bg-slate-400',
           badgePing: false,
           animation: 'voiceOrbIdle 3s ease-in-out infinite',
@@ -85,10 +85,10 @@ function VoiceOrb({ state, volume = 0 }) {
       default:
         return {
           bg: 'transparent',
-          border: '2px solid rgba(148,163,184,0.2)',
+          border: '2px solid rgba(203,213,225,0.4)',
           ringColor: 'transparent',
           shadow: 'none',
-          badgeColor: 'bg-slate-500',
+          badgeColor: 'bg-slate-400',
           badgePing: false,
           animation: 'none',
         };
@@ -116,7 +116,7 @@ function VoiceOrb({ state, volume = 0 }) {
           {[0, 1].map((i) => (
             <div
               key={i}
-              className="absolute rounded-full border border-cyan-400/30 pointer-events-none"
+              className="absolute rounded-full border border-cyan-500/30 pointer-events-none"
               style={{
                 width: `${72 + i * 20}px`,
                 height: `${72 + i * 20}px`,
@@ -132,14 +132,14 @@ function VoiceOrb({ state, volume = 0 }) {
       {/* Speaking acoustic pulse rings */}
       {state === 'SPEAKING' && (
         <div
-          className="absolute rounded-full border border-emerald-400/30 pointer-events-none animate-ping opacity-30"
+          className="absolute rounded-full border border-emerald-500/30 pointer-events-none animate-ping opacity-30"
           style={{ width: '80px', height: '80px' }}
         />
       )}
 
       {/* Central Mira Avatar Image */}
       <div
-        className="relative rounded-full overflow-hidden transition-all duration-150 shrink-0 cursor-pointer shadow-lg group"
+        className="relative rounded-full overflow-hidden transition-all duration-150 shrink-0 cursor-pointer shadow-md group ring-2 ring-white"
         style={{
           width: '68px',
           height: '68px',
@@ -154,7 +154,7 @@ function VoiceOrb({ state, volume = 0 }) {
           className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
         />
         {/* Subtle glass reflection overlay */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/20 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-black/10 via-transparent to-white/30 pointer-events-none" />
       </div>
 
       {/* Status indicator badge dot */}
@@ -162,7 +162,7 @@ function VoiceOrb({ state, volume = 0 }) {
         {glowConfig.badgePing && (
           <span className={`animate-ping absolute inline-flex h-3 w-3 rounded-full ${glowConfig.badgeColor} opacity-75`} />
         )}
-        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${glowConfig.badgeColor} border border-slate-900 shadow-sm`} />
+        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${glowConfig.badgeColor} border-2 border-white shadow-xs`} />
       </div>
     </div>
   );
@@ -171,17 +171,17 @@ function VoiceOrb({ state, volume = 0 }) {
 // ─── State Label ───────────────────────────────────────────────────
 function StateLabel({ state }) {
   const config = {
-    LISTENING: { text: 'Listening...', color: 'text-cyan-400' },
-    THINKING: { text: 'Thinking...', color: 'text-indigo-400' },
-    SPEAKING: { text: 'Speaking...', color: 'text-emerald-400' },
-    WAITING_FOR_USER: { text: 'Ready', color: 'text-slate-400' },
+    LISTENING: { text: 'Listening...', color: 'text-cyan-600 font-semibold' },
+    THINKING: { text: 'Thinking...', color: 'text-indigo-600 font-semibold' },
+    SPEAKING: { text: 'Speaking...', color: 'text-emerald-600 font-semibold' },
+    WAITING_FOR_USER: { text: 'Ready', color: 'text-slate-500 font-semibold' },
   };
 
   const info = config[state];
   if (!info) return null;
 
   return (
-    <div className={`text-[11px] font-medium tracking-wider uppercase ${info.color} transition-colors duration-300`}>
+    <div className={`text-[11px] tracking-wider uppercase ${info.color} transition-colors duration-300`}>
       {info.text}
     </div>
   );
@@ -327,25 +327,26 @@ export function VoiceAgentWindow() {
         }}
       >
         <div
-          className="relative rounded-2xl overflow-hidden shadow-2xl"
+          className="relative rounded-2xl overflow-hidden transition-all duration-300"
           style={{
-            width: '200px',
-            background: 'linear-gradient(145deg, rgba(8,8,24,0.97), rgba(15,15,35,0.96))',
+            width: '210px',
+            background: 'linear-gradient(150deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96))',
             backdropFilter: 'blur(32px)',
-            border: '1px solid rgba(148,163,184,0.12)',
+            border: '1px solid rgba(226,232,240,0.9)',
+            boxShadow: '0 20px 45px -12px rgba(15,23,42,0.14), 0 4px 12px rgba(0,0,0,0.04), 0 0 0 1px rgba(255,255,255,0.9) inset',
           }}
         >
           {/* Top accent line */}
           <div
-            className="h-[1.5px] w-full"
+            className="h-[2px] w-full"
             style={{
               background: voiceAgentState === 'LISTENING'
-                ? 'linear-gradient(90deg, transparent, #22d3ee, transparent)'
+                ? 'linear-gradient(90deg, transparent, #06b6d4, transparent)'
                 : voiceAgentState === 'THINKING'
-                ? 'linear-gradient(90deg, transparent, #818cf8, transparent)'
+                ? 'linear-gradient(90deg, transparent, #6366f1, transparent)'
                 : voiceAgentState === 'SPEAKING'
-                ? 'linear-gradient(90deg, transparent, #34d399, transparent)'
-                : 'linear-gradient(90deg, transparent, rgba(148,163,184,0.3), transparent)',
+                ? 'linear-gradient(90deg, transparent, #10b981, transparent)'
+                : 'linear-gradient(90deg, transparent, rgba(203,213,225,0.9), transparent)',
             }}
           />
 
@@ -353,7 +354,7 @@ export function VoiceAgentWindow() {
           <button
             type="button"
             onClick={handleDismiss}
-            className="absolute top-2.5 right-2.5 w-6 h-6 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/80 transition-all z-10 cursor-pointer"
+            className="absolute top-2.5 right-2.5 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100/90 hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition-all z-10 cursor-pointer border border-slate-200/80 shadow-xs"
             title="End conversation"
             aria-label="End voice conversation"
           >
@@ -362,7 +363,7 @@ export function VoiceAgentWindow() {
 
           {/* Main content */}
           <div className="flex flex-col items-center pt-6 pb-4 px-4">
-            {/* Audio-reactive orb */}
+            {/* Audio-reactive avatar */}
             <button
               type="button"
               onClick={handleOrbClick}
@@ -379,7 +380,7 @@ export function VoiceAgentWindow() {
 
             {/* Detected language badge */}
             {detectedLangDisplay && (
-              <div className="mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-medium tracking-wide bg-white/5 text-white/50 border border-white/[0.08]">
+              <div className="mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide bg-slate-100/90 text-slate-600 border border-slate-200/80 shadow-xs">
                 {detectedLangDisplay}
               </div>
             )}
@@ -387,7 +388,7 @@ export function VoiceAgentWindow() {
             {/* Transcript snippet */}
             {voiceSession?.transcript && voiceAgentState !== 'LISTENING' && (
               <div className="mt-3 w-full px-1">
-                <p className="text-[10px] text-white/30 text-center truncate leading-relaxed">
+                <p className="text-[10px] text-slate-600 font-medium text-center truncate leading-relaxed italic">
                   &ldquo;{voiceSession.transcript.length > 50
                     ? voiceSession.transcript.substring(0, 47) + '...'
                     : voiceSession.transcript}&rdquo;
