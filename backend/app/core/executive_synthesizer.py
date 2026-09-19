@@ -47,6 +47,14 @@ except ImportError:
     except ImportError:
         translation_service = None
 
+try:
+    from app.config import settings
+except ImportError:
+    try:
+        from backend.app.config import settings
+    except ImportError:
+        settings = None
+
 logger = logging.getLogger("udyam_saathi.synthesizer")
 
 # Supported regional languages
@@ -714,6 +722,7 @@ def generate_executive_synthesis(
             f"=========================================================================="
         )
 
+        provider_prefix = "sarvam" if "sarvam" in used_model.lower() else "groq"
         synthesis = ExecutiveSynthesis(
             executive_summary=summary,
             strategic_recommendations=recommendations[:4],
@@ -722,7 +731,7 @@ def generate_executive_synthesis(
             is_cached=False,
             is_fallback=False,
             latency_ms=latency,
-            model_name=f"groq:{used_model}",
+            model_name=f"{provider_prefix}:{used_model}",
             payload_hash=payload_hash,
             swot_matrix=parsed_swot,
         )
@@ -732,7 +741,7 @@ def generate_executive_synthesis(
 
     except Exception as e:
         logger.warning(
-            f"[LLM FALLBACK ENGAGED] Groq LLM synthesis failed ({str(e)}). "
+            f"[LLM FALLBACK ENGAGED] AI synthesis failed ({str(e)}). "
             f"Seamlessly using deterministic domain template & SWOT | Source: [DETERMINISTIC_TEMPLATE]"
         )
         fallback = get_deterministic_narrative(
