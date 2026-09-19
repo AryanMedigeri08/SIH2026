@@ -71,6 +71,7 @@ class Settings(BaseSettings):
 
     # Sarvam AI — Language Detection Layer (V3: Detection-only, 22 Indic Languages)
     SARVAM_API_KEY: Optional[str] = os.getenv("SARVAM_API_KEY", None)
+    SARVAM_MODEL: str = os.getenv("SARVAM_MODEL", "saaras:v3")
     SARVAM_STT_ENDPOINT: str = os.getenv("SARVAM_STT_ENDPOINT", os.getenv("SARVAM_ASR_ENDPOINT", "https://api.sarvam.ai/speech-to-text"))
     SARVAM_ASR_ENDPOINT: str = os.getenv("SARVAM_ASR_ENDPOINT", "https://api.sarvam.ai/speech-to-text")
     SARVAM_TTS_ENDPOINT: str = os.getenv("SARVAM_TTS_ENDPOINT", "https://api.sarvam.ai/text-to-speech")

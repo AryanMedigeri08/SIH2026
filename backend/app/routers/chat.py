@@ -36,6 +36,12 @@ class ChatCompletionRequest(BaseModel):
     language: Optional[str] = Field(default="en", description="Target response language code (en, hi, mr, ta, te, kn)")
 
 
+class ToolCallModel(BaseModel):
+    """UI action returned by the LLM tool-calling layer."""
+    name: str = Field(..., description="Action name (navigate_to_tab, change_language, run_analysis, export_dpr)")
+    arguments: Dict[str, Any] = Field(default_factory=dict, description="Action arguments")
+
+
 class ChatCompletionResponse(BaseModel):
     message: Dict[str, str]
     reply: str
@@ -43,6 +49,7 @@ class ChatCompletionResponse(BaseModel):
     sources: List[str] = Field(default_factory=list, description="Verified data sources used for response")
     is_fallback: bool
     latency_ms: float
+    tool_call: Optional[ToolCallModel] = Field(default=None, description="UI action trigger from tool-calling, if any")
     timestamp: Optional[str] = None
 
 
@@ -56,12 +63,6 @@ class TtsResponse(BaseModel):
     language: str
     language_name: str
     latency_s: float
-
-
-class ToolCallModel(BaseModel):
-    """Voice-triggered UI action returned by the LLM tool-calling layer."""
-    name: str = Field(..., description="Action name (navigate_to_tab, change_language, run_analysis, export_dpr)")
-    arguments: Dict[str, Any] = Field(default_factory=dict, description="Action arguments")
 
 
 class VoiceChatResponse(BaseModel):
@@ -187,14 +188,15 @@ async def process_voice_audio(
 @router.post(
     "/tts",
     response_model=TtsResponse,
-    summary="Generate speech audio for any text message in specified language",
+    summary="Generate speech audio using Bhashini TTS (primary) with gTTS fallback",
 )
 async def generate_speech(payload: TtsRequest):
     """
-    Converts text message to high-quality spoken audio in user's active language using gTTS.
+    Converts text message to high-quality spoken audio in user's active language.
+    Attempts Bhashini TTS first for native Indic voices, falls back to gTTS.
     """
     try:
-        result = audio_chat_service.text_to_speech(
+        result = await audio_chat_service.text_to_speech_v2(
             text=payload.text,
             language=payload.language or "en",
         )

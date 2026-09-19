@@ -156,8 +156,9 @@ async def detect_language(audio_bytes: bytes, audio_format: str = "wav") -> str:
     files = {
         "file": (f"audio.{audio_format}", audio_bytes, mime_type),
     }
+    model_name = getattr(settings, "SARVAM_MODEL", "saaras:v3") or "saaras:v3"
     data = {
-        "model": "saaras:v1",
+        "model": model_name,
         "language_code": "unknown",  # triggers Sarvam 22-language auto-detection
     }
 
@@ -217,13 +218,28 @@ async def detect_language(audio_bytes: bytes, audio_format: str = "wav") -> str:
 
             latency = round(time.perf_counter() - start, 3)
             confidence = resp_data.get("confidence") or resp_data.get("language_confidence")
+            lang_name = {
+                "hi": "Hindi", "hi-IN": "Hindi",
+                "mr": "Marathi", "mr-IN": "Marathi",
+                "ta": "Tamil", "ta-IN": "Tamil",
+                "te": "Telugu", "te-IN": "Telugu",
+                "kn": "Kannada", "kn-IN": "Kannada",
+                "bn": "Bengali", "bn-IN": "Bengali",
+                "gu": "Gujarati", "gu-IN": "Gujarati",
+                "pa": "Punjabi", "pa-IN": "Punjabi",
+                "ml": "Malayalam", "ml-IN": "Malayalam",
+                "or": "Odia", "or-IN": "Odia",
+                "as": "Assamese", "as-IN": "Assamese",
+                "ur": "Urdu", "ur-IN": "Urdu",
+                "en": "English", "en-IN": "English",
+            }.get(detected_code, detected_code)
 
-            # Telemetry logging: Log language and confidence ONLY — NEVER log transcript
             logger.info(
-                "Sarvam language detected: lang='%s', confidence=%s, latency=%.3fs (transcript discarded)",
+                "[🎙️ SARVAM AI] Language Identified: %s (%s) | ⏱️ %dms | Model: %s | Status: 200 OK",
                 detected_code,
-                confidence,
-                latency,
+                lang_name,
+                int(latency * 1000),
+                model_name,
             )
 
             return detected_code

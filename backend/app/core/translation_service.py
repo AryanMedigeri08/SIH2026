@@ -142,7 +142,7 @@ class TranslationService:
                     logger.info("🌐 Google Cloud Translation SDK Client initialized with Service Account: %s", c)
                     return
         except Exception as e:
-            logger.info("ℹ️ Google Cloud Translation SDK deferred to REST / Fallback mode: %s", e)
+            logger.debug("ℹ️ Google Cloud Translation SDK deferred to REST / Fallback mode: %s", e)
 
     def _cache_key(self, text: str, source_lang: str, target_lang: str) -> str:
         h = hashlib.sha256(f"{source_lang}:{target_lang}:{text.strip()}".encode("utf-8")).hexdigest()

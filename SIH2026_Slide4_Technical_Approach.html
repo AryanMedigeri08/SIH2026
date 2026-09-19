@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIH 2026 - Slide 4: TECHNICAL APPROACH - Udyam Saathi</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;800&display=swap');
+
+  @page {
+    size: 16in 9in;
+    margin: 0;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0f172a;
+    color: #1e293b;
+    margin: 0;
+    padding: 0;
+  }
+
+  .slide-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .slide {
+    width: 16in;
+    height: 9in;
+    position: relative;
+    padding: 0.26in 0.38in 0.22in 0.38in;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    overflow: hidden;
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  /* TOP TRICOLOR ACCENT BAR */
+  .tricolor-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4.5px;
+    background: linear-gradient(90deg, #ff9933 0%, #ff9933 33.3%, #ffffff 33.3%, #ffffff 66.6%, #138808 66.6%, #138808 100%);
+  }
+
+  /* TOP HEADER */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 2px;
+    margin-bottom: 0.1in;
+  }
+
+  .team-badge {
+    border: 2px solid #6366f1;
+    color: #4338ca;
+    padding: 4px 15px;
+    border-radius: 9999px;
+    font-weight: 800;
+    font-size: 13.5px;
+    letter-spacing: 0.5px;
+    background: #eef2ff;
+  }
+
+  .title-block {
+    text-align: center;
+    flex: 1;
+    margin: 0 15px;
+  }
+
+  .title-block h1 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #0f172a;
+    text-transform: uppercase;
+    margin-bottom: 1px;
+  }
+
+  .title-block .subtitle {
+    font-size: 15px;
+    font-weight: 800;
+    color: #dc2626;
+    letter-spacing: 0.3px;
+  }
+
+  .sih-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .sih-tag {
+    text-align: right;
+  }
+
+  .sih-tag .main {
+    font-size: 13px;
+    font-weight: 800;
+    color: #ea580c;
+    line-height: 1.2;
+  }
+
+  .sih-tag .sub {
+    font-size: 10px;
+    font-weight: 700;
+    color: #0284c7;
+  }
+
+  .ps-tag {
+    background: #0f172a;
+    color: #38bdf8;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  /* MAIN 3-SECTION LAYOUT */
+  .main-content {
+    display: grid;
+    grid-template-columns: 1.42fr 0.72fr 1.38fr;
+    gap: 0.16in;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* LEFT COLUMN: ARCHITECTURE + VOICE ASSISTANT */
+  .left-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1in;
+    height: 100%;
+  }
+
+  /* ARCHITECTURE BOX */
+  .arch-box {
+    background: #ffffff;
+    border-radius: 11px;
+    border: 1.5px solid #cbd5e1;
+    padding: 8px 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    flex: 1.6;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .arch-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1.5px solid #e2e8f0;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+  }
+
+  .arch-title {
+    font-size: 11.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #047857;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.5px;
+  }
+
+  .arch-sub {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #64748b;
+  }
+
+  /* TIERED ARCHITECTURE DIAGRAM */
+  .tiers-container {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+    justify-content: space-between;
+  }
+
+  .arch-tier {
+    border-radius: 7px;
+    padding: 4px 7px;
+    border: 1.5px solid;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tier-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 3px;
+  }
+
+  .tier-title {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .tier-tag {
+    font-size: 7.5px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+  }
+
+  /* TIER 1: INTERACTION */
+  .tier-1 { background: #f0fdf4; border-color: #86efac; }
+  .tier-1 .tier-title { color: #166534; }
+  .tier-1 .tier-tag { background: #dcfce7; color: #15803d; }
+
+  /* TIER 2: API GATEWAY */
+  .tier-2 { background: #eff6ff; border-color: #93c5fd; }
+  .tier-2 .tier-title { color: #1e40af; }
+  .tier-2 .tier-tag { background: #dbeafe; color: #1d4ed8; }
+
+  /* TIER 3: COMPUTATION TRI-TIER */
+  .tier-3 { background: #fffbeb; border-color: #fde68a; }
+  .tier-3 .tier-title { color: #92400e; }
+  .tier-3 .tier-tag { background: #fef3c7; color: #b45309; }
+
+  /* TIER 4: OUTPUTS */
+  .tier-4 { background: #faf5ff; border-color: #d8b4fe; }
+  .tier-4 .tier-title { color: #6b21a8; }
+  .tier-4 .tier-tag { background: #f3e8ff; color: #7e22ce; }
+
+  .tier-elements {
+    display: grid;
+    gap: 4px;
+  }
+
+  .tier-1 .tier-elements { grid-template-columns: 1fr 1.2fr 0.8fr; }
+  .tier-2 .tier-elements { grid-template-columns: 1fr 1.2fr 1fr; }
+  .tier-3 .tier-elements { grid-template-columns: 1fr 1.2fr 1fr; }
+  .tier-4 .tier-elements { grid-template-columns: 1.2fr 1fr 1fr; }
+
+  .arch-card {
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 5px;
+    padding: 3px 6px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  }
+
+  .arch-card-name {
+    font-size: 9px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.15;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .arch-card-desc {
+    font-size: 8px;
+    color: #475569;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-top: 1px;
+  }
+
+  .tier-down-arrow {
+    text-align: center;
+    font-size: 8px;
+    line-height: 1;
+    color: #0284c7;
+    font-weight: 800;
+    margin: -1px 0;
+  }
+
+  /* VOICE ASSISTANT BOX (POOJA) */
+  .voice-box {
+    background: #ffffff;
+    border-radius: 11px;
+    border: 1.5px solid #cbd5e1;
+    padding: 7px 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .voice-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1.5px solid #e2e8f0;
+    padding-bottom: 3px;
+    margin-bottom: 4px;
+  }
+
+  .voice-title {
+    font-size: 11px;
+    font-weight: 800;
+    color: #ea580c;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .voice-tagline {
+    font-size: 9px;
+    font-weight: 700;
+    color: #4338ca;
+  }
+
+  .voice-pipeline {
+    display: grid;
+    grid-template-columns: 1fr 14px 1.2fr 14px 1.1fr 14px 1.1fr 14px 1fr;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .vp-step {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 4px 5px;
+    text-align: center;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .vp-step .icon { font-size: 12px; margin-bottom: 1px; }
+  .vp-step .title { font-size: 8px; font-weight: 800; color: #0f172a; line-height: 1.1; }
+  .vp-step .sub { font-size: 7px; color: #64748b; font-weight: 600; }
+  .vp-arrow { text-align: center; font-size: 10px; font-weight: 800; color: #ea580c; }
+
+  /* CENTER COLUMN: INTERFACE MOCKUPS */
+  .center-col {
+    background: #ffffff;
+    border-radius: 11px;
+    border: 1.5px solid #cbd5e1;
+    padding: 8px 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .mock-header {
+    border-bottom: 1.5px solid #e2e8f0;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+  }
+
+  .mock-title {
+    font-size: 11px;
+    font-weight: 800;
+    color: #0284c7;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .mock-devices {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    flex: 1;
+    gap: 8px;
+  }
+
+  .phone-mock {
+    width: 145px;
+    height: 175px;
+    border: 3px solid #1e293b;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .phone-notch {
+    width: 45px;
+    height: 5px;
+    background: #1e293b;
+    border-radius: 0 0 5px 5px;
+    align-self: center;
+  }
+
+  .phone-screen {
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex: 1;
+    background: #f8fafc;
+  }
+
+  .screen-brand {
+    font-size: 7.5px;
+    font-weight: 800;
+    color: #0f172a;
+    text-align: center;
+  }
+
+  .screen-metric {
+    background: #e0f2fe;
+    border: 1px solid #7dd3fc;
+    border-radius: 5px;
+    padding: 3px;
+    text-align: center;
+  }
+
+  .screen-metric .m-label { font-size: 6.5px; color: #0369a1; font-weight: 700; }
+  .screen-metric .m-val { font-size: 11px; font-weight: 800; color: #0284c7; }
+
+  .phone-orb {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #38bdf8 0%, #6366f1 70%, #a855f7 100%);
+    align-self: center;
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.6);
+    animation: pulse 2s infinite;
+  }
+
+  .screen-status {
+    font-size: 6.5px;
+    font-weight: 700;
+    color: #64748b;
+    text-align: center;
+  }
+
+  .desktop-mock {
+    width: 170px;
+    height: 100px;
+    border: 2px solid #334155;
+    border-radius: 6px;
+    background: #ffffff;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .desktop-bar {
+    height: 8px;
+    background: #334155;
+    display: flex;
+    align-items: center;
+    padding-left: 4px;
+    gap: 2px;
+  }
+
+  .dot { width: 3px; height: 3px; border-radius: 50%; background: #94a3b8; }
+
+  .desktop-body {
+    padding: 5px;
+    flex: 1;
+    background: #f1f5f9;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+  }
+
+  .d-card {
+    background: #ffffff;
+    border-radius: 3px;
+    border: 1px solid #cbd5e1;
+    padding: 3px;
+    font-size: 6.5px;
+  }
+
+  .d-card strong { display: block; color: #0f172a; font-size: 7px; }
+
+  .ui-badge-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+  }
+
+  .ui-pill {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    font-size: 7.5px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-align: center;
+  }
+
+  /* RIGHT COLUMN: TECH STACK TABLE & ACTION BUTTONS */
+  .right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1in;
+    height: 100%;
+  }
+
+  .stack-card {
+    background: #ffffff;
+    border-radius: 11px;
+    border: 1.5px solid #cbd5e1;
+    padding: 7px 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .stack-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1.5px solid #e2e8f0;
+    padding-bottom: 3px;
+    margin-bottom: 4px;
+  }
+
+  .stack-title {
+    font-size: 11.5px;
+    font-weight: 800;
+    color: #1e3a8a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .stack-sub {
+    font-size: 9px;
+    font-weight: 700;
+    color: #0284c7;
+  }
+
+  .stack-table {
+    width: 100%;
+    border-collapse: collapse;
+    flex: 1;
+  }
+
+  .stack-row {
+    border-bottom: 1px dashed #e2e8f0;
+  }
+
+  .stack-row:last-child {
+    border-bottom: none;
+  }
+
+  .layer-col {
+    width: 28%;
+    padding: 3px 4px;
+    vertical-align: middle;
+  }
+
+  .layer-tag {
+    font-size: 8.5px;
+    font-weight: 800;
+    color: #0f172a;
+    display: block;
+    line-height: 1.1;
+  }
+
+  .tech-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin-top: 1px;
+  }
+
+  .tp {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+  }
+
+  .tp-react { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+  .tp-fastapi { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+  .tp-ml { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+  .tp-bhashini { background: #faf5ff; color: #6b21a8; border-color: #e9d5ff; }
+  .tp-db { background: #f0fdfa; color: #115e59; border-color: #99f6e4; }
+  .tp-ops { background: #fdf2f8; color: #9d174d; border-color: #fbcfe8; }
+
+  .bullets-col {
+    padding: 3px 4px;
+    vertical-align: middle;
+  }
+
+  .stack-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5px 6px;
+  }
+
+  .stack-list li {
+    font-size: 8px;
+    color: #475569;
+    font-weight: 600;
+    line-height: 1.15;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .stack-list li::before {
+    content: "•";
+    color: #0284c7;
+    font-weight: 800;
+    font-size: 9px;
+  }
+
+  /* ACTION BUTTONS (DEMO, REPO, DRIVE) */
+  .action-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  .action-btn {
+    border-radius: 7px;
+    padding: 5px 6px;
+    text-align: center;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .btn-proto { background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); }
+  .btn-drive { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); }
+  .btn-demo  { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); }
+
+  /* SLIDE 2: PRESENTER'S TECHNICAL SCRIPT & DEFENSIVE Q&A */
+  .page-2 {
+    padding: 0.35in 0.5in;
+  }
+
+  .script-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+  }
+
+  .script-header h2 {
+    font-size: 23px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  .script-grid {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 0.28in;
+    flex: 1;
+  }
+
+  .script-box {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .script-box h3 {
+    font-size: 14.5px;
+    font-weight: 800;
+    color: #4338ca;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1.5px solid #f1f5f9;
+    padding-bottom: 6px;
+  }
+
+  .pitch-point {
+    margin-bottom: 10px;
+  }
+
+  .pitch-point:last-child {
+    margin-bottom: 0;
+  }
+
+  .pitch-point strong {
+    font-size: 12.5px;
+    color: #0f172a;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .pitch-point p {
+    font-size: 11.5px;
+    color: #475569;
+    line-height: 1.45;
+  }
+
+  .qa-card {
+    background: #f8fafc;
+    border-left: 4px solid #f97316;
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 12px;
+  }
+
+  .qa-card:last-child {
+    margin-bottom: 0;
+  }
+
+  .qa-card .q {
+    font-size: 12px;
+    font-weight: 800;
+    color: #9a3412;
+    margin-bottom: 3px;
+  }
+
+  .qa-card .a {
+    font-size: 11px;
+    color: #334155;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+<div class="slide-container">
+
+  <!-- SLIDE 4: PRESENTATION SLIDE -->
+  <div class="slide">
+    <div class="tricolor-bar"></div>
+
+    <!-- TOP HEADER -->
+    <div class="header">
+      <div class="team-badge">Recursive Rebels</div>
+      <div class="title-block">
+        <h1>TECHNICAL APPROACH</h1>
+        <div class="subtitle">Data-Driven, Explainable &amp; Sovereign Technology for Every Entrepreneur</div>
+      </div>
+      <div class="sih-badge">
+        <div class="sih-tag">
+          <div class="main">SMART INDIA HACKATHON 2026</div>
+          <div class="sub">Ministry of MSME</div>
+        </div>
+        <div class="ps-tag">PS: SIH2601</div>
+      </div>
+    </div>
+
+    <!-- MAIN 3-COLUMN CONTENT -->
+    <div class="main-content">
+
+      <!-- LEFT COLUMN: 4-TIER ARCHITECTURE + POOJA VOICE ASSISTANT -->
+      <div class="left-col">
+
+        <!-- ARCHITECTURE BOX -->
+        <div class="arch-box">
+          <div class="arch-header">
+            <div class="arch-title"><span>🏛️</span> Enterprise Architecture Diagram</div>
+            <div class="arch-sub">4-Tier Decoupled Pipeline</div>
+          </div>
+
+          <div class="tiers-container">
+
+            <!-- TIER 1 -->
+            <div class="arch-tier tier-1">
+              <div class="tier-header-bar">
+                <span class="tier-title">Tier 1: Interaction &amp; Voice Layer</span>
+                <span class="tier-tag">Client SPA</span>
+              </div>
+              <div class="tier-elements">
+                <div class="arch-card">
+                  <div class="arch-card-name">📱 React 18 + Vite</div>
+                  <div class="arch-card-desc">7-Step Wizard, DSCR Gauges</div>
+                </div>
+                <div class="arch-card">
+                  <div class="arch-card-name">🎙️ POOJA Voice Co-Pilot</div>
+                  <div class="arch-card-desc">22 Indic Languages via Bhashini</div>
+                </div>
+                <div class="arch-card">
+                  <div class="arch-card-name">🔐 Firebase Auth</div>
+                  <div class="arch-card-desc">JWT Multi-Tenant Sessions</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tier-down-arrow">▼ REST / JSON Payloads</div>
+
+            <!-- TIER 2 -->
+            <div class="arch-tier tier-2">
+              <div class="tier-header-bar">
+                <span class="tier-title">Tier 2: API Gateway &amp; Orchestration</span>
+                <span class="tier-tag">Python 3.11</span>
+              </div>
+              <div class="tier-elements">
+                <div class="arch-card">
+                  <div class="arch-card-name">⚡ FastAPI Gateway</div>
+                  <div class="arch-card-desc">Async Non-blocking Routers</div>
+                </div>
+                <div class="arch-card">
+                  <div class="arch-card-name">🛠️ Action Registry</div>
+                  <div class="arch-card-desc">Dynamic Voice-to-Action Dispatch</div>
+                </div>
+                <div class="arch-card">
+                  <div class="arch-card-name">🛡️ Guardrails &amp; Cache</div>
+                  <div class="arch-card-desc">SHA-256 Scheme Memory LRU</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tier-down-arrow">▼ Decoupled Computation</div>
+
+            <!-- TIER 3 -->
+            <div class="arch-tier tier-3">
+              <div class="tier-header-bar">
+                <span class="tier-title">Tier 3: The Tri-Tier Computation Core</span>
+                <span class="tier-tag">Deterministic &amp; ML</span>
+              </div>
+              <div class="tier-elements">
+                <div class="arch-card">
+                  <div class="arch-card-name">🧮 Deterministic Finance</div>
+                  <div class="arch-card-desc">Nayak WC + RBI DSCR (&ge; 1.33)</div>
+                </div>
+                <div class="arch-card">
+                  <div class="arch-card-name">🗺️ Spatial &amp; Amenities Mesh</div>
+                  <div class="arch-card-desc">6.6L Villages + 613 Amenities + ODOP</div>
+                </div>
+                <div class="arch-card">
+                  <div class="arch-card-name">🤖 10-D XGBoost + TreeSHAP</div>
+                  <div class="arch-card-desc">98.9% Accuracy + &lt; 2s Factor Proof</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tier-down-arrow">▼ Verified Data Hand-off (Zero-Recalc)</div>
+
+            <!-- TIER 4 -->
+            <div class="arch-tier tier-4">
+              <div class="tier-header-bar">
+                <span class="tier-title">Tier 4: Intelligence &amp; Statutory Outputs</span>
+                <span class="tier-tag">Artifacts &amp; APIs</span>
+              </div>
+              <div class="tier-elements">
+                <div class="arch-card">
+                  <div class="arch-card-name">📄 Statutory 7-Section DPR</div>
+                  <div class="arch-card-desc">Scheduled Commercial Bank Format</div>
+                </div>
+                <div class="arch-card">
+                  <div class="arch-card-name">🧠 Safe Narrative Synthesis</div>
+                  <div class="arch-card-desc">Groq LLaMA 3.3 (Zero-Math-Edit)</div>
+                </div>
+                <div class="arch-card">
+                  <div class="arch-card-name">🔄 Counterfactual Pivot</div>
+                  <div class="arch-card-desc">16-Sector Viable Trade Matcher</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- VOICE ASSISTANT PIPELINE (POOJA) -->
+        <div class="voice-box">
+          <div class="voice-header">
+            <div class="voice-title"><span>🎙️</span> POOJA: 22-Language Voice Access Pipeline</div>
+            <div class="voice-tagline">Powered by Digital India BHASHINI</div>
+          </div>
+          <div class="voice-pipeline">
+            <div class="vp-step">
+              <div class="icon">🎤</div>
+              <div class="title">User Speech</div>
+              <div class="sub">Native Dialect</div>
+            </div>
+            <div class="vp-arrow">➔</div>
+            <div class="vp-step">
+              <div class="icon">🇮🇳</div>
+              <div class="title">Bhashini ASR</div>
+              <div class="sub">Indic Speech-Text</div>
+            </div>
+            <div class="vp-arrow">➔</div>
+            <div class="vp-step">
+              <div class="icon">⚡</div>
+              <div class="title">FastAPI Tools</div>
+              <div class="sub">UI Tool Dispatch</div>
+            </div>
+            <div class="vp-arrow">➔</div>
+            <div class="vp-step">
+              <div class="icon">🧠</div>
+              <div class="title">Guardrailed AI</div>
+              <div class="sub">Narrative Memo</div>
+            </div>
+            <div class="vp-arrow">➔</div>
+            <div class="vp-step">
+              <div class="icon">🔊</div>
+              <div class="title">Bhashini TTS</div>
+              <div class="sub">Spoken Audio</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- CENTER COLUMN: INTERFACE MOCKUPS -->
+      <div class="center-col">
+        <div class="mock-header">
+          <div class="mock-title"><span>📲</span> Live Interface</div>
+          <div style="font-size: 8px; color: #64748b; font-weight: 600;">Responsive Mobile &amp; Desktop</div>
+        </div>
+
+        <div class="mock-devices">
+          <!-- PHONE MOCKUP -->
+          <div class="phone-mock">
+            <div class="phone-notch"></div>
+            <div class="phone-screen">
+              <div class="screen-brand">Udyam Saathi (उद्यम साथी)</div>
+              <div class="screen-metric">
+                <div class="m-label">RBI DSCR SOLVENCY</div>
+                <div class="m-val">1.48</div>
+                <span style="font-size: 6px; font-weight: 800; color: #16a34a; background: #dcfce7; padding: 1px 4px; border-radius: 3px;">SUITABLE</span>
+              </div>
+              <div class="phone-orb"></div>
+              <div class="screen-status">POOJA Listening (Hindi / 22 Langs)</div>
+            </div>
+          </div>
+
+          <!-- DESKTOP MOCKUP -->
+          <div class="desktop-mock">
+            <div class="desktop-bar">
+              <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+            </div>
+            <div class="desktop-body">
+              <div class="d-card">
+                <strong>7-Sec Bank DPR</strong>
+                <span>Nayak WC: &#8377;1.8L<br>Subsidy: &#8377;3.5L</span>
+              </div>
+              <div class="d-card">
+                <strong>TreeSHAP Risk</strong>
+                <span>Power: 21 hrs/d<br>Road: 100% Paved</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ui-badge-list">
+            <div class="ui-pill">✓ Guided 7-Step Wizard</div>
+            <div class="ui-pill">✓ Zero Financial Jargon</div>
+            <div class="ui-pill">✓ 1-Click Bank PDF Export</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: TECH STACK TABLE & ACTION BUTTONS -->
+      <div class="right-col">
+
+        <div class="stack-card">
+          <div class="stack-header">
+            <div class="stack-title"><span>⚡</span> Full Technology Stack</div>
+            <div class="stack-sub">Production-Ready Architecture</div>
+          </div>
+
+          <table class="stack-table">
+            <tbody>
+              <!-- ROW 1 -->
+              <tr class="stack-row">
+                <td class="layer-col">
+                  <span class="layer-tag">Frontend (UI/UX)</span>
+                  <div class="tech-pills">
+                    <span class="tp tp-react">React 18</span>
+                    <span class="tp tp-react">Vite</span>
+                    <span class="tp tp-react">Tailwind</span>
+                  </div>
+                </td>
+                <td class="bullets-col">
+                  <ul class="stack-list">
+                    <li>Mobile-first responsive UI</li>
+                    <li>Audio waveform telemetry</li>
+                    <li>Real-time DSCR gauges</li>
+                    <li>Low-literacy visual cues</li>
+                  </ul>
+                </td>
+              </tr>
+
+              <!-- ROW 2 -->
+              <tr class="stack-row">
+                <td class="layer-col">
+                  <span class="layer-tag">Backend &amp; APIs</span>
+                  <div class="tech-pills">
+                    <span class="tp tp-fastapi">FastAPI</span>
+                    <span class="tp tp-fastapi">Python 3.11</span>
+                    <span class="tp tp-fastapi">Pydantic v2</span>
+                  </div>
+                </td>
+                <td class="bullets-col">
+                  <ul class="stack-list">
+                    <li>Async non-blocking REST</li>
+                    <li>Strict schema validation</li>
+                    <li>Dynamic action dispatch</li>
+                    <li>&lt; 200ms gateway latency</li>
+                  </ul>
+                </td>
+              </tr>
+
+              <!-- ROW 3 -->
+              <tr class="stack-row">
+                <td class="layer-col">
+                  <span class="layer-tag">Core ML &amp; GenAI</span>
+                  <div class="tech-pills">
+                    <span class="tp tp-ml">XGBoost</span>
+                    <span class="tp tp-ml">TreeSHAP</span>
+                    <span class="tp tp-ml">Groq LLaMA</span>
+                  </div>
+                </td>
+                <td class="bullets-col">
+                  <ul class="stack-list">
+                    <li>98.9% 10-D model accuracy</li>
+                    <li>Sub-2s factor attributions</li>
+                    <li>Zero-recalculation LLM</li>
+                    <li>16-sector alternate pivot</li>
+                  </ul>
+                </td>
+              </tr>
+
+              <!-- ROW 4 -->
+              <tr class="stack-row">
+                <td class="layer-col">
+                  <span class="layer-tag">Speech &amp; Indic NLP</span>
+                  <div class="tech-pills">
+                    <span class="tp tp-bhashini">BHASHINI</span>
+                    <span class="tp tp-bhashini">POOJA AI</span>
+                    <span class="tp tp-bhashini">Sarvam</span>
+                  </div>
+                </td>
+                <td class="bullets-col">
+                  <ul class="stack-list">
+                    <li>22 Official Languages ASR/TTS</li>
+                    <li>Hands-free voice UI actions</li>
+                    <li>Regional mother-tongue DPR</li>
+                    <li>Noise-robust rural acoustic</li>
+                  </ul>
+                </td>
+              </tr>
+
+              <!-- ROW 5 -->
+              <tr class="stack-row">
+                <td class="layer-col">
+                  <span class="layer-tag">Database &amp; Spatial</span>
+                  <div class="tech-pills">
+                    <span class="tp tp-db">Neon Postgres</span>
+                    <span class="tp tp-db">Data.gov.in</span>
+                    <span class="tp tp-db">LGD Mesh</span>
+                  </div>
+                </td>
+                <td class="bullets-col">
+                  <ul class="stack-list">
+                    <li>6.6L Census Villages CAGR</li>
+                    <li>613 District amenities API</li>
+                    <li>DPIIT ODOP cluster crosswalk</li>
+                    <li>Async connection pooling</li>
+                  </ul>
+                </td>
+              </tr>
+
+              <!-- ROW 6 -->
+              <tr class="stack-row">
+                <td class="layer-col">
+                  <span class="layer-tag">DevOps &amp; Security</span>
+                  <div class="tech-pills">
+                    <span class="tp tp-ops">Docker</span>
+                    <span class="tp tp-ops">Vercel</span>
+                    <span class="tp tp-ops">Firebase</span>
+                  </div>
+                </td>
+                <td class="bullets-col">
+                  <ul class="stack-list">
+                    <li>Multi-container Dockerized</li>
+                    <li>Multi-tenant JWT isolation</li>
+                    <li>Zero-hardcoding 36 States</li>
+                    <li>&lt; &#8377;0.50 unit DPR economics</li>
+                  </ul>
+                </td>
+              </tr>
+
+            </tbody>
+          </table>
+
+          <!-- ACTION BUTTONS -->
+          <div class="action-buttons">
+            <div class="action-btn btn-proto">🚀 Prototype Link</div>
+            <div class="action-btn btn-drive">📑 Research Drive</div>
+            <div class="action-btn btn-demo">🎥 Demo Video Link</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SLIDE 4 (PAGE 2): PRESENTER'S TECHNICAL PITCH SCRIPT & DEFENSIVE Q&A -->
+  <div class="slide page-2">
+    <div class="tricolor-bar"></div>
+
+    <div class="script-header">
+      <div>
+        <h2>Slide 4: Technical Architecture Pitch Blueprint</h2>
+        <div style="font-size: 13.5px; color: #64748b; font-weight: 600; margin-top: 3px;">
+          Team: <strong>Recursive Rebels</strong> | Topic: <strong>System Architecture, Stack &amp; Sovereign Moats</strong> | Platform: <strong>Udyam Saathi</strong>
+        </div>
+      </div>
+      <div class="ps-tag" style="font-size: 12.5px; padding: 6px 14px;">Slide 4 Technical Defense</div>
+    </div>
+
+    <div class="script-grid">
+      <!-- LEFT: 90-SECOND TECHNICAL PITCH -->
+      <div class="script-box">
+        <h3><span>🎤</span> 90-Second Verbatim Technical Pitch</h3>
+        
+        <div class="pitch-point">
+          <strong>1. Decoupled Tri-Tier Core Architecture (0s - 30s)</strong>
+          <p>"Judges, enterprise credit requires zero tolerance for mathematical errors. That's why Udyam Saathi decouples computation into a strict <strong>Tri-Tier Core</strong>: 100% of banking math—including Nayak working capital and RBI-mandated DSCR—is computed in deterministic Python. Our spatial engine simultaneously maps 6.6 Lakh villages and 613 district amenities, feeding a 10-dimensional XGBoost classifier that delivers <strong>98.9% cross-validation accuracy</strong>."</p>
+        </div>
+
+        <div class="pitch-point">
+          <strong>2. Lundberg TreeSHAP & Zero-Recalculation Guardrails (30s - 55s)</strong>
+          <p>"Instead of an opaque black-box AI score, we use <strong>Lundberg TreeSHAP</strong> to compute exact game-theoretic factor attributions in under 2 seconds. When loan officers inspect a verdict, they see the exact rupee and demographic variables driving it. The LLM—Groq LLaMA 3.3 70B—is strictly restricted to multilingual narrative translation, protected by our <strong>Zero-Recalculation Invariant</strong> so no numbers can ever be hallucinated."</p>
+        </div>
+
+        <div class="pitch-point">
+          <strong>3. Sovereign Digital India BHASHINI & POOJA Engine (55s - 90s)</strong>
+          <p>"To solve the rural literacy barrier, we integrated <strong>Digital India Bhashini</strong> across all 22 official Indian languages. Our voice co-pilot, <strong>POOJA</strong>, is not a simple chat wrapper—it has dynamic speech-to-action dispatch that allows users to verbally command UI navigation, switch dialects, and receive spoken solvency briefings. Combined with serverless Neon Postgres and containerized FastAPIs, our platform delivers an institutional-grade bank DPR for <strong>under 50 paise per execution</strong>."</p>
+        </div>
+      </div>
+
+      <!-- RIGHT: DEFENSIVE TECHNICAL Q&A -->
+      <div class="script-box">
+        <h3><span>🛡️</span> Technical Jury Q&A Cheat Sheet</h3>
+
+        <div class="qa-card">
+          <div class="q">Q1: "Why use XGBoost instead of a Deep Learning / Neural Network model?"</div>
+          <div class="a"><strong>Defense:</strong> "Commercial credit underwriting demands explainability and auditability. Deep neural networks act as black boxes that cannot be defended to RBI auditors. XGBoost combined with TreeSHAP provides mathematically provable, game-theoretic feature attributions, while outperforming neural nets on tabular credit data."</div>
+        </div>
+
+        <div class="qa-card">
+          <div class="q">Q2: "How does POOJA execute actions on the UI through voice?"</div>
+          <div class="a"><strong>Defense:</strong> "POOJA uses an Action Registry schema in FastAPI. When a user speaks in any of the 22 Bhashini languages, intent classification identifies whether the user wants an informational query or a platform mutation. Actions like language switching or DPR section navigation are dispatched as structured JSON tool calls to the React frontend."</div>
+        </div>
+
+        <div class="qa-card">
+          <div class="q">Q3: "How do you guarantee that the LLM doesn't alter financial figures in the DPR?"</div>
+          <div class="a"><strong>Defense:</strong> "Our Zero-Recalculation Invariant: the LLM is passed pre-computed JSON financial tables and is prompt-locked to only draft qualitative explanatory text. The final PDF generator directly binds deterministic numbers into the statutory template, completely bypassing LLM manipulation."</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

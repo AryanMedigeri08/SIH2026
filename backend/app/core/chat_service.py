@@ -313,7 +313,7 @@ class ChatService:
     ) -> Dict[str, Any]:
         """
         Processes conversation history and returns assistant response with guardrail protection,
-        verified data sources attribution, and latency metadata.
+        verified data sources attribution, tool-calling support, and latency metadata.
         """
         start_time = time.perf_counter()
         
@@ -337,6 +337,7 @@ class ChatService:
                     "sources": refusal_sources,
                     "is_fallback": True,
                     "latency_ms": round(latency, 2),
+                    "tool_call": None,
                 }
 
         api_key = self._get_api_key()
@@ -344,6 +345,9 @@ class ChatService:
 
         # Build full system instruction with page grounding
         system_instruction = BASE_SYSTEM_PROMPT + self._build_context_prompt(context)
+
+        # Tool-calling instructions (shared with voice pipeline)
+        system_instruction += VOICE_TOOL_CALLING_PROMPT
         
         # Language instruction (Dynamic multilingual response support)
         target_lang_name = LANGUAGE_NAMES.get(language, "English")
@@ -378,9 +382,10 @@ class ChatService:
                 "sources": matched_sources,
                 "is_fallback": True,
                 "latency_ms": round(latency, 2),
+                "tool_call": None,
             }
 
-        # Attempt Groq completion with model fallback cascade
+        # Attempt Groq completion with tool-calling and model fallback cascade
         try:
             from groq import Groq
 
@@ -392,18 +397,43 @@ class ChatService:
             models_to_try = list(dict.fromkeys(models_to_try))
 
             assistant_reply = None
+            tool_call_result = None
             used_model = models_to_try[0]
 
             for model_name in models_to_try:
                 try:
-                    chat_completion = client.chat.completions.create(
-                        messages=groq_messages,
-                        model=model_name,
-                        temperature=0.2,
-                        max_tokens=1024,
-                    )
-                    assistant_reply = chat_completion.choices[0].message.content
+                    call_kwargs = {
+                        "messages": groq_messages,
+                        "model": model_name,
+                        "temperature": 0.2,
+                        "max_tokens": 1024,
+                        "tools": ACTION_REGISTRY_SCHEMA,
+                        "tool_choice": "auto",
+                    }
+                    chat_completion = client.chat.completions.create(**call_kwargs)
+                    choice = chat_completion.choices[0]
+                    message = choice.message
+
+                    assistant_reply = message.content or ""
                     used_model = model_name
+
+                    # Parse tool calls if present
+                    if message.tool_calls and len(message.tool_calls) > 0:
+                        tc = message.tool_calls[0]
+                        try:
+                            args = json.loads(tc.function.arguments) if tc.function.arguments else {}
+                        except (json.JSONDecodeError, TypeError):
+                            args = {}
+                        tool_call_result = {
+                            "name": tc.function.name,
+                            "arguments": args,
+                        }
+                        logger.info(
+                            "Chat tool call: %s(%s)",
+                            tc.function.name,
+                            json.dumps(args, ensure_ascii=False),
+                        )
+
                     break
                 except Exception as model_err:
                     logger.warning("Groq model %s failed: %s; trying fallback model...", model_name, model_err)
@@ -425,6 +455,7 @@ class ChatService:
                 "sources": matched_sources,
                 "is_fallback": False,
                 "latency_ms": round(latency, 2),
+                "tool_call": tool_call_result,
             }
 
         except Exception as e:
@@ -438,6 +469,7 @@ class ChatService:
                 "sources": matched_sources,
                 "is_fallback": True,
                 "latency_ms": round(latency, 2),
+                "tool_call": None,
             }
 
     def generate_grounded_reply(

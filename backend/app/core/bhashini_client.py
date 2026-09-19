@@ -147,7 +147,7 @@ class BhashiniClient:
             "Content-Type": "application/json",
         }
 
-        logger.info(
+        logger.debug(
             "Fetching Bhashini pipeline config for task='%s', lang='%s' from ULCA...",
             task_type,
             norm_lang,
@@ -226,7 +226,7 @@ class BhashiniClient:
             async with self._lock:
                 self._config_cache[cache_key] = resolved_config
 
-            logger.info(
+            logger.debug(
                 "Bhashini config cached for (%s, %s): serviceId=%s",
                 task_type,
                 norm_lang,
@@ -333,7 +333,7 @@ class BhashiniClient:
                     transcript = output_list[0].get("source", "")
 
             latency = round(time.perf_counter() - start, 3)
-            logger.info(
+            logger.debug(
                 "Bhashini ASR success: lang='%s', chars=%d, latency=%.3fs",
                 norm_lang,
                 len(transcript),
@@ -449,7 +449,7 @@ class BhashiniClient:
 
             audio_bytes = base64.b64decode(audio_b64)
             latency = round(time.perf_counter() - start, 3)
-            logger.info(
+            logger.debug(
                 "Bhashini TTS success: lang='%s', bytes=%d, latency=%.3fs",
                 norm_lang,
                 len(audio_bytes),
