@@ -55,14 +55,72 @@ except ImportError:
 
 logger = logging.getLogger("udyam_saathi.audio_chat")
 
-# ISO 639-1 language code mapping for Whisper STT and gTTS
+# Comprehensive ISO 639-1 language code and alias mapping
+LANGUAGE_NAME_TO_CODE: dict[str, str] = {
+    "english": "en",
+    "en": "en",
+    "hindi": "hi",
+    "hi": "hi",
+    "marathi": "mr",
+    "mr": "mr",
+    "bengali": "bn",
+    "bn": "bn",
+    "gujarati": "gu",
+    "gu": "gu",
+    "tamil": "ta",
+    "ta": "ta",
+    "telugu": "te",
+    "te": "te",
+    "kannada": "kn",
+    "kn": "kn",
+    "malayalam": "ml",
+    "ml": "ml",
+    "punjabi": "pa",
+    "pa": "pa",
+    "urdu": "ur",
+    "ur": "ur",
+    "odia": "or",
+    "oriya": "or",
+    "or": "or",
+    "assamese": "as",
+    "as": "as",
+    "sanskrit": "sa",
+    "sa": "sa",
+    "kashmiri": "ks",
+    "ks": "ks",
+    "nepali": "ne",
+    "ne": "ne",
+    "sindhi": "sd",
+    "sd": "sd",
+    "konkani": "kok",
+    "kok": "kok",
+    "bodo": "brx",
+    "brx": "brx",
+    "dogri": "doi",
+    "doi": "doi",
+    "maithili": "mai",
+    "mai": "mai",
+    "manipuri": "mni",
+    "mni": "mni",
+    "santali": "sat",
+    "sat": "sat",
+}
+
+# Supported voice languages with STT/TTS metadata across Indian languages
 VOICE_LANGUAGE_MAP: dict[str, dict[str, str]] = {
     "en": {"code": "en", "name": "English", "gtts": "en", "native": "English"},
-    "hi": {"code": "hi", "name": "Hindi", "gtts": "hi", "native": "हिन्दी"},
-    "mr": {"code": "mr", "name": "Marathi", "gtts": "mr", "native": "मराठी"},
-    "te": {"code": "te", "name": "Telugu", "gtts": "te", "native": "తెలుగు"},
-    "ta": {"code": "ta", "name": "Tamil", "gtts": "ta", "native": "தமிழ்"},
-    "kn": {"code": "kn", "name": "Kannada", "gtts": "kn", "native": "ಕನ್ನಡ"},
+    "hi": {"code": "hi", "name": "Hindi (हिन्दी)", "gtts": "hi", "native": "हिन्दी"},
+    "mr": {"code": "mr", "name": "Marathi (मराठी)", "gtts": "mr", "native": "मराठी"},
+    "te": {"code": "te", "name": "Telugu (తెలుగు)", "gtts": "te", "native": "తెలుగు"},
+    "ta": {"code": "ta", "name": "Tamil (தமிழ்)", "gtts": "ta", "native": "தமிழ்"},
+    "kn": {"code": "kn", "name": "Kannada (ಕನ್ನಡ)", "gtts": "kn", "native": "ಕನ್ನಡ"},
+    "bn": {"code": "bn", "name": "Bengali (বাংলা)", "gtts": "bn", "native": "বাংলা"},
+    "gu": {"code": "gu", "name": "Gujarati (ગુજરાતી)", "gtts": "gu", "native": "ગુજરાતી"},
+    "ml": {"code": "ml", "name": "Malayalam (മലയാളം)", "gtts": "ml", "native": "മലയാളം"},
+    "pa": {"code": "pa", "name": "Punjabi (ਪੰਜਾਬੀ)", "gtts": "pa", "native": "ਪੰਜਾਬੀ"},
+    "ur": {"code": "ur", "name": "Urdu (اردو)", "gtts": "ur", "native": "اردو"},
+    "or": {"code": "or", "name": "Odia (ଓଡ଼ିଆ)", "gtts": "or", "native": "ଓଡ଼ିଆ"},
+    "as": {"code": "as", "name": "Assamese (অসমীয়া)", "gtts": "as", "native": "অসমীয়া"},
 }
 
 # Friendly language names for degraded-language-notice
@@ -77,6 +135,7 @@ FALLBACK_LANG_FRIENDLY_NAMES = {
     "kn": ("Kannada", "कन्नड़"),
     "pa": ("Punjabi", "पंजाबी"),
     "ur": ("Urdu", "उर्दू"),
+    "ml": ("Malayalam", "मलयालम"),
 }
 
 # Telemetry counters for Voice Agent V3
@@ -91,11 +150,124 @@ _telemetry = {
 }
 
 
-def normalize_lang(lang_code: str) -> str:
-    """Normalize BCP-47 language codes (e.g. 'hi-IN' -> 'hi', 'ta-IN' -> 'ta')."""
+def normalize_lang(lang_code: Optional[str]) -> str:
+    """
+    Normalizes any language string to its canonical 2-letter (or 3-letter) ISO-639-1 code.
+    Handles:
+      - Full English names ('hindi' -> 'hi', 'marathi' -> 'mr', 'tamil' -> 'ta')
+      - BCP-47 locale codes ('hi-IN' -> 'hi', 'en-US' -> 'en', 'ta_IN' -> 'ta')
+      - Standard ISO codes ('hi' -> 'hi', 'en' -> 'en')
+    """
     if not lang_code:
         return "en"
-    return lang_code.split("-")[0].lower()
+    clean = str(lang_code).strip().lower()
+    if clean in LANGUAGE_NAME_TO_CODE:
+        return LANGUAGE_NAME_TO_CODE[clean]
+    # Check prefix before hyphen or underscore
+    first_part = clean.replace("_", "-").split("-")[0].strip()
+    if first_part in LANGUAGE_NAME_TO_CODE:
+        return LANGUAGE_NAME_TO_CODE[first_part]
+    return first_part if len(first_part) <= 3 else "en"
+
+
+def detect_script_language(text: str) -> Optional[str]:
+    """
+    Detects language based on Unicode script blocks in the transcribed text.
+    Provides a bulletproof fallback when ASR / Whisper falsely classifies Indic speech as English.
+    """
+    if not text:
+        return None
+    counts: dict[str, int] = {
+        "hi": 0,  # Devanagari (Hindi, Marathi, Sanskrit, etc.)
+        "bn": 0,  # Bengali / Assamese
+        "pa": 0,  # Gurmukhi / Punjabi
+        "gu": 0,  # Gujarati
+        "or": 0,  # Odia
+        "ta": 0,  # Tamil
+        "te": 0,  # Telugu
+        "kn": 0,  # Kannada
+        "ml": 0,  # Malayalam
+        "ur": 0,  # Arabic / Urdu
+    }
+    for ch in text:
+        code = ord(ch)
+        if 0x0900 <= code <= 0x097F:
+            counts["hi"] += 1
+        elif 0x0980 <= code <= 0x09FF:
+            counts["bn"] += 1
+        elif 0x0A00 <= code <= 0x0A7F:
+            counts["pa"] += 1
+        elif 0x0A80 <= code <= 0x0AFF:
+            counts["gu"] += 1
+        elif 0x0B00 <= code <= 0x0B7F:
+            counts["or"] += 1
+        elif 0x0B80 <= code <= 0x0BFF:
+            counts["ta"] += 1
+        elif 0x0C00 <= code <= 0x0C7F:
+            counts["te"] += 1
+        elif 0x0C80 <= code <= 0x0CFF:
+            counts["kn"] += 1
+        elif 0x0D00 <= code <= 0x0D7F:
+            counts["ml"] += 1
+        elif 0x0600 <= code <= 0x06FF:
+            counts["ur"] += 1
+
+    best_lang, best_count = max(counts.items(), key=lambda x: x[1])
+    # If 3 or more Indic characters are found, it is unquestionably an Indic script
+    if best_count >= 3:
+        # If Devanagari, check if distinctive Marathi marker characters or words are present
+        if best_lang == "hi":
+            # \u0933 is 'ळ' (Lla), exclusive to Marathi/Sanskrit in modern usage
+            if "\u0933" in text or any(w in text for w in ("आहे", "आहेत", "माहिती", "करा", "सांगा", "योजनांची")):
+                return "mr"
+            return "hi"
+        return best_lang
+    return None
+
+
+UNAMBIGUOUS_HINDI_WORDS: set[str] = {
+    "mera", "meri", "mere", "mujhe", "mujhko", "humara", "humare", "humari",
+    "aapka", "aapke", "aapki", "tumhara", "tumhare", "kaise", "kahan", "kitna",
+    "kitni", "kitne", "chahiye", "batao", "bataiye", "kijiye", "karna", "dikhao",
+    "dikhaye", "sunao", "yojana", "yojna", "nahin", "nahi", "achha", "accha",
+    "theek", "dhanyawad", "shukriya", "paise", "rupaye", "kholna", "chalana",
+}
+
+GENERAL_HINDI_WORDS: set[str] = {
+    "hai", "hain", "kya", "kyon", "karo", "hoga", "hogi", "honge", "aur", "bhi",
+    "toh", "bahut", "namaste", "pranam", "paisa", "aap", "tum", "hum",
+}
+
+UNAMBIGUOUS_MARATHI_WORDS: set[str] = {
+    "aahe", "ahet", "mala", "tula", "kasa", "kashi", "kiti", "sanga", "sang",
+    "mahit", "mahiti", "karaycha", "pahije", "dakhva", "navin", "aamhi", "tumhi",
+}
+
+
+def detect_romanized_indic_language(text: str) -> Optional[str]:
+    """
+    Detects if Romanized text (Latin characters) is actually Hindi or Marathi (Hinglish).
+    Prevents Whisper or Web Speech API from forcing English when the user speaks Hindi in Roman letters.
+    """
+    if not text:
+        return None
+    # Strip wake words first so 'hey mira' or 'mira' doesn't distort detection
+    clean_text = re.sub(r'\b(hey|hay|hi|hello|ok|okay|mira|meera|myra|miraa)\b', ' ', text, flags=re.IGNORECASE)
+    words = set(re.findall(r'\b[a-zA-Z]+\b', clean_text.lower()))
+    if not words:
+        return None
+
+    if any(w in words for w in UNAMBIGUOUS_MARATHI_WORDS):
+        return "mr"
+
+    if any(w in words for w in UNAMBIGUOUS_HINDI_WORDS):
+        return "hi"
+
+    general_count = sum(1 for w in words if w in GENERAL_HINDI_WORDS)
+    if general_count >= 2:
+        return "hi"
+
+    return None
 
 
 def _get_fallback_supported_langs() -> set[str]:
@@ -127,7 +299,9 @@ def _clean_markdown_for_speech(text: str) -> str:
     # Remove bullet markers
     cleaned = re.sub(r'^\s*[-+*]\s+', '', cleaned, flags=re.MULTILINE)
     # Remove data sources lines from voice audio to keep speech snappy
-    cleaned = re.sub(r'\b(Data Sources|தரவு ஆதாரங்கள்|డేటా మూలాలు|ಡೇಟಾ ಮೂಲಗಳು|डेटा स्रोत):\s*.*$', '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
+    cleaned = re.sub(r'\b(Data Sources|தரவு ஆதாரங்கள்|డేటా మూலாలు|ಡೇಟಾ ಮೂಲಗಳು|डेटा स्रोत):\s*.*$', '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
+    # Replace exclamation marks to avoid TTS engines pronouncing them as 'Factorial'
+    cleaned = re.sub(r'!', '.', cleaned)
     # Normalize multiple whitespace and newlines
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
     return cleaned
@@ -135,46 +309,32 @@ def _clean_markdown_for_speech(text: str) -> str:
 
 def build_degraded_language_notice_response() -> dict[str, Any]:
     """
-    Returns a fixed (non-LLM-generated, fully deterministic) response when
+    Returns a fixed (non-LLM-generated, fully deterministic) response in Hindi when
     the detected language is not supported by the fallback tier.
     
-    Bilingual English + Hindi notice listing supported languages.
-    Audio is synthesized from the Hindi portion via gTTS.
+    Audio is synthesized in Hindi via gTTS.
     This path SKIPS the LLM call entirely.
     """
     supported_langs = _get_fallback_supported_langs()
     
-    # Build friendly language lists
-    en_names = []
+    # Build friendly language lists in Hindi
     hi_names = []
     for lang in sorted(supported_langs):
         names = FALLBACK_LANG_FRIENDLY_NAMES.get(lang)
         if names:
-            en_names.append(names[0])
             hi_names.append(names[1])
     
-    en_list = ", ".join(en_names)
     hi_list = ", ".join(hi_names)
     
     notice_text = (
-        f"Voice support for this language isn't available right now. "
-        f"I can currently help you in: {en_list}. "
-        f"Please try one of these, or type your question. / "
         f"अभी इस भाषा में आवाज़ सहायता उपलब्ध नहीं है। "
-        f"मैं फिलहाल इन भाषाओं में मदद कर सकता हूँ: {hi_list}। "
-        f"कृपया इनमें से कोई एक आज़माएँ, या टाइप करके पूछें।"
-    )
-    
-    # Synthesize Hindi portion via gTTS
-    hindi_text = (
-        f"अभी इस भाषा में आवाज़ सहायता उपलब्ध नहीं है। "
-        f"मैं फिलहाल इन भाषाओं में मदद कर सकता हूँ: {hi_list}। "
+        f"मैं फिलहाल इन भाषाओं में मदद कर सकती हूँ: {hi_list}। "
         f"कृपया इनमें से कोई एक आज़माएँ, या टाइप करके पूछें।"
     )
     
     audio_base64 = ""
     try:
-        tts = gTTS(text=hindi_text, lang="hi", slow=False)
+        tts = gTTS(text=notice_text, lang="hi", slow=False)
         buffer = io.BytesIO()
         tts.write_to_fp(buffer)
         audio_bytes = buffer.getvalue()
@@ -185,7 +345,7 @@ def build_degraded_language_notice_response() -> dict[str, Any]:
     # Increment telemetry counter
     _telemetry["voice_degraded_language_notice_total"] += 1
     logger.info(
-        "Degraded language notice served (total: %d)",
+        "Degraded language notice served in Hindi (total: %d)",
         _telemetry["voice_degraded_language_notice_total"],
     )
     
@@ -193,8 +353,8 @@ def build_degraded_language_notice_response() -> dict[str, Any]:
         "user_transcript": "(Unsupported language detected)",
         "reply": notice_text,
         "language": "hi",
-        "language_name": "Hindi",
-        "detected_language": "unknown",
+        "language_name": "Hindi (हिन्दी)",
+        "detected_language": "hi",
         "tier_used": "fallback",
         "sources": [],
         "audio_base64": audio_base64,
@@ -243,36 +403,47 @@ class AudioChatService:
         self,
         audio_bytes: bytes,
         filename: str = "recording.webm",
-        language: str = "en",
+        language: str = None,
     ) -> dict[str, Any]:
         """
-        Transcribes audio using Groq Whisper Large v3 with forced language constraint.
-        """
-        lang_code = language.lower() if language else "en"
-        lang_meta = VOICE_LANGUAGE_MAP.get(lang_code, VOICE_LANGUAGE_MAP["en"])
+        Transcribes audio using Groq Whisper Large v3.
         
+        If language is None, Whisper auto-detects the spoken language.
+        If language is provided, Whisper is constrained to that language.
+        """
         stt_client = self._get_stt_client()
         if not stt_client:
             raise ValueError("Groq STT client is not configured. Please set GROQ_API_KEY_STT or GROQ_API_KEY.")
 
         start_time = time.perf_counter()
         try:
-            # Transcribe with language constraint to prevent hallucinated language detection
-            transcription = stt_client.audio.transcriptions.create(
-                file=(filename, audio_bytes),
-                model=self._stt_model,
-                language=lang_meta["code"],
-                response_format="json",
-                temperature=0.0,
-            )
+            # Build Whisper request params
+            whisper_kwargs = {
+                "file": (filename, audio_bytes),
+                "model": self._stt_model,
+                "response_format": "verbose_json",  # Returns detected language
+                "temperature": 0.0,
+            }
+            # Only constrain language if explicitly provided (not None)
+            if language:
+                lang_code = language.lower()
+                lang_meta = VOICE_LANGUAGE_MAP.get(lang_code, VOICE_LANGUAGE_MAP.get("en"))
+                whisper_kwargs["language"] = lang_meta["code"] if lang_meta else lang_code
+
+            transcription = stt_client.audio.transcriptions.create(**whisper_kwargs)
             stt_latency = time.perf_counter() - start_time
-            transcript = transcription.text.strip()
+            transcript = transcription.text.strip() if hasattr(transcription, 'text') else str(transcription).strip()
+
+            # Extract detected language from verbose_json response
+            raw_detected = getattr(transcription, 'language', None) or (language or 'en')
+            detected_code = normalize_lang(raw_detected)
+            lang_meta = VOICE_LANGUAGE_MAP.get(detected_code, {"code": detected_code, "name": detected_code.capitalize()})
             
             return {
                 "transcript": transcript,
-                "language": lang_meta["code"],
-                "language_name": lang_meta["name"],
-                "detected_language_code": lang_meta["code"],
+                "language": detected_code,
+                "language_name": lang_meta.get("name", detected_code),
+                "detected_language_code": detected_code,
                 "latency_s": round(stt_latency, 3),
             }
         except Exception as e:
@@ -283,7 +454,7 @@ class AudioChatService:
         """
         Synthesizes text into high-quality natural speech audio (MP3 base64) using gTTS.
         """
-        lang_code = language.lower() if language else "en"
+        lang_code = normalize_lang(language) if language else "en"
         lang_meta = VOICE_LANGUAGE_MAP.get(lang_code, VOICE_LANGUAGE_MAP["en"])
         gtts_code = lang_meta.get("gtts", "en")
 
@@ -321,36 +492,73 @@ class AudioChatService:
 
     async def text_to_speech_v2(self, text: str, language: str = "en") -> dict[str, Any]:
         """
-        Async TTS: Attempts Bhashini TTS first (higher quality native Indic voices),
-        falls back to gTTS on failure. Returns the same dict format as text_to_speech().
+        Synthesizes speech using Bhashini TTS (primary) with automatic fallback to gTTS.
+        Used by the /tts endpoint.
         """
-        lang_code = language.lower() if language else "en"
-        lang_meta = VOICE_LANGUAGE_MAP.get(lang_code, VOICE_LANGUAGE_MAP["en"])
-
+        lang_code = normalize_lang(language) if language else "en"
         clean_text = _clean_markdown_for_speech(text)
         if not clean_text:
             clean_text = text or "Response ready."
 
         start_time = time.perf_counter()
 
-        # Try Bhashini TTS first
+        # Primary: Bhashini TTS
         try:
             tts_audio_bytes = await bhashini_client.synthesize(clean_text, lang_code)
             b64 = base64.b64encode(tts_audio_bytes).decode("utf-8")
             data_url = f"data:audio/wav;base64,{b64}"
-            tts_latency = time.perf_counter() - start_time
-            logger.info("Bhashini TTS success for /tts endpoint: lang=%s, latency=%.3fs", lang_code, tts_latency)
+            tts_latency = round(time.perf_counter() - start_time, 3)
+            lang_meta = VOICE_LANGUAGE_MAP.get(lang_code, {"name": lang_code.capitalize()})
+            logger.info(
+                "[🇮🇳 BHASHINI TTS] Sovereign Indic Voice Synthesized (%s) | %d KB | ⏱️ %dms",
+                lang_code,
+                len(tts_audio_bytes) // 1024,
+                int(tts_latency * 1000),
+            )
             return {
                 "audio_base64": data_url,
                 "language": lang_code,
-                "language_name": lang_meta["name"],
-                "latency_s": round(tts_latency, 3),
+                "language_name": lang_meta.get("name", lang_code),
+                "latency_s": tts_latency,
+                "tier_used": "bhashini",
             }
         except Exception as bhashini_err:
             logger.warning("Bhashini TTS failed for /tts endpoint (%s), falling back to gTTS", bhashini_err)
 
         # Fallback to gTTS (synchronous)
         return self.text_to_speech(clean_text, lang_code)
+
+
+    async def _build_hindi_unrecognized_response(
+        self, stt_start: float, overall_start: float
+    ) -> dict[str, Any]:
+        """
+        Synthesizes a spoken Hindi-only response when Sarvam, Bhashini, and Whisper
+        all fail to recognize, transcribe, or understand the user's speech.
+        """
+        hindi_reply = "माफ़ कीजिये, मैं आपकी बात समझ नहीं पाई। कृपया दोबारा बोलें या लिखकर पूछें।"
+        tts_start = time.perf_counter()
+        tts_res = await self.text_to_speech_v2(hindi_reply, "hi")
+        audio_base64 = tts_res.get("audio_base64", "")
+        tts_latency = round(time.perf_counter() - tts_start, 3)
+
+        return {
+            "user_transcript": "(भाषण पहचान विफल)",
+            "reply": hindi_reply,
+            "language": "hi",
+            "language_name": "Hindi (हिन्दी)",
+            "detected_language": "hi",
+            "tier_used": "fallback",
+            "sources": [],
+            "audio_base64": audio_base64,
+            "is_fallback": True,
+            "model": "stt_failure",
+            "tool_call": None,
+            "stt_latency_s": round(time.perf_counter() - stt_start, 3),
+            "llm_latency_s": 0.0,
+            "tts_latency_s": tts_latency,
+            "total_latency_s": round(time.perf_counter() - overall_start, 3),
+        }
 
     async def run_fallback_turn(
         self,
@@ -369,32 +577,38 @@ class AudioChatService:
 
         stt_start = time.perf_counter()
         try:
-            whisper_result = self.transcribe_audio(audio_bytes, filename, "en")
-            transcript = whisper_result["transcript"]
+            # Auto-detect language (language=None) — do NOT hardcode English
+            whisper_result = self.transcribe_audio(audio_bytes, filename, language=None)
+            transcript = whisper_result.get("transcript", "").strip()
             detected_lang = whisper_result.get("detected_language_code", whisper_result.get("language", "en"))
-            stt_latency = whisper_result["latency_s"]
+            stt_latency = whisper_result.get("latency_s", 0.0)
         except Exception as whisper_err:
             logger.error("Whisper fallback STT failed: %s", whisper_err)
             _telemetry["fallback_total"] += 1
-            return {
-                "user_transcript": "(Speech recognition failed)",
-                "reply": "I'm sorry, I couldn't process your audio. Please try again or type your question.",
-                "language": "en",
-                "language_name": "English",
-                "detected_language": "en",
-                "tier_used": "fallback",
-                "sources": [],
-                "audio_base64": "",
-                "is_fallback": True,
-                "model": "stt_failure",
-                "tool_call": None,
-                "stt_latency_s": round(time.perf_counter() - stt_start, 3),
-                "llm_latency_s": 0.0,
-                "tts_latency_s": 0.0,
-                "total_latency_s": round(time.perf_counter() - overall_start, 3),
-            }
+            return await self._build_hindi_unrecognized_response(stt_start, overall_start)
+
+        if not transcript or transcript == "(No speech detected)":
+            logger.info("Whisper returned empty/no speech -> Default answer in HINDI ONLY")
+            _telemetry["fallback_total"] += 1
+            return await self._build_hindi_unrecognized_response(stt_start, overall_start)
 
         norm_lang = normalize_lang(detected_lang)
+        
+        # Safeguard: Check Unicode script in transcript
+        script_lang = detect_script_language(transcript)
+        if script_lang and norm_lang == "en":
+            logger.info("🎙️ Fallback script detection overrode '%s' -> '%s' from transcript characters", norm_lang, script_lang)
+            norm_lang = script_lang
+            detected_lang = script_lang
+
+        # Safeguard: Check Romanized Indic (Hinglish) words in transcript
+        if norm_lang == "en":
+            romanized_lang = detect_romanized_indic_language(transcript)
+            if romanized_lang:
+                logger.info("🎙️ Fallback Romanized Indic detection overrode 'en' -> '%s'", romanized_lang)
+                norm_lang = romanized_lang
+                detected_lang = romanized_lang
+
         logger.info(
             "[🤖 GROQ WHISPER] Speech Transcribed (%s): \"%s\" | ⏱️ %dms",
             norm_lang,
@@ -420,11 +634,12 @@ class AudioChatService:
             transcript = "(No speech detected)"
 
         llm_start = time.perf_counter()
-        llm_response: LLMReplyResult = chat_service.generate_grounded_reply(
+        llm_response: LLMReplyResult = chat_service.generate_voice_reply(
             transcript=transcript,
-            language=detected_lang,
+            detected_language=norm_lang,
             screen_context=context,
             tools=ACTION_REGISTRY_SCHEMA,
+            conversation_history=history,
         )
         llm_latency = round(time.perf_counter() - llm_start, 3)
         bot_reply = llm_response.text
@@ -442,23 +657,22 @@ class AudioChatService:
         )
 
         tts_start = time.perf_counter()
-        tts_res = self.text_to_speech(bot_reply, norm_lang)
+        tts_res = await self.text_to_speech_v2(bot_reply, norm_lang)
         audio_base64 = tts_res.get("audio_base64", "")
         tts_latency = round(time.perf_counter() - tts_start, 3)
         total_latency = round(time.perf_counter() - overall_start, 3)
 
+        tts_tier = tts_res.get("tier_used", "gtts")
+        tier_used = "fallback_whisper_bhashini_tts" if tts_tier == "bhashini" else "fallback"
         _telemetry["fallback_total"] += 1
 
         lang_name = LANGUAGE_NAMES.get(norm_lang, VOICE_LANGUAGE_MAP.get(norm_lang, {}).get("name", "Unknown"))
         logger.info(
-            "[🔊 gTTS] Voice Audio Synthesized (%s) | ⏱️ %dms",
-            norm_lang,
-            int(tts_latency * 1000),
-        )
-        logger.info(
-            "⚠️  [VOICE AGENT] Fallback Turn Completed: %s | Total: %.2fs | Tier: fallback",
+            "⚠️  [VOICE AGENT] Fallback STT Turn Completed: %s | Total: %.2fs | Tier: %s (TTS: %s)",
             lang_name,
             total_latency,
+            tier_used,
+            tts_tier,
         )
 
         return {
@@ -466,8 +680,8 @@ class AudioChatService:
             "reply": bot_reply,
             "language": norm_lang,
             "language_name": lang_name,
-            "detected_language": detected_lang,
-            "tier_used": "fallback",
+            "detected_language": norm_lang,
+            "tier_used": tier_used,
             "sources": sources,
             "audio_base64": audio_base64,
             "is_fallback": is_fallback,
@@ -519,10 +733,18 @@ class AudioChatService:
                 audio_bytes, filename=filename, context=context, history=history, overall_start=overall_start
             )
 
+        norm_detected = normalize_lang(detected_lang)
+
         # Step 2: Speech-to-Text via Bhashini ASR
         stt_start = time.perf_counter()
+        if audio_fmt not in ("wav", "mp3"):
+            logger.info("🎙️ Incoming format '%s' is not supported by Bhashini Conformer ASR (requires wav/mp3) -> routing to Whisper fallback with Bhashini TTS", audio_fmt)
+            return await self.run_fallback_turn(
+                audio_bytes, filename=filename, context=context, history=history, overall_start=overall_start
+            )
+
         try:
-            transcript = await bhashini_client.transcribe(audio_bytes, language_code=detected_lang)
+            transcript = await bhashini_client.transcribe(audio_bytes, language_code=norm_detected, audio_format=audio_fmt)
             stt_latency = round(time.perf_counter() - stt_start, 3)
             logger.info(
                 "[🇮🇳 BHASHINI ASR] Speech Transcribed: \"%s\" | ⏱️ %dms",
@@ -531,7 +753,7 @@ class AudioChatService:
             )
         except Exception as e:
             if isinstance(e, BhashiniLanguageUnsupportedError) or e.__class__.__name__ == "BhashiniLanguageUnsupportedError":
-                logger.warning("⚠️  [VOICE AGENT] Bhashini does not support '%s' (%s) -> routing to fallback", detected_lang, e)
+                logger.warning("⚠️  [VOICE AGENT] Bhashini does not support '%s' (%s) -> routing to fallback", norm_detected, e)
                 _telemetry["bhashini_language_gap"] += 1
                 return await self.run_fallback_turn(
                     audio_bytes, filename=filename, context=context, history=history, overall_start=overall_start
@@ -541,16 +763,27 @@ class AudioChatService:
                 audio_bytes, filename=filename, context=context, history=history, overall_start=overall_start
             )
 
-        if not transcript:
-            transcript = "(No speech detected)"
+        if not transcript or not transcript.strip() or transcript == "(No speech detected)":
+            logger.info("🎙️ Bhashini returned empty speech -> routing to Whisper fallback")
+            return await self.run_fallback_turn(
+                audio_bytes, filename=filename, context=context, history=history, overall_start=overall_start
+            )
+
+        # Safeguard: Verify detected language against transcribed text script
+        script_lang = detect_script_language(transcript)
+        if script_lang and norm_detected == "en":
+            logger.info("🎙️ Script detection overrode '%s' -> '%s' based on transcribed characters", norm_detected, script_lang)
+            norm_detected = script_lang
+            detected_lang = script_lang
 
         # Step 3: LLM Generation (Groq Cloud LLM with tool-calling)
         llm_start = time.perf_counter()
-        llm_response: LLMReplyResult = chat_service.generate_grounded_reply(
+        llm_response: LLMReplyResult = chat_service.generate_voice_reply(
             transcript=transcript,
-            language=detected_lang,
+            detected_language=norm_detected,
             screen_context=context,
             tools=ACTION_REGISTRY_SCHEMA,
+            conversation_history=history,
         )
         llm_latency = round(time.perf_counter() - llm_start, 3)
         bot_reply = llm_response.text
@@ -577,7 +810,7 @@ class AudioChatService:
         used_tier = "bhashini"
 
         try:
-            tts_audio_bytes = await bhashini_client.synthesize(speech_text, detected_lang)
+            tts_audio_bytes = await bhashini_client.synthesize(speech_text, norm_detected)
             b64 = base64.b64encode(tts_audio_bytes).decode("utf-8")
             audio_base64 = f"data:audio/wav;base64,{b64}"
             used_tier = "bhashini"
@@ -589,21 +822,19 @@ class AudioChatService:
             )
         except Exception as e:
             logger.warning("⚠️  [VOICE AGENT] Bhashini TTS unavailable (%s) -> using gTTS voice fallback", e)
-            norm = normalize_lang(detected_lang)
-            tts_res = self.text_to_speech(bot_reply, norm)
+            tts_res = self.text_to_speech(bot_reply, norm_detected)
             audio_base64 = tts_res.get("audio_base64", "")
             used_tier = "bhashini_asr_gtts_tts"
             _telemetry["bhashini_asr_gtts_tts_total"] += 1
             logger.info(
                 "[🔊 TTS FALLBACK] Voice Synthesized via gTTS (%s) | ⏱️ %dms",
-                norm,
+                norm_detected,
                 int((time.perf_counter() - tts_start) * 1000),
             )
 
         tts_latency = round(time.perf_counter() - tts_start, 3)
         total_latency = round(time.perf_counter() - overall_start, 3)
 
-        norm_detected = normalize_lang(detected_lang)
         lang_name = LANGUAGE_NAMES.get(norm_detected, VOICE_LANGUAGE_MAP.get(norm_detected, {}).get("name", "Unknown"))
 
         logger.info(

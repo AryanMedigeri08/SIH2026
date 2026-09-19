@@ -3,6 +3,7 @@ chat.py — REST API Router for Persistent Groq Chatbot, Audio Voice Agent & Ent
 """
 
 from __future__ import annotations
+import time
 import json
 import asyncio
 import logging
@@ -13,11 +14,15 @@ from pydantic import BaseModel, Field
 
 try:
     from app.core.chat_service import chat_service
-    from app.core.audio_chat_service import audio_chat_service
+    from app.core.audio_chat_service import audio_chat_service, normalize_lang
+    from app.core.bhashini_client import bhashini_client
+    from app.core import sarvam_client
     from app.config import settings
 except ImportError:
     from backend.app.core.chat_service import chat_service
-    from backend.app.core.audio_chat_service import audio_chat_service
+    from backend.app.core.audio_chat_service import audio_chat_service, normalize_lang
+    from backend.app.core.bhashini_client import bhashini_client
+    from backend.app.core import sarvam_client
     from backend.app.config import settings
 
 logger = logging.getLogger("udyam_saathi.api.chat")
@@ -34,6 +39,7 @@ class ChatCompletionRequest(BaseModel):
     messages: List[ChatMessagePayload] = Field(..., min_length=1, description="List of chat messages in conversation")
     context: Optional[Dict[str, Any]] = Field(default=None, description="Active enterprise and report telemetry context")
     language: Optional[str] = Field(default="en", description="Target response language code (en, hi, mr, ta, te, kn)")
+    is_voice_turn: bool = Field(default=False, description="Use Voice Agent system prompt and response formatting")
 
 
 class ToolCallModel(BaseModel):
@@ -63,6 +69,7 @@ class TtsResponse(BaseModel):
     language: str
     language_name: str
     latency_s: float
+    tier_used: Optional[str] = Field(default="bhashini", description="TTS engine tier used ('bhashini' or 'gtts')")
 
 
 class VoiceChatResponse(BaseModel):
@@ -100,17 +107,43 @@ async def create_chat_completion(payload: ChatCompletionRequest):
     """
     try:
         raw_messages = [{"role": m.role, "content": m.content} for m in payload.messages]
-        result = chat_service.generate_chat_response(
-            messages=raw_messages,
-            context=payload.context,
-            language=payload.language or "en",
-        )
+        last_user_msg = raw_messages[-1]["content"] if raw_messages else ""
+        logger.info("💬 [TEXT CHAT] Query: \"%s\" (lang=%s)", last_user_msg[:60], payload.language or "en")
+        
+        if payload.is_voice_turn:
+            llm_result = chat_service.generate_voice_reply(
+                transcript=last_user_msg,
+                detected_language=payload.language or "en",
+                screen_context=payload.context,
+                tools=audio_chat_service.ACTION_REGISTRY_SCHEMA,
+                conversation_history=raw_messages[:-1] if len(raw_messages) > 1 else None
+            )
+            result = {
+                "message": {"role": "assistant", "content": llm_result.text},
+                "model": llm_result.model,
+                "sources": llm_result.sources,
+                "is_fallback": llm_result.is_fallback,
+                "latency_ms": llm_result.latency_ms,
+                "tool_call": llm_result.tool_call,
+            }
+        else:
+            result = chat_service.generate_chat_response(
+                messages=raw_messages,
+                context=payload.context,
+                language=payload.language or "en",
+            )
         
         content = result.get("message", {}).get("content", "")
         result["reply"] = content
         result["timestamp"] = datetime.now(timezone.utc).isoformat()
         if "sources" not in result:
             result["sources"] = []
+        
+        tool_call = result.get("tool_call")
+        tool_name = tool_call.get("name") if isinstance(tool_call, dict) else getattr(tool_call, "name", None) if tool_call else None
+        tool_str = f" | Action: {tool_name}" if tool_name else ""
+        latency_ms = result.get("latency_ms", 0)
+        logger.info("🧠 [GROQ LLM] Response generated (%d chars) | ⏱️ %dms%s", len(content), int(latency_ms), tool_str)
         
         return result
     except Exception as e:
@@ -128,6 +161,11 @@ async def create_chat_completion(payload: ChatCompletionRequest):
 )
 @router.post(
     "/voice",
+    response_model=VoiceChatResponse,
+    include_in_schema=False,
+)
+@router.post(
+    "/voice-agent",
     response_model=VoiceChatResponse,
     include_in_schema=False,
 )
@@ -151,6 +189,12 @@ async def process_voice_audio(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Empty audio recording received. Please record again.",
             )
+
+        logger.info(
+            "🎙️  [VOICE ROUTER] Incoming audio recording: %s (%d bytes)",
+            file.filename or "recording.webm",
+            len(audio_bytes),
+        )
 
         parsed_context = None
         if context:
@@ -196,6 +240,7 @@ async def generate_speech(payload: TtsRequest):
     Attempts Bhashini TTS first for native Indic voices, falls back to gTTS.
     """
     try:
+        logger.info("🔊 [TTS ROUTER] Request: \"%s\" (lang=%s)", payload.text[:50], payload.language)
         result = await audio_chat_service.text_to_speech_v2(
             text=payload.text,
             language=payload.language or "en",
@@ -211,20 +256,63 @@ async def generate_speech(payload: TtsRequest):
 
 @router.post(
     "/stt",
-    summary="Transcribe audio to text with forced language using Groq Whisper Large v3",
+    summary="Transcribe audio to text using Sarvam LID + Bhashini ASR (primary) with Groq Whisper fallback",
 )
 async def transcribe_audio_file(
     file: UploadFile = File(...),
-    language: str = Form("en"),
+    language: Optional[str] = Form(None),
 ):
-    """Transcribes audio file to text."""
+    """Transcribes audio file using Sarvam LID + Bhashini ASR (primary) with Groq Whisper fallback."""
     try:
         audio_bytes = await file.read()
-        return audio_chat_service.transcribe_audio(
+        audio_fmt = file.filename.split(".")[-1].lower() if (file.filename and "." in file.filename) else "wav"
+        if audio_fmt not in ("wav", "mp3", "webm", "ogg", "opus", "m4a", "flac"):
+            audio_fmt = "wav"
+
+        norm_lang = normalize_lang(language) if (language and language.strip()) else None
+
+        # Primary: Sarvam LID (if language not passed) -> Bhashini ASR (for supported wav/mp3 audio)
+        if not norm_lang:
+            try:
+                detected_lang = await sarvam_client.detect_language(audio_bytes, audio_format=audio_fmt)
+                norm_lang = normalize_lang(detected_lang)
+            except Exception as sarvam_err:
+                logger.debug("Sarvam LID for /stt notice: %s", sarvam_err)
+
+        if norm_lang and audio_fmt in ("wav", "mp3"):
+            try:
+                start_time = time.perf_counter()
+                transcript = await bhashini_client.transcribe(
+                    audio_bytes, language_code=norm_lang, audio_format=audio_fmt
+                )
+                if transcript and transcript.strip():
+                    stt_latency = round(time.perf_counter() - start_time, 3)
+                    lang_name = chat_service.LANGUAGE_NAMES.get(norm_lang, norm_lang.capitalize())
+                    logger.info(
+                        "[🇮🇳 BHASHINI ASR] Speech Transcribed (/stt %s): \"%s\" | ⏱️ %dms",
+                        norm_lang,
+                        transcript if len(transcript) <= 70 else transcript[:67] + "...",
+                        int(stt_latency * 1000),
+                    )
+                    return {
+                        "transcript": transcript,
+                        "language": norm_lang,
+                        "language_name": lang_name,
+                        "detected_language_code": norm_lang,
+                        "latency_s": stt_latency,
+                        "provider": "bhashini",
+                    }
+            except Exception as bhashini_err:
+                logger.warning("Bhashini ASR failed for /stt endpoint (%s), routing to Whisper fallback", bhashini_err)
+
+        # Fallback: Groq Whisper Large v3 (with auto-detection if language is None)
+        result = audio_chat_service.transcribe_audio(
             audio_bytes=audio_bytes,
             filename=file.filename or "audio.webm",
-            language=language or "en",
+            language=norm_lang,
         )
+        result["provider"] = "groq_whisper"
+        return result
     except Exception as e:
         logger.error("STT transcription error: %s", e, exc_info=True)
         raise HTTPException(

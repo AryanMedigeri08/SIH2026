@@ -84,7 +84,7 @@ export function ChatbotNavButton() {
         </span>
       </button>
 
-      {/* Voice Wake Word "Hey Siri" — Small Circular Toggle */}
+      {/* Voice Wake Word "Mira" — Small Circular Toggle */}
       <button
         ref={siriToggleRef}
         type="button"
@@ -100,10 +100,10 @@ export function ChatbotNavButton() {
         }`}
         title={
           isWakeWordEnabled
-            ? `🎙️ "Hey Siri" is LISTENING in background [${wakeWordEngine === 'native_webspeech' ? 'Chrome Native Speech' : 'Groq Whisper VAD'}]. Speak "Hey Siri" anytime to activate! (Click to mute)`
-            : '🎙️ Click to enable "Hey Siri" voice activation'
+            ? `🎙️ "Mira" is LISTENING in background [Backend Sarvam + Bhashini ASR]. Speak "Mira" anytime to activate! (Click to mute)`
+            : '🎙️ Click to enable "Mira" voice activation'
         }
-        aria-label="Toggle 'Hey Siri' Voice Activation"
+        aria-label="Toggle 'Mira' Voice Activation"
         aria-pressed={isWakeWordEnabled}
       >
         {/* Active listening ping ring */}

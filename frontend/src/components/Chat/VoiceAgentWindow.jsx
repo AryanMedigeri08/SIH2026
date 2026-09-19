@@ -1,213 +1,160 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Bot, Mic, Volume2, Loader2, Sparkles, Zap } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { X } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
+import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 
 /**
- * VoiceAgentWindow — Lightweight floating voice-agent status widget.
- * 
- * Appears below the Siri toggle when activated via "Hey Siri".
- * Shows a cute animated bot avatar that communicates the current voice state:
- * IDLE (hidden) | LISTENING | THINKING | SPEAKING | ACTION
- * 
- * Pure visual representation — speech capture is managed seamlessly by the
- * background speech recognition engine with 0 microphone device contention.
+ * VoiceAgentWindow — Professional floating voice-agent widget.
+ *
+ * Redesigned with a minimal, premium, AI-native visual language.
+ * Central audio-reactive orb replaces the old cartoon bot avatar.
+ *
+ * States: IDLE (hidden) | LISTENING | THINKING | SPEAKING | WAITING_FOR_USER
+ *
+ * Key design principles:
+ * - Minimal, calm, professional
+ * - Audio-reactive animations (not arbitrary timers)
+ * - State-synchronized with real backend lifecycle
+ * - Conversational loop: listen → process → speak → wait → listen again
  */
 
-// ─── Animated Bot SVG Avatar ───────────────────────────────────────
-function BotAvatar({ state }) {
-  const eyeScale = state === 'LISTENING' ? 1.3 : state === 'THINKING' ? 0.6 : 1;
-  const mouthWidth = state === 'SPEAKING' ? 14 : 10;
-  const mouthRy = state === 'SPEAKING' ? 4 : 2;
+// ─── Language Display Names ────────────────────────────────────────
+const LANG_NAMES = {
+  hi: 'Hindi', 'hi-IN': 'Hindi',
+  en: 'English', 'en-IN': 'English',
+  te: 'Telugu', 'te-IN': 'Telugu',
+  ta: 'Tamil', 'ta-IN': 'Tamil',
+  kn: 'Kannada', 'kn-IN': 'Kannada',
+  mr: 'Marathi', 'mr-IN': 'Marathi',
+  bn: 'Bengali', 'bn-IN': 'Bengali',
+  gu: 'Gujarati', 'gu-IN': 'Gujarati',
+  ml: 'Malayalam', 'ml-IN': 'Malayalam',
+  pa: 'Punjabi', 'pa-IN': 'Punjabi',
+};
+
+// ─── Audio-Reactive Orb ────────────────────────────────────────────
+function VoiceOrb({ state, volume = 0 }) {
+  const orbScale = useMemo(() => {
+    if (state === 'LISTENING') return 1 + volume * 0.4;
+    if (state === 'SPEAKING') return 1 + volume * 0.35;
+    return 1;
+  }, [state, volume]);
+
+  const orbConfig = useMemo(() => {
+    switch (state) {
+      case 'LISTENING':
+        return {
+          bg: 'radial-gradient(circle, rgba(34,211,238,0.5) 0%, rgba(6,182,212,0.25) 50%, transparent 70%)',
+          border: '2px solid rgba(34,211,238,0.5)',
+          shadow: `0 0 ${20 + volume * 40}px rgba(34,211,238,${0.3 + volume * 0.4}), 0 0 ${40 + volume * 60}px rgba(34,211,238,${0.1 + volume * 0.2})`,
+          animation: 'none',
+        };
+      case 'THINKING':
+        return {
+          bg: 'radial-gradient(circle, rgba(129,140,248,0.4) 0%, rgba(99,102,241,0.2) 50%, transparent 70%)',
+          border: '2px solid rgba(129,140,248,0.35)',
+          shadow: '0 0 24px rgba(129,140,248,0.25), 0 0 48px rgba(99,102,241,0.1)',
+          animation: 'voiceOrbBreathe 2.5s ease-in-out infinite',
+        };
+      case 'SPEAKING':
+        return {
+          bg: 'radial-gradient(circle, rgba(52,211,153,0.45) 0%, rgba(16,185,129,0.2) 50%, transparent 70%)',
+          border: '2px solid rgba(52,211,153,0.45)',
+          shadow: `0 0 ${20 + volume * 35}px rgba(52,211,153,${0.3 + volume * 0.3}), 0 0 ${40 + volume * 50}px rgba(16,185,129,${0.1 + volume * 0.15})`,
+          animation: 'none',
+        };
+      case 'WAITING_FOR_USER':
+        return {
+          bg: 'radial-gradient(circle, rgba(148,163,184,0.2) 0%, rgba(100,116,139,0.1) 50%, transparent 70%)',
+          border: '2px solid rgba(148,163,184,0.2)',
+          shadow: '0 0 16px rgba(148,163,184,0.1)',
+          animation: 'voiceOrbIdle 3s ease-in-out infinite',
+        };
+      default:
+        return {
+          bg: 'transparent',
+          border: '2px solid rgba(148,163,184,0.15)',
+          shadow: 'none',
+          animation: 'none',
+        };
+    }
+  }, [state, volume]);
 
   return (
-    <svg
-      viewBox="0 0 80 80"
-      className="w-20 h-20"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Head - rounded rectangle with gradient */}
-      <defs>
-        <linearGradient id="botHeadGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#6366f1" />
-          <stop offset="50%" stopColor="#8b5cf6" />
-          <stop offset="100%" stopColor="#a78bfa" />
-        </linearGradient>
-        <linearGradient id="botFaceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#1e1b4b" />
-          <stop offset="100%" stopColor="#312e81" />
-        </linearGradient>
-        <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#67e8f9" />
-          <stop offset="100%" stopColor="#22d3ee" />
-        </radialGradient>
-      </defs>
-
-      {/* Antenna */}
-      <line x1="40" y1="8" x2="40" y2="16" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" />
-      <circle cx="40" cy="6" r="3.5" fill="#c4b5fd">
-        <animate
-          attributeName="r"
-          values={state === 'LISTENING' ? '3.5;5.5;3.5' : state === 'THINKING' ? '3.5;4.5;3.5' : '3.5'}
-          dur={state === 'LISTENING' ? '1.1s' : '2s'}
-          repeatCount="indefinite"
-        />
-        <animate
-          attributeName="fill"
-          values={state === 'LISTENING' ? '#c4b5fd;#67e8f9;#c4b5fd' : '#c4b5fd'}
-          dur="1.5s"
-          repeatCount="indefinite"
-        />
-      </circle>
-
-      {/* Head body */}
-      <rect x="12" y="16" width="56" height="48" rx="16" ry="16" fill="url(#botHeadGrad)" />
-      {/* Inner face panel */}
-      <rect x="17" y="21" width="46" height="38" rx="12" ry="12" fill="url(#botFaceGrad)" opacity="0.9" />
-
-      {/* Left Eye */}
-      <ellipse cx="30" cy="36" rx="5" ry="5" fill="url(#eyeGlow)">
-        <animateTransform
-          attributeName="transform"
-          type="scale"
-          values={`${eyeScale};${eyeScale}`}
-          dur="0.3s"
-          fill="freeze"
-        />
-        {state === 'LISTENING' && (
-          <animate attributeName="ry" values="5;6;5" dur="1.4s" repeatCount="indefinite" />
-        )}
-        {state === 'THINKING' && (
-          <animate attributeName="ry" values="3;2;3" dur="1.8s" repeatCount="indefinite" />
-        )}
-      </ellipse>
-      {/* Left pupil */}
-      <circle cx="30" cy="36" r="2" fill="#0e1629">
-        {state === 'THINKING' && (
-          <animate attributeName="cx" values="29;31;29" dur="2s" repeatCount="indefinite" />
-        )}
-      </circle>
-
-      {/* Right Eye */}
-      <ellipse cx="50" cy="36" rx="5" ry="5" fill="url(#eyeGlow)">
-        <animateTransform
-          attributeName="transform"
-          type="scale"
-          values={`${eyeScale};${eyeScale}`}
-          dur="0.3s"
-          fill="freeze"
-        />
-        {state === 'LISTENING' && (
-          <animate attributeName="ry" values="5;6;5" dur="1.4s" repeatCount="indefinite" />
-        )}
-        {state === 'THINKING' && (
-          <animate attributeName="ry" values="3;2;3" dur="1.8s" repeatCount="indefinite" />
-        )}
-      </ellipse>
-      {/* Right pupil */}
-      <circle cx="50" cy="36" r="2" fill="#0e1629">
-        {state === 'THINKING' && (
-          <animate attributeName="cx" values="49;51;49" dur="2s" repeatCount="indefinite" />
-        )}
-      </circle>
-
-      {/* Mouth */}
-      <ellipse cx="40" cy="50" rx={mouthWidth / 2} ry={mouthRy} fill="#67e8f9" opacity="0.85">
-        {state === 'SPEAKING' && (
-          <animate attributeName="ry" values="2;5;3;5;2" dur="0.55s" repeatCount="indefinite" />
-        )}
-        {state === 'SPEAKING' && (
-          <animate attributeName="rx" values="5;7;5;7;5" dur="0.55s" repeatCount="indefinite" />
-        )}
-      </ellipse>
-
-      {/* Cheek blush */}
-      <circle cx="20" cy="44" r="4" fill="#f472b6" opacity="0.2" />
-      <circle cx="60" cy="44" r="4" fill="#f472b6" opacity="0.2" />
-    </svg>
-  );
-}
-
-// ─── Concentric Sound Rings (LISTENING state) ──────────────────────
-function ListeningRings() {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="absolute rounded-full border-2 border-cyan-400/35"
-          style={{
-            width: `${92 + i * 28}px`,
-            height: `${92 + i * 28}px`,
-            animation: `voiceAgentPing ${1.8 + i * 0.3}s ease-out infinite`,
-            animationDelay: `${i * 0.4}s`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── Thinking Shimmer Dots ─────────────────────────────────────────
-function ThinkingDots() {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      {[0, 1, 2, 3, 4, 5].map((i) => (
-        <div
-          key={i}
-          className="absolute w-1.5 h-1.5 rounded-full bg-purple-400/70"
-          style={{
-            animation: `voiceAgentOrbit 2.4s linear infinite`,
-            animationDelay: `${i * 0.4}s`,
-            transformOrigin: '50% 50%',
-            left: '50%',
-            top: '50%',
-            marginLeft: '-3px',
-            marginTop: '-3px',
-            transform: `rotate(${i * 60}deg) translateY(-46px)`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── Speaking Wave Bars ────────────────────────────────────────────
-function SpeakingBars() {
-  return (
-    <div className="flex items-end justify-center gap-1 h-5 mt-1">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div
-          key={i}
-          className="w-1 bg-gradient-to-t from-cyan-400 to-purple-400 rounded-full"
-          style={{
-            animation: `voiceAgentBar 0.8s ease-in-out infinite`,
-            animationDelay: `${i * 0.12}s`,
-            height: '4px',
-          }}
-        />
-      ))}
+    <div className="relative flex items-center justify-center" style={{ width: '88px', height: '88px' }}>
+      {/* Outer glow ring */}
+      <div
+        className="absolute rounded-full transition-all duration-200"
+        style={{
+          width: '88px',
+          height: '88px',
+          background: orbConfig.bg,
+          boxShadow: orbConfig.shadow,
+          transform: `scale(${orbScale})`,
+          animation: orbConfig.animation,
+        }}
+      />
+      {/* Inner core */}
+      <div
+        className="relative rounded-full transition-all duration-150"
+        style={{
+          width: '44px',
+          height: '44px',
+          background: state === 'LISTENING'
+            ? 'radial-gradient(circle, #22d3ee 0%, #0891b2 100%)'
+            : state === 'THINKING'
+            ? 'radial-gradient(circle, #818cf8 0%, #6366f1 100%)'
+            : state === 'SPEAKING'
+            ? 'radial-gradient(circle, #34d399 0%, #10b981 100%)'
+            : 'radial-gradient(circle, #94a3b8 0%, #64748b 100%)',
+          border: orbConfig.border,
+          transform: `scale(${state === 'LISTENING' ? 1 + volume * 0.15 : state === 'SPEAKING' ? 1 + volume * 0.12 : 1})`,
+          boxShadow: state === 'LISTENING'
+            ? '0 0 12px rgba(34,211,238,0.6), inset 0 0 8px rgba(34,211,238,0.3)'
+            : state === 'SPEAKING'
+            ? '0 0 12px rgba(52,211,153,0.5), inset 0 0 8px rgba(52,211,153,0.2)'
+            : state === 'THINKING'
+            ? '0 0 10px rgba(129,140,248,0.4), inset 0 0 6px rgba(129,140,248,0.2)'
+            : '0 0 6px rgba(148,163,184,0.15)',
+        }}
+      />
+      {/* Listening: subtle ripple rings */}
+      {state === 'LISTENING' && volume > 0.03 && (
+        <>
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              className="absolute rounded-full border border-cyan-400/20 pointer-events-none"
+              style={{
+                width: `${60 + i * 20}px`,
+                height: `${60 + i * 20}px`,
+                opacity: Math.max(0, 0.4 - i * 0.15) * Math.min(1, volume * 5),
+                transform: `scale(${1 + volume * 0.3 * (i + 1)})`,
+                transition: 'all 0.15s ease-out',
+              }}
+            />
+          ))}
+        </>
+      )}
     </div>
   );
 }
 
 // ─── State Label ───────────────────────────────────────────────────
 function StateLabel({ state }) {
-  const labels = {
-    LISTENING: { text: 'Listening...', icon: Mic, color: 'text-cyan-300' },
-    THINKING: { text: 'Thinking...', icon: Loader2, color: 'text-purple-300' },
-    SPEAKING: { text: 'Speaking...', icon: Volume2, color: 'text-emerald-300' },
-    ACTION: { text: 'On it...', icon: Zap, color: 'text-amber-300' },
+  const config = {
+    LISTENING: { text: 'Listening...', color: 'text-cyan-400' },
+    THINKING: { text: 'Thinking...', color: 'text-indigo-400' },
+    SPEAKING: { text: 'Speaking...', color: 'text-emerald-400' },
+    WAITING_FOR_USER: { text: 'Ready', color: 'text-slate-400' },
   };
 
-  const info = labels[state];
+  const info = config[state];
   if (!info) return null;
 
-  const Icon = info.icon;
   return (
-    <div className={`flex items-center justify-center gap-1.5 text-xs font-medium ${info.color}`}>
-      <Icon className={`w-3 h-3 ${state === 'THINKING' ? 'animate-spin' : state === 'LISTENING' ? 'animate-pulse' : ''}`} />
-      <span className="tracking-wide">{info.text}</span>
+    <div className={`text-[11px] font-medium tracking-wider uppercase ${info.color} transition-colors duration-300`}>
+      {info.text}
     </div>
   );
 }
@@ -216,16 +163,49 @@ function StateLabel({ state }) {
 export function VoiceAgentWindow() {
   const {
     voiceAgentState,
+    voiceSession,
     siriToggleRef,
-    dismissVoiceAgent,
+    sendVoiceAgentAudio,
+    endVoiceConversation,
+    interruptVoiceAgent,
   } = useChat();
 
   const windowRef = useRef(null);
   const [position, setPosition] = useState({ top: 72, right: 24 });
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
+  const [micVolume, setMicVolume] = useState(0);
 
   const isActive = voiceAgentState && voiceAgentState !== 'IDLE';
+
+  // Microphone recorder for conversational loop
+  const {
+    isRecording,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+  } = useVoiceRecorder({
+    onRecordingComplete: sendVoiceAgentAudio,
+    onVolumeChange: setMicVolume,
+    silenceThresholdMs: 2000,
+    maxDurationMs: 60000,
+  });
+
+  // Auto-start recording when entering LISTENING or WAITING_FOR_USER state
+  useEffect(() => {
+    if (voiceAgentState === 'LISTENING' || voiceAgentState === 'WAITING_FOR_USER') {
+      if (!isRecording) {
+        const timer = setTimeout(() => {
+          startRecording();
+        }, voiceAgentState === 'WAITING_FOR_USER' ? 400 : 100);
+        return () => clearTimeout(timer);
+      }
+    } else if (voiceAgentState === 'THINKING' || voiceAgentState === 'SPEAKING') {
+      if (isRecording) {
+        cancelRecording();
+      }
+    }
+  }, [voiceAgentState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Position the window below the Siri toggle
   useEffect(() => {
@@ -255,52 +235,55 @@ export function VoiceAgentWindow() {
       requestAnimationFrame(() => setIsVisible(true));
     } else if (isVisible) {
       setIsAnimatingOut(true);
+      if (isRecording) cancelRecording();
       const timer = setTimeout(() => {
         setIsVisible(false);
         setIsAnimatingOut(false);
       }, 280);
       return () => clearTimeout(timer);
     }
-  }, [isActive, isVisible]);
+  }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Interruption: tap while speaking to interrupt
+  const handleOrbClick = useCallback(() => {
+    if (voiceAgentState === 'SPEAKING') {
+      interruptVoiceAgent();
+    } else if (voiceAgentState === 'LISTENING' && isRecording) {
+      stopRecording();
+    }
+  }, [voiceAgentState, isRecording, interruptVoiceAgent, stopRecording]);
 
   const handleDismiss = useCallback(() => {
-    dismissVoiceAgent?.();
-  }, [dismissVoiceAgent]);
+    if (isRecording) cancelRecording();
+    endVoiceConversation();
+  }, [isRecording, cancelRecording, endVoiceConversation]);
+
+  // Detected language display
+  const detectedLangDisplay = voiceSession?.detectedLanguage
+    ? LANG_NAMES[voiceSession.detectedLanguage] || voiceSession.detectedLanguage
+    : null;
 
   if (!isVisible && !isActive) return null;
 
   return (
     <>
-      {/* CSS Keyframes for animations */}
+      {/* CSS Keyframes */}
       <style>{`
-        @keyframes voiceAgentPing {
-          0% { transform: scale(0.8); opacity: 0.6; }
-          100% { transform: scale(1.4); opacity: 0; }
+        @keyframes voiceOrbBreathe {
+          0%, 100% { transform: scale(1); opacity: 0.9; }
+          50% { transform: scale(1.08); opacity: 1; }
         }
-        @keyframes voiceAgentOrbit {
-          0% { opacity: 0.3; }
-          50% { opacity: 1; }
-          100% { opacity: 0.3; }
+        @keyframes voiceOrbIdle {
+          0%, 100% { transform: scale(1); opacity: 0.7; }
+          50% { transform: scale(1.03); opacity: 0.85; }
         }
-        @keyframes voiceAgentBar {
-          0%, 100% { height: 4px; }
-          50% { height: 16px; }
-        }
-        @keyframes voiceAgentEnter {
-          0% { transform: scale(0.7) translateY(-12px); opacity: 0; }
+        @keyframes voiceWidgetEnter {
+          0% { transform: scale(0.8) translateY(-10px); opacity: 0; }
           100% { transform: scale(1) translateY(0); opacity: 1; }
         }
-        @keyframes voiceAgentExit {
+        @keyframes voiceWidgetExit {
           0% { transform: scale(1) translateY(0); opacity: 1; }
-          100% { transform: scale(0.7) translateY(-12px); opacity: 0; }
-        }
-        @keyframes voiceAgentGlow {
-          0%, 100% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.18), 0 0 40px rgba(34, 211, 238, 0.1); }
-          50% { box-shadow: 0 0 32px rgba(139, 92, 246, 0.3), 0 0 65px rgba(34, 211, 238, 0.2); }
-        }
-        @keyframes voiceAgentBreathe {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.04); }
+          100% { transform: scale(0.8) translateY(-10px); opacity: 0; }
         }
       `}</style>
 
@@ -311,69 +294,79 @@ export function VoiceAgentWindow() {
           top: `${position.top}px`,
           right: `${position.right}px`,
           animation: isAnimatingOut
-            ? 'voiceAgentExit 0.28s ease-in forwards'
-            : 'voiceAgentEnter 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+            ? 'voiceWidgetExit 0.28s ease-in forwards'
+            : 'voiceWidgetEnter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
         }}
       >
         <div
-          className="relative w-[180px] h-[200px] rounded-2xl overflow-hidden shadow-2xl"
+          className="relative rounded-2xl overflow-hidden shadow-2xl"
           style={{
-            background: 'linear-gradient(135deg, rgba(15, 12, 41, 0.96), rgba(48, 16, 85, 0.94), rgba(13, 22, 42, 0.96))',
-            backdropFilter: 'blur(24px)',
-            border: '1px solid rgba(139, 92, 246, 0.3)',
-            animation: voiceAgentState === 'LISTENING'
-              ? 'voiceAgentGlow 2s ease-in-out infinite'
-              : voiceAgentState === 'SPEAKING'
-              ? 'voiceAgentGlow 1.5s ease-in-out infinite'
-              : 'none',
+            width: '200px',
+            background: 'linear-gradient(145deg, rgba(8,8,24,0.97), rgba(15,15,35,0.96))',
+            backdropFilter: 'blur(32px)',
+            border: '1px solid rgba(148,163,184,0.12)',
           }}
         >
-          {/* Top accent bar */}
-          <div className="h-[2px] w-full bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400" />
+          {/* Top accent line */}
+          <div
+            className="h-[1.5px] w-full"
+            style={{
+              background: voiceAgentState === 'LISTENING'
+                ? 'linear-gradient(90deg, transparent, #22d3ee, transparent)'
+                : voiceAgentState === 'THINKING'
+                ? 'linear-gradient(90deg, transparent, #818cf8, transparent)'
+                : voiceAgentState === 'SPEAKING'
+                ? 'linear-gradient(90deg, transparent, #34d399, transparent)'
+                : 'linear-gradient(90deg, transparent, rgba(148,163,184,0.3), transparent)',
+            }}
+          />
 
-          {/* Close / dismiss button */}
+          {/* Close button */}
           <button
             type="button"
             onClick={handleDismiss}
-            className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white/50 hover:text-white/90 transition-all z-10 text-[10px] leading-none cursor-pointer"
-            title="Dismiss voice agent"
-            aria-label="Dismiss voice agent"
+            className="absolute top-2.5 right-2.5 w-6 h-6 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/80 transition-all z-10 cursor-pointer"
+            title="End conversation"
+            aria-label="End voice conversation"
           >
-            ×
+            <X className="w-3.5 h-3.5" />
           </button>
 
-          {/* Main content area */}
-          <div className="flex flex-col items-center justify-center h-full pt-1 pb-3 px-3 relative">
-
-            {/* State-specific background effects */}
-            {voiceAgentState === 'LISTENING' && <ListeningRings />}
-            {voiceAgentState === 'THINKING' && <ThinkingDots />}
-
-            {/* Bot Avatar */}
-            <div
-              className="relative z-10"
-              style={{
-                animation: voiceAgentState === 'LISTENING'
-                  ? 'voiceAgentBreathe 2s ease-in-out infinite'
-                  : voiceAgentState === 'SPEAKING'
-                  ? 'voiceAgentBreathe 1.2s ease-in-out infinite'
-                  : 'none',
-              }}
+          {/* Main content */}
+          <div className="flex flex-col items-center pt-6 pb-4 px-4">
+            {/* Audio-reactive orb */}
+            <button
+              type="button"
+              onClick={handleOrbClick}
+              className="cursor-pointer focus:outline-none"
+              aria-label={voiceAgentState === 'SPEAKING' ? 'Interrupt' : 'Voice control'}
             >
-              <BotAvatar state={voiceAgentState} />
-            </div>
-
-            {/* Speaking wave bars */}
-            {voiceAgentState === 'SPEAKING' && <SpeakingBars />}
+              <VoiceOrb state={voiceAgentState} volume={micVolume} />
+            </button>
 
             {/* State label */}
-            <div className="mt-2 relative z-10">
+            <div className="mt-3">
               <StateLabel state={voiceAgentState} />
             </div>
-          </div>
 
-          {/* Bottom subtle glow */}
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-8 bg-purple-500/15 blur-xl rounded-full pointer-events-none" />
+            {/* Detected language badge */}
+            {detectedLangDisplay && (
+              <div className="mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-medium tracking-wide bg-white/5 text-white/50 border border-white/[0.08]">
+                {detectedLangDisplay}
+              </div>
+            )}
+
+            {/* Transcript snippet */}
+            {voiceSession?.transcript && voiceAgentState !== 'LISTENING' && (
+              <div className="mt-3 w-full px-1">
+                <p className="text-[10px] text-white/30 text-center truncate leading-relaxed">
+                  &ldquo;{voiceSession.transcript.length > 50
+                    ? voiceSession.transcript.substring(0, 47) + '...'
+                    : voiceSession.transcript}&rdquo;
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>

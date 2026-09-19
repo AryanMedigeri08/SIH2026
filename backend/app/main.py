@@ -21,16 +21,65 @@ import logging
 import time
 import uuid
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%H:%M:%S",
-)
-# Suppress noisy external library logs
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
-logging.getLogger("watchfiles").setLevel(logging.WARNING)
-logging.getLogger("google").setLevel(logging.WARNING)
+# Reconfigure stdout/stderr for Unicode and emojis on Windows
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
+class SafeStreamHandler(logging.StreamHandler):
+    """Console stream handler that safely handles Unicode/emoji encoding on all platforms."""
+    def emit(self, record):
+        try:
+            super().emit(record)
+        except UnicodeEncodeError:
+            try:
+                msg = self.format(record)
+                safe_msg = msg.encode("ascii", errors="replace").decode("ascii")
+                self.stream.write(safe_msg + self.terminator)
+                self.flush()
+            except Exception:
+                self.handleError(record)
+        except Exception:
+            self.handleError(record)
+
+
+def configure_application_logging():
+    """Configures explicit StreamHandler on 'udyam_saathi' namespace and root logger."""
+    console_handler = SafeStreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
+    console_handler.setFormatter(formatter)
+
+    # 1. Attach directly to 'udyam_saathi' namespace (all app loggers descend from here)
+    app_logger = logging.getLogger("udyam_saathi")
+    app_logger.setLevel(logging.INFO)
+    app_logger.handlers = [console_handler]
+    app_logger.propagate = False
+
+    # 2. Attach to root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.handlers = [console_handler]
+
+    # Suppress noisy external library logs
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("watchfiles").setLevel(logging.WARNING)
+    logging.getLogger("google").setLevel(logging.WARNING)
+    logging.getLogger("hpack").setLevel(logging.WARNING)
+
+
+# Configure logging immediately on module import
+configure_application_logging()
 
 logger = logging.getLogger("udyam_saathi.api")
 
@@ -58,6 +107,9 @@ from inference import ViabilityModelLoader
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure logging handlers are active across Uvicorn worker reload
+    configure_application_logging()
+
     # Startup
     logger.info("=" * 80)
     logger.info("🚀 Udyam Saathi (उद्यम साथी) REST API Backend Starting...")

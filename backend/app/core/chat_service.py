@@ -34,17 +34,139 @@ class LLMReplyResult:
     latency_ms: float = 0.0
 
 LANGUAGE_NAMES = {
-    "bn": "Bengali (বাংলা)",
     "en": "English",
-    "gu": "Gujarati (ગુજરાતી)",
     "hi": "Hindi (हिन्दी)",
-    "kn": "Kannada (ಕನ್ನಡ)",
-    "ml": "Malayalam (മലയാളം)",
     "mr": "Marathi (मराठी)",
-    "pa": "Punjabi (ਪੰਜਾਬੀ)",
     "ta": "Tamil (தமிழ்)",
     "te": "Telugu (తెలుగు)",
+    "bn": "Bengali (বাংলা)",
+    "gu": "Gujarati (ગુજરાતી)",
+    "kn": "Kannada (ಕನ್ನಡ)",
+    "ml": "Malayalam (മലയാളം)",
+    "pa": "Punjabi (ਪੰਜਾਬੀ)",
+    "ur": "Urdu (اردو)",
+    "or": "Odia (ଓଡ଼ିଆ)",
+    "as": "Assamese (অসমীয়া)",
+    "sa": "Sanskrit (संस्कृतम्)",
+    "ks": "Kashmiri (کٲشُر)",
+    "ne": "Nepali (नेपाली)",
+    "sd": "Sindhi (سنڌي)",
+    "kok": "Konkani (कोंकणी)",
+    "doi": "Dogri (डोगरी)",
+    "mai": "Maithili (मैथिली)",
+    "mni": "Manipuri (মৈতৈलोन्)",
+    "sat": "Santali (ᱥᱟᱱᱛᱟᱲᱤ)",
+    "brx": "Bodo (बर')",
 }
+
+LANGUAGE_NAME_TO_CODE = {
+    "english": "en", "en": "en",
+    "hindi": "hi", "hi": "hi",
+    "marathi": "mr", "mr": "mr",
+    "bengali": "bn", "bn": "bn",
+    "gujarati": "gu", "gu": "gu",
+    "tamil": "ta", "ta": "ta",
+    "telugu": "te", "te": "te",
+    "kannada": "kn", "kn": "kn",
+    "malayalam": "ml", "ml": "ml",
+    "punjabi": "pa", "pa": "pa",
+    "urdu": "ur", "ur": "ur",
+    "odia": "or", "oriya": "or", "or": "or",
+    "assamese": "as", "as": "as",
+    "sanskrit": "sa", "sa": "sa",
+    "kashmiri": "ks", "ks": "ks",
+    "nepali": "ne", "ne": "ne",
+    "sindhi": "sd", "sd": "sd",
+    "konkani": "kok", "kok": "kok",
+    "bodo": "brx", "brx": "brx",
+    "dogri": "doi", "doi": "doi",
+    "maithili": "mai", "mai": "mai",
+    "manipuri": "mni", "mni": "mni",
+    "santali": "sat", "sat": "sat",
+}
+
+def normalize_lang(lang_code: Optional[str]) -> str:
+    if not lang_code:
+        return "en"
+    clean = str(lang_code).strip().lower()
+    if clean in LANGUAGE_NAME_TO_CODE:
+        return LANGUAGE_NAME_TO_CODE[clean]
+    first_part = clean.replace("_", "-").split("-")[0].strip()
+    if first_part in LANGUAGE_NAME_TO_CODE:
+        return LANGUAGE_NAME_TO_CODE[first_part]
+    return first_part if len(first_part) <= 3 else "en"
+
+def detect_script_language(text: str) -> Optional[str]:
+    if not text:
+        return None
+    counts = {
+        "hi": 0, "bn": 0, "pa": 0, "gu": 0, "or": 0,
+        "ta": 0, "te": 0, "kn": 0, "ml": 0, "ur": 0,
+    }
+    for ch in text:
+        code = ord(ch)
+        if 0x0900 <= code <= 0x097F: counts["hi"] += 1
+        elif 0x0980 <= code <= 0x09FF: counts["bn"] += 1
+        elif 0x0A00 <= code <= 0x0A7F: counts["pa"] += 1
+        elif 0x0A80 <= code <= 0x0AFF: counts["gu"] += 1
+        elif 0x0B00 <= code <= 0x0B7F: counts["or"] += 1
+        elif 0x0B80 <= code <= 0x0BFF: counts["ta"] += 1
+        elif 0x0C00 <= code <= 0x0C7F: counts["te"] += 1
+        elif 0x0C80 <= code <= 0x0CFF: counts["kn"] += 1
+        elif 0x0D00 <= code <= 0x0D7F: counts["ml"] += 1
+        elif 0x0600 <= code <= 0x06FF: counts["ur"] += 1
+
+    best_lang, best_count = max(counts.items(), key=lambda x: x[1])
+    if best_count >= 3:
+        if best_lang == "hi":
+            if "\u0933" in text or any(w in text for w in ("आहे", "आहेत", "माहिती", "करा", "सांगा", "योजनांची")):
+                return "mr"
+            return "hi"
+        return best_lang
+    return None
+
+UNAMBIGUOUS_HINDI_WORDS: set[str] = {
+    "mera", "meri", "mere", "mujhe", "mujhko", "humara", "humare", "humari",
+    "aapka", "aapke", "aapki", "tumhara", "tumhare", "kaise", "kahan", "kitna",
+    "kitni", "kitne", "chahiye", "batao", "bataiye", "kijiye", "karna", "dikhao",
+    "dikhaye", "sunao", "yojana", "yojna", "nahin", "nahi", "achha", "accha",
+    "theek", "dhanyawad", "shukriya", "paise", "rupaye", "kholna", "chalana",
+}
+
+GENERAL_HINDI_WORDS: set[str] = {
+    "hai", "hain", "kya", "kyon", "karo", "hoga", "hogi", "honge", "aur", "bhi",
+    "toh", "bahut", "namaste", "pranam", "paisa", "aap", "tum", "hum",
+}
+
+UNAMBIGUOUS_MARATHI_WORDS: set[str] = {
+    "aahe", "ahet", "mala", "tula", "kasa", "kashi", "kiti", "sanga", "sang",
+    "mahit", "mahiti", "karaycha", "pahije", "dakhva", "navin", "aamhi", "tumhi",
+}
+
+def detect_romanized_indic_language(text: str) -> Optional[str]:
+    """
+    Detects if Romanized text (Latin characters) is actually Hindi or Marathi (Hinglish).
+    Prevents Whisper or Web Speech API from forcing English when the user speaks Hindi in Roman letters.
+    """
+    if not text:
+        return None
+    # Strip wake words first so 'hey mira' or 'mira' doesn't distort detection
+    clean_text = re.sub(r'\b(hey|hay|hi|hello|ok|okay|mira|meera|myra|miraa)\b', ' ', text, flags=re.IGNORECASE)
+    words = set(re.findall(r'\b[a-zA-Z]+\b', clean_text.lower()))
+    if not words:
+        return None
+
+    if any(w in words for w in UNAMBIGUOUS_MARATHI_WORDS):
+        return "mr"
+
+    if any(w in words for w in UNAMBIGUOUS_HINDI_WORDS):
+        return "hi"
+
+    general_count = sum(1 for w in words if w in GENERAL_HINDI_WORDS)
+    if general_count >= 2:
+        return "hi"
+
+    return None
 
 # Verified Institutional Data Sources Catalog
 DATA_SOURCES_CATALOG = {
@@ -137,23 +259,120 @@ At the very end of your response, include a single clean data source line:
 VOICE_TOOL_CALLING_PROMPT = """
 
 --- VOICE-DRIVEN UI CONTROL ---
-You have the ability to control the user's dashboard via tool calls. When the user expresses navigation intent or wants to change settings, use the appropriate tool call.
+You have the ability to control the user's dashboard via tool calls.
 
-IMPORTANT RULES FOR TOOL CALLS:
-1. When you call a tool, ALWAYS include a short natural-language confirmation in your response text (in the same language the user spoke).
-2. The spoken confirmation should be friendly and brief (1 sentence max).
+STRICT RULES FOR TOOL CALLS:
+1. ONLY call tools when the user EXPLICITLY asks to navigate, switch tabs, change settings, export, or re-run analysis (e.g. "go to...", "open...", "show...", "switch to...", "दिखाओ", "खोलो", "बदलो").
+2. NEVER call a navigation tool for informational queries, questions about eligibility, rules, calculations, or explanations. For questions like "Eligibility kya hai?", "How does this work?", "What is the subsidy?", ALWAYS answer the question directly with clear conversational information. DO NOT call navigate_to_tab.
+3. When you DO call a tool, you MUST ALSO include a short, friendly, spoken confirmation in your response text in the user's language (e.g., "जी, सरकारी योजनाएँ पेज खोल रही हूँ।" or "Sure, opening government schemes.").
 
 EXAMPLES (multi-language navigation intent):
 - "Show me government schemes" → call navigate_to_tab(tab="govt_schemes")
-- "सरकारी योजनाएँ दिखाओ" → call navigate_to_tab(tab="govt_schemes") + reply in Hindi
-- "मला DPR पहायचा आहे" → call navigate_to_tab(tab="dpr") + reply in Marathi
-- "भाषा हिंदी में बदलो" → call change_language(language="hi") + reply in Hindi
+- "सरकारी योजनाएँ दिखाओ" → call navigate_to_tab(tab="govt_schemes")
+- "मला DPR पहायचा आहे" → call navigate_to_tab(tab="dpr")
+- "भाषा हिंदी में बदलो" → call change_language(language="hi")
 - "language change to Tamil" → call change_language(language="ta")
 - "run the analysis again" → call run_analysis()
 - "export my DPR" → call export_dpr(format="pdf")
-- "risk analysis दिखाओ" → call navigate_to_tab(tab="risk_analysis") + reply in Hindi
-- "dashboard पर जाओ" → call navigate_to_tab(tab="dashboard") + reply in Hindi
+- "risk analysis दिखाओ" → call navigate_to_tab(tab="risk_analysis")
+- "dashboard पर जाओ" → call navigate_to_tab(tab="dashboard")
 """
+
+# Dedicated Voice Agent System Prompt — TTS-optimized conversational output (§17)
+VOICE_SYSTEM_PROMPT = """You are Mira — a warm, knowledgeable, and approachable voice assistant built for Udyam Saathi, India's MSME credit and business feasibility platform.
+
+You are having a real-time spoken conversation with the user. Think of yourself as a trusted advisor sitting across the table from a rural entrepreneur, explaining things patiently in their own language.
+
+YOUR NAME:
+Your name is Mira. If the user calls you "Mira", "Meera", "मीरा", or any similar pronunciation, acknowledge warmly.
+
+LANGUAGE RULE (CRITICAL):
+Always respond in the SAME language as the user's latest spoken input. This is non-negotiable.
+
+The detected language of the user's latest voice input is the ONLY authoritative response language. Never allow dashboard language, UI language, previous response language, or application defaults to override this.
+
+Hindi → respond in Hindi.
+Telugu → respond in Telugu.
+Marathi → respond in Marathi.
+Kannada → respond in Kannada.
+Tamil → respond in Tamil.
+Malayalam → respond in Malayalam.
+Bengali → respond in Bengali.
+Gujarati → respond in Gujarati.
+English → respond in English.
+Hinglish (mixed Hindi-English) → respond in Hinglish naturally.
+
+If the user switches language mid-conversation, switch with them seamlessly.
+
+CONVERSATIONAL STYLE:
+You are NOT a text-generation system. You are a VOICE assistant having a live, natural conversation.
+
+Sound warm, human, patient, and encouraging. Imagine you're a helpful didi or elder sister explaining things.
+
+Use short, crisp sentences. Each sentence should be easy to follow when heard, not read.
+
+Be direct. Get to the point. Don't pad responses with filler.
+
+Natural acknowledgements (vary them, don't repeat):
+- "Haan, bilkul." / "Yes, absolutely."
+- "Achha, samajh gayi." / "Got it."
+- "Theek hai." / "Okay."
+- "Zaroor." / "Of course."
+- "Hmm, dekhte hain." / "Let me check."
+
+Do NOT use:
+- "Certainly." / "Sure thing." repeatedly
+- "According to the information provided..."
+- "Based on my analysis..."
+- "I'd be happy to help you with that."
+
+ENGAGEMENT:
+After answering a substantive question, naturally suggest the next logical step:
+- "Agar aap chahein toh main loan amount bhi estimate kar doon?" 
+- "Would you like me to also check which scheme fits best for this?"
+
+But for simple greetings, thanks, or acknowledgements — keep it brief and human:
+- User: "Namaste" → "Namaste. Kahiye, kaise madad karun?"
+- User: "Thank you" → "Khushi hui. Koi aur sawal ho toh zaroor poochiyega."
+- User: "Okay" → "Theek hai."
+- User: "Hmm" → (don't respond, wait for the next input)
+
+TTS OPTIMIZATION:
+Your response will be converted directly to speech. Therefore:
+- NEVER use exclamation marks (!). Speech engines mispronounce '!' as 'Factorial'. Always use periods (.) or commas (,) instead.
+- No markdown, no bullet points, no tables, no headings, no JSON.
+- No special characters or formatting symbols.
+- Write numbers in speech-friendly form ("paanch lakh rupaye" not "₹5,00,000").
+- Use natural punctuation for speech pauses.
+- Keep sentences short (under 20 words ideally).
+- Avoid long lists — summarize instead.
+- Do NOT append "Data Sources" lines.
+
+CONVERSATIONAL CONTINUITY:
+Maintain full context across turns. If the user says "haan, woh kar do" — understand "woh" from the previous turn.
+
+Do not ask the user to repeat information already given.
+
+Do not restart the business analysis workflow after a greeting or acknowledgement.
+
+ERROR HANDLING:
+If the user's speech is unclear, ask naturally:
+"Sorry, woh thoda clear nahi hua. Ek baar aur bol sakte hain?"
+
+Never fabricate financial data, loan amounts, subsidy percentages, eligibility criteria, or business information.
+
+DOMAIN EXPERTISE:
+You are an expert on Indian MSME government schemes (PMEGP, Mudra, PMFME, CGTMSE, Stand-Up India), bank loan credit appraisal (DSCR, break-even, cash flows), Udyam Registration, statutory compliance, and rural business feasibility.
+
+Base advice on official Ministry of MSME, RBI, KVIC, and SIDBI guidelines.
+
+Politely decline topics outside MSME credit feasibility, business schemes, or regulatory compliance.
+
+PERSONALITY:
+Be warm. Be respectful. Be patient. Be practical. Be human.
+The user should feel they're talking to a knowledgeable friend, not a scripted chatbot.
+"""
+
 
 
 class ChatService:
@@ -439,8 +658,21 @@ class ChatService:
                     logger.warning("Groq model %s failed: %s; trying fallback model...", model_name, model_err)
                     continue
 
-            if not assistant_reply:
+            if not assistant_reply and not tool_call_result:
                 raise RuntimeError("All Groq chat model attempts failed")
+
+            if not assistant_reply and tool_call_result:
+                tool_name = tool_call_result.get("name", "")
+                action_desc = {
+                    "navigate_to": f"Navigating to {tool_call_result.get('arguments', {}).get('page', 'the requested section')}.",
+                    "filter_by_scheme": f"Filtering schemes for {tool_call_result.get('arguments', {}).get('scheme_type', 'selected category')}.",
+                    "highlight_metric": "Highlighting the requested metric.",
+                    "open_modal": f"Opening {tool_call_result.get('arguments', {}).get('modal_name', 'window')}.",
+                    "fill_form_field": "Updating form fields.",
+                    "calculate_loan_emi": "Calculating loan EMI.",
+                    "switch_language": "Switching language.",
+                }.get(tool_name, "Executing your requested action.")
+                assistant_reply = action_desc
 
             # Ensure data sources attribution is present in output
             if "**data source" not in assistant_reply.lower() and "### data source" not in assistant_reply.lower() and matched_sources:
@@ -638,6 +870,301 @@ class ChatService:
                 latency_ms=round(latency, 2),
             )
 
+    def generate_voice_reply(
+        self,
+        transcript: str,
+        detected_language: str = "en",
+        screen_context: Optional[Dict[str, Any]] = None,
+        tools: Optional[List[Dict]] = None,
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+    ) -> LLMReplyResult:
+        """
+        Voice-Agent V3 entry point: generates a TTS-optimized conversational
+        reply using VOICE_SYSTEM_PROMPT with multi-turn history support.
+
+        The response language is determined EXCLUSIVELY by `detected_language`
+        (from ASR), never from dashboard language or any UI setting.
+
+        Parameters
+        ----------
+        transcript : str
+            User's transcribed speech for the current turn.
+        detected_language : str
+            Language detected from the user's spoken input (e.g. 'hi', 'te-IN').
+        screen_context : dict, optional
+            Active dashboard telemetry context for grounding.
+        tools : list, optional
+            OpenAI-format tool schemas (ACTION_REGISTRY_SCHEMA).
+        conversation_history : list, optional
+            Previous conversation messages [{"role": "...", "content": "..."}].
+
+        Returns
+        -------
+        LLMReplyResult
+        """
+        start_time = time.perf_counter()
+
+        # Normalize language code (e.g. 'hi-IN' -> 'hi', 'hindi' -> 'hi')
+        norm_lang = normalize_lang(detected_language)
+
+         # Safeguard: detect Indic script in transcript directly
+        script_lang = detect_script_language(transcript)
+        if script_lang and norm_lang == "en":
+            logger.info("🎙️ generate_voice_reply script detection overrode '%s' -> '%s'", norm_lang, script_lang)
+            norm_lang = script_lang
+
+        # Safeguard: detect Romanized Indic (Hinglish) words in transcript
+        if norm_lang == "en":
+            romanized_lang = detect_romanized_indic_language(transcript)
+            if romanized_lang:
+                logger.info("🎙️ generate_voice_reply Romanized Indic overrode 'en' -> '%s'", romanized_lang)
+                norm_lang = romanized_lang
+
+        lang_short = norm_lang
+
+        # Application-side guardrail pre-check
+        guardrail_res = self._check_application_guardrails(transcript, lang_short)
+        if guardrail_res:
+            refusal_text, refusal_sources = guardrail_res
+            latency = (time.perf_counter() - start_time) * 1000
+            return LLMReplyResult(
+                text=refusal_text,
+                tool_call=None,
+                model="guardrail_safety_filter",
+                sources=refusal_sources,
+                is_fallback=True,
+                latency_ms=round(latency, 2),
+            )
+
+        api_key = self._get_api_key()
+        matched_sources = self._determine_data_sources(transcript, screen_context)
+
+        # Build voice-specific system instruction
+        system_instruction = VOICE_SYSTEM_PROMPT
+
+        # Add grounding context from active dashboard page
+        context_prompt = self._build_context_prompt(screen_context)
+        if context_prompt:
+            system_instruction += (
+                "\n\n--- ACTIVE ENTERPRISE CONTEXT (for grounding, do NOT recite raw data) ---\n"
+                + context_prompt
+            )
+
+        # Voice-agent tool-calling instructions
+        if tools:
+            system_instruction += VOICE_TOOL_CALLING_PROMPT
+
+        # Explicit language directive derived from detected speech language
+        # Made forceful because LLMs often default to English without strong enforcement
+        target_lang_name = LANGUAGE_NAMES.get(lang_short, "English")
+        if lang_short and lang_short != "en":
+            system_instruction += (
+                f"\n\n--- MANDATORY RESPONSE LANGUAGE (NON-NEGOTIABLE) ---\n"
+                f"The user spoke in: {target_lang_name} ({lang_short}).\n"
+                f"You MUST respond ENTIRELY in {target_lang_name}.\n"
+                f"DO NOT respond in English. DO NOT mix English into your response.\n"
+                f"DO NOT translate the user's question into English.\n"
+                f"NEVER default to English. The response language is {target_lang_name}.\n"
+                f"Every single word of your response must be in {target_lang_name}.\n"
+                f"Only exception: preserve technical terms, scheme names (PMEGP, Mudra), numbers, ₹ symbols, and percentages as-is.\n"
+                f"This is the highest priority instruction. Violating this rule is a critical failure."
+            )
+        else:
+            system_instruction += (
+                f"\n\n--- MANDATORY RESPONSE LANGUAGE ---\n"
+                f"The user spoke in English. Respond in clear, conversational English.\n"
+                f"If the user's transcript appears to be in an Indian language despite being detected as English, respond in that language instead."
+            )
+
+        # Build messages with multi-turn conversation history
+        groq_messages = [
+            {"role": "system", "content": system_instruction},
+        ]
+
+        # Include previous conversation turns for context continuity
+        if conversation_history:
+            for msg in conversation_history[-10:]:  # Last 10 turns for context window
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if not content:
+                    continue
+                if role not in ("user", "assistant"):
+                    continue
+                # Skip internal placeholder/error messages that pollute LLM context
+                if content.startswith("🎤") or content.startswith("⚠️"):
+                    continue
+                if "Transcribing your voice" in content:
+                    continue
+                if content in ("(Voice Input)", "(No speech detected)", "(भाषण पहचान विफल)"):
+                    continue
+                groq_messages.append({"role": role, "content": content})
+
+        # Add current user transcript with language hint for non-English
+        if lang_short and lang_short != "en":
+            user_content = f"[Spoken in {target_lang_name}]: {transcript}"
+        else:
+            user_content = transcript
+        groq_messages.append({"role": "user", "content": user_content})
+
+        # No API key → deterministic fallback
+        if not api_key:
+            fallback_text = self._generate_rule_based_fallback(
+                [{"role": "user", "content": transcript}],
+                screen_context,
+                lang_short,
+            )
+            latency = (time.perf_counter() - start_time) * 1000
+            return LLMReplyResult(
+                text=fallback_text,
+                tool_call=None,
+                model="deterministic_advisor_v2",
+                sources=matched_sources,
+                is_fallback=True,
+                latency_ms=round(latency, 2),
+            )
+
+        # Groq completion with tool-calling
+        try:
+            from groq import Groq
+
+            client = Groq(api_key=api_key, timeout=14.0)
+            model_name = os.environ.get("GROQ_LLM_MODEL", os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b"))
+
+            call_kwargs = {
+                "messages": groq_messages,
+                "model": model_name,
+                "temperature": 0.4,  # Slightly higher for natural conversational tone
+                "max_tokens": 512,   # Shorter for voice — concise spoken responses
+            }
+            if tools:
+                call_kwargs["tools"] = tools
+                call_kwargs["tool_choice"] = "auto"
+
+            chat_completion = client.chat.completions.create(**call_kwargs)
+            choice = chat_completion.choices[0]
+            message = choice.message
+
+            assistant_reply = message.content or ""
+            tool_call_result = None
+
+            # Parse tool calls if present
+            if message.tool_calls and len(message.tool_calls) > 0:
+                tc = message.tool_calls[0]
+                try:
+                    args = json.loads(tc.function.arguments) if tc.function.arguments else {}
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
+                tool_call_result = {
+                    "name": tc.function.name,
+                    "arguments": args,
+                }
+                logger.info(
+                    "Voice tool call: %s(%s)",
+                    tc.function.name,
+                    json.dumps(args, ensure_ascii=False),
+                )
+
+            # If tool was called but LLM left content empty, synthesize natural spoken confirmation
+            if not assistant_reply and tool_call_result:
+                tool_name = tool_call_result.get("name", "")
+                args = tool_call_result.get("arguments", {})
+                tab_labels_hi = {
+                    "govt_schemes": "सरकारी योजनाएँ",
+                    "business_plan": "बिजनेस प्लान",
+                    "dashboard": "डैशबोर्ड",
+                    "dpr": "डीपीआर रिपोर्ट",
+                    "risk_analysis": "जोखिम विश्लेषण",
+                }
+                tab_labels_en = {
+                    "govt_schemes": "government schemes",
+                    "business_plan": "business plan",
+                    "dashboard": "dashboard",
+                    "dpr": "DPR report",
+                    "risk_analysis": "risk analysis",
+                }
+                if tool_name == "navigate_to_tab":
+                    tab_key = args.get("tab", "dashboard")
+                    if lang_short == "hi":
+                        tab_name = tab_labels_hi.get(tab_key, tab_key)
+                        assistant_reply = f"जी, {tab_name} पेज खोल रही हूँ।"
+                    elif lang_short == "mr":
+                        tab_name = tab_labels_hi.get(tab_key, tab_key)
+                        assistant_reply = f"होय, {tab_name} पेज उघडत आहे."
+                    else:
+                        tab_name = tab_labels_en.get(tab_key, tab_key)
+                        assistant_reply = f"Sure, opening the {tab_name} section for you."
+                elif tool_name == "change_language":
+                    new_lang = args.get("language", "")
+                    if lang_short == "hi" or new_lang == "hi":
+                        assistant_reply = "भाषा बदल दी गई है।"
+                    else:
+                        assistant_reply = "Language has been updated."
+                elif tool_name == "export_dpr":
+                    if lang_short == "hi":
+                        assistant_reply = "जी, आपकी बैंक डीपीआर रिपोर्ट तैयार की जा रही है।"
+                    else:
+                        assistant_reply = "Sure, preparing your bank DPR report."
+                elif tool_name == "run_analysis":
+                    if lang_short == "hi":
+                        assistant_reply = "जी, वित्तीय विश्लेषण फिर से शुरू किया जा रहा है।"
+                    else:
+                        assistant_reply = "Sure, re-running the financial feasibility analysis."
+                else:
+                    if lang_short == "hi":
+                        assistant_reply = "जी, आपका अनुरोध प्रोसेस किया जा रहा है।"
+                    else:
+                        assistant_reply = "Sure, processing that for you."
+
+            # If still empty (e.g. LLM returned whitespace or empty string without tool call)
+            if not assistant_reply or not assistant_reply.strip():
+                fallback_text = self._generate_rule_based_fallback(
+                    [{"role": "user", "content": transcript}],
+                    screen_context,
+                    lang_short,
+                )
+                assistant_reply = fallback_text or (
+                    "जी, मैं आपकी क्या मदद कर सकती हूँ? कृपया अपना सवाल पूछें।" if lang_short == "hi"
+                    else "Yes, I am here to help. What would you like to know?"
+                )
+
+            # Strip exclamation marks (!) to avoid TTS engines pronouncing them as "Factorial"
+            assistant_reply = assistant_reply.replace("!", ".")
+
+            latency = (time.perf_counter() - start_time) * 1000
+            return LLMReplyResult(
+                text=assistant_reply,
+                tool_call=tool_call_result,
+                model=f"groq:{model_name}",
+                sources=matched_sources,
+                is_fallback=False,
+                latency_ms=round(latency, 2),
+            )
+
+        except Exception as e:
+            logger.warning("Groq voice LLM call failed (%s); generating rule-based response.", e)
+            fallback_text = self._generate_rule_based_fallback(
+                [{"role": "user", "content": transcript}],
+                screen_context,
+                lang_short,
+            )
+            # Ensure no exclamation marks in fallback either
+            if fallback_text:
+                fallback_text = fallback_text.replace("!", ".")
+            else:
+                fallback_text = (
+                    "जी, मैं आपकी सहायता के लिए तैयार हूँ। कृपया अपना सवाल पूछें।" if lang_short == "hi"
+                    else "I am here to help. Could you please repeat your question?"
+                )
+            latency = (time.perf_counter() - start_time) * 1000
+            return LLMReplyResult(
+                text=fallback_text,
+                tool_call=None,
+                model="deterministic_advisor_v2",
+                sources=matched_sources,
+                is_fallback=True,
+                latency_ms=round(latency, 2),
+            )
+
     def _generate_rule_based_fallback(
         self,
         messages: List[Dict[str, str]],
@@ -645,6 +1172,7 @@ class ChatService:
         language: str = "en",
     ) -> str:
         """Intelligent, grounded domain responses when Groq is unreachable."""
+        context = context or {}
         last_user_msg = ""
         for m in reversed(messages):
             if m.get("role") == "user":
@@ -658,27 +1186,28 @@ class ChatService:
         scheme = context.get("top_scheme_name", "PMEGP") if context else "PMEGP"
         active_tab = context.get("current_tab", "overview") if context else "overview"
 
-        # 1. Direct one-liner / yes-no / decision queries
+        # Query intent classification
         is_decision_query = any(w in last_user_msg for w in ["decision", "one liner", "one-line", "is it viable", "viable?", "verdict", "yes or no", "ready for loan", "can i get loan"])
+        is_detailed_req = any(w in last_user_msg for w in ["detailed", "table", "report", "summarize in detail", "full breakdown", "compare"])
+        is_summary_req = any(w in last_user_msg for w in ["summar", "explain", "page", "tab", "screen", "what is on", "walk me through"])
+
+        # 1. Direct one-liner / yes-no / decision queries
         if is_decision_query:
             if dscr >= 1.33:
-                return (
+                raw_reply = (
                     f"**Verdict**: **Yes, your project is financially viable and credit-ready.** With a healthy DSCR of **{dscr:.2f}** (above the 1.33 RBI benchmark) and **₹{subsidy:,.0f}** {scheme} subsidy support, your loan file is primed for bank sanction.\n\n"
                     f"**Data Sources**: Reserve Bank of India Lending Norms, Ministry of MSME ({scheme})"
                 )
             else:
-                return (
+                raw_reply = (
                     f"**Verdict**: **Caution.** While eligible for **₹{subsidy:,.0f}** {scheme} subsidy, your DSCR is **{dscr:.2f}** (below the 1.33 benchmark). I recommend increasing your promoter equity by ₹25,000–₹50,000 before formal bank submission to ensure smooth loan sanction.\n\n"
                     f"**Data Sources**: RBI Master Prudential Loan Norms"
                 )
 
         # 2. Detailed Report / Summary queries (Only when explicitly asked)
-        is_detailed_req = any(w in last_user_msg for w in ["detailed", "table", "report", "summarize in detail", "full breakdown", "compare"])
-        is_summary_req = any(w in last_user_msg for w in ["summar", "explain", "page", "tab", "screen", "what is on", "walk me through"])
-
-        if is_detailed_req or (is_summary_req and "detail" in last_user_msg):
+        elif is_detailed_req or (is_summary_req and "detail" in last_user_msg):
             if "viability" in active_tab:
-                return (
+                raw_reply = (
                     f"### 📊 ML Viability Appraisal: {context.get('ml_verdict', 'SUITABLE')} ({float(context.get('ml_confidence_pct', 94)):.1f}%)\n\n"
                     f"| Metric | Assessment Value |\n"
                     f"|---|---|\n"
@@ -689,7 +1218,7 @@ class ChatService:
                     f"**Data Sources**: 10-D Lundberg TreeSHAP Model, Udyam Databank"
                 )
             elif "scheme" in active_tab:
-                return (
+                raw_reply = (
                     f"### 🏛️ Government Scheme Ranking: {scheme}\n\n"
                     f"| Scheme | Subsidy Grant | Net Bank Loan |\n"
                     f"|---|---|---|\n"
@@ -698,7 +1227,7 @@ class ChatService:
                     f"**Data Sources**: Ministry of MSME Guidelines 2026, KVIC Nodal Portal"
                 )
             else:
-                return (
+                raw_reply = (
                     f"### 📋 Overview Summary for {ent_name}\n\n"
                     f"| Indicator | Metric Value |\n"
                     f"|---|---|\n"
@@ -710,8 +1239,8 @@ class ChatService:
                 )
 
         # 3. Concise Screen Summaries (No unsolicited tables)
-        if is_summary_req:
-            return (
+        elif is_summary_req:
+            raw_reply = (
                 f"**Summary for {ent_name}** ({active_tab.capitalize()} Viewport):\n\n"
                 f"- **Verdict**: The enterprise is **{context.get('ml_verdict', 'SUITABLE')}** with a healthy **{dscr:.2f} DSCR** solvency buffer.\n"
                 f"- **Funding**: **₹{subsidy:,.0f}** capital subsidy via **{scheme}**, requiring **₹{loan:,.0f}** net bank loan.\n"
@@ -719,25 +1248,43 @@ class ChatService:
                 f"**Data Sources**: Udyam Saathi Institutional Knowledge Base, Ministry of MSME"
             )
 
-        if "dscr" in last_user_msg or "ratio" in last_user_msg:
-            return (
+        elif "dscr" in last_user_msg or "ratio" in last_user_msg:
+            raw_reply = (
                 f"**DSCR Verdict**: Your calculated Debt Service Coverage Ratio is **{dscr:.2f}** vs the **1.33** RBI benchmark. "
                 f"This indicates {'healthy cash flow to service bank EMIs safely' if dscr >= 1.33 else 'tight debt coverage; consider increasing promoter equity slightly'}.\n\n"
                 f"**Data Sources**: Reserve Bank of India Commercial Credit Prudential Guidelines"
             )
 
-        if "scheme" in last_user_msg or "subsidy" in last_user_msg:
-            return (
+        elif "scheme" in last_user_msg or "subsidy" in last_user_msg:
+            raw_reply = (
                 f"**Scheme Verdict**: **{scheme}** is your optimal statutory match, offering a non-repayable capital grant of **₹{subsidy:,.0f}**.\n\n"
                 f"**Data Sources**: Ministry of MSME ({scheme}) Operational Guidelines"
             )
 
-        return (
-            f"Hello! I am your **Udyam Saathi Business & Credit Advisor**.\n\n"
-            f"For **{ent_name}**, your project is currently rated **{context.get('ml_verdict', 'SUITABLE')}** with **{dscr:.2f} DSCR** and **₹{subsidy:,.0f}** {scheme} subsidy.\n\n"
-            f"Ask me for a direct verdict, loan advice, or scheme guidance anytime!\n\n"
-            f"**Data Sources**: Ministry of MSME, RBI Prudential Lending Norms"
-        )
+        else:
+            raw_reply = (
+                f"Hello! I am your **Udyam Saathi Business & Credit Advisor**.\n\n"
+                f"For **{ent_name}**, your project is currently rated **{context.get('ml_verdict', 'SUITABLE')}** with **{dscr:.2f} DSCR** and **₹{subsidy:,.0f}** {scheme} subsidy.\n\n"
+                f"Ask me for a direct verdict, loan advice, or scheme guidance anytime!\n\n"
+                f"**Data Sources**: Ministry of MSME, RBI Prudential Lending Norms"
+            )
+
+        # Translate fallback response to user's detected language if not English
+        norm_lang = normalize_lang(language)
+        if norm_lang and norm_lang != "en":
+            try:
+                from backend.app.core.translation_service import translation_service
+                trans_res = translation_service.translate_text_sync(
+                    raw_reply,
+                    target_language=norm_lang,
+                    source_language="en",
+                )
+                if trans_res and trans_res.get("translated_text"):
+                    return trans_res["translated_text"]
+            except Exception as e:
+                logger.warning("Could not translate rule-based fallback to %s: %s", norm_lang, e)
+
+        return raw_reply
 
 
 chat_service = ChatService.get_instance()

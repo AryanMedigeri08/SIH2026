@@ -421,21 +421,23 @@ export const translationApi = {
 
 // --- Groq Chatbot & Conversational AI Advisor API ---
 export const chatApi = {
-  async sendChatMessage(messages, context = null, language = 'en', token = null) {
+  async sendChatMessage(messages, context = null, language = 'en', token = null, isVoiceTurn = false) {
     return await authFetch(`${API_BASE}/chat`, token, {
       method: 'POST',
       body: JSON.stringify({
         messages,
         context,
         language,
+        is_voice_turn: isVoiceTurn,
       }),
     });
   },
 
   async sendVoiceAudio(audioBlob, context = null, history = [], token = null) {
     const formData = new FormData();
-    formData.append('file', audioBlob, 'recording.webm');
-    // Backend auto-detects language per Voice Agent V2 specification
+    const isWav = audioBlob.type?.includes('wav');
+    formData.append('file', audioBlob, isWav ? 'recording.wav' : 'recording.webm');
+    // Backend auto-detects language per Voice Agent V3 specification
     if (context) {
       formData.append('context', JSON.stringify(context));
     }
@@ -461,10 +463,11 @@ export const chatApi = {
     return await res.json();
   },
 
-  async transcribeAudio(audioBlob, language = 'en') {
+  async transcribeAudio(audioBlob, language = '') {
     const formData = new FormData();
-    formData.append('file', audioBlob, 'wake_word.webm');
-    formData.append('language', language || 'en');
+    const isWav = audioBlob.type?.includes('wav');
+    formData.append('file', audioBlob, isWav ? 'wake_word.wav' : 'wake_word.webm');
+    formData.append('language', language || '');
     const res = await fetch(`${API_BASE}/chat/stt`, {
       method: 'POST',
       body: formData,

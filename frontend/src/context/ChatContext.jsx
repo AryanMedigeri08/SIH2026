@@ -303,11 +303,23 @@ export function ChatProvider({ children }) {
   const siriToggleRef = useRef(null);
 
   // Voice Agent State Machine
-  // States: 'IDLE' | 'LISTENING' | 'THINKING' | 'SPEAKING' | 'ACTION'
+  // States: 'IDLE' | 'LISTENING' | 'THINKING' | 'SPEAKING' | 'WAITING_FOR_USER' | 'ACTION'
   const [voiceAgentState, setVoiceAgentState] = useState('IDLE');
   const [voiceAgentReply, setVoiceAgentReply] = useState(null);
   const voiceAgentAudioRef = useRef(null);
   const voiceAgentTimeoutRef = useRef(null);
+
+  // Voice Session State — independent from dashboard language
+  const VOICE_IDLE_TIMEOUT_MS = 15000;
+  const [voiceSession, setVoiceSession] = useState({
+    detectedLanguage: null,
+    languageConfidence: 0,
+    transcript: '',
+    responseText: '',
+    conversationActive: false,
+    state: 'idle',
+  });
+  const voiceIdleTimerRef = useRef(null);
 
   // Active Project Identifier
   const activeProjectKey =
@@ -943,43 +955,75 @@ export function ChatProvider({ children }) {
   }, [getActiveTabTelemetry, stopAudio]);
 
   // ─── Unified Voice Agent Pipeline ──────────────────────────────────
-  // Helper: play TTS audio and drive voiceAgentState through SPEAKING → IDLE
+
+  // Clear idle timeout
+  const clearIdleTimeout = useCallback(() => {
+    if (voiceIdleTimerRef.current) {
+      clearTimeout(voiceIdleTimerRef.current);
+      voiceIdleTimerRef.current = null;
+    }
+  }, []);
+
+  // Start idle timeout — gracefully return to IDLE after configured duration
+  const startIdleTimeout = useCallback(() => {
+    clearIdleTimeout();
+    voiceIdleTimerRef.current = setTimeout(() => {
+      setVoiceAgentState((curr) => {
+        if (curr === 'WAITING_FOR_USER') {
+          playSiriDeactivationChime();
+          setVoiceAgentReply(null);
+          setVoiceSession((prev) => ({ ...prev, conversationActive: false, state: 'idle' }));
+          return 'IDLE';
+        }
+        return curr;
+      });
+    }, VOICE_IDLE_TIMEOUT_MS);
+  }, [clearIdleTimeout]);
+
+  // Helper: play TTS audio and drive voiceAgentState through event-driven lifecycle
+  // SPEAKING state driven by audio.onplay (not when response is received)
+  // WAITING_FOR_USER state driven by audio.onended (not by setTimeout)
   const playVoiceAgentTts = useCallback(
     (audioBase64, botMsgId) => {
       if (!audioBase64) {
-        voiceAgentTimeoutRef.current = setTimeout(() => {
-          playSiriCompleteTone();
-          setVoiceAgentState('IDLE');
-          setVoiceAgentReply(null);
-        }, 3000);
+        // No audio available — go directly to WAITING_FOR_USER
+        playSiriCompleteTone();
+        setVoiceAgentState('WAITING_FOR_USER');
+        setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+        startIdleTimeout();
         return;
       }
 
       const audio = new Audio(audioBase64);
       voiceAgentAudioRef.current = audio;
 
+      // SPEAKING state driven by actual audio playback start
+      audio.onplay = () => {
+        setVoiceAgentState('SPEAKING');
+        setVoiceSession((prev) => ({ ...prev, state: 'speaking' }));
+      };
+
+      // WAITING_FOR_USER state driven by actual audio playback end
       audio.onended = () => {
         playSiriCompleteTone();
         voiceAgentAudioRef.current = null;
-        voiceAgentTimeoutRef.current = setTimeout(() => {
-          setVoiceAgentState('IDLE');
-          setVoiceAgentReply(null);
-        }, 800);
+        setVoiceAgentState('WAITING_FOR_USER');
+        setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+        startIdleTimeout();
       };
 
       audio.onerror = () => {
         voiceAgentAudioRef.current = null;
-        voiceAgentTimeoutRef.current = setTimeout(() => {
-          setVoiceAgentState('IDLE');
-          setVoiceAgentReply(null);
-        }, 2000);
+        setVoiceAgentState('WAITING_FOR_USER');
+        setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+        startIdleTimeout();
       };
 
       audio.play().catch(() => {
-        voiceAgentTimeoutRef.current = setTimeout(() => {
-          setVoiceAgentState('IDLE');
-          setVoiceAgentReply(null);
-        }, 3000);
+        // Autoplay blocked — still transition to WAITING_FOR_USER
+        setVoiceAgentState('WAITING_FOR_USER');
+        setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+        startIdleTimeout();
       });
 
       // Also store audio on the bot message for replay in chat
@@ -989,14 +1033,14 @@ export function ChatProvider({ children }) {
         );
       }
     },
-    []
+    [startIdleTimeout]
   );
 
   // Sends a text query through the Groq pipeline.
   // Writes both user message and bot reply to the shared chat history.
   // Drives voiceAgentState for the Siri widget animation.
   const sendVoiceAgentQuery = useCallback(
-    async (text) => {
+    async (text, detectedLanguage = null) => {
       const trimmed = (text || '').trim();
       if (!trimmed) {
         setVoiceAgentState('IDLE');
@@ -1030,8 +1074,9 @@ export function ChatProvider({ children }) {
         const data = await chatApi.sendChatMessage(
           payloadHistory,
           activeContext,
-          language || 'en',
-          token
+          detectedLanguage || language || 'en',
+          token,
+          true
         );
 
         const replyText =
@@ -1060,20 +1105,21 @@ export function ChatProvider({ children }) {
         };
         setMessages((prev) => [...prev, botMsg]);
 
-        // 3. Drive Siri widget state
+        // 3. Drive Siri widget state (SPEAKING set by audio.onplay in playVoiceAgentTts)
         setVoiceAgentReply({ text: replyText, timestamp: Date.now() });
-        setVoiceAgentState('SPEAKING');
 
-        // 4. Request TTS and play
+        // 4. Request TTS and play — use voiceSession detected language if available
         try {
-          const ttsRes = await chatApi.generateTts(replyText, language || 'en', token);
+          const ttsLang = voiceSession.detectedLanguage
+            ? voiceSession.detectedLanguage.split('-')[0].toLowerCase()
+            : (language || 'en');
+          const ttsRes = await chatApi.generateTts(replyText, ttsLang, token);
           playVoiceAgentTts(ttsRes?.audio_base64 || null, botMsgId);
         } catch (ttsErr) {
           console.warn('[VoiceAgent] TTS failed:', ttsErr);
-          voiceAgentTimeoutRef.current = setTimeout(() => {
-            setVoiceAgentState('IDLE');
-            setVoiceAgentReply(null);
-          }, 3000);
+          setVoiceAgentState('WAITING_FOR_USER');
+          setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+          startIdleTimeout();
         }
       } catch (err) {
         console.error('[VoiceAgent] Query failed:', err);
@@ -1087,24 +1133,27 @@ export function ChatProvider({ children }) {
         };
         setMessages((prev) => [...prev, errorMsg]);
         setVoiceAgentReply({ text: 'Sorry, I could not process your request.', timestamp: Date.now() });
-        setVoiceAgentState('SPEAKING');
-        voiceAgentTimeoutRef.current = setTimeout(() => {
-          setVoiceAgentState('IDLE');
-          setVoiceAgentReply(null);
-        }, 3000);
+        setVoiceAgentState('WAITING_FOR_USER');
+        setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+        startIdleTimeout();
       }
     },
-    [messages, getGroundedContext, language, token, dispatchToolCall, playVoiceAgentTts]
+    [messages, getGroundedContext, language, voiceSession.detectedLanguage, token, dispatchToolCall, playVoiceAgentTts, startIdleTimeout]
   );
 
   // Send voice audio through the unified voice agent pipeline.
   // Audio → V3 Cascade (Sarvam → Bhashini → Groq → Bhashini TTS) → Shared Chat History.
+  // Language is derived from backend ASR detection, NOT from dashboard language.
   const sendVoiceAgentAudio = useCallback(
     async (audioBlob) => {
       if (!audioBlob) {
         setVoiceAgentState('IDLE');
+        setVoiceSession((prev) => ({ ...prev, conversationActive: false, state: 'idle' }));
         return;
       }
+
+      // Clear any pending idle timeout
+      clearIdleTimeout();
 
       // 1. Add placeholder user message to shared chat history
       const tempUserMsgId = `user-siri-voice-${Date.now()}`;
@@ -1118,7 +1167,9 @@ export function ChatProvider({ children }) {
       };
       setMessages((prev) => [...prev, userMsg]);
 
+      // State: THINKING (processing) — begins when recording stops
       setVoiceAgentState('THINKING');
+      setVoiceSession((prev) => ({ ...prev, state: 'processing' }));
       playSiriThinkingTone();
       const activeContext = getGroundedContext();
 
@@ -1139,6 +1190,15 @@ export function ChatProvider({ children }) {
         const transcript = data?.user_transcript || '(Voice Input)';
         const replyText = data?.reply || 'I could not generate a response.';
         const audioBase64 = data?.audio_base64 || null;
+        const detectedLang = data?.detected_language || null;
+
+        // Update voice session with detected language (independent of dashboard)
+        setVoiceSession((prev) => ({
+          ...prev,
+          detectedLanguage: detectedLang,
+          transcript: transcript,
+          responseText: replyText,
+        }));
 
         // Execute voice-triggered tool call (navigation, language change, etc.)
         if (data?.tool_call) {
@@ -1147,7 +1207,12 @@ export function ChatProvider({ children }) {
 
         // 2. Update placeholder with real transcript
         setMessages((prev) =>
-          prev.map((m) => (m.id === tempUserMsgId ? { ...m, content: transcript, isVoice: true } : m))
+          prev.map((m) => (m.id === tempUserMsgId ? {
+            ...m,
+            content: transcript,
+            isVoice: true,
+            detectedLanguage: detectedLang,
+          } : m))
         );
 
         // 3. Add bot reply to shared chat history
@@ -1161,7 +1226,7 @@ export function ChatProvider({ children }) {
           isFallback: data?.is_fallback || false,
           model: data?.model || 'sarvam-saaras + groq-llm',
           sources: data?.sources || [],
-          detected_language: data?.detected_language,
+          detected_language: detectedLang,
           tier_used: data?.tier_used,
           tool_call: data?.tool_call || null,
           source: 'siri',
@@ -1174,22 +1239,23 @@ export function ChatProvider({ children }) {
         };
         setMessages((prev) => [...prev, botMsg]);
 
-        // 4. Drive Siri widget state
+        // 4. Set reply text for widget display (state stays THINKING until audio.onplay)
         setVoiceAgentReply({ text: replyText, timestamp: Date.now() });
-        setVoiceAgentState('SPEAKING');
 
-        // 5. Play inline TTS audio from V3 response, or request TTS separately
+        // 5. Play TTS audio — SPEAKING state is set by audio.onplay event
         if (audioBase64) {
           playVoiceAgentTts(audioBase64, botMsgId);
         } else {
+          // Request TTS separately using DETECTED language (not dashboard language)
           try {
-            const ttsRes = await chatApi.generateTts(replyText, language || 'en', token);
+            const ttsLang = detectedLang ? detectedLang.split('-')[0].toLowerCase() : 'hi';
+            const ttsRes = await chatApi.generateTts(replyText, ttsLang, token);
             playVoiceAgentTts(ttsRes?.audio_base64 || null, botMsgId);
           } catch {
-            voiceAgentTimeoutRef.current = setTimeout(() => {
-              setVoiceAgentState('IDLE');
-              setVoiceAgentReply(null);
-            }, 3000);
+            // TTS failed — go to WAITING_FOR_USER to allow retry
+            setVoiceAgentState('WAITING_FOR_USER');
+            setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+            startIdleTimeout();
           }
         }
       } catch (err) {
@@ -1210,23 +1276,31 @@ export function ChatProvider({ children }) {
         };
         setMessages((prev) => [...prev, errorMsg]);
         setVoiceAgentReply({ text: 'Sorry, I could not process your voice.', timestamp: Date.now() });
-        setVoiceAgentState('SPEAKING');
-        voiceAgentTimeoutRef.current = setTimeout(() => {
-          setVoiceAgentState('IDLE');
-          setVoiceAgentReply(null);
-        }, 3000);
+        // Go to WAITING_FOR_USER (not IDLE) to allow retry
+        setVoiceAgentState('WAITING_FOR_USER');
+        setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+        startIdleTimeout();
       }
     },
-    [messages, getGroundedContext, language, token, dispatchToolCall, playVoiceAgentTts]
+    [messages, getGroundedContext, token, dispatchToolCall, playVoiceAgentTts, clearIdleTimeout, startIdleTimeout]
   );
 
-  // Dismiss the voice agent window manually
-  const dismissVoiceAgent = useCallback(() => {
+  // Start a voice conversation session
+  const startVoiceConversation = useCallback(() => {
+    clearIdleTimeout();
+    setVoiceSession((prev) => ({ ...prev, conversationActive: true, state: 'listening' }));
+    setVoiceAgentState('LISTENING');
+    playSiriActivationChime();
+  }, [clearIdleTimeout]);
+
+  // End a voice conversation session
+  const endVoiceConversation = useCallback(() => {
     // Stop any playing audio
     if (voiceAgentAudioRef.current) {
       voiceAgentAudioRef.current.pause();
       voiceAgentAudioRef.current = null;
     }
+    clearIdleTimeout();
     if (voiceAgentTimeoutRef.current) {
       clearTimeout(voiceAgentTimeoutRef.current);
       voiceAgentTimeoutRef.current = null;
@@ -1234,7 +1308,24 @@ export function ChatProvider({ children }) {
     playSiriDeactivationChime();
     setVoiceAgentState('IDLE');
     setVoiceAgentReply(null);
-  }, []);
+    setVoiceSession((prev) => ({ ...prev, conversationActive: false, state: 'idle' }));
+  }, [clearIdleTimeout]);
+
+  // Interrupt assistant speech — stop audio and prepare for new input
+  const interruptVoiceAgent = useCallback(() => {
+    if (voiceAgentAudioRef.current) {
+      voiceAgentAudioRef.current.pause();
+      voiceAgentAudioRef.current = null;
+    }
+    clearIdleTimeout();
+    setVoiceAgentState('LISTENING');
+    setVoiceSession((prev) => ({ ...prev, state: 'listening' }));
+  }, [clearIdleTimeout]);
+
+  // Dismiss the voice agent window manually (backward compat alias)
+  const dismissVoiceAgent = useCallback(() => {
+    endVoiceConversation();
+  }, [endVoiceConversation]);
 
   // Keep voiceAgentState ref for follow-up recognition
   const voiceAgentStateRef = useRef(voiceAgentState);
@@ -1260,18 +1351,18 @@ export function ChatProvider({ children }) {
     [sendVoiceAgentQuery]
   );
 
-  // Voice Wake-Word "Hey Siri" Detection Handler
+  // Voice Wake-Word "Mira" Detection Handler
   const [siriNotice, setSiriNotice] = useState(null);
 
   const handleWakeWordDetected = useCallback(
-    ({ phrase, transcript, trailingQuery }) => {
-      // 1. Play ONLY the single authentic Web Audio Siri Chime
+    ({ phrase, transcript, trailingQuery, language }) => {
+      // 1. Play Web Audio Chime
       playSiriActivationChime();
 
       // 2. If trailing command is present, send directly to voice agent pipeline
       if (trailingQuery && trailingQuery.trim().length > 2) {
         setVoiceAgentState('THINKING');
-        sendVoiceAgentQuery(trailingQuery.trim());
+        sendVoiceAgentQuery(trailingQuery.trim(), language || 'hi');
       } else {
         // Otherwise: open Voice Agent window in LISTENING state
         setVoiceAgentState('LISTENING');
@@ -1283,7 +1374,7 @@ export function ChatProvider({ children }) {
 
       // 3. Set visual toast notice (kept for accessibility)
       setSiriNotice({
-        phrase: phrase || 'Hey Siri',
+        phrase: phrase || 'Mira',
         transcript: transcript || '',
         trailingQuery: trailingQuery || '',
         timestamp: Date.now(),
@@ -1345,12 +1436,16 @@ export function ChatProvider({ children }) {
         voiceAgentState,
         setVoiceAgentState,
         voiceAgentReply,
+        voiceSession,
         sendVoiceAgentQuery,
         sendVoiceAgentAudio,
+        startVoiceConversation,
+        endVoiceConversation,
+        interruptVoiceAgent,
         dismissVoiceAgent,
         dispatchToolCall,
         actionDispatchers,
-        // Wake-Word "Hey Siri" APIs
+        // Wake-Word "Mira" APIs
         isWakeWordSupported,
         isWakeWordEnabled,
         isWakeWordListening,

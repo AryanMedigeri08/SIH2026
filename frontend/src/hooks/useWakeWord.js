@@ -2,23 +2,20 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { chatApi } from '../services/api';
 
 /**
- * Phonetic patterns to catch "Hey Siri" across diverse accents, speech speeds,
- * and speech-to-text interpretations.
- * Also accommodates trailing commands e.g. "Hey Siri what is dairy demand in Thane?"
+ * Phonetic patterns to catch "Mira" across diverse Indian accents, speech speeds,
+ * Indic scripts (Devanagari मीरा / मिरा), and common speech-to-text interpretations.
+ * Backend Sarvam + Bhashini ASR handles the actual transcription — this regex
+ * only validates the returned transcript.
  */
-export const WAKE_WORD_REGEX = /\b(?:hey|hay|ay|hai|hi|hello|ok|okay|a)?[\s,.]*(?:siri|seeree|sery|ciri|serious|sarah|shiri|suri|series|cereal|ceri|cere|sorry|cyril|theory|city|sweetie|cd|see ree)\b/i;
-export const SAATHI_ALIAS_REGEX = /\b(?:hey|namaste|hello|ok)?[\s,.]*(?:saathi|sathi|udyam)\b/i;
+export const WAKE_WORD_REGEX = /(?:\b(?:hey|hay|ay|hai|hi|hello|ok|okay|namaste|sun|oye)\b[\s,.]*)?(?:\b(?:mira|meera|meara|miraa|meeraa|meerha|mirah|mehra|meira|miira|myra|mirror|mera|mirha|meerah|myraa|meeral|miral)\b|मीरा|मिरा)/i;
 
 /**
  * Extracts any trailing prompt that follows the wake phrase in the same utterance.
- * e.g. "Hey Siri what is the feasibility of dairy in Pune" -> "what is the feasibility of dairy in Pune"
+ * e.g. "Mira what is the feasibility of dairy in Pune" -> "what is the feasibility of dairy in Pune"
  */
 export function extractTrailingPrompt(fullText) {
   if (!fullText) return '';
-  let match = fullText.match(WAKE_WORD_REGEX);
-  if (!match) {
-    match = fullText.match(SAATHI_ALIAS_REGEX);
-  }
+  const match = fullText.match(WAKE_WORD_REGEX);
   if (!match) return '';
 
   const matchEnd = match.index + match[0].length;
@@ -27,20 +24,32 @@ export function extractTrailingPrompt(fullText) {
 }
 
 /**
- * Checks if a text utterance contains a wake-word trigger.
+ * Checks if a text utterance contains the "Mira" wake-word trigger.
  */
 export function matchWakeWord(text) {
   if (!text) return false;
-  return WAKE_WORD_REGEX.test(text) || SAATHI_ALIAS_REGEX.test(text);
+  return WAKE_WORD_REGEX.test(text);
 }
 
 /**
  * Custom Hook: useWakeWord
  * 
- * Dual-Engine Background Wake-Word Detection:
- * - Engine A (Native SpeechRecognition): High-speed client-side matching (Chrome, Edge, Safari, Opera).
- *   Holds a persistent media stream so the browser microphone access NEVER flickers on/off.
- * - Engine B (Web Audio VAD + Groq Whisper): Universal fallback with micro-utterance transcription (Firefox & all modern browsers).
+ * Backend-Powered Wake-Word Detection for "Mira":
+ * Uses Web Audio API VAD (Voice Activity Detection) to capture short audio clips,
+ * then sends them to the backend /stt endpoint which uses the sovereign
+ * Sarvam LID → Bhashini ASR → Groq Whisper (fallback) cascade for transcription.
+ * 
+ * This replaces the previous Chrome Web Speech API approach which was unreliable
+ * for Indian accents and frequently failed to recognize "Mira".
+ * 
+ * Architecture:
+ *   1. Web Audio API continuously monitors microphone energy levels (lightweight, client-side)
+ *   2. When speech energy > threshold, starts recording a short audio clip
+ *   3. When silence is detected (or max duration reached), stops recording
+ *   4. Sends the audio clip to POST /api/chat/stt (Sarvam + Bhashini backend)
+ *   5. Backend returns transcript + detected language
+ *   6. Frontend checks transcript for "Mira" wake word via WAKE_WORD_REGEX
+ *   7. If matched → triggers onWakeWordDetected callback with trailing query
  */
 export function useWakeWord({
   onWakeWordDetected,
@@ -48,12 +57,12 @@ export function useWakeWord({
   enabledByDefault = true,
   cooldownMs = 2000,
   minSpeechThreshold = 0.022,
-  silenceThresholdMs = 650,
+  silenceThresholdMs = 500,
   maxUtteranceMs = 3500,
 } = {}) {
   const [isEnabled, setIsEnabled] = useState(() => {
     try {
-      const stored = localStorage.getItem('udyam_wake_word_siri_enabled_v2');
+      const stored = localStorage.getItem('udyam_wake_word_mira_enabled') ?? localStorage.getItem('udyam_wake_word_sakhi_enabled');
       if (stored !== null) return stored === 'true';
       return enabledByDefault;
     } catch {
@@ -65,13 +74,11 @@ export function useWakeWord({
   const [error, setError] = useState(null);
   const [lastDetected, setLastDetected] = useState(null);
 
-  // Engine capability detection
-  const hasNativeSpeech = typeof window !== 'undefined' && 
-    Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+  // Engine capability detection — only need microphone access (no Web Speech API needed)
   const hasMediaDevices = typeof window !== 'undefined' && 
     Boolean(navigator?.mediaDevices?.getUserMedia);
-  const isSupported = hasNativeSpeech || hasMediaDevices;
-  const engineType = hasNativeSpeech ? 'native_webspeech' : 'groq_whisper_vad';
+  const isSupported = hasMediaDevices;
+  const engineType = 'sarvam_bhashini_vad';
 
   // Refs for state coordination
   const shouldListenRef = useRef(isEnabled);
@@ -81,15 +88,7 @@ export function useWakeWord({
   const onSpeechRecognizedRef = useRef(onSpeechRecognized);
   onSpeechRecognizedRef.current = onSpeechRecognized;
 
-  // Persistent background stream to keep Chrome's microphone indicator steadily active
-  const persistentMicStreamRef = useRef(null);
-
-  // Engine A (Native Speech) Refs
-  const recognitionRef = useRef(null);
-  const restartTimerRef = useRef(null);
-  const isStoppingRef = useRef(false);
-
-  // Engine B (VAD + Whisper) Refs
+  // VAD (Voice Activity Detection) + Backend Transcription Refs
   const vadStreamRef = useRef(null);
   const vadAudioCtxRef = useRef(null);
   const vadAnalyserRef = useRef(null);
@@ -100,25 +99,30 @@ export function useWakeWord({
   const captureStartTimeRef = useRef(0);
   const silenceStartRef = useRef(null);
   const isTranscribingRef = useRef(false);
+  const isStoppingRef = useRef(false);
 
   // Sync isEnabled to localStorage and ref
   useEffect(() => {
     shouldListenRef.current = isEnabled;
     try {
-      localStorage.setItem('udyam_wake_word_siri_enabled_v2', String(isEnabled));
+      localStorage.setItem('udyam_wake_word_mira_enabled', String(isEnabled));
     } catch {
       // Storage ignored
     }
   }, [isEnabled]);
 
   // Unified detection trigger with cooldown
-  const handleDetection = useCallback((transcript) => {
+  const handleDetection = useCallback((transcript, detectedLang = null) => {
     if (!transcript) return;
     const now = Date.now();
+
+    // Debug: Log every transcript received for wake word matching
+    console.debug(`[useWakeWord] 📝 Backend transcript: "${transcript}" | Regex test: ${WAKE_WORD_REGEX.test(transcript)}`);
 
     // Check if utterance contains wake word
     if (matchWakeWord(transcript)) {
       if (now - lastTriggerTimeRef.current < cooldownMs) {
+        console.debug('[useWakeWord] ⏳ Cooldown active, ignoring duplicate trigger');
         return;
       }
 
@@ -129,16 +133,18 @@ export function useWakeWord({
         transcript,
         trailingQuery,
         engine: engineType,
+        language: detectedLang,
       });
 
-      console.info(`[useWakeWord] 🎙️ "Hey Siri" detected! Trailing prompt:`, trailingQuery || '(none)');
+      console.info(`[useWakeWord] 🎙️ "Mira" detected via backend ASR! Trailing prompt:`, trailingQuery || '(none)');
 
       if (onWakeWordRef.current) {
         onWakeWordRef.current({
-          phrase: 'Hey Siri',
+          phrase: 'Mira',
           transcript,
           trailingQuery,
           engine: engineType,
+          language: detectedLang,
         });
       }
     } else {
@@ -149,7 +155,7 @@ export function useWakeWord({
     }
   }, [cooldownMs, engineType]);
 
-  // Clean up Engine B (VAD) resources
+  // Clean up VAD resources
   const cleanupVadResources = useCallback(() => {
     if (vadAnimFrameRef.current) {
       cancelAnimationFrame(vadAnimFrameRef.current);
@@ -176,168 +182,28 @@ export function useWakeWord({
     isCapturingRef.current = false;
   }, []);
 
-  // ----------------------------------------------------
-  // ENGINE A: Native Web Speech Recognition (Chrome/Edge/Safari)
-  // ----------------------------------------------------
+  // ---------------------------------------------------------------
+  // PRIMARY ENGINE: Web Audio VAD + Backend Sarvam/Bhashini ASR
+  // 
+  // How it works:
+  //   1. Opens microphone via getUserMedia
+  //   2. Creates Web Audio AnalyserNode to monitor RMS energy
+  //   3. When energy > minSpeechThreshold → starts MediaRecorder
+  //   4. When silence detected (silenceThresholdMs) or maxUtteranceMs → stops recorder
+  //   5. Sends recorded audio blob to POST /api/chat/stt (auto-detect language)
+  //   6. Backend Sarvam LID → Bhashini ASR → Whisper fallback returns transcript
+  //   7. Transcript checked against WAKE_WORD_REGEX for "Mira"
+  // ---------------------------------------------------------------
   useEffect(() => {
-    if (!hasNativeSpeech) return;
-
     if (!isEnabled) {
       isStoppingRef.current = true;
-      clearTimeout(restartTimerRef.current);
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch {}
-        recognitionRef.current = null;
-      }
-      if (persistentMicStreamRef.current) {
-        persistentMicStreamRef.current.getTracks().forEach((t) => t.stop());
-        persistentMicStreamRef.current = null;
-      }
-      setIsListening(false);
-      return;
-    }
-
-    isStoppingRef.current = false;
-    setIsListening(true);
-
-    // Keep persistent audio track open so Chrome never switches the microphone on and off
-    if (!persistentMicStreamRef.current && navigator?.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices
-        .getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        })
-        .then((stream) => {
-          if (isStoppingRef.current) {
-            stream.getTracks().forEach((t) => t.stop());
-            return;
-          }
-          persistentMicStreamRef.current = stream;
-        })
-        .catch((err) => {
-          console.debug('[useWakeWord] Persistent mic stream notice:', err?.message);
-        });
-    }
-
-    // Factory to start fresh SpeechRecognition instance on every cycle
-    const startRecognition = () => {
-      if (!shouldListenRef.current || isStoppingRef.current) return;
-
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch {}
-        recognitionRef.current = null;
-      }
-
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) return;
-
-      let recognition;
-      try {
-        recognition = new SpeechRecognition();
-        recognitionRef.current = recognition;
-      } catch (err) {
-        setError(err?.message || 'Failed to initialize SpeechRecognition');
-        return;
-      }
-
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = (typeof navigator !== 'undefined' && navigator.language) ? navigator.language : 'en-US';
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => {
-        isStoppingRef.current = false;
-        setIsListening(true);
-        setError(null);
-      };
-
-      recognition.onresult = (event) => {
-        if (!shouldListenRef.current) return;
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result && result[0]) {
-            const transcript = result[0].transcript || '';
-            handleDetection(transcript);
-          }
-        }
-      };
-
-      recognition.onerror = (event) => {
-        if (event.error === 'no-speech') return;
-        if (event.error === 'not-allowed' || event.error === 'permission-denied') {
-          console.warn('[useWakeWord] Microphone permission notice:', event.error);
-          setError('Microphone permission required for "Hey Siri".');
-          setIsListening(false);
-          return;
-        }
-        if (event.error !== 'aborted') {
-          console.debug('[useWakeWord] Native recognition notice:', event.error);
-        }
-      };
-
-      recognition.onend = () => {
-        recognitionRef.current = null;
-        // Recreate new SpeechRecognition instance smoothly without dropping mic
-        if (shouldListenRef.current && !isStoppingRef.current) {
-          clearTimeout(restartTimerRef.current);
-          restartTimerRef.current = setTimeout(() => {
-            startRecognition();
-          }, 150);
-        }
-      };
-
-      try {
-        recognition.start();
-      } catch (err) {
-        console.debug('[useWakeWord] Start notice:', err?.message);
-        if (shouldListenRef.current && !isStoppingRef.current) {
-          clearTimeout(restartTimerRef.current);
-          restartTimerRef.current = setTimeout(() => {
-            startRecognition();
-          }, 600);
-        }
-      }
-    };
-
-    startRecognition();
-
-    return () => {
-      isStoppingRef.current = true;
-      clearTimeout(restartTimerRef.current);
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch {}
-        recognitionRef.current = null;
-      }
-      if (persistentMicStreamRef.current) {
-        persistentMicStreamRef.current.getTracks().forEach((t) => t.stop());
-        persistentMicStreamRef.current = null;
-      }
-    };
-  }, [isEnabled, hasNativeSpeech, handleDetection]);
-
-  // ----------------------------------------------------
-  // ENGINE B: Universal Web Audio VAD + Groq Whisper (Firefox / Fallback)
-  // ----------------------------------------------------
-  useEffect(() => {
-    if (hasNativeSpeech) return; // Only run Engine B when native speech recognition is not available
-
-    if (!isEnabled) {
       cleanupVadResources();
       setIsListening(false);
       return;
     }
 
     let isCancelled = false;
+    isStoppingRef.current = false;
 
     async function initVad() {
       try {
@@ -367,6 +233,7 @@ export function useWakeWord({
         vadAnalyserRef.current = analyser;
 
         setIsListening(true);
+        console.info('[useWakeWord] 🎤 VAD + Backend ASR engine started. Say "Mira" to activate.');
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
@@ -413,17 +280,23 @@ export function useWakeWord({
 
                   if (chunks.length > 0 && shouldListenRef.current && !isCancelled) {
                     const audioBlob = new Blob(chunks, { type: mime });
-                    // Transcribe snippet with fast Groq Whisper
+                    // Only transcribe if audio is substantial enough (> 2KB)
                     if (audioBlob.size > 2000) {
                       isTranscribingRef.current = true;
                       try {
-                        const sttResult = await chatApi.transcribeAudio(audioBlob, 'en');
+                        // Send to backend /stt — uses Sarvam LID + Bhashini ASR (primary)
+                        // with Groq Whisper fallback. Language = '' for auto-detect.
+                        console.debug(`[useWakeWord] 🔄 Sending ${(audioBlob.size / 1024).toFixed(1)}KB audio to backend /stt...`);
+                        const sttResult = await chatApi.transcribeAudio(audioBlob, '');
                         const transcript = sttResult?.transcript || sttResult?.text || '';
+                        const detectedLang = sttResult?.language || sttResult?.detected_language_code || null;
+                        const provider = sttResult?.provider || 'unknown';
                         if (transcript.trim()) {
-                          handleDetection(transcript.trim());
+                          console.debug(`[useWakeWord] 📡 Backend (${provider}): "${transcript.trim()}" [lang=${detectedLang}]`);
+                          handleDetection(transcript.trim(), detectedLang);
                         }
                       } catch (err) {
-                        console.debug('[useWakeWord VAD] Transcription error:', err?.message);
+                        console.debug('[useWakeWord] Transcription error:', err?.message);
                       } finally {
                         isTranscribingRef.current = false;
                       }
@@ -433,7 +306,7 @@ export function useWakeWord({
 
                 recorder.start(150);
               } catch (recErr) {
-                console.warn('[useWakeWord VAD] Recorder failed:', recErr);
+                console.warn('[useWakeWord] Recorder failed:', recErr);
                 isCapturingRef.current = false;
               }
             }
@@ -462,7 +335,8 @@ export function useWakeWord({
         vadAnimFrameRef.current = requestAnimationFrame(vadLoop);
       } catch (err) {
         if (!isCancelled) {
-          setError('Microphone permission required for voice wake-word.');
+          console.error('[useWakeWord] Microphone access failed:', err);
+          setError('Microphone permission required for "Mira" voice activation.');
           setIsEnabled(false);
           setIsListening(false);
         }
@@ -477,7 +351,6 @@ export function useWakeWord({
     };
   }, [
     isEnabled,
-    hasNativeSpeech,
     minSpeechThreshold,
     silenceThresholdMs,
     maxUtteranceMs,
