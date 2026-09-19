@@ -32,110 +32,138 @@ const LANG_NAMES = {
   pa: 'Punjabi', 'pa-IN': 'Punjabi',
 };
 
-// ─── Audio-Reactive Orb ────────────────────────────────────────────
+// ─── Audio-Reactive Mira Avatar ────────────────────────────────────
 function VoiceOrb({ state, volume = 0 }) {
-  const orbScale = useMemo(() => {
-    if (state === 'LISTENING') return 1 + volume * 0.4;
-    if (state === 'SPEAKING') return 1 + volume * 0.35;
+  const avatarScale = useMemo(() => {
+    if (state === 'LISTENING') return 1 + volume * 0.35;
+    if (state === 'SPEAKING') return 1 + volume * 0.3;
     return 1;
   }, [state, volume]);
 
-  const orbConfig = useMemo(() => {
+  const glowConfig = useMemo(() => {
     switch (state) {
       case 'LISTENING':
         return {
-          bg: 'radial-gradient(circle, rgba(34,211,238,0.5) 0%, rgba(6,182,212,0.25) 50%, transparent 70%)',
-          border: '2px solid rgba(34,211,238,0.5)',
-          shadow: `0 0 ${20 + volume * 40}px rgba(34,211,238,${0.3 + volume * 0.4}), 0 0 ${40 + volume * 60}px rgba(34,211,238,${0.1 + volume * 0.2})`,
+          bg: 'radial-gradient(circle, rgba(34,211,238,0.45) 0%, rgba(6,182,212,0.2) 60%, transparent 75%)',
+          border: '2px solid rgba(34,211,238,0.7)',
+          ringColor: 'rgba(34,211,238,0.4)',
+          shadow: `0 0 ${24 + volume * 45}px rgba(34,211,238,${0.4 + volume * 0.4}), 0 0 ${48 + volume * 60}px rgba(6,182,212,${0.2 + volume * 0.2})`,
+          badgeColor: 'bg-cyan-400',
+          badgePing: true,
           animation: 'none',
         };
       case 'THINKING':
         return {
-          bg: 'radial-gradient(circle, rgba(129,140,248,0.4) 0%, rgba(99,102,241,0.2) 50%, transparent 70%)',
-          border: '2px solid rgba(129,140,248,0.35)',
-          shadow: '0 0 24px rgba(129,140,248,0.25), 0 0 48px rgba(99,102,241,0.1)',
+          bg: 'radial-gradient(circle, rgba(129,140,248,0.4) 0%, rgba(99,102,241,0.15) 60%, transparent 75%)',
+          border: '2px solid rgba(129,140,248,0.6)',
+          ringColor: 'rgba(129,140,248,0.3)',
+          shadow: '0 0 24px rgba(129,140,248,0.35), 0 0 48px rgba(99,102,241,0.15)',
+          badgeColor: 'bg-indigo-400',
+          badgePing: true,
           animation: 'voiceOrbBreathe 2.5s ease-in-out infinite',
         };
       case 'SPEAKING':
         return {
-          bg: 'radial-gradient(circle, rgba(52,211,153,0.45) 0%, rgba(16,185,129,0.2) 50%, transparent 70%)',
-          border: '2px solid rgba(52,211,153,0.45)',
-          shadow: `0 0 ${20 + volume * 35}px rgba(52,211,153,${0.3 + volume * 0.3}), 0 0 ${40 + volume * 50}px rgba(16,185,129,${0.1 + volume * 0.15})`,
+          bg: 'radial-gradient(circle, rgba(52,211,153,0.45) 0%, rgba(16,185,129,0.2) 60%, transparent 75%)',
+          border: '2px solid rgba(52,211,153,0.7)',
+          ringColor: 'rgba(52,211,153,0.4)',
+          shadow: `0 0 ${24 + volume * 40}px rgba(52,211,153,${0.4 + volume * 0.35}), 0 0 ${48 + volume * 55}px rgba(16,185,129,${0.15 + volume * 0.2})`,
+          badgeColor: 'bg-emerald-400',
+          badgePing: true,
           animation: 'none',
         };
       case 'WAITING_FOR_USER':
         return {
-          bg: 'radial-gradient(circle, rgba(148,163,184,0.2) 0%, rgba(100,116,139,0.1) 50%, transparent 70%)',
-          border: '2px solid rgba(148,163,184,0.2)',
-          shadow: '0 0 16px rgba(148,163,184,0.1)',
+          bg: 'radial-gradient(circle, rgba(148,163,184,0.2) 0%, rgba(100,116,139,0.08) 60%, transparent 75%)',
+          border: '2px solid rgba(148,163,184,0.35)',
+          ringColor: 'rgba(148,163,184,0.2)',
+          shadow: '0 0 16px rgba(148,163,184,0.15)',
+          badgeColor: 'bg-slate-400',
+          badgePing: false,
           animation: 'voiceOrbIdle 3s ease-in-out infinite',
         };
       default:
         return {
           bg: 'transparent',
-          border: '2px solid rgba(148,163,184,0.15)',
+          border: '2px solid rgba(148,163,184,0.2)',
+          ringColor: 'transparent',
           shadow: 'none',
+          badgeColor: 'bg-slate-500',
+          badgePing: false,
           animation: 'none',
         };
     }
   }, [state, volume]);
 
   return (
-    <div className="relative flex items-center justify-center" style={{ width: '88px', height: '88px' }}>
-      {/* Outer glow ring */}
+    <div className="relative flex items-center justify-center" style={{ width: '96px', height: '96px' }}>
+      {/* Outer audio-reactive glow ring */}
       <div
-        className="absolute rounded-full transition-all duration-200"
+        className="absolute rounded-full transition-all duration-200 pointer-events-none"
         style={{
-          width: '88px',
-          height: '88px',
-          background: orbConfig.bg,
-          boxShadow: orbConfig.shadow,
-          transform: `scale(${orbScale})`,
-          animation: orbConfig.animation,
+          width: '96px',
+          height: '96px',
+          background: glowConfig.bg,
+          boxShadow: glowConfig.shadow,
+          transform: `scale(${avatarScale})`,
+          animation: glowConfig.animation,
         }}
       />
-      {/* Inner core */}
-      <div
-        className="relative rounded-full transition-all duration-150"
-        style={{
-          width: '44px',
-          height: '44px',
-          background: state === 'LISTENING'
-            ? 'radial-gradient(circle, #22d3ee 0%, #0891b2 100%)'
-            : state === 'THINKING'
-            ? 'radial-gradient(circle, #818cf8 0%, #6366f1 100%)'
-            : state === 'SPEAKING'
-            ? 'radial-gradient(circle, #34d399 0%, #10b981 100%)'
-            : 'radial-gradient(circle, #94a3b8 0%, #64748b 100%)',
-          border: orbConfig.border,
-          transform: `scale(${state === 'LISTENING' ? 1 + volume * 0.15 : state === 'SPEAKING' ? 1 + volume * 0.12 : 1})`,
-          boxShadow: state === 'LISTENING'
-            ? '0 0 12px rgba(34,211,238,0.6), inset 0 0 8px rgba(34,211,238,0.3)'
-            : state === 'SPEAKING'
-            ? '0 0 12px rgba(52,211,153,0.5), inset 0 0 8px rgba(52,211,153,0.2)'
-            : state === 'THINKING'
-            ? '0 0 10px rgba(129,140,248,0.4), inset 0 0 6px rgba(129,140,248,0.2)'
-            : '0 0 6px rgba(148,163,184,0.15)',
-        }}
-      />
-      {/* Listening: subtle ripple rings */}
+
+      {/* Ripple rings when listening to speech */}
       {state === 'LISTENING' && volume > 0.03 && (
         <>
           {[0, 1].map((i) => (
             <div
               key={i}
-              className="absolute rounded-full border border-cyan-400/20 pointer-events-none"
+              className="absolute rounded-full border border-cyan-400/30 pointer-events-none"
               style={{
-                width: `${60 + i * 20}px`,
-                height: `${60 + i * 20}px`,
-                opacity: Math.max(0, 0.4 - i * 0.15) * Math.min(1, volume * 5),
-                transform: `scale(${1 + volume * 0.3 * (i + 1)})`,
+                width: `${72 + i * 20}px`,
+                height: `${72 + i * 20}px`,
+                opacity: Math.max(0, 0.45 - i * 0.15) * Math.min(1, volume * 5),
+                transform: `scale(${1 + volume * 0.35 * (i + 1)})`,
                 transition: 'all 0.15s ease-out',
               }}
             />
           ))}
         </>
       )}
+
+      {/* Speaking acoustic pulse rings */}
+      {state === 'SPEAKING' && (
+        <div
+          className="absolute rounded-full border border-emerald-400/30 pointer-events-none animate-ping opacity-30"
+          style={{ width: '80px', height: '80px' }}
+        />
+      )}
+
+      {/* Central Mira Avatar Image */}
+      <div
+        className="relative rounded-full overflow-hidden transition-all duration-150 shrink-0 cursor-pointer shadow-lg group"
+        style={{
+          width: '68px',
+          height: '68px',
+          border: glowConfig.border,
+          transform: `scale(${state === 'LISTENING' ? 1 + volume * 0.12 : state === 'SPEAKING' ? 1 + volume * 0.1 : 1})`,
+          boxShadow: glowConfig.shadow,
+        }}
+      >
+        <img
+          src="/mira-avatar.png"
+          alt="Mira Voice Assistant"
+          className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
+        />
+        {/* Subtle glass reflection overlay */}
+        <div className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/20 pointer-events-none" />
+      </div>
+
+      {/* Status indicator badge dot */}
+      <div className="absolute bottom-2.5 right-2.5 flex items-center justify-center pointer-events-none">
+        {glowConfig.badgePing && (
+          <span className={`animate-ping absolute inline-flex h-3 w-3 rounded-full ${glowConfig.badgeColor} opacity-75`} />
+        )}
+        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${glowConfig.badgeColor} border border-slate-900 shadow-sm`} />
+      </div>
     </div>
   );
 }
