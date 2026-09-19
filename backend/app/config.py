@@ -69,9 +69,11 @@ class Settings(BaseSettings):
     GROQ_STT_MODEL: str = os.getenv("GROQ_STT_MODEL", "whisper-large-v3")
     GROQ_LLM_MODEL: str = os.getenv("GROQ_LLM_MODEL", "openai/gpt-oss-20b")
 
-    # Sarvam AI — Language Detection Layer (V3: Detection-only, 22 Indic Languages)
+    # Sarvam AI — LLM & Voice Agent Layer (sarvam-105b-conversations)
     SARVAM_API_KEY: Optional[str] = os.getenv("SARVAM_API_KEY", None)
     SARVAM_MODEL: str = os.getenv("SARVAM_MODEL", "saaras:v3")
+    SARVAM_LLM_MODEL: str = os.getenv("SARVAM_LLM_MODEL", "sarvam-105b-conversations")
+    SARVAM_CHAT_ENDPOINT: str = os.getenv("SARVAM_CHAT_ENDPOINT", "https://api.sarvam.ai/v1/chat/completions")
     SARVAM_STT_ENDPOINT: str = os.getenv("SARVAM_STT_ENDPOINT", os.getenv("SARVAM_ASR_ENDPOINT", "https://api.sarvam.ai/speech-to-text"))
     SARVAM_ASR_ENDPOINT: str = os.getenv("SARVAM_ASR_ENDPOINT", "https://api.sarvam.ai/speech-to-text")
     SARVAM_TTS_ENDPOINT: str = os.getenv("SARVAM_TTS_ENDPOINT", "https://api.sarvam.ai/text-to-speech")

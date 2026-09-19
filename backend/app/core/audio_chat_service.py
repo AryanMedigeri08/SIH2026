@@ -371,7 +371,7 @@ def build_degraded_language_notice_response() -> dict[str, Any]:
 class AudioChatService:
     def __init__(self):
         self._stt_model = getattr(settings, "GROQ_STT_MODEL", "whisper-large-v3")
-        self._llm_model = getattr(settings, "GROQ_LLM_MODEL", getattr(settings, "GROQ_MODEL", "openai/gpt-oss-20b"))
+        self._llm_model = getattr(settings, "SARVAM_LLM_MODEL", getattr(settings, "GROQ_LLM_MODEL", "sarvam-105b-conversations"))
 
     def _get_stt_client(self) -> Optional[Any]:
         """Initializes Groq client for Speech-to-Text using GROQ_API_KEY_STT or fallbacks."""
@@ -650,7 +650,7 @@ class AudioChatService:
 
         tool_info = f" | Action: {tool_call.get('name')}" if (tool_call and tool_call.get('name')) else ""
         logger.info(
-            "[🧠 GROQ LLM] Response Formulated (%d chars) | ⏱️ %dms%s",
+            "[🧠 SARVAM LLM] Response Formulated (%d chars) | ⏱️ %dms%s",
             len(bot_reply),
             int(llm_latency * 1000),
             tool_info,
@@ -794,7 +794,7 @@ class AudioChatService:
 
         tool_info = f" | Action: {tool_call.get('name')}" if (tool_call and tool_call.get('name')) else ""
         logger.info(
-            "[🧠 GROQ LLM] Response Formulated (%d chars) | ⏱️ %dms%s",
+            "[🧠 SARVAM LLM] Response Formulated (%d chars) | ⏱️ %dms%s",
             len(bot_reply),
             int(llm_latency * 1000),
             tool_info,

@@ -12,6 +12,7 @@ import json
 import logging
 from typing import Optional, Any, Dict, List
 from dataclasses import dataclass, field
+import httpx
 
 try:
     from app.config import settings
@@ -393,11 +394,144 @@ class ChatService:
 
     def _get_api_key(self) -> Optional[str]:
         return (
+            getattr(settings, "SARVAM_API_KEY", None)
+            or os.environ.get("SARVAM_API_KEY")
+            or getattr(settings, "GROQ_CHAT_KEY", None)
+            or os.environ.get("GROQ_CHAT_KEY")
+            or getattr(settings, "GROQ_API_KEY", None)
+            or os.environ.get("GROQ_API_KEY")
+        )
+
+    def _get_chat_endpoint(self) -> str:
+        return getattr(
+            settings,
+            "SARVAM_CHAT_ENDPOINT",
+            os.environ.get("SARVAM_CHAT_ENDPOINT", "https://api.sarvam.ai/v1/chat/completions")
+        )
+
+    def _get_llm_model(self) -> str:
+        return getattr(
+            settings,
+            "SARVAM_LLM_MODEL",
+            os.environ.get("SARVAM_LLM_MODEL", "sarvam-105b-conversations")
+        )
+
+    def _call_llm_chat_completion(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.4,
+        max_tokens: int = 512,
+        timeout_s: float = 25.0,
+    ) -> tuple[str, Optional[Dict[str, Any]], str]:
+        """
+        Executes chat completion against Sarvam AI (sarvam-105b-conversations)
+        with automatic fallback to Groq if Sarvam is unavailable.
+        Returns (content, tool_call_result, model_identifier).
+        """
+        sarvam_key = getattr(settings, "SARVAM_API_KEY", None) or os.environ.get("SARVAM_API_KEY")
+        sarvam_endpoint = self._get_chat_endpoint()
+        sarvam_model = self._get_llm_model()
+
+        # Primary: Sarvam AI Chat Completions
+        if sarvam_key:
+            try:
+                headers = {
+                    "api-subscription-key": sarvam_key,
+                    "Authorization": f"Bearer {sarvam_key}",
+                    "Content-Type": "application/json",
+                }
+                payload: Dict[str, Any] = {
+                    "model": sarvam_model,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                }
+                if tools:
+                    payload["tools"] = tools
+                    payload["tool_choice"] = "auto"
+
+                with httpx.Client(timeout=timeout_s) as client:
+                    resp = client.post(sarvam_endpoint, headers=headers, json=payload)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        choices = data.get("choices", [])
+                        if choices:
+                            msg = choices[0].get("message", {})
+                            content = msg.get("content") or ""
+                            tool_calls = msg.get("tool_calls")
+                            tool_call_result = None
+                            if tool_calls and len(tool_calls) > 0:
+                                tc = tool_calls[0]
+                                func = tc.get("function", {})
+                                raw_args = func.get("arguments", "{}")
+                                if isinstance(raw_args, str):
+                                    try:
+                                        args = json.loads(raw_args)
+                                    except Exception:
+                                        args = {}
+                                else:
+                                    args = raw_args or {}
+                                tool_call_result = {
+                                    "name": func.get("name"),
+                                    "arguments": args,
+                                }
+                            logger.info(
+                                "Sarvam LLM (%s) responded successfully (%d chars, tool=%s)",
+                                sarvam_model,
+                                len(content),
+                                bool(tool_call_result),
+                            )
+                            return content, tool_call_result, f"sarvam:{sarvam_model}"
+                    logger.warning(
+                        "Sarvam LLM call returned status %d: %s. Attempting Groq fallback.",
+                        resp.status_code,
+                        resp.text[:120],
+                    )
+            except Exception as sarvam_err:
+                logger.warning("Sarvam LLM call failed (%s); attempting Groq fallback...", sarvam_err)
+
+        # Fallback: Groq Cloud LLM
+        groq_key = (
             getattr(settings, "GROQ_CHAT_KEY", None)
             or os.environ.get("GROQ_CHAT_KEY")
             or getattr(settings, "GROQ_API_KEY", None)
             or os.environ.get("GROQ_API_KEY")
         )
+        if groq_key:
+            try:
+                from groq import Groq
+                client = Groq(api_key=groq_key, timeout=14.0)
+                groq_model = os.environ.get("GROQ_LLM_MODEL", os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b"))
+                call_kwargs: Dict[str, Any] = {
+                    "messages": messages,
+                    "model": groq_model,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                }
+                if tools:
+                    call_kwargs["tools"] = tools
+                    call_kwargs["tool_choice"] = "auto"
+                chat_completion = client.chat.completions.create(**call_kwargs)
+                choice = chat_completion.choices[0]
+                msg = choice.message
+                content = msg.content or ""
+                tool_call_result = None
+                if msg.tool_calls and len(msg.tool_calls) > 0:
+                    tc = msg.tool_calls[0]
+                    try:
+                        args = json.loads(tc.function.arguments) if tc.function.arguments else {}
+                    except Exception:
+                        args = {}
+                    tool_call_result = {
+                        "name": tc.function.name,
+                        "arguments": args,
+                    }
+                return content, tool_call_result, f"groq:{groq_model}"
+            except Exception as groq_err:
+                logger.warning("Groq fallback call failed: %s", groq_err)
+
+        raise RuntimeError("Both Sarvam and Groq LLM invocations failed")
 
     def _check_application_guardrails(self, user_text: str, language: str = "en") -> Optional[tuple[str, List[str]]]:
         """
@@ -604,62 +738,17 @@ class ChatService:
                 "tool_call": None,
             }
 
-        # Attempt Groq completion with tool-calling and model fallback cascade
+        # Attempt Sarvam completion with tool-calling and fallback cascade
         try:
-            from groq import Groq
-
-            client = Groq(api_key=api_key, timeout=14.0)
-            models_to_try = [
-                os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b"),
-                "openai/gpt-oss-20b",
-            ]
-            models_to_try = list(dict.fromkeys(models_to_try))
-
-            assistant_reply = None
-            tool_call_result = None
-            used_model = models_to_try[0]
-
-            for model_name in models_to_try:
-                try:
-                    call_kwargs = {
-                        "messages": groq_messages,
-                        "model": model_name,
-                        "temperature": 0.2,
-                        "max_tokens": 1024,
-                        "tools": ACTION_REGISTRY_SCHEMA,
-                        "tool_choice": "auto",
-                    }
-                    chat_completion = client.chat.completions.create(**call_kwargs)
-                    choice = chat_completion.choices[0]
-                    message = choice.message
-
-                    assistant_reply = message.content or ""
-                    used_model = model_name
-
-                    # Parse tool calls if present
-                    if message.tool_calls and len(message.tool_calls) > 0:
-                        tc = message.tool_calls[0]
-                        try:
-                            args = json.loads(tc.function.arguments) if tc.function.arguments else {}
-                        except (json.JSONDecodeError, TypeError):
-                            args = {}
-                        tool_call_result = {
-                            "name": tc.function.name,
-                            "arguments": args,
-                        }
-                        logger.info(
-                            "Chat tool call: %s(%s)",
-                            tc.function.name,
-                            json.dumps(args, ensure_ascii=False),
-                        )
-
-                    break
-                except Exception as model_err:
-                    logger.warning("Groq model %s failed: %s; trying fallback model...", model_name, model_err)
-                    continue
+            assistant_reply, tool_call_result, used_model = self._call_llm_chat_completion(
+                messages=groq_messages,
+                tools=ACTION_REGISTRY_SCHEMA,
+                temperature=0.2,
+                max_tokens=1024,
+            )
 
             if not assistant_reply and not tool_call_result:
-                raise RuntimeError("All Groq chat model attempts failed")
+                raise RuntimeError("All LLM chat model attempts failed")
 
             if not assistant_reply and tool_call_result:
                 tool_name = tool_call_result.get("name", "")
@@ -683,7 +772,7 @@ class ChatService:
             return {
                 "message": {"role": "assistant", "content": assistant_reply},
                 "reply": assistant_reply,
-                "model": f"groq:{used_model}",
+                "model": used_model,
                 "sources": matched_sources,
                 "is_fallback": False,
                 "latency_ms": round(latency, 2),
@@ -691,7 +780,7 @@ class ChatService:
             }
 
         except Exception as e:
-            logger.warning("Groq Chatbot API call failed (%s); generating structured rule-based response.", e)
+            logger.warning("LLM Chatbot API call failed (%s); generating structured rule-based response.", e)
             fallback_text = self._generate_rule_based_fallback(messages, context, language)
             latency = (time.perf_counter() - start_time) * 1000
             return {
@@ -1023,46 +1112,14 @@ class ChatService:
                 latency_ms=round(latency, 2),
             )
 
-        # Groq completion with tool-calling
+        # Sarvam LLM completion with tool-calling
         try:
-            from groq import Groq
-
-            client = Groq(api_key=api_key, timeout=14.0)
-            model_name = os.environ.get("GROQ_LLM_MODEL", os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b"))
-
-            call_kwargs = {
-                "messages": groq_messages,
-                "model": model_name,
-                "temperature": 0.4,  # Slightly higher for natural conversational tone
-                "max_tokens": 512,   # Shorter for voice — concise spoken responses
-            }
-            if tools:
-                call_kwargs["tools"] = tools
-                call_kwargs["tool_choice"] = "auto"
-
-            chat_completion = client.chat.completions.create(**call_kwargs)
-            choice = chat_completion.choices[0]
-            message = choice.message
-
-            assistant_reply = message.content or ""
-            tool_call_result = None
-
-            # Parse tool calls if present
-            if message.tool_calls and len(message.tool_calls) > 0:
-                tc = message.tool_calls[0]
-                try:
-                    args = json.loads(tc.function.arguments) if tc.function.arguments else {}
-                except (json.JSONDecodeError, TypeError):
-                    args = {}
-                tool_call_result = {
-                    "name": tc.function.name,
-                    "arguments": args,
-                }
-                logger.info(
-                    "Voice tool call: %s(%s)",
-                    tc.function.name,
-                    json.dumps(args, ensure_ascii=False),
-                )
+            assistant_reply, tool_call_result, used_model = self._call_llm_chat_completion(
+                messages=groq_messages,
+                tools=tools,
+                temperature=0.4,
+                max_tokens=512,
+            )
 
             # If tool was called but LLM left content empty, synthesize natural spoken confirmation
             if not assistant_reply and tool_call_result:
@@ -1134,14 +1191,14 @@ class ChatService:
             return LLMReplyResult(
                 text=assistant_reply,
                 tool_call=tool_call_result,
-                model=f"groq:{model_name}",
+                model=used_model,
                 sources=matched_sources,
                 is_fallback=False,
                 latency_ms=round(latency, 2),
             )
 
         except Exception as e:
-            logger.warning("Groq voice LLM call failed (%s); generating rule-based response.", e)
+            logger.warning("Voice LLM call failed (%s); generating rule-based response.", e)
             fallback_text = self._generate_rule_based_fallback(
                 [{"role": "user", "content": transcript}],
                 screen_context,

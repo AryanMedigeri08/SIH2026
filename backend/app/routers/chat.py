@@ -94,7 +94,7 @@ class VoiceChatResponse(BaseModel):
 @router.post(
     "",
     response_model=ChatCompletionResponse,
-    summary="Send message to Groq AI Advisor with active enterprise grounding",
+    summary="Send message to Sarvam AI Advisor with active enterprise grounding",
 )
 @router.post(
     "/",
@@ -103,7 +103,7 @@ class VoiceChatResponse(BaseModel):
 )
 async def create_chat_completion(payload: ChatCompletionRequest):
     """
-    Submits user messages to Groq Cloud LLM with active enterprise telemetry grounding and guardrail screening.
+    Submits user messages to Sarvam AI (sarvam-105b-conversations) with active enterprise telemetry grounding and guardrail screening.
     """
     try:
         raw_messages = [{"role": m.role, "content": m.content} for m in payload.messages]
@@ -143,7 +143,7 @@ async def create_chat_completion(payload: ChatCompletionRequest):
         tool_name = tool_call.get("name") if isinstance(tool_call, dict) else getattr(tool_call, "name", None) if tool_call else None
         tool_str = f" | Action: {tool_name}" if tool_name else ""
         latency_ms = result.get("latency_ms", 0)
-        logger.info("🧠 [GROQ LLM] Response generated (%d chars) | ⏱️ %dms%s", len(content), int(latency_ms), tool_str)
+        logger.info("🧠 [SARVAM LLM] Response generated (%d chars) | ⏱️ %dms%s", len(content), int(latency_ms), tool_str)
         
         return result
     except Exception as e:
@@ -157,7 +157,7 @@ async def create_chat_completion(payload: ChatCompletionRequest):
 @router.post(
     "/audio",
     response_model=VoiceChatResponse,
-    summary="V3 Cascade Voice Turn: Sarvam Detect -> Bhashini ASR -> Groq LLM -> Bhashini TTS",
+    summary="V3 Cascade Voice Turn: Sarvam Detect -> Bhashini ASR -> Sarvam LLM -> Bhashini TTS",
 )
 @router.post(
     "/voice",
@@ -177,8 +177,8 @@ async def process_voice_audio(
 ):
     """
     V3 Voice Pipeline:
-    Receives voice audio, runs the cascade controller (Sarvam detect -> Bhashini ASR -> Groq LLM -> Bhashini TTS / gTTS fallback),
-    reasons with Groq LLM (with tool-calling for UI actions), and generates spoken response.
+    Receives voice audio, runs the cascade controller (Sarvam detect -> Bhashini ASR -> Sarvam LLM -> Bhashini TTS / gTTS fallback),
+    reasons with Sarvam LLM (with tool-calling for UI actions), and generates spoken response.
     
     Language is auto-detected — the `language` parameter is deprecated and ignored.
     """

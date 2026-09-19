@@ -47,7 +47,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
       - Tier 1 (Financial Optimization): PMEGP, PMFME, MUDRA, Stand-Up India Slabs
       - Tier 2 (Amenities & Climate): 613 District Resource APIs + cpi_data + IMD Weather
       - Tier 2 (ML Viability): 10-Dimensional XGBoost Classifier
-      - Tier 3 (Executive Narrative): Groq Cloud GPT-OSS-20B AI Synthesis
+      - Tier 3 (Executive Narrative): Sarvam AI (sarvam-105b-conversations) Multi-Lingual Synthesis
       - Tier 4 (Bank Memorandum): 7-Section Bank DPR Compilation
     """
     logger.info(
@@ -239,7 +239,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     if synthesis.swot_matrix and isinstance(synthesis.swot_matrix, dict):
         final_swot = SWOTMatrix.from_dict(
             synthesis.swot_matrix,
-            generation_source=f"AI_GROQ ({synthesis.model_name})" if not synthesis.is_fallback else "DETERMINISTIC_FALLBACK",
+            generation_source=f"AI_SARVAM ({synthesis.model_name})" if not synthesis.is_fallback else "DETERMINISTIC_FALLBACK",
             is_fallback=synthesis.is_fallback,
         )
     else:
@@ -335,8 +335,8 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         },
         {
             "layer": "Tier 3: Executive Synthesis",
-            "logical_source": f"Groq Cloud AI Model ({synthesis.model_name})" if not synthesis.is_fallback else "Deterministic Statutory Template Engine",
-            "table_or_file": "groq_api" if not synthesis.is_fallback else "deterministic_template_matrix",
+            "logical_source": f"Sarvam AI LLM ({synthesis.model_name})" if not synthesis.is_fallback else "Deterministic Statutory Template Engine",
+            "table_or_file": "sarvam_api" if not synthesis.is_fallback else "deterministic_template_matrix",
             "records_matched": 1,
             "status": "Template Fallback" if synthesis.is_fallback else "AI Synthesized",
             "attribution": f"Language: {input_data.language.upper()} ({synthesis.model_name})",
@@ -504,7 +504,7 @@ async def generate_recommendations(
     """
     Generate alternative enterprise recommendations when the original enterprise
     is flagged as RECONSIDER by the ML Viability Classifier.
-    Uses Groq LLM (primary) with deterministic 16-sector catalog fallback.
+    Uses Sarvam AI LLM (primary) with deterministic 16-sector catalog fallback.
     """
     try:
         # Build recommendation context from input data
