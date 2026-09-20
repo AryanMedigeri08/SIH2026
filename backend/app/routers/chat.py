@@ -18,12 +18,14 @@ try:
     from app.core.bhashini_client import bhashini_client
     from app.core import sarvam_client
     from app.config import settings
+    from app.core.action_registry import ACTION_REGISTRY_SCHEMA
 except ImportError:
     from backend.app.core.chat_service import chat_service
     from backend.app.core.audio_chat_service import audio_chat_service, normalize_lang
     from backend.app.core.bhashini_client import bhashini_client
     from backend.app.core import sarvam_client
     from backend.app.config import settings
+    from backend.app.core.action_registry import ACTION_REGISTRY_SCHEMA
 
 logger = logging.getLogger("udyam_saathi.api.chat")
 
@@ -115,7 +117,7 @@ async def create_chat_completion(payload: ChatCompletionRequest):
                 transcript=last_user_msg,
                 detected_language=payload.language or "en",
                 screen_context=payload.context,
-                tools=audio_chat_service.ACTION_REGISTRY_SCHEMA,
+                tools=ACTION_REGISTRY_SCHEMA,
                 conversation_history=raw_messages[:-1] if len(raw_messages) > 1 else None
             )
             result = {
