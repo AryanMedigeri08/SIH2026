@@ -50,6 +50,8 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
       additional_business_details: "",
       monthly_net_operating_income_override: "",
       language: "en",
+      latitude: initialData?.latitude != null ? initialData.latitude : null,
+      longitude: initialData?.longitude != null ? initialData.longitude : null,
       ...initialData,
     };
   });
@@ -231,7 +233,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
           );
           const targetVillage = matchedVillage ? matchedVillage.village_name : (loadedVillages[0]?.village_name || detectedVillage || "Main Village");
 
-          // Update formData with resolved LGD fields
+          // Update formData with resolved LGD fields and exact GPS coordinates
           // IMPORTANT: Leaves the area classification radio button (is_rural) untouched as requested!
           setFormData(prev => ({
             ...prev,
@@ -239,9 +241,11 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
             district_name: targetDistrict,
             block_name: targetBlock,
             village_name: targetVillage,
+            latitude: latitude,
+            longitude: longitude,
           }));
 
-          setLocationSuccessMsg(`Location Auto-Detected: ${targetVillage}, ${targetBlock}, ${targetDistrict}, ${targetState}`);
+          setLocationSuccessMsg(`Location Auto-Detected: ${targetVillage}, ${targetBlock}, ${targetDistrict}, ${targetState} (${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E)`);
         } catch (err) {
           console.warn("GPS Reverse Geocoding note:", err);
           setLocationDetectError("GPS position retrieved, but address resolution was limited. Please confirm selections in dropdowns.");
@@ -517,19 +521,51 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">4. Gram Panchayat / Village</label>
-                  <select
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700">4. Gram Panchayat / Village</label>
+                    <span className="text-[10px] text-slate-500">Pick or type custom</span>
+                  </div>
+                  <input
+                    type="text"
+                    list="villages-datalist"
                     value={formData.village_name}
-                    onChange={e => setFormData({ ...formData, village_name: e.target.value })}
+                    placeholder="e.g. Alandi, Joypur, Moshi..."
+                    onChange={e => {
+                      const val = e.target.value;
+                      const matched = villages.find(v => v.village_name?.toLowerCase() === val.toLowerCase());
+                      setFormData(prev => ({
+                        ...prev,
+                        village_name: val,
+                        latitude: matched?.latitude != null ? matched.latitude : prev.latitude,
+                        longitude: matched?.longitude != null ? matched.longitude : prev.longitude,
+                      }));
+                    }}
                     className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
-                  >
-                    <option value="">-- Select Village --</option>
+                  />
+                  <datalist id="villages-datalist">
                     {villages.map(v => (
-                      <option key={v.village_code || v.village_name} value={v.village_name}>{v.village_name}</option>
+                      <option key={v.village_code || v.village_name} value={v.village_name}>
+                        {v.taluk ? `${v.village_name} (${v.taluk}${v.pincode ? ` - ${v.pincode}` : ''})` : v.village_name}
+                      </option>
                     ))}
-                  </select>
+                  </datalist>
                 </div>
               </div>
+
+              {/* Active Grounded GPS Coordinates Pill */}
+              {formData.latitude != null && formData.longitude != null && (
+                <div className="p-2.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-950 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                    <span className="font-semibold text-slate-800">
+                      Grounded GPS Anchor: <strong>{Number(formData.latitude).toFixed(4)}°N, {Number(formData.longitude).toFixed(4)}°E</strong>
+                    </span>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-sky-700 bg-sky-100/90 px-2 py-0.5 rounded-md border border-sky-200">
+                    Catchment Grounded
+                  </span>
+                </div>
+              )}
 
               {/* Real-Time ODOP Cluster Discovery Banner */}
               {odopHint && (

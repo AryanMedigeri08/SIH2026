@@ -25,6 +25,7 @@ import os
 import time
 import threading
 import re
+import httpx
 from dataclasses import dataclass, asdict
 from typing import Optional, Union, Any
 from pathlib import Path
@@ -45,6 +46,14 @@ except ImportError:
         from backend.app.core.translation_service import translation_service
     except ImportError:
         translation_service = None
+
+try:
+    from app.config import settings
+except ImportError:
+    try:
+        from backend.app.config import settings
+    except ImportError:
+        settings = None
 
 logger = logging.getLogger("udyam_saathi.synthesizer")
 
@@ -520,7 +529,9 @@ def generate_executive_synthesis(
     cpi_inflation_pct = float(payload.get("cpi_inflation_pct", 5.0))
     weather_risk_score = float(payload.get("weather_risk_score", 0.2))
 
-    api_key = groq_api_key or os.environ.get("GROQ_API_KEY")
+    sarvam_key = os.environ.get("SARVAM_API_KEY") or getattr(settings, "SARVAM_API_KEY", None)
+    groq_key = groq_api_key or os.environ.get("GROQ_API_KEY")
+    api_key = sarvam_key or groq_key
 
     # If offline / forced fallback / no API key -> instantaneous deterministic synthesis
     if force_fallback or not api_key:
@@ -558,46 +569,79 @@ def generate_executive_synthesis(
         cache.set(payload_hash, fallback, ttl_seconds=cache_ttl_seconds)
         return fallback
 
-    # 3. Attempt single Groq call (always in English)
+    # 3. Attempt single LLM call (Sarvam AI primary, Groq fallback)
     try:
-        from groq import Groq
-
-        logger.info(
-            f"[LLM REQUEST START] Invoking Groq Cloud LLM in English | Selected User Language: '{lang}' | "
-            f"Context: Outlay ₹{project_cost:,.0f}, Subsidy ₹{subsidy_amount:,.0f}, "
-            f"DSCR {dscr:.2f}, ML {ml_verdict} ({ml_confidence_pct:.1f}%)"
-        )
-        client = Groq(api_key=api_key, max_retries=0, timeout=6.0)
         system_prompt, user_prompt = _build_synthesis_prompt(payload, "en")
-
-        configured_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
-        models_to_try = [configured_model, "openai/gpt-oss-20b"]
-        models_to_try = list(dict.fromkeys(models_to_try))
-
         response_content = None
-        used_model = models_to_try[0]
+        used_model = getattr(settings, "SARVAM_LLM_MODEL", "sarvam-105b-conversations")
 
-        for model_name in models_to_try:
+        # Primary: Sarvam AI
+        if sarvam_key:
             try:
-                chat_completion = client.chat.completions.create(
-                    messages=[
+                logger.info(
+                    f"[LLM REQUEST START] Invoking Sarvam AI LLM ({used_model}) in English | Selected User Language: '{lang}' | "
+                    f"Context: Outlay ₹{project_cost:,.0f}, Subsidy ₹{subsidy_amount:,.0f}, "
+                    f"DSCR {dscr:.2f}, ML {ml_verdict} ({ml_confidence_pct:.1f}%)"
+                )
+                endpoint = getattr(settings, "SARVAM_CHAT_ENDPOINT", "https://api.sarvam.ai/v1/chat/completions")
+                headers = {
+                    "api-subscription-key": sarvam_key,
+                    "Authorization": f"Bearer {sarvam_key}",
+                    "Content-Type": "application/json",
+                }
+                body = {
+                    "model": used_model,
+                    "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt},
                     ],
-                    model=model_name,
-                    temperature=0.2,
-                    max_tokens=2048,
-                    response_format={"type": "json_object"},
-                )
-                response_content = chat_completion.choices[0].message.content
-                used_model = model_name
-                break
-            except Exception as e:
-                logger.warning(f"[LLM RETRY] Model '{model_name}' failed ({str(e)}), trying next candidate...")
-                continue
+                    "temperature": 0.2,
+                    "max_tokens": 2048,
+                }
+                with httpx.Client(timeout=15.0) as client:
+                    resp = client.post(endpoint, headers=headers, json=body)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        choices = data.get("choices", [])
+                        if choices:
+                            response_content = choices[0].get("message", {}).get("content", "")
+                            used_model = data.get("model", used_model)
+            except Exception as sarvam_err:
+                logger.warning(f"Sarvam LLM synthesis failed ({sarvam_err}), falling back to Groq...")
+
+        # Fallback: Groq Cloud
+        if not response_content and groq_key:
+            from groq import Groq
+
+            logger.info(
+                f"[LLM FALLBACK START] Invoking Groq Cloud LLM in English | Selected User Language: '{lang}'"
+            )
+            client = Groq(api_key=groq_key, max_retries=0, timeout=6.0)
+            configured_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
+            models_to_try = [configured_model, "openai/gpt-oss-20b"]
+            models_to_try = list(dict.fromkeys(models_to_try))
+
+            for model_name in models_to_try:
+                try:
+                    chat_completion = client.chat.completions.create(
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        model=model_name,
+                        temperature=0.2,
+                        max_tokens=2048,
+                        response_format={"type": "json_object"},
+                    )
+                    response_content = chat_completion.choices[0].message.content
+                    used_model = model_name
+                    break
+                except Exception as e:
+                    logger.warning(f"[LLM RETRY] Model '{model_name}' failed ({str(e)}), trying next candidate...")
+                    continue
 
         if not response_content:
-            raise RuntimeError("All Groq model attempts failed")
+            raise RuntimeError("All LLM synthesis model attempts failed")
 
         data = json.loads(response_content)
 
@@ -670,7 +714,7 @@ def generate_executive_synthesis(
         logger.info(
             f"\n"
             f"==================== [TIER 3 LLM SYNTHESIS RESPONSE] ====================\n"
-            f"🤖 MODEL: groq:{used_model} | LATENCY: {latency:.2f}ms | LANGUAGE: {lang.upper()}\n"
+            f"🤖 MODEL: {used_model} | LATENCY: {latency:.2f}ms | LANGUAGE: {lang.upper()}\n"
             f"📝 EXECUTIVE SUMMARY:\n{summary}\n"
             f"💡 STRATEGIC RECOMMENDATIONS:\n" + "\n".join(f"  [{i+1}] {r}" for i, r in enumerate(recommendations[:4])) + "\n"
             f"🏦 BANK CREDIT APPRAISAL NOTES:\n{bank_notes}\n"
@@ -678,6 +722,7 @@ def generate_executive_synthesis(
             f"=========================================================================="
         )
 
+        provider_prefix = "sarvam" if "sarvam" in used_model.lower() else "groq"
         synthesis = ExecutiveSynthesis(
             executive_summary=summary,
             strategic_recommendations=recommendations[:4],
@@ -686,7 +731,7 @@ def generate_executive_synthesis(
             is_cached=False,
             is_fallback=False,
             latency_ms=latency,
-            model_name=f"groq:{used_model}",
+            model_name=f"{provider_prefix}:{used_model}",
             payload_hash=payload_hash,
             swot_matrix=parsed_swot,
         )
@@ -696,7 +741,7 @@ def generate_executive_synthesis(
 
     except Exception as e:
         logger.warning(
-            f"[LLM FALLBACK ENGAGED] Groq LLM synthesis failed ({str(e)}). "
+            f"[LLM FALLBACK ENGAGED] AI synthesis failed ({str(e)}). "
             f"Seamlessly using deterministic domain template & SWOT | Source: [DETERMINISTIC_TEMPLATE]"
         )
         fallback = get_deterministic_narrative(

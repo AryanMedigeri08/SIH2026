@@ -84,6 +84,9 @@ class VillageInfo(BaseModel):
     district_code: Optional[int] = None
     state_code: Optional[int] = None
     pincode: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    taluk: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +115,8 @@ class UserInput(BaseModel):
     monthly_net_operating_income_override: Optional[float] = Field(None, description="Optional monthly net profit override (₹)")
     additional_business_details: Optional[str] = Field(None, max_length=1000, description="Optional supplemental narrative background")
     language: str = Field("en", description="Target language: en | hi | mr | ta | te | kn")
+    latitude: Optional[float] = Field(None, description="Target GPS latitude if auto-detected or mapped")
+    longitude: Optional[float] = Field(None, description="Target GPS longitude if auto-detected or mapped")
 
 
 class FeasibilityReport(BaseModel):
@@ -128,6 +133,8 @@ class FeasibilityReport(BaseModel):
     executive_synthesis: dict[str, Any]
     data_sources_used: Optional[list[dict[str, Any]]] = Field(default_factory=list, description="Audit lineage of database tables, APIs and ML models queried")
     odop_alignment: Optional[dict[str, Any]] = Field(default=None, description="One District One Product (ODOP) alignment and PMFME/DPIIT cluster incentives")
+    location: Optional[dict[str, Any]] = Field(default=None, description="Resolved geographic coordinates and locality info")
+    ecosystem_graph: Optional[dict[str, Any]] = Field(default=None, description="Document 5 ecosystem graph data contract if pre-calculated")
 
 
 class ODOPLookupResponse(BaseModel):
@@ -337,3 +344,123 @@ class FinancialCalcResponse(BaseModel):
     dscr: float
     dscr_verdict: str
     ranked_schemes: list[dict[str, Any]]
+
+
+# ---------------------------------------------------------------------------
+# UDYAM Village Intelligence & Market Analysis Schemas (Phases 1-33)
+# ---------------------------------------------------------------------------
+class MarketAnalysisRequest(BaseModel):
+    state: str = Field(..., description="State name (e.g., TELANGANA, MAHARASHTRA)")
+    district: str = Field(..., description="District name (e.g., MEDAK, SATARA)")
+    village: Optional[str] = Field("", description="Target village or locality name")
+    target_lat: Optional[float] = Field(None, description="Target village latitude if known")
+    target_lon: Optional[float] = Field(None, description="Target village longitude if known")
+    radius_km: float = Field(10.0, gt=0, le=50.0, description="Analysis radius in km (default 10.0)")
+    core_radius_km: float = Field(5.0, gt=0, le=25.0, description="Core market radius in km (default 5.0)")
+    business_category: Optional[str] = Field("", description="Proposed business category (e.g. DAIRY, FOOD_RETAIL, TAILORING)")
+    pincode: Optional[str] = Field(None, description="Optional pincode filter")
+    max_records: Optional[int] = Field(1000, gt=0, le=10000, description="Max UDYAM records to process")
+
+
+class MarketAnalysisResponse(BaseModel):
+    target: dict[str, Any]
+    geographic_quality: dict[str, Any]
+    market_summary: dict[str, Any]
+    business_categories: list[dict[str, Any]]
+    nearby_businesses: list[dict[str, Any]]
+    limitations: list[str]
+    pipeline_metadata: dict[str, Any]
+    diagnostic_report: str
+
+
+# ---------------------------------------------------------------------------
+# Document 2: Opportunity Engine & Multi-Category Comparison Schemas
+# ---------------------------------------------------------------------------
+class OpportunityAnalysisRequest(BaseModel):
+    state: str = Field(..., description="State name (e.g., TELANGANA, MAHARASHTRA)")
+    district: str = Field(..., description="District name (e.g., MEDAK, SATARA)")
+    village: Optional[str] = Field("", description="Target village or locality name")
+    target_lat: Optional[float] = Field(None, description="Target village latitude")
+    target_lon: Optional[float] = Field(None, description="Target village longitude")
+    business_intent: str = Field("dairy", description="Business intent or sector (e.g., dairy, kirana, tailoring, poultry, fabrication)")
+    radius_km: float = Field(10.0, gt=0, le=50.0, description="Catchment radius in km")
+    core_radius_km: float = Field(5.0, gt=0, le=25.0, description="Core village market radius in km")
+    pincode: Optional[str] = Field(None, description="Optional pincode filter")
+    max_records: Optional[int] = Field(1000, gt=0, le=10000, description="Max UDYAM records to analyze")
+    base_population_2011: Optional[float] = Field(None, description="Optional 2011 Census base population override")
+    snapshot_id: Optional[str] = Field(None, description="Optional pinned DataSnapshot ID for exact deterministic replay")
+
+
+class OpportunityAnalysisResponse(BaseModel):
+    target_location: dict[str, Any]
+    business_intent: dict[str, Any]
+    recommendation: str
+    composite_score: float
+    confidence: str
+    supply_metrics: dict[str, Any]
+    demand_features: dict[str, Any]
+    opportunity_indicators: dict[str, Any]
+    classified_competitors: list[dict[str, Any]]
+    all_nearby_businesses: list[dict[str, Any]]
+    evidence: dict[str, Any]
+    sensitivity_analysis: list[dict[str, Any]]
+    data_lineage: list[dict[str, Any]]
+    generated_at: str
+    version: str
+
+
+class MultiCategoryCompareRequest(BaseModel):
+    state: str = Field(..., description="State name")
+    district: str = Field(..., description="District name")
+    village: Optional[str] = Field("", description="Village name")
+    target_lat: Optional[float] = Field(None)
+    target_lon: Optional[float] = Field(None)
+    categories: Optional[list[str]] = Field(None, description="List of business intents to compare (e.g. ['dairy', 'kirana', 'tailoring'])")
+    radius_km: float = Field(10.0, gt=0, le=50.0)
+    max_records: Optional[int] = Field(500, gt=0, le=5000)
+
+
+class MultiCategoryCompareResponse(BaseModel):
+    state: str
+    district: str
+    village: str
+    comparisons: list[dict[str, Any]]
+    count: int
+
+
+# ---------------------------------------------------------------------------
+# Document 5: Ecosystem Graph / Map Schemas
+# ---------------------------------------------------------------------------
+class EcosystemGraphRequest(BaseModel):
+    state: str = Field(..., description="State name (e.g., TELANGANA, MAHARASHTRA)")
+    district: str = Field(..., description="District name (e.g., MEDAK, SATARA)")
+    village: Optional[str] = Field("", description="Target village or locality name")
+    target_lat: Optional[float] = Field(None, description="Target latitude")
+    target_lon: Optional[float] = Field(None, description="Target longitude")
+    business_intent: str = Field("dairy", description="Business intent for competitor/supply-chain classification")
+    radius_km: float = Field(10.0, gt=0, le=50.0, description="Scoring catchment radius in km")
+    visualization_radius_km: Optional[float] = Field(None, gt=0, le=50.0, description="Optional visual catchment radius (does NOT alter scoring)")
+    pincode: Optional[str] = Field(None, description="Optional pincode filter")
+    max_records: Optional[int] = Field(1000, gt=0, le=10000, description="Max UDYAM records to process")
+    snapshot_id: Optional[str] = Field(None, description="Optional snapshot ID for deterministic replay")
+
+
+class EcosystemGraphResponse(BaseModel):
+    schemaVersion: str
+    catchment: dict[str, Any]
+    nodes: list[dict[str, Any]]
+    edges: list[dict[str, Any]]
+    unmappedEntities: list[dict[str, Any]]
+    metrics: dict[str, Any]
+    temporal: dict[str, Any]
+    layers: dict[str, Any]
+    provenance: dict[str, Any]
+    warnings: list[dict[str, Any]]
+    intent: dict[str, Any]
+    evidence: dict[str, Any]
+    villageDensity: Optional[list[dict[str, Any]]] = Field(
+        None,
+        description="Village-level MSME registration density aggregation for heatmap rendering"
+    )
+
+

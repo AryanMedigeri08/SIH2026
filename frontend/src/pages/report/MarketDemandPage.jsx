@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TamFunnelChart } from '../../components/Dashboard/TamFunnelChart';
-import { Target, Users, MapPin, Building2, TrendingUp, ShieldCheck, ShoppingCart, IndianRupee, Store, Gauge, Tag } from 'lucide-react';
+import { EcosystemIntelligenceMap } from '../../components/Dashboard/EcosystemIntelligenceMap';
+import { Target, Users, MapPin, Building2, TrendingUp, ShieldCheck, ShoppingCart, IndianRupee, Store, Gauge, Tag, Network, Compass, Crosshair, AlertCircle } from 'lucide-react';
 import { TranslatedText } from '../../components/TranslatedText';
+import { marketOpportunityApi } from '../../services/api';
 
 export function MarketDemandPage({ reportData }) {
   if (!reportData) return null;
@@ -41,6 +43,113 @@ export function MarketDemandPage({ reportData }) {
   const bandLow = pricing.recommended_selling_price_band_low || cpiFloor;
   const bandHigh = pricing.recommended_selling_price_band_high || (cpiFloor * 1.20);
   const cpiPct = pricing.cpi_inflation_pct || 4.25;
+
+  // Ecosystem Graph State & Fetch
+  const [graphData, setGraphData] = useState(reportData.ecosystem_graph || null);
+  const [graphLoading, setGraphLoading] = useState(!reportData.ecosystem_graph);
+  const [graphError, setGraphError] = useState(null);
+  const [gpsDetecting, setGpsDetecting] = useState(false);
+  const [gpsError, setGpsError] = useState(null);
+
+  const initialLat = reportData.location?.latitude ?? p.latitude ?? demographics.census_details?.latitude ?? null;
+  const initialLon = reportData.location?.longitude ?? p.longitude ?? demographics.census_details?.longitude ?? null;
+  const [activeCoords, setActiveCoords] = useState(
+    (initialLat != null && initialLon != null) ? { lat: initialLat, lon: initialLon } : null
+  );
+
+  // Initial fetch on mount or when core location/intent parameters change (runs once)
+  useEffect(() => {
+    if (reportData.ecosystem_graph) {
+      setGraphData(reportData.ecosystem_graph);
+      setGraphLoading(false);
+      return;
+    }
+
+    const state = p.state_name;
+    const district = p.district_name;
+    if (!state || !district) {
+      setGraphLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    setGraphLoading(true);
+    setGraphError(null);
+
+    const lat = reportData.location?.latitude ?? p.latitude ?? demographics.census_details?.latitude ?? null;
+    const lon = reportData.location?.longitude ?? p.longitude ?? demographics.census_details?.longitude ?? null;
+
+    marketOpportunityApi.getEcosystemGraph({
+      state,
+      district,
+      village: p.village_name || '',
+      business_intent: p.sector || 'dairy',
+      radius_km: 10.0,
+      target_lat: lat,
+      target_lon: lon,
+    })
+      .then(data => {
+        if (!isMounted) return;
+        setGraphData(data);
+        setGraphLoading(false);
+        if (data?.catchment?.center?.latitude != null && data?.catchment?.center?.longitude != null) {
+          setActiveCoords({ lat: data.catchment.center.latitude, lon: data.catchment.center.longitude });
+        }
+      })
+      .catch(err => {
+        if (!isMounted) return;
+        setGraphError(err.message || 'Failed to fetch business ecosystem intelligence graph');
+        setGraphLoading(false);
+      });
+
+    return () => { isMounted = false; };
+  }, [reportData.report_id, p.state_name, p.district_name, p.village_name, p.sector]);
+
+  // On-demand GPS Auto-Detection: triggers only when explicitly clicked by user
+  const handleAutoDetectLocation = () => {
+    if (!navigator.geolocation) {
+      setGpsError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setGpsDetecting(true);
+    setGpsError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setActiveCoords({ lat: latitude, lon: longitude });
+        setGpsDetecting(false);
+
+        // Fetch MSMEs centered at exact detected physical GPS coordinates
+        setGraphLoading(true);
+        setGraphError(null);
+        try {
+          const data = await marketOpportunityApi.getEcosystemGraph({
+            state: p.state_name || '',
+            district: p.district_name || '',
+            village: p.village_name || '',
+            business_intent: p.sector || 'dairy',
+            radius_km: 10.0,
+            target_lat: latitude,
+            target_lon: longitude,
+          });
+          setGraphData(data);
+          if (data?.catchment?.center?.latitude != null && data?.catchment?.center?.longitude != null) {
+            setActiveCoords({ lat: data.catchment.center.latitude, lon: data.catchment.center.longitude });
+          }
+        } catch (err) {
+          setGraphError(err.message || 'Failed to fetch business ecosystem intelligence graph for detected GPS position');
+        } finally {
+          setGraphLoading(false);
+        }
+      },
+      (err) => {
+        setGpsDetecting(false);
+        setGpsError(err.code === 1 ? "Location permission denied. Please allow location access in your browser." : "Unable to acquire GPS position.");
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -123,7 +232,64 @@ export function MarketDemandPage({ reportData }) {
 
       </div>
 
-      {/* Row 2: 3-Column Grounded Telemetry Cards */}
+      {/* Row 2: Interactive Business Ecosystem Intelligence Graph / Map (Document 5) */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <Network className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-lg font-outfit font-bold text-slate-900">
+                <TranslatedText text="Interactive MSME Density Heatmap & Cluster Intelligence" />
+              </h2>
+              <p className="text-xs text-slate-500">
+                <TranslatedText text="Village-level MSME registration density heatmap and cluster aggregation across the target catchment area" />
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {activeCoords && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] font-mono font-bold text-emerald-800">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {activeCoords.lat.toFixed(4)}°N, {activeCoords.lon.toFixed(4)}°E
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleAutoDetectLocation}
+              disabled={gpsDetecting || graphLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-all shadow-sm hover:shadow active:scale-95 disabled:opacity-60"
+              title="Detect physical GPS location and query surrounding MSMEs"
+            >
+              <Compass className={`w-3.5 h-3.5 ${gpsDetecting ? 'animate-spin' : ''}`} />
+              <span>{gpsDetecting ? "Detecting GPS..." : "Auto-Detect My Location"}</span>
+            </button>
+          </div>
+        </div>
+
+        {gpsError && (
+          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>{gpsError}</span>
+            </div>
+            <button onClick={() => setGpsError(null)} className="text-amber-700 hover:text-amber-900 font-bold text-xs p-1">✕</button>
+          </div>
+        )}
+
+        <EcosystemIntelligenceMap
+          graphData={graphData}
+          loadingState={graphLoading ? 'LOADING' : graphError ? 'ERROR' : 'READY'}
+          error={graphError}
+          onAutoDetectLocation={handleAutoDetectLocation}
+          isDetectingLocation={gpsDetecting}
+          targetLocationName={p.village_name || 'Your Target Location'}
+        />
+      </div>
+
+      {/* Row 3: 3-Column Grounded Telemetry Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         
         {/* Card 1: TAM Spending Profile */}
@@ -228,3 +394,4 @@ export function MarketDemandPage({ reportData }) {
   );
 }
 export default MarketDemandPage;
+

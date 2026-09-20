@@ -47,7 +47,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
       - Tier 1 (Financial Optimization): PMEGP, PMFME, MUDRA, Stand-Up India Slabs
       - Tier 2 (Amenities & Climate): 613 District Resource APIs + cpi_data + IMD Weather
       - Tier 2 (ML Viability): 10-Dimensional XGBoost Classifier
-      - Tier 3 (Executive Narrative): Groq Cloud GPT-OSS-20B AI Synthesis
+      - Tier 3 (Executive Narrative): Sarvam AI (sarvam-105b-conversations) Multi-Lingual Synthesis
       - Tier 4 (Bank Memorandum): 7-Section Bank DPR Compilation
     """
     logger.info(
@@ -55,12 +55,38 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         f"Outlay: ₹{input_data.project_cost:,.0f} | Location: {input_data.village_name}, {input_data.district_name}, {input_data.state_name}"
     )
 
+    # 0. Geographic Coordinates Grounding (GPS or Village-level Gazetteer resolution)
+    from app.core.udyam.geography.gazetteer import Gazetteer
+    resolved_lat = input_data.latitude
+    resolved_lon = input_data.longitude
+    coord_source = "gps_user_detected" if (resolved_lat and resolved_lon) else "unresolved"
+
+    if (resolved_lat is None or resolved_lon is None) and input_data.village_name:
+        g = Gazetteer()
+        v_coords = g.resolve_locality_coords(
+            village=input_data.village_name,
+            district=input_data.district_name,
+            state=input_data.state_name,
+        )
+        if v_coords:
+            resolved_lat, resolved_lon = v_coords
+            coord_source = "gazetteer_village_resolved"
+        elif input_data.district_name:
+            d_centroid = g.get_district_centroid(input_data.state_name, input_data.district_name)
+            if d_centroid:
+                resolved_lat, resolved_lon = d_centroid
+                coord_source = "gazetteer_district_centroid"
+
     # 1. Market & Ground-Truth Demographics (Tier 1)
     census_data = await db_manager.get_census_demographics(
         state_name=input_data.state_name,
         district_name=input_data.district_name,
         village_name=input_data.village_name,
     )
+    if resolved_lat is not None:
+        census_data["latitude"] = resolved_lat
+        census_data["longitude"] = resolved_lon
+        census_data["coordinate_source"] = coord_source
     base_pop = census_data["base_population_2011"]
     dist_base_pop = census_data.get("district_population_2011") or max(base_pop * 250, 1000000)
     pop = project_population(base_pop, input_data.state_name, 2026)
@@ -213,7 +239,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     if synthesis.swot_matrix and isinstance(synthesis.swot_matrix, dict):
         final_swot = SWOTMatrix.from_dict(
             synthesis.swot_matrix,
-            generation_source=f"AI_GROQ ({synthesis.model_name})" if not synthesis.is_fallback else "DETERMINISTIC_FALLBACK",
+            generation_source=f"AI_SARVAM ({synthesis.model_name})" if not synthesis.is_fallback else "DETERMINISTIC_FALLBACK",
             is_fallback=synthesis.is_fallback,
         )
     else:
@@ -309,8 +335,8 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         },
         {
             "layer": "Tier 3: Executive Synthesis",
-            "logical_source": f"Groq Cloud AI Model ({synthesis.model_name})" if not synthesis.is_fallback else "Deterministic Statutory Template Engine",
-            "table_or_file": "groq_api" if not synthesis.is_fallback else "deterministic_template_matrix",
+            "logical_source": f"Sarvam AI LLM ({synthesis.model_name})" if not synthesis.is_fallback else "Deterministic Statutory Template Engine",
+            "table_or_file": "sarvam_api" if not synthesis.is_fallback else "deterministic_template_matrix",
             "records_matched": 1,
             "status": "Template Fallback" if synthesis.is_fallback else "AI Synthesized",
             "attribution": f"Language: {input_data.language.upper()} ({synthesis.model_name})",
@@ -364,6 +390,14 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         executive_synthesis=synthesis.to_dict(),
         data_sources_used=data_sources_used,
         odop_alignment=odop_alignment,
+        location={
+            "latitude": resolved_lat,
+            "longitude": resolved_lon,
+            "source": coord_source,
+            "village_name": input_data.village_name,
+            "district_name": input_data.district_name,
+            "state_name": input_data.state_name,
+        } if resolved_lat is not None else None,
     )
 
     return feasibility_report, dpr_doc
@@ -470,7 +504,7 @@ async def generate_recommendations(
     """
     Generate alternative enterprise recommendations when the original enterprise
     is flagged as RECONSIDER by the ML Viability Classifier.
-    Uses Groq LLM (primary) with deterministic 16-sector catalog fallback.
+    Uses Sarvam AI LLM (primary) with deterministic 16-sector catalog fallback.
     """
     try:
         # Build recommendation context from input data

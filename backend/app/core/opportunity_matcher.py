@@ -21,6 +21,7 @@ import os
 import math
 from dataclasses import dataclass, asdict, field
 from typing import Optional
+import httpx
 
 logger = logging.getLogger("udyam_saathi.opportunity_matcher")
 
@@ -485,64 +486,108 @@ Respond ONLY with valid JSON array of exactly 3 objects. Each object must have e
 ```"""
 
 
-async def _groq_llm_recommendations(
+async def _sarvam_llm_recommendations(
     context: dict,
     api_key: str,
     max_results: int = 3,
-) -> list[AlternativeRecommendation]:
+) -> tuple[list[AlternativeRecommendation], str]:
     """
-    Call Groq Cloud LLM for intelligent, context-aware recommendations.
-    Returns empty list on failure (triggers deterministic fallback).
+    Call Sarvam AI (sarvam-105b-conversations) for intelligent, context-aware recommendations,
+    with automatic fallback to Groq. Returns (recommendations, source_str).
     """
-    if not api_key:
-        logger.warning("GROQ_API_KEY_LLM not configured, skipping LLM recommendations")
-        return []
+    from app.config import settings
 
+    sarvam_key = os.environ.get("SARVAM_API_KEY") or getattr(settings, "SARVAM_API_KEY", None) or api_key
     prompt = _build_llm_prompt(context)
     content = ""
+    used_source = "SARVAM_LLM"
 
-    # Strategy A: Use official Groq SDK
-    try:
-        from groq import AsyncGroq
-        client = AsyncGroq(api_key=api_key, timeout=20.0)
-        
-        models_to_try = [
-            os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b"),
-            "openai/gpt-oss-20b",
-        ]
-        # Deduplicate while preserving order
-        models_to_try = list(dict.fromkeys(models_to_try))
+    # Strategy A: Sarvam AI Chat Completions
+    if sarvam_key:
+        try:
+            endpoint = getattr(settings, "SARVAM_CHAT_ENDPOINT", "https://api.sarvam.ai/v1/chat/completions")
+            model_name = getattr(settings, "SARVAM_LLM_MODEL", "sarvam-105b-conversations")
+            headers = {
+                "api-subscription-key": sarvam_key,
+                "Authorization": f"Bearer {sarvam_key}",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "model": model_name,
+                "messages": [
+                    {"role": "system", "content": "You are an MSME credit advisory engine. Respond ONLY with valid JSON arrays. No markdown, no explanation, no commentary."},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.3,
+                "max_tokens": 2000,
+            }
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.post(endpoint, headers=headers, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    choices = data.get("choices", [])
+                    if choices:
+                        content = choices[0].get("message", {}).get("content", "")
+                        if content:
+                            used_source = "SARVAM_LLM"
+                            logger.info("Sarvam LLM responded successfully for alternative recommendations")
+        except Exception as sarvam_err:
+            logger.warning(f"Sarvam LLM recommendations error ({sarvam_err}), attempting Groq fallback...")
 
-        for model_name in models_to_try:
+    # Strategy B: Groq Cloud Fallback
+    if not content:
+        groq_key = (
+            getattr(settings, "GROQ_API_KEY_LLM", None)
+            or getattr(settings, "GROQ_API_KEY", None)
+            or os.environ.get("GROQ_API_KEY")
+        )
+        if groq_key:
             try:
-                chat_completion = await client.chat.completions.create(
-                    model=model_name,
-                    messages=[
-                        {"role": "system", "content": "You are an MSME credit advisory engine. Respond ONLY with valid JSON arrays. No markdown, no explanation, no commentary."},
-                        {"role": "user", "content": prompt},
-                    ],
-                    temperature=0.3,
-                    max_tokens=2000,
-                    response_format={"type": "json_object"},
-                )
-                content = chat_completion.choices[0].message.content
-                if content:
-                    logger.info(f"Groq LLM responded successfully using model '{model_name}'")
-                    break
-            except Exception as model_err:
-                logger.warning(f"Groq model '{model_name}' failed ({model_err}), trying next candidate...")
-                continue
+                from groq import AsyncGroq
+                client = AsyncGroq(api_key=groq_key, timeout=20.0)
+                models_to_try = [
+                    os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b"),
+                    "openai/gpt-oss-20b",
+                ]
+                models_to_try = list(dict.fromkeys(models_to_try))
 
-    except Exception as sdk_err:
-        logger.warning(f"Groq SDK invocation error: {sdk_err}")
+                for model_name in models_to_try:
+                    try:
+                        chat_completion = await client.chat.completions.create(
+                            model=model_name,
+                            messages=[
+                                {"role": "system", "content": "You are an MSME credit advisory engine. Respond ONLY with valid JSON arrays. No markdown, no explanation, no commentary."},
+                                {"role": "user", "content": prompt},
+                            ],
+                            temperature=0.3,
+                            max_tokens=2000,
+                            response_format={"type": "json_object"},
+                        )
+                        content = chat_completion.choices[0].message.content
+                        if content:
+                            used_source = "GROQ_LLM"
+                            logger.info(f"Groq LLM responded successfully using model '{model_name}'")
+                            break
+                    except Exception as model_err:
+                        logger.warning(f"Groq model '{model_name}' failed ({model_err}), trying next candidate...")
+                        continue
+            except Exception as sdk_err:
+                logger.warning(f"Groq SDK invocation error: {sdk_err}")
 
     # If content still empty, return empty list (triggers deterministic fallback)
     if not content:
-        return []
+        return [], "DETERMINISTIC_FALLBACK"
 
     try:
-        # Parse JSON — handle both direct arrays and wrapped objects
-        parsed = json.loads(content)
+        # Strip markdown code fencing if present
+        clean_content = content.strip()
+        if clean_content.startswith("```"):
+            clean_content = clean_content.split("```")[1]
+            if clean_content.startswith("json"):
+                clean_content = clean_content[4:]
+        clean_content = clean_content.strip()
+
+        parsed = json.loads(clean_content)
         if isinstance(parsed, dict):
             for key in ("recommendations", "alternatives", "enterprises", "results", "data"):
                 if key in parsed and isinstance(parsed[key], list):
@@ -552,12 +597,12 @@ async def _groq_llm_recommendations(
                 if "enterprise_name" in parsed:
                     parsed = [parsed]
                 else:
-                    logger.warning(f"Groq LLM returned unexpected JSON structure: {list(parsed.keys())}")
-                    return []
+                    logger.warning(f"LLM returned unexpected JSON structure: {list(parsed.keys())}")
+                    return [], "DETERMINISTIC_FALLBACK"
 
         if not isinstance(parsed, list):
-            logger.warning("Groq LLM did not return a JSON array")
-            return []
+            logger.warning("LLM did not return a JSON array")
+            return [], "DETERMINISTIC_FALLBACK"
 
         recommendations = []
         for idx, item in enumerate(parsed[:max_results]):
@@ -573,19 +618,19 @@ async def _groq_llm_recommendations(
                     relevant_scheme=str(item.get("relevant_scheme", "PMEGP")),
                     rationale=str(item.get("rationale", "Suitable for the location and financial profile.")),
                     suitability_score=80.0 - (idx * 5),
-                    source="GROQ_LLM",
+                    source=used_source,
                 )
                 recommendations.append(rec)
             except (ValueError, TypeError) as e:
                 logger.warning(f"Skipping malformed LLM recommendation {idx}: {e}")
                 continue
 
-        logger.info(f"Groq LLM returned {len(recommendations)} alternative recommendations")
-        return recommendations
+        logger.info(f"LLM returned {len(recommendations)} alternative recommendations ({used_source})")
+        return recommendations, used_source
 
     except Exception as e:
-        logger.error(f"Error parsing Groq LLM recommendations: {e}")
-        return []
+        logger.error(f"Error parsing LLM recommendations: {e}")
+        return [], "DETERMINISTIC_FALLBACK"
 
 
 # ---------------------------------------------------------------------------
@@ -611,11 +656,12 @@ async def get_alternative_recommendations(context: dict) -> dict:
     """
     from app.config import settings
 
-    api_key = settings.GROQ_API_KEY_LLM or settings.GROQ_API_KEY or ""
-    source = "GROQ_LLM"
+    sarvam_key = getattr(settings, "SARVAM_API_KEY", None) or os.environ.get("SARVAM_API_KEY")
+    groq_key = getattr(settings, "GROQ_API_KEY_LLM", None) or getattr(settings, "GROQ_API_KEY", "") or os.environ.get("GROQ_API_KEY")
+    api_key = sarvam_key or groq_key
 
-    # Tier 1: Try Groq LLM
-    recommendations = await _groq_llm_recommendations(context, api_key)
+    # Tier 1: Try Sarvam LLM (with Groq fallback)
+    recommendations, source = await _sarvam_llm_recommendations(context, api_key)
 
     # Tier 2: Deterministic fallback if LLM failed or returned nothing
     if not recommendations:

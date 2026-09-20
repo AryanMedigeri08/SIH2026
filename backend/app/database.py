@@ -601,6 +601,61 @@ class DatabaseManager:
             except Exception as e:
                 logger.warning(f"Error querying villages from DB: {e}")
 
+        # Fallback to local locality_master sqlite3 with real localities & GPS coordinates
+        try:
+            import sqlite3
+            from pathlib import Path
+            loc_db = Path(__file__).parent / "core" / "data" / "locality_master.sqlite3"
+            if loc_db.exists():
+                conn_sqlite = sqlite3.connect(str(loc_db))
+                conn_sqlite.row_factory = sqlite3.Row
+                cur = conn_sqlite.cursor()
+
+                conditions = ["latitude IS NOT NULL", "longitude IS NOT NULL"]
+                params = []
+
+                if district_name:
+                    conditions.append("UPPER(district) LIKE ?")
+                    params.append(f"%{district_name.strip().upper()}%")
+
+                if block_name:
+                    conditions.append("(UPPER(taluk) LIKE ? OR UPPER(office_name) LIKE ?)")
+                    params.extend([f"%{block_name.strip().upper()}%", f"%{block_name.strip().upper()}%"])
+
+                if search:
+                    conditions.append("(UPPER(office_name) LIKE ? OR UPPER(taluk) LIKE ? OR pincode LIKE ?)")
+                    s_clean = f"%{search.strip().upper()}%"
+                    params.extend([s_clean, s_clean, s_clean])
+
+                where_clause = " AND ".join(conditions)
+                query = f"""
+                    SELECT DISTINCT office_name, taluk, district, state, pincode, latitude, longitude
+                    FROM pincode_localities
+                    WHERE {where_clause}
+                    ORDER BY (office_name LIKE '%Devachi%') DESC, office_name ASC
+                    LIMIT 200
+                """
+                sqlite_rows = cur.execute(query, params).fetchall()
+                conn_sqlite.close()
+
+                if sqlite_rows:
+                    dist_id = district_code or 312
+                    return [
+                        {
+                            "id": idx + 1,
+                            "village_code": int(r["pincode"]) if (r["pincode"] and str(r["pincode"]).isdigit()) else (dist_id * 100 + idx + 1),
+                            "village_name": r["office_name"],
+                            "district_code": dist_id,
+                            "pincode": r["pincode"] or "",
+                            "latitude": r["latitude"],
+                            "longitude": r["longitude"],
+                            "taluk": r["taluk"] or "",
+                        }
+                        for idx, r in enumerate(sqlite_rows)
+                    ]
+        except Exception as err:
+            logger.warning(f"Error querying sqlite fallback for villages: {err}")
+
         dist_id = district_code or 312
         return [
             {"id": 1, "village_code": dist_id * 100 + 1, "village_name": f"Gram {district_name or 'Joypur'}", "district_code": dist_id, "pincode": "722138"},

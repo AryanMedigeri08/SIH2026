@@ -60,6 +60,12 @@ export function FloatingChatWindow() {
     stopAudio,
     playMessageTts,
     clearChat,
+    // "Mira" wake-word state
+    isWakeWordSupported,
+    isWakeWordEnabled,
+    isWakeWordListening,
+    toggleWakeWord,
+    siriNotice,
   } = useChat();
 
   const { reportData, activeBusiness } = useBusiness();
@@ -298,16 +304,16 @@ export function FloatingChatWindow() {
       >
         {/* Left: Bot Identity & Active Enterprise */}
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-sky-950/30 border border-sky-300/30 shrink-0">
-            <Bot className="w-4 h-4 text-sky-100" />
+          <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-white shadow-md shadow-sky-950/30 border border-sky-300/40 shrink-0">
+            <img src="/mira-avatar.png" alt="Mira" className="w-full h-full object-cover object-top" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <h3 className={`font-outfit font-bold text-xs tracking-tight truncate ${currentTheme.headerTitle}`}>
-                Udyam AI Voice Advisor
+                Mira • AI Voice Advisor
               </h3>
               <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${currentTheme.headerBadge}`}>
-                Whisper + Groq
+                Sarvam AI
               </span>
             </div>
             <p className={`text-[10px] truncate flex items-center gap-1 ${currentTheme.headerSubtitle}`}>
@@ -367,6 +373,25 @@ export function FloatingChatWindow() {
             aria-label="Toggle Voice AutoPlay"
           >
             {autoPlayVoice ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+          </button>
+
+          {/* Wake on 'Mira' Voice Activation Toggle (Always Visible) */}
+          <button
+            type="button"
+            onClick={toggleWakeWord}
+            className={`p-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+              isWakeWordEnabled
+                ? 'text-purple-300 hover:text-purple-200 bg-purple-950/60 ring-1 ring-purple-400/40'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'
+            }`}
+            title={
+              isWakeWordEnabled
+                ? "Wake on 'Mira': ACTIVE (Listening in background - Click to Disable)"
+                : "Wake on 'Mira': OFF (Click to Enable voice activation)"
+            }
+            aria-label="Toggle 'Mira' Wake Word"
+          >
+            <Mic className={`w-3.5 h-3.5 ${isWakeWordListening ? 'text-purple-300 animate-pulse' : ''}`} />
           </button>
 
           {/* Theme Switcher Button */}
@@ -468,6 +493,36 @@ export function FloatingChatWindow() {
           </button>
         </div>
       </div>
+
+      {/* Mira Voice Trigger Live Banner */}
+      {siriNotice && (
+        <div className="mx-3.5 mt-2 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-950/95 via-indigo-950/95 to-slate-950/95 border border-purple-400/50 text-white shadow-lg flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2 duration-200 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-purple-500" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-purple-200 flex items-center gap-1.5">
+                <img src="/mira-avatar.png" alt="Mira" className="w-4 h-4 rounded-full object-cover object-top ring-1 ring-purple-300/60" />
+                <span>🎙️ &ldquo;Mira&rdquo; Activated</span>
+              </p>
+              {siriNotice.trailingQuery ? (
+                <p className="text-[10px] text-purple-300/90 truncate font-mono">
+                  "{siriNotice.trailingQuery}"
+                </p>
+              ) : (
+                <p className="text-[10px] text-purple-300/80">
+                  Listening for your query...
+                </p>
+              )}
+            </div>
+          </div>
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-200 border border-purple-400/40 uppercase shrink-0">
+            Voice Sync
+          </span>
+        </div>
+      )}
 
       {/* Message List */}
       <div
@@ -731,7 +786,7 @@ export function FloatingChatWindow() {
           {/* Footer Subtext */}
           <div className={`flex items-center justify-between text-[9px] px-1 ${currentTheme.subText}`}>
             <span className="flex items-center gap-1">
-              <span>Whisper STT + Groq LLM + gTTS</span>
+              <span>Sarvam LLM + Bhashini Voice</span>
               <span>•</span>
               <span className="font-bold text-sky-600 dark:text-sky-400">{currentLangObj.native}</span>
             </span>

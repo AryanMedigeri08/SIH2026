@@ -42,7 +42,7 @@ class SWOTMatrix:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], generation_source: str = "AI_GROQ", is_fallback: bool = False) -> SWOTMatrix:
+    def from_dict(cls, data: dict[str, Any], generation_source: str = "AI_SARVAM", is_fallback: bool = False) -> SWOTMatrix:
         def _parse_list(items: Any, default_src: str) -> list[SWOTItem]:
             if not isinstance(items, list):
                 return []

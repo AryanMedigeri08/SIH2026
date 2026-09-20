@@ -1,8 +1,16 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { chatApi } from '../services/api';
 import { useAuth } from './AuthContext';
 import { useBusiness } from './BusinessContext';
 import { useLanguage } from './LanguageContext';
+import { useWakeWord, extractTrailingPrompt, matchWakeWord } from '../hooks/useWakeWord';
+import {
+  playSiriActivationChime,
+  playSiriThinkingTone,
+  playSiriCompleteTone,
+  playSiriDeactivationChime,
+} from '../utils/siriAudio';
 
 export const CHAT_THEMES = {
   sovereign: {
@@ -174,9 +182,68 @@ export const CHAT_THEMES = {
 const ChatContext = createContext(null);
 
 export function ChatProvider({ children }) {
+  const navigate = useNavigate();
   const { token } = useAuth();
   const { reportData, activeBusiness } = useBusiness();
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
+
+  // ─── Voice Agent V2 Action Dispatcher ────────────────────────────────
+  // Map of UI actions supported by LLM tool-calling (matching action_registry.py)
+  const tabRoutes = useMemo(() => {
+    const rId = reportData?.report_id;
+    return {
+      business_plan: rId ? `/reports/${rId}` : '/dashboard',
+      dashboard: rId ? `/reports/${rId}` : '/dashboard',
+      govt_schemes: rId ? `/reports/${rId}/schemes` : '/schemes',
+      dpr: rId ? `/reports/${rId}/dpr` : '/dpr',
+      risk_analysis: rId ? `/reports/${rId}/risk` : '/risk',
+    };
+  }, [reportData?.report_id]);
+
+  const actionDispatchers = useMemo(() => ({
+    navigate_to_tab: ({ tab }) => {
+      const targetRoute = tabRoutes[tab];
+      if (targetRoute) {
+        console.log(`[VoiceAgent Action] Navigating to tab '${tab}' -> ${targetRoute}`);
+        navigate(targetRoute);
+      } else {
+        console.warn(`[VoiceAgent Action] Unknown tab: ${tab}`);
+      }
+    },
+    change_language: ({ language: targetLang }) => {
+      if (targetLang && typeof setLanguage === 'function') {
+        console.log(`[VoiceAgent Action] Switching UI language to: ${targetLang}`);
+        setLanguage(targetLang);
+      }
+    },
+    run_analysis: () => {
+      console.log('[VoiceAgent Action] Triggering project feasibility analysis run');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('udyam:run_analysis'));
+      }
+    },
+    export_dpr: ({ format = 'pdf' } = {}) => {
+      console.log(`[VoiceAgent Action] Triggering DPR export (${format})`);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('udyam:export_dpr', { detail: { format } }));
+      }
+    },
+  }), [tabRoutes, navigate, setLanguage]);
+
+  const dispatchToolCall = useCallback((toolCall) => {
+    if (!toolCall || !toolCall.name) return;
+    console.log('[VoiceAgent Action] Dispatching tool call:', toolCall);
+    const handler = actionDispatchers[toolCall.name];
+    if (typeof handler === 'function') {
+      try {
+        handler(toolCall.arguments || {});
+      } catch (err) {
+        console.error(`[VoiceAgent Action] Error executing '${toolCall.name}':`, err);
+      }
+    } else {
+      console.warn(`[VoiceAgent Action] No registered handler for action: '${toolCall.name}'`);
+    }
+  }, [actionDispatchers]);
 
   // Floating Window State
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -233,6 +300,26 @@ export function ChatProvider({ children }) {
 
   const navButtonRef = useRef(null);
   const chatInputRef = useRef(null);
+  const siriToggleRef = useRef(null);
+
+  // Voice Agent State Machine
+  // States: 'IDLE' | 'LISTENING' | 'THINKING' | 'SPEAKING' | 'WAITING_FOR_USER' | 'ACTION'
+  const [voiceAgentState, setVoiceAgentState] = useState('IDLE');
+  const [voiceAgentReply, setVoiceAgentReply] = useState(null);
+  const voiceAgentAudioRef = useRef(null);
+  const voiceAgentTimeoutRef = useRef(null);
+
+  // Voice Session State — independent from dashboard language
+  const VOICE_IDLE_TIMEOUT_MS = 15000;
+  const [voiceSession, setVoiceSession] = useState({
+    detectedLanguage: null,
+    languageConfidence: 0,
+    transcript: '',
+    responseText: '',
+    conversationActive: false,
+    state: 'idle',
+  });
+  const voiceIdleTimerRef = useRef(null);
 
   // Active Project Identifier
   const activeProjectKey =
@@ -722,14 +809,20 @@ export function ChatProvider({ children }) {
           data?.content ||
           (typeof data === 'string' ? data : null);
 
+        // Execute tool call if returned by LLM (navigate, change language, etc.)
+        if (data?.tool_call) {
+          dispatchToolCall(data.tool_call);
+        }
+
         const botMsg = {
           id: `bot-${Date.now()}`,
           role: 'assistant',
           content: replyText || 'I could not generate a response. Please try again.',
           timestamp: data?.timestamp || new Date().toISOString(),
           isFallback: data?.is_fallback || false,
-          model: data?.model || 'groq',
+          model: data?.model || 'sarvam-105b-conversations',
           sources: data?.sources || [],
+          tool_call: data?.tool_call || null,
         };
 
         setMessages((prev) => [...prev, botMsg]);
@@ -747,7 +840,7 @@ export function ChatProvider({ children }) {
         setIsLoading(false);
       }
     },
-    [isLoading, messages, getGroundedContext, language, token]
+    [isLoading, messages, getGroundedContext, language, token, dispatchToolCall]
   );
 
   // Send Voice Audio Message (Microphone WebM -> Whisper STT -> LLM -> gTTS Audio)
@@ -779,7 +872,6 @@ export function ChatProvider({ children }) {
         const data = await chatApi.sendVoiceAudio(
           audioBlob,
           activeContext,
-          language || 'en',
           payloadHistory,
           token
         );
@@ -787,6 +879,11 @@ export function ChatProvider({ children }) {
         const transcript = data?.user_transcript || '(Voice Input)';
         const replyText = data?.reply || 'I could not generate a response. Please try again.';
         const audioBase64 = data?.audio_base64 || null;
+
+        // Execute voice-triggered UI action if returned by tool-calling
+        if (data?.tool_call) {
+          dispatchToolCall(data.tool_call);
+        }
 
         // Update the user message with transcribed speech
         setMessages((prev) =>
@@ -801,8 +898,11 @@ export function ChatProvider({ children }) {
           audio_base64: audioBase64,
           timestamp: data?.timestamp || new Date().toISOString(),
           isFallback: data?.is_fallback || false,
-          model: data?.model || 'whisper-large-v3 + groq-llm',
+          model: data?.model || 'sarvam-saaras + sarvam-105b',
           sources: data?.sources || [],
+          detected_language: data?.detected_language,
+          tier_used: data?.tier_used,
+          tool_call: data?.tool_call || null,
           latencies: {
             stt_s: data?.stt_latency_s,
             llm_s: data?.llm_latency_s,
@@ -837,7 +937,7 @@ export function ChatProvider({ children }) {
         setIsLoading(false);
       }
     },
-    [isLoading, messages, getGroundedContext, language, token, autoPlayVoice, playAudio]
+    [isLoading, messages, getGroundedContext, token, autoPlayVoice, playAudio, dispatchToolCall]
   );
 
   // Clear conversation history
@@ -853,6 +953,451 @@ export function ChatProvider({ children }) {
       },
     ]);
   }, [getActiveTabTelemetry, stopAudio]);
+
+  // ─── Unified Voice Agent Pipeline ──────────────────────────────────
+
+  // Clear idle timeout
+  const clearIdleTimeout = useCallback(() => {
+    if (voiceIdleTimerRef.current) {
+      clearTimeout(voiceIdleTimerRef.current);
+      voiceIdleTimerRef.current = null;
+    }
+  }, []);
+
+  // Start idle timeout — gracefully return to IDLE after configured duration
+  const startIdleTimeout = useCallback(() => {
+    clearIdleTimeout();
+    voiceIdleTimerRef.current = setTimeout(() => {
+      setVoiceAgentState((curr) => {
+        if (curr === 'WAITING_FOR_USER') {
+          playSiriDeactivationChime();
+          setVoiceAgentReply(null);
+          setVoiceSession((prev) => ({ ...prev, conversationActive: false, state: 'idle' }));
+          return 'IDLE';
+        }
+        return curr;
+      });
+    }, VOICE_IDLE_TIMEOUT_MS);
+  }, [clearIdleTimeout]);
+
+  // Helper: play TTS audio and drive voiceAgentState through event-driven lifecycle
+  // SPEAKING state driven by audio.onplay (not when response is received)
+  // WAITING_FOR_USER state driven by audio.onended (not by setTimeout)
+  const playVoiceAgentTts = useCallback(
+    (audioBase64, botMsgId) => {
+      if (!audioBase64) {
+        // No audio available — go directly to WAITING_FOR_USER
+        playSiriCompleteTone();
+        setVoiceAgentState('WAITING_FOR_USER');
+        setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+        startIdleTimeout();
+        return;
+      }
+
+      const audio = new Audio(audioBase64);
+      voiceAgentAudioRef.current = audio;
+
+      // SPEAKING state driven by actual audio playback start
+      audio.onplay = () => {
+        setVoiceAgentState('SPEAKING');
+        setVoiceSession((prev) => ({ ...prev, state: 'speaking' }));
+      };
+
+      // WAITING_FOR_USER state driven by actual audio playback end
+      audio.onended = () => {
+        playSiriCompleteTone();
+        voiceAgentAudioRef.current = null;
+        setVoiceAgentState('WAITING_FOR_USER');
+        setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+        startIdleTimeout();
+      };
+
+      audio.onerror = () => {
+        voiceAgentAudioRef.current = null;
+        setVoiceAgentState('WAITING_FOR_USER');
+        setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+        startIdleTimeout();
+      };
+
+      audio.play().catch(() => {
+        // Autoplay blocked — still transition to WAITING_FOR_USER
+        setVoiceAgentState('WAITING_FOR_USER');
+        setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+        startIdleTimeout();
+      });
+
+      // Also store audio on the bot message for replay in chat
+      if (botMsgId) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === botMsgId ? { ...m, audio_base64: audioBase64 } : m))
+        );
+      }
+    },
+    [startIdleTimeout]
+  );
+
+  // Sends a text query through the Groq pipeline.
+  // Writes both user message and bot reply to the shared chat history.
+  // Drives voiceAgentState for the Siri widget animation.
+  const sendVoiceAgentQuery = useCallback(
+    async (text, detectedLanguage = null) => {
+      const trimmed = (text || '').trim();
+      if (!trimmed) {
+        setVoiceAgentState('IDLE');
+        return;
+      }
+
+      // 1. Add user message to shared chat history
+      const userMsgId = `user-siri-${Date.now()}`;
+      const userMsg = {
+        id: userMsgId,
+        role: 'user',
+        content: trimmed,
+        isVoice: true,
+        source: 'siri',
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+
+      setVoiceAgentState('THINKING');
+      playSiriThinkingTone();
+      const activeContext = getGroundedContext();
+
+      try {
+        // Build full conversation history for context continuity
+        const payloadHistory = messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+        payloadHistory.push({ role: 'user', content: trimmed });
+
+        const data = await chatApi.sendChatMessage(
+          payloadHistory,
+          activeContext,
+          detectedLanguage || language || 'en',
+          token,
+          true
+        );
+
+        const replyText =
+          data?.reply ||
+          data?.message?.content ||
+          data?.content ||
+          (typeof data === 'string' ? data : 'I could not generate a response.');
+
+        // Execute tool call if returned
+        if (data?.tool_call) {
+          dispatchToolCall(data.tool_call);
+        }
+
+        // 2. Add bot reply to shared chat history
+        const botMsgId = `bot-siri-${Date.now()}`;
+        const botMsg = {
+          id: botMsgId,
+          role: 'assistant',
+          content: replyText,
+          timestamp: data?.timestamp || new Date().toISOString(),
+          isFallback: data?.is_fallback || false,
+          model: data?.model || 'sarvam-105b-conversations',
+          sources: data?.sources || [],
+          tool_call: data?.tool_call || null,
+          source: 'siri',
+        };
+        setMessages((prev) => [...prev, botMsg]);
+
+        // 3. Drive Siri widget state (SPEAKING set by audio.onplay in playVoiceAgentTts)
+        setVoiceAgentReply({ text: replyText, timestamp: Date.now() });
+
+        // 4. Request TTS and play — use voiceSession detected language if available
+        try {
+          const ttsLang = voiceSession.detectedLanguage
+            ? voiceSession.detectedLanguage.split('-')[0].toLowerCase()
+            : (language || 'en');
+          const ttsRes = await chatApi.generateTts(replyText, ttsLang, token);
+          playVoiceAgentTts(ttsRes?.audio_base64 || null, botMsgId);
+        } catch (ttsErr) {
+          console.warn('[VoiceAgent] TTS failed:', ttsErr);
+          setVoiceAgentState('WAITING_FOR_USER');
+          setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+          startIdleTimeout();
+        }
+      } catch (err) {
+        console.error('[VoiceAgent] Query failed:', err);
+        const errorMsg = {
+          id: `err-siri-${Date.now()}`,
+          role: 'assistant',
+          content: `⚠️ Sorry, I could not process your request. ${err.message || ''}`,
+          timestamp: new Date().toISOString(),
+          isError: true,
+          source: 'siri',
+        };
+        setMessages((prev) => [...prev, errorMsg]);
+        setVoiceAgentReply({ text: 'Sorry, I could not process your request.', timestamp: Date.now() });
+        setVoiceAgentState('WAITING_FOR_USER');
+        setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+        startIdleTimeout();
+      }
+    },
+    [messages, getGroundedContext, language, voiceSession.detectedLanguage, token, dispatchToolCall, playVoiceAgentTts, startIdleTimeout]
+  );
+
+  // Send voice audio through the unified voice agent pipeline.
+  // Audio → V3 Cascade (Sarvam → Bhashini → Groq → Bhashini TTS) → Shared Chat History.
+  // Language is derived from backend ASR detection, NOT from dashboard language.
+  const sendVoiceAgentAudio = useCallback(
+    async (audioBlob) => {
+      if (!audioBlob) {
+        setVoiceAgentState('IDLE');
+        setVoiceSession((prev) => ({ ...prev, conversationActive: false, state: 'idle' }));
+        return;
+      }
+
+      // Clear any pending idle timeout
+      clearIdleTimeout();
+
+      // 1. Add placeholder user message to shared chat history
+      const tempUserMsgId = `user-siri-voice-${Date.now()}`;
+      const userMsg = {
+        id: tempUserMsgId,
+        role: 'user',
+        content: '🎤 Transcribing your voice...',
+        isVoice: true,
+        source: 'siri',
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+
+      // State: THINKING (processing) — begins when recording stops
+      setVoiceAgentState('THINKING');
+      setVoiceSession((prev) => ({ ...prev, state: 'processing' }));
+      playSiriThinkingTone();
+      const activeContext = getGroundedContext();
+
+      try {
+        // Pass real conversation history for context continuity
+        const payloadHistory = messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+
+        const data = await chatApi.sendVoiceAudio(
+          audioBlob,
+          activeContext,
+          payloadHistory,
+          token
+        );
+
+        const transcript = data?.user_transcript || '(Voice Input)';
+        const replyText = data?.reply || 'I could not generate a response.';
+        const audioBase64 = data?.audio_base64 || null;
+        const detectedLang = data?.detected_language || null;
+
+        // Update voice session with detected language (independent of dashboard)
+        setVoiceSession((prev) => ({
+          ...prev,
+          detectedLanguage: detectedLang,
+          transcript: transcript,
+          responseText: replyText,
+        }));
+
+        // Execute voice-triggered tool call (navigation, language change, etc.)
+        if (data?.tool_call) {
+          dispatchToolCall(data.tool_call);
+        }
+
+        // 2. Update placeholder with real transcript
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempUserMsgId ? {
+            ...m,
+            content: transcript,
+            isVoice: true,
+            detectedLanguage: detectedLang,
+          } : m))
+        );
+
+        // 3. Add bot reply to shared chat history
+        const botMsgId = `bot-siri-voice-${Date.now()}`;
+        const botMsg = {
+          id: botMsgId,
+          role: 'assistant',
+          content: replyText,
+          audio_base64: audioBase64,
+          timestamp: data?.timestamp || new Date().toISOString(),
+          isFallback: data?.is_fallback || false,
+          model: data?.model || 'sarvam-saaras + groq-llm',
+          sources: data?.sources || [],
+          detected_language: detectedLang,
+          tier_used: data?.tier_used,
+          tool_call: data?.tool_call || null,
+          source: 'siri',
+          latencies: {
+            stt_s: data?.stt_latency_s,
+            llm_s: data?.llm_latency_s,
+            tts_s: data?.tts_latency_s,
+            total_s: data?.total_latency_s,
+          },
+        };
+        setMessages((prev) => [...prev, botMsg]);
+
+        // 4. Set reply text for widget display (state stays THINKING until audio.onplay)
+        setVoiceAgentReply({ text: replyText, timestamp: Date.now() });
+
+        // 5. Play TTS audio — SPEAKING state is set by audio.onplay event
+        if (audioBase64) {
+          playVoiceAgentTts(audioBase64, botMsgId);
+        } else {
+          // Request TTS separately using DETECTED language (not dashboard language)
+          try {
+            const ttsLang = detectedLang ? detectedLang.split('-')[0].toLowerCase() : 'hi';
+            const ttsRes = await chatApi.generateTts(replyText, ttsLang, token);
+            playVoiceAgentTts(ttsRes?.audio_base64 || null, botMsgId);
+          } catch {
+            // TTS failed — go to WAITING_FOR_USER to allow retry
+            setVoiceAgentState('WAITING_FOR_USER');
+            setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+            startIdleTimeout();
+          }
+        }
+      } catch (err) {
+        console.error('[VoiceAgent] Audio query failed:', err);
+        // Update placeholder on error
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempUserMsgId ? { ...m, content: '🎤 [Voice Recording Failed]' } : m
+          )
+        );
+        const errorMsg = {
+          id: `err-siri-${Date.now()}`,
+          role: 'assistant',
+          content: `⚠️ Sorry, I could not process your voice. ${err.message || ''}`,
+          timestamp: new Date().toISOString(),
+          isError: true,
+          source: 'siri',
+        };
+        setMessages((prev) => [...prev, errorMsg]);
+        setVoiceAgentReply({ text: 'Sorry, I could not process your voice.', timestamp: Date.now() });
+        // Go to WAITING_FOR_USER (not IDLE) to allow retry
+        setVoiceAgentState('WAITING_FOR_USER');
+        setVoiceSession((prev) => ({ ...prev, state: 'waiting_for_user' }));
+        startIdleTimeout();
+      }
+    },
+    [messages, getGroundedContext, token, dispatchToolCall, playVoiceAgentTts, clearIdleTimeout, startIdleTimeout]
+  );
+
+  // Start a voice conversation session
+  const startVoiceConversation = useCallback(() => {
+    clearIdleTimeout();
+    setVoiceSession((prev) => ({ ...prev, conversationActive: true, state: 'listening' }));
+    setVoiceAgentState('LISTENING');
+    playSiriActivationChime();
+  }, [clearIdleTimeout]);
+
+  // End a voice conversation session
+  const endVoiceConversation = useCallback(() => {
+    // Stop any playing audio
+    if (voiceAgentAudioRef.current) {
+      voiceAgentAudioRef.current.pause();
+      voiceAgentAudioRef.current = null;
+    }
+    clearIdleTimeout();
+    if (voiceAgentTimeoutRef.current) {
+      clearTimeout(voiceAgentTimeoutRef.current);
+      voiceAgentTimeoutRef.current = null;
+    }
+    playSiriDeactivationChime();
+    setVoiceAgentState('IDLE');
+    setVoiceAgentReply(null);
+    setVoiceSession((prev) => ({ ...prev, conversationActive: false, state: 'idle' }));
+  }, [clearIdleTimeout]);
+
+  // Interrupt assistant speech — stop audio and prepare for new input
+  const interruptVoiceAgent = useCallback(() => {
+    if (voiceAgentAudioRef.current) {
+      voiceAgentAudioRef.current.pause();
+      voiceAgentAudioRef.current = null;
+    }
+    clearIdleTimeout();
+    setVoiceAgentState('LISTENING');
+    setVoiceSession((prev) => ({ ...prev, state: 'listening' }));
+  }, [clearIdleTimeout]);
+
+  // Dismiss the voice agent window manually (backward compat alias)
+  const dismissVoiceAgent = useCallback(() => {
+    endVoiceConversation();
+  }, [endVoiceConversation]);
+
+  // Keep voiceAgentState ref for follow-up recognition
+  const voiceAgentStateRef = useRef(voiceAgentState);
+  useEffect(() => {
+    voiceAgentStateRef.current = voiceAgentState;
+  }, [voiceAgentState]);
+
+  // Handle follow-up speech when Voice Agent is actively LISTENING
+  const handleFollowUpSpeech = useCallback(
+    (transcript) => {
+      if (voiceAgentStateRef.current !== 'LISTENING') return;
+      const text = (transcript || '').trim();
+      if (!text || text.length < 2) return;
+      const cleaned = extractTrailingPrompt(text) || text;
+      if (cleaned && cleaned.length > 1 && !matchWakeWord(cleaned)) {
+        if (voiceAgentTimeoutRef.current) {
+          clearTimeout(voiceAgentTimeoutRef.current);
+          voiceAgentTimeoutRef.current = null;
+        }
+        sendVoiceAgentQuery(cleaned);
+      }
+    },
+    [sendVoiceAgentQuery]
+  );
+
+  // Voice Wake-Word "Mira" Detection Handler
+  const [siriNotice, setSiriNotice] = useState(null);
+
+  const handleWakeWordDetected = useCallback(
+    ({ phrase, transcript, trailingQuery, language }) => {
+      // 1. Play Web Audio Chime
+      playSiriActivationChime();
+
+      // 2. If trailing command is present, send directly to voice agent pipeline
+      if (trailingQuery && trailingQuery.trim().length > 2) {
+        setVoiceAgentState('THINKING');
+        sendVoiceAgentQuery(trailingQuery.trim(), language || 'hi');
+      } else {
+        // Otherwise: open Voice Agent window in LISTENING state
+        setVoiceAgentState('LISTENING');
+        if (voiceAgentTimeoutRef.current) clearTimeout(voiceAgentTimeoutRef.current);
+        voiceAgentTimeoutRef.current = setTimeout(() => {
+          setVoiceAgentState((curr) => (curr === 'LISTENING' ? 'IDLE' : curr));
+        }, 7000);
+      }
+
+      // 3. Set visual toast notice (kept for accessibility)
+      setSiriNotice({
+        phrase: phrase || 'Mira',
+        transcript: transcript || '',
+        trailingQuery: trailingQuery || '',
+        timestamp: Date.now(),
+      });
+      setTimeout(() => setSiriNotice(null), 4000);
+    },
+    [sendVoiceAgentQuery]
+  );
+
+  const {
+    isSupported: isWakeWordSupported,
+    isEnabled: isWakeWordEnabled,
+    isListening: isWakeWordListening,
+    error: wakeWordError,
+    engineType: wakeWordEngine,
+    toggleWakeWord,
+    enableWakeWord,
+    disableWakeWord,
+  } = useWakeWord({
+    onWakeWordDetected: handleWakeWordDetected,
+    onSpeechRecognized: handleFollowUpSpeech,
+    enabledByDefault: true,
+  });
 
   return (
     <ChatContext.Provider
@@ -877,6 +1422,7 @@ export function ChatProvider({ children }) {
         getActiveTabTelemetry,
         navButtonRef,
         chatInputRef,
+        siriToggleRef,
         openChat,
         minimizeChat,
         toggleChat,
@@ -886,6 +1432,29 @@ export function ChatProvider({ children }) {
         stopAudio,
         playMessageTts,
         clearChat,
+        // Voice Agent APIs
+        voiceAgentState,
+        setVoiceAgentState,
+        voiceAgentReply,
+        voiceSession,
+        sendVoiceAgentQuery,
+        sendVoiceAgentAudio,
+        startVoiceConversation,
+        endVoiceConversation,
+        interruptVoiceAgent,
+        dismissVoiceAgent,
+        dispatchToolCall,
+        actionDispatchers,
+        // Wake-Word "Mira" APIs
+        isWakeWordSupported,
+        isWakeWordEnabled,
+        isWakeWordListening,
+        wakeWordError,
+        wakeWordEngine,
+        toggleWakeWord,
+        enableWakeWord,
+        disableWakeWord,
+        siriNotice,
       }}
     >
       {children}

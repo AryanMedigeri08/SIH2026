@@ -21,18 +21,73 @@ import logging
 import time
 import uuid
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+# Reconfigure stdout/stderr for Unicode and emojis on Windows
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
+class SafeStreamHandler(logging.StreamHandler):
+    """Console stream handler that safely handles Unicode/emoji encoding on all platforms."""
+    def emit(self, record):
+        try:
+            super().emit(record)
+        except UnicodeEncodeError:
+            try:
+                msg = self.format(record)
+                safe_msg = msg.encode("ascii", errors="replace").decode("ascii")
+                self.stream.write(safe_msg + self.terminator)
+                self.flush()
+            except Exception:
+                self.handleError(record)
+        except Exception:
+            self.handleError(record)
+
+
+def configure_application_logging():
+    """Configures explicit StreamHandler on 'udyam_saathi' namespace and root logger."""
+    console_handler = SafeStreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
+    console_handler.setFormatter(formatter)
+
+    # 1. Attach directly to 'udyam_saathi' namespace (all app loggers descend from here)
+    app_logger = logging.getLogger("udyam_saathi")
+    app_logger.setLevel(logging.INFO)
+    app_logger.handlers = [console_handler]
+    app_logger.propagate = False
+
+    # 2. Attach to root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.handlers = [console_handler]
+
+    # Suppress noisy external library logs
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("watchfiles").setLevel(logging.WARNING)
+    logging.getLogger("google").setLevel(logging.WARNING)
+    logging.getLogger("hpack").setLevel(logging.WARNING)
+
+
+# Configure logging immediately on module import
+configure_application_logging()
+
 logger = logging.getLogger("udyam_saathi.api")
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.config import settings
+from app.config import settings, validate_production_config
 from app.database import db_manager
 from app.models.schemas import HealthStatus
 from app.routers import (
@@ -44,16 +99,32 @@ from app.routers import (
     auth_router,
     translation_router,
     chat_router,
+    market_intelligence_router,
 )
+from app.core.telemetry import TelemetryMiddleware
 from inference import ViabilityModelLoader
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure logging handlers are active across Uvicorn worker reload
+    configure_application_logging()
+
     # Startup
     logger.info("=" * 80)
     logger.info("🚀 Udyam Saathi (उद्यम साथी) REST API Backend Starting...")
     logger.info("📡 Environment: Port 8000 | Docs: /docs | Health: /api/v2/health")
+    
+    # Safe production config audit
+    cfg_report = validate_production_config()
+    logger.info(f"⚙️ Configuration Audit: Status={cfg_report['status']} | Modes={cfg_report['modes']}")
+    if cfg_report["warnings"]:
+        for w in cfg_report["warnings"]:
+            logger.info(f"ℹ️ Config notice: {w}")
+    if cfg_report["missing_critical"]:
+        for m in cfg_report["missing_critical"]:
+            logger.error(f"❌ CRITICAL CONFIG MISSING: {m}")
+
     await db_manager.initialize()
     logger.info("💾 Database & In-Memory Fallback Subsystem Initialized.")
     # Preload ML model & SHAP Explainer into singleton memory
@@ -84,25 +155,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Request Tracing & Structured Logging Middleware
-@app.middleware("http")
-async def log_requests_middleware(request: Request, call_next):
-    req_id = f"REQ-{uuid.uuid4().hex[:8].upper()}"
-    request.state.request_id = req_id
-    start_time = time.perf_counter()
-    client_host = request.client.host if request.client else "unknown"
-    logger.info(f"[{req_id}] ➡️ INCOMING {request.method} {request.url.path} from {client_host}")
-
-    try:
-        response = await call_next(request)
-        latency = (time.perf_counter() - start_time) * 1000
-        logger.info(f"[{req_id}] ⬅️ RESPONSE {response.status_code} in {latency:.2f}ms")
-        response.headers["X-Request-ID"] = req_id
-        return response
-    except Exception as e:
-        latency = (time.perf_counter() - start_time) * 1000
-        logger.error(f"[{req_id}] ❌ ERROR in {latency:.2f}ms: {str(e)}", exc_info=True)
-        raise
+# Correlation ID, Tracing & Latency Middleware (Gates 20, 21, 24)
+app.add_middleware(TelemetryMiddleware)
 
 # Configure CORS Middleware (Explicit origins with credentials support)
 app.add_middleware(
@@ -164,6 +218,8 @@ app.include_router(projects_router, prefix=settings.API_V2_STR)
 app.include_router(data_sources_router, prefix=settings.API_V2_STR)
 app.include_router(translation_router, prefix=settings.API_V2_STR)
 app.include_router(chat_router, prefix=f"{settings.API_V2_STR}/chat", tags=["AI Chatbot & Groq Advisor"])
+app.include_router(market_intelligence_router, prefix=settings.API_V2_STR)
+app.include_router(market_intelligence_router, prefix="")
 
 
 if __name__ == "__main__":

@@ -89,16 +89,16 @@ async def list_data_sources():
             "source_authority": "Udyam Saathi Machine Learning Underwriting Subsystem",
         },
         {
-            "id": "groq_ai",
-            "name": "Groq Cloud LLM Multi-Lingual Synthesis Engine",
+            "id": "sarvam_ai",
+            "name": "Sarvam AI LLM Multi-Lingual Synthesis Engine",
             "tier": "Tier 3: Executive Feasibility & Credit Appraisal",
-            "table_or_file": "groq:openai/gpt-oss-20b",
+            "table_or_file": "sarvam:sarvam-105b-conversations",
             "type": "Single-Call Cloud LLM with In-Memory SHA-256 Cache",
-            "status": "ONLINE" if bool(settings.GROQ_API_KEY) else "DETERMINISTIC_FALLBACK",
-            "description": "Multi-lingual executive feasibility synthesis, strategic growth milestones, and bank appraisal memorandum generation across 6 Indian languages with zero financial recalculation invariant.",
+            "status": "ONLINE" if bool(getattr(settings, "SARVAM_API_KEY", None)) else "DETERMINISTIC_FALLBACK",
+            "description": "Multi-lingual executive feasibility synthesis, strategic growth milestones, and bank appraisal memorandum generation across 22 Indian languages with zero financial recalculation invariant.",
             "record_count": 1,
             "latency_sla": "< 2000ms (uncached) / < 1ms (cached)",
-            "source_authority": "Groq Cloud LPU Inference Engine & Statutory Narrative Matrix",
+            "source_authority": "Sarvam AI Sovereign Indic LLM Engine & Statutory Narrative Matrix",
         },
     ]
     return sources
@@ -132,7 +132,7 @@ async def get_system_stats():
         "app_name": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "database_mode": "Neon PostgreSQL Pool" if db_manager.pool else "High-Speed In-Memory Fallback",
-        "ai_synthesis_mode": "Groq Cloud LLM Active" if settings.GROQ_API_KEY else "Deterministic Domain Engine",
+        "ai_synthesis_mode": "Sarvam AI LLM Active" if getattr(settings, "SARVAM_API_KEY", None) else "Deterministic Domain Engine",
         "languages_supported": ["en", "hi", "mr", "ta", "te", "kn"],
         "tiers_active": ["Tier 1: Math", "Tier 2: ML Viability", "Tier 3: AI Synthesis", "Tier 4: Bank DPR"],
     }

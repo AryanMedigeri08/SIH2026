@@ -421,21 +421,23 @@ export const translationApi = {
 
 // --- Groq Chatbot & Conversational AI Advisor API ---
 export const chatApi = {
-  async sendChatMessage(messages, context = null, language = 'en', token = null) {
+  async sendChatMessage(messages, context = null, language = 'en', token = null, isVoiceTurn = false) {
     return await authFetch(`${API_BASE}/chat`, token, {
       method: 'POST',
       body: JSON.stringify({
         messages,
         context,
         language,
+        is_voice_turn: isVoiceTurn,
       }),
     });
   },
 
-  async sendVoiceAudio(audioBlob, context = null, language = 'en', history = [], token = null) {
+  async sendVoiceAudio(audioBlob, context = null, history = [], token = null) {
     const formData = new FormData();
-    formData.append('file', audioBlob, 'recording.webm');
-    formData.append('language', language || 'en');
+    const isWav = audioBlob.type?.includes('wav');
+    formData.append('file', audioBlob, isWav ? 'recording.wav' : 'recording.webm');
+    // Backend auto-detects language per Voice Agent V3 specification
     if (context) {
       formData.append('context', JSON.stringify(context));
     }
@@ -457,6 +459,22 @@ export const chatApi = {
     if (!res.ok) {
       const errText = await res.text();
       throw new Error(`Voice chat failed: ${errText || res.statusText}`);
+    }
+    return await res.json();
+  },
+
+  async transcribeAudio(audioBlob, language = '') {
+    const formData = new FormData();
+    const isWav = audioBlob.type?.includes('wav');
+    formData.append('file', audioBlob, isWav ? 'wake_word.wav' : 'wake_word.webm');
+    formData.append('language', language || '');
+    const res = await fetch(`${API_BASE}/chat/stt`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Audio transcription failed: ${errText || res.statusText}`);
     }
     return await res.json();
   },
@@ -497,3 +515,47 @@ export const recommendationsApi = {
     });
   },
 };
+
+// --- MSME Market Intelligence & Opportunity Analysis API (Documents 2 & 4) ---
+export const marketOpportunityApi = {
+  async analyzeOpportunity(payload, token = null) {
+    return await authFetch(`${API_BASE}/market-analysis/opportunity`, token, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async compareCategories(payload, token = null) {
+    return await authFetch(`${API_BASE}/market-analysis/compare`, token, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getIntents(token = null) {
+    return await authFetch(`${API_BASE}/market-analysis/intents`, token, {
+      method: 'GET',
+    });
+  },
+
+  async getSources(token = null) {
+    return await authFetch(`${API_BASE}/market-analysis/sources`, token, {
+      method: 'GET',
+    });
+  },
+
+  async getCategories(token = null) {
+    return await authFetch(`${API_BASE}/market-analysis/categories`, token, {
+      method: 'GET',
+    });
+  },
+
+  /** Document 5: Ecosystem Graph / Map endpoint */
+  async getEcosystemGraph(payload, token = null) {
+    return await authFetch(`${API_BASE}/market-analysis/ecosystem-graph`, token, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+};
+
