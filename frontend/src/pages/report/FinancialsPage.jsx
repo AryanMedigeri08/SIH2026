@@ -1,6 +1,5 @@
 import React from 'react';
 import { CapitalReconciliationCard } from '../../components/Dashboard/CapitalReconciliationCard';
-import { DscrGaugeChart } from '../../components/Dashboard/DscrGaugeChart';
 import { CashflowProjectionsChart } from '../../components/Dashboard/CashflowProjectionsChart';
 import { TrendingUp, Landmark, ShieldCheck, IndianRupee, PieChart, Percent, CheckCircle2, ArrowUpRight } from 'lucide-react';
 import { TranslatedText } from '../../components/TranslatedText';
@@ -112,8 +111,6 @@ export function FinancialsPage({ reportData }) {
       {/* Capital Reconciliation Card */}
       <CapitalReconciliationCard inputData={p} financialData={fin} schemeData={schemes} />
 
-      {/* Banking Solvency DSCR Gauge */}
-      <DscrGaugeChart dscrInfo={fin.dscr} projections={fin.five_year_projections} />
 
       {/* 5-Year Amortization Schedule & Financial Horizon */}
       <CashflowProjectionsChart inputData={p} financialData={fin} pricingData={pricing} />

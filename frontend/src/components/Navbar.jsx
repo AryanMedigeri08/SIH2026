@@ -22,7 +22,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-all w-full">
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-all w-full">
       {/* Sovereign Top Gradient Accent Line */}
       <div className="h-[3px] w-full bg-gradient-to-r from-sovereign-900 via-sky-500 via-indigo-600 to-emerald-500" />
       

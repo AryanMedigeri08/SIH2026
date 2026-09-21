@@ -364,6 +364,84 @@
       }
     },
     "Maharashtra": {
+      "Thane": {
+        "odop_product": "Dairy Processing & Fish Marine Products",
+        "secondary_product": "Warli Tribal Art & Handicrafts",
+        "category": "Agro-Food Processing & Marine Cluster",
+        "matching_sectors": ["dairy", "food_processing", "artisan_trades"],
+        "pmfme_eligible": true,
+        "gem_category": "Fresh Dairy Products, Processed Fish & Traditional Art",
+        "cfc_available": true,
+        "raw_material_availability": "Thane rural coastal belt, Kalyan-Bhiwandi dairy sheds and Dahanu-Warli artisan belt",
+        "rbi_psl_category": "Micro Food Processing & Priority Sector Lending",
+        "key_benefits": [
+          "PMFME 35% credit-linked capital subsidy up to ₹10 Lakhs",
+          "Thane District Industries Centre (DIC) cluster facilitation",
+          "GeM ODOP National Portal priority onboarding",
+          "NABARD rural infrastructure development support"
+        ]
+      },
+      "Pune": {
+        "odop_product": "Processed Agro Foods & Tomato Processing",
+        "category": "Horticulture & Food Processing",
+        "matching_sectors": ["food_processing", "dairy"],
+        "pmfme_eligible": true,
+        "gem_category": "Processed Agro Foods & Purees",
+        "cfc_available": true,
+        "key_benefits": [
+          "PMFME 35% capital subsidy up to ₹10 Lakhs",
+          "Access to Narayangaon agro-processing cluster"
+        ]
+      },
+      "Nashik": {
+        "odop_product": "Grapes, Wine & Agro Processing (Onion Cold Storage)",
+        "category": "Horticulture & Cold Chain Agro Processing",
+        "matching_sectors": ["food_processing", "agriculture"],
+        "pmfme_eligible": true,
+        "gem_category": "Fresh Table Grapes, Raisins & Dehydrated Onions",
+        "cfc_available": true,
+        "key_benefits": [
+          "GI-tagged Nashik Grapes export protection",
+          "PMFME 35% capital subsidy up to ₹10 Lakhs"
+        ]
+      },
+      "Palghar": {
+        "odop_product": "Sapota (Chiku) Processing & Marine Products",
+        "secondary_product": "Warli Tribal Paintings",
+        "category": "Horticulture & Marine Processing",
+        "matching_sectors": ["food_processing", "artisan_trades"],
+        "pmfme_eligible": true,
+        "gem_category": "Chiku Powder, Dehydrated Fruit & Warli Art",
+        "cfc_available": true,
+        "key_benefits": [
+          "GI Tag Dahanu Gholvad Chiku protection",
+          "PMFME 35% capital subsidy up to ₹10 Lakhs"
+        ]
+      },
+      "Raigad": {
+        "odop_product": "Alibag White Onion & Marine Fish Processing",
+        "category": "Agro Processing & Marine Products",
+        "matching_sectors": ["food_processing"],
+        "pmfme_eligible": true,
+        "gem_category": "GI Alibag White Onions & Frozen Fish",
+        "cfc_available": true,
+        "key_benefits": [
+          "GI Tagged Alibag White Onion brand protection",
+          "PMFME 35% capital subsidy"
+        ]
+      },
+      "Nagpur": {
+        "odop_product": "Nagpur Mandarin Orange & Citrus Processing",
+        "category": "Citrus Fruit & Food Processing",
+        "matching_sectors": ["food_processing"],
+        "pmfme_eligible": true,
+        "gem_category": "Citrus Juices, Concentrates & Fresh Oranges",
+        "cfc_available": true,
+        "key_benefits": [
+          "GI Tagged Nagpur Mandarin Orange certification",
+          "PMFME 35% capital subsidy"
+        ]
+      },
       "Satara": {
         "odop_product": "Strawberries (Mahabaleshwar) & Value-Added Dairy Products",
         "secondary_product": "Turmeric Processing",

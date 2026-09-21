@@ -1019,7 +1019,7 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
         size: A4 portrait;
         margin: 14mm 12mm 14mm 12mm;
     }}
-    body {{
+    body.dpr-standalone, .dpr-inner-doc {{
         font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
         font-size: 12px;
         color: #0f172a;
@@ -1166,7 +1166,7 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
         min-height: 100px;
     }}
     @media print {{
-        body {{
+        body.dpr-standalone, .dpr-inner-doc {{
             padding: 0;
             background: none;
         }}
@@ -1186,7 +1186,7 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
     }}
 </style>
 </head>
-<body>
+<body class="dpr-standalone dpr-inner-doc">
 
 <!-- Institutional Header -->
 <div class="header-box">

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Megaphone,
   MessageSquare,
@@ -106,8 +107,24 @@ export function MarketingPage({ reportData }) {
   };
 
   // Interactive Tab State
-  const [activeTab, setActiveTab] = useState('whatsapp');
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'whatsapp';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [copiedKey, setCopiedKey] = useState(null);
+
+  // Sync tab with URL search parameter if present
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['whatsapp', 'haat', 'munadi', 'b2b', 'odop'].includes(tab)) {
+      setActiveTab(tab);
+      setTimeout(() => {
+        const el = document.getElementById('marketing-tabs-section');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+  }, [searchParams]);
 
   // 30-Day Launch Checklist State (8 milestones)
   const [checklist, setChecklist] = useState({
@@ -344,7 +361,7 @@ Support your local village entrepreneur! Please share this with your village Wha
       </div>
 
       {/* 4-Channel Grassroots Action Hub */}
-      <div className="glass-panel p-5 bg-white border border-slate-200 rounded-2xl shadow-card space-y-4">
+      <div id="marketing-tabs-section" className="glass-panel p-5 bg-white border border-slate-200 rounded-2xl shadow-card space-y-4">
         {/* Tab Headers */}
         <div className="flex flex-wrap gap-2 pb-3 border-b border-slate-100">
           <button
