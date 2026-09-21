@@ -235,11 +235,19 @@ h1, h2, h3, h4, .font-outfit {
 @media print {
   body {
     background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
     color: #000000 !important;
     animation: none !important;
   }
-  .no-print {
+  header, aside, footer, nav, .no-print {
     display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
   }
   .print-only {
     display: block !important;

@@ -380,7 +380,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
             </div>
             <div className="flex items-center gap-2 shrink-0 self-start md:self-auto">
               <Link
-                to={reportId ? `/reports/${reportId}/marketing` : '/marketing'}
+                to={reportId ? `/reports/${reportId}/marketing?tab=odop` : '/marketing?tab=odop'}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold transition shadow-sm"
               >
                 <span><TranslatedText text="ODOP Market Linkage" /></span>

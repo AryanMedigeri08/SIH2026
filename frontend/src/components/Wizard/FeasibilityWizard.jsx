@@ -140,7 +140,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
     let isCurrent = true;
     async function checkOdop() {
       const data = await fetchOdopProduct(formData.state_name, formData.district_name);
-      if (isCurrent && data?.has_odop_record) {
+      if (isCurrent && (data?.has_odop_record || data?.odop_product)) {
         setOdopHint(data);
       } else if (isCurrent) {
         setOdopHint(null);
@@ -280,8 +280,8 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
   if (!isOpen) return null;
 
   const steps = [
-    { num: 1, title: 'Enterprise', icon: Building2 },
-    { num: 2, title: 'LGD Location', icon: MapPin },
+    { num: 1, title: 'LGD Location', icon: MapPin },
+    { num: 2, title: 'Enterprise', icon: Building2 },
     { num: 3, title: 'Promoter', icon: User },
     { num: 4, title: 'Capital & Sales', icon: Coins },
     { num: 5, title: 'Loan Terms', icon: Clock },
@@ -331,8 +331,26 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
           </button>
         </div>
 
-        {/* Stepper Progress Bar */}
-        <div className="bg-slate-100/70 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 flex items-center justify-start sm:justify-between overflow-x-auto gap-2 sm:gap-3 scroll-touch-x no-scrollbar">
+        {/* Compact Mobile Step Banner (< md) */}
+        <div className="md:hidden bg-slate-100/70 px-4 py-2.5 border-b border-slate-200">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-bold text-sovereign-900">
+              Step {currentStep} of 7: {steps[currentStep - 1]?.title}
+            </span>
+            <span className="text-[10px] font-mono font-bold text-slate-500">
+              {Math.round(((currentStep - 1) / 6) * 100)}%
+            </span>
+          </div>
+          <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-sovereign-800 to-sky-600 rounded-full transition-all duration-300"
+              style={{ width: `${((currentStep - 1) / 6) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Full Stepper Progress Bar (md+) */}
+        <div className="hidden md:flex bg-slate-100/70 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 items-center justify-start sm:justify-between overflow-x-auto gap-2 sm:gap-3 scroll-touch-x no-scrollbar">
           {steps.map((s, idx) => {
             const Icon = s.icon;
             const isDone = s.num < currentStep;
@@ -369,79 +387,13 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-4 sm:space-y-6">
           
-          {/* Step 1: Enterprise Profile */}
+          {/* Step 1: LGD Location Hierarchy + Geolocation Detection */}
           {currentStep === 1 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-sovereign-700" />
-                Step 1: Enterprise Identity & Industry Classification
-              </h3>
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">Enterprise Commercial Name</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.enterprise_name}
-                  onChange={e => setFormData({ ...formData, enterprise_name: e.target.value })}
-                  placeholder="e.g. Joypur Fresh Dairy Processing Unit"
-                  className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Business Type</label>
-                  <select
-                    value={formData.business_category}
-                    onChange={e => setFormData({ ...formData, business_category: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
-                  >
-                    <option value="manufacturing">Manufacturing (Production / Processing)</option>
-                    <option value="service">Service (Repair, Retail, Digital)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Industry Sector</label>
-                  <select
-                    value={formData.sector}
-                    onChange={e => setFormData({ ...formData, sector: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
-                  >
-                    <option value="dairy">Dairy & Milk Processing</option>
-                    <option value="food_processing">Food Processing & Agro Milling</option>
-                    <option value="repair">Auto, Mobile & Electronics Repair</option>
-                    <option value="apparel">Apparel, Tailoring & Handloom</option>
-                    <option value="fabrication">Light Engineering & Metal Fabrication</option>
-                    <option value="artisan_trades">Artisan & Craft Trades</option>
-                    <option value="general">General Commercial MSME</option>
-                  </select>
-                  {odopHint?.odop_product && (
-                    <div className="mt-2 text-[11px] font-medium flex items-center gap-1.5 text-amber-900 bg-amber-50 border border-amber-200/80 px-2.5 py-1.5 rounded-lg">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>
-                        <strong>{formData.district_name || "District"} ODOP:</strong> {odopHint.odop_product}
-                        {odopHint.matching_sectors?.includes(formData.sector) && (
-                          <span className="ml-1.5 font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-1.5 py-0.5 rounded text-[10px]">
-                            ✓ Matches District ODOP!
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: LGD Location Hierarchy + Geolocation Detection */}
-          {currentStep === 2 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-sovereign-700" />
-                  Step 2: Local Government Directory (LGD) Hierarchy
+                  Step 1: Local Government Directory (LGD) Hierarchy
                 </h3>
                 
                 {/* Geolocation Auto-Detect Button */}
@@ -521,15 +473,9 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700">4. Gram Panchayat / Village</label>
-                    <span className="text-[10px] text-slate-500">Pick or type custom</span>
-                  </div>
-                  <input
-                    type="text"
-                    list="villages-datalist"
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">4. Gram Panchayat / Village</label>
+                  <select
                     value={formData.village_name}
-                    placeholder="e.g. Alandi, Joypur, Moshi..."
                     onChange={e => {
                       const val = e.target.value;
                       const matched = villages.find(v => v.village_name?.toLowerCase() === val.toLowerCase());
@@ -541,14 +487,17 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                       }));
                     }}
                     className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
-                  />
-                  <datalist id="villages-datalist">
+                  >
+                    <option value="">-- Select Gram Panchayat / Village --</option>
+                    {formData.village_name && !villages.some(v => v.village_name?.toLowerCase() === formData.village_name?.toLowerCase()) && (
+                      <option value={formData.village_name}>{formData.village_name}</option>
+                    )}
                     {villages.map(v => (
                       <option key={v.village_code || v.village_name} value={v.village_name}>
                         {v.taluk ? `${v.village_name} (${v.taluk}${v.pincode ? ` - ${v.pincode}` : ''})` : v.village_name}
                       </option>
                     ))}
-                  </datalist>
+                  </select>
                 </div>
               </div>
 
@@ -622,6 +571,147 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                   </label>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Step 2: Enterprise Identity & Industry Classification */}
+          {currentStep === 2 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-sovereign-700" />
+                Step 2: Enterprise Identity & Industry Classification
+              </h3>
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Enterprise Commercial Name</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.enterprise_name}
+                  onChange={e => setFormData({ ...formData, enterprise_name: e.target.value })}
+                  placeholder="e.g. Joypur Fresh Dairy Processing Unit"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Business Type</label>
+                  <select
+                    value={formData.business_category}
+                    onChange={e => setFormData({ ...formData, business_category: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
+                  >
+                    <option value="manufacturing">Manufacturing (Production / Processing)</option>
+                    <option value="service">Service (Repair, Retail, Digital)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Industry Sector</label>
+                  <select
+                    value={formData.sector}
+                    onChange={e => setFormData({ ...formData, sector: e.target.value })}
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
+                  >
+                    <option value="dairy">Dairy & Milk Processing</option>
+                    <option value="food_processing">Food Processing & Agro Milling</option>
+                    <option value="repair">Auto, Mobile & Electronics Repair</option>
+                    <option value="apparel">Apparel, Tailoring & Handloom</option>
+                    <option value="fabrication">Light Engineering & Metal Fabrication</option>
+                    <option value="artisan_trades">Artisan & Craft Trades</option>
+                    <option value="general">General Commercial MSME</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* District ODOP Mandate & Cluster Linkage Section (Below the 2 dropdown options) */}
+              {odopHint?.odop_product ? (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50/90 via-sky-50/40 to-amber-50/90 border border-amber-200/90 shadow-subtle space-y-2.5 animate-in fade-in">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md bg-amber-600 text-white font-bold text-[10px] font-mono uppercase tracking-wider">
+                        One District One Product (ODOP)
+                      </span>
+                      <span className="text-xs font-semibold text-slate-700">
+                        {formData.district_name ? `${formData.district_name} (${formData.state_name || 'Selected State'})` : 'Your District'}
+                      </span>
+                    </div>
+
+                    {odopHint.pmfme_eligible && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-bold">
+                        35% PMFME Capital Subsidy
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                    <div className="space-y-0.5">
+                      <div className="text-[11px] text-slate-500 font-medium">Designated District Cluster Product:</div>
+                      <div className="font-outfit text-base font-extrabold text-slate-900 flex items-center gap-2">
+                        <Sparkles className="w-4.5 h-4.5 text-amber-600 shrink-0" />
+                        <span>{odopHint.odop_product}</span>
+                      </div>
+                      {odopHint.category && (
+                        <div className="text-[11px] text-slate-500 font-medium">
+                          Category: <span className="font-semibold text-slate-700">{odopHint.category}</span>
+                          {odopHint.secondary_product && (
+                            <span className="ml-2 text-slate-400">• Also: {odopHint.secondary_product}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sector Alignment Status Pill / Button */}
+                    <div className="shrink-0">
+                      {odopHint.matching_sectors?.includes(formData.sector) ? (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-bold shadow-2xs">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>Selected Sector Matches ODOP!</span>
+                        </div>
+                      ) : odopHint.matching_sectors?.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, sector: odopHint.matching_sectors[0] }))}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-subtle group cursor-pointer"
+                          title="Auto-select matching industry sector to qualify for ODOP 35% PMFME subsidy"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-200 group-hover:rotate-12 transition-transform" />
+                          <span>Align Sector with ODOP</span>
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-amber-200/60 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                    <span className="text-slate-600">
+                      {odopHint.matching_sectors?.includes(formData.sector) ? (
+                        <span className="text-emerald-800 font-medium">
+                          ✓ Your enterprise qualifies for <strong>priority bank sanction</strong>, GeM ODOP corridor access, and state testing lab subsidies.
+                        </span>
+                      ) : (
+                        <span className="text-slate-600">
+                          Enterprises producing or processing <strong>{odopHint.odop_product}</strong> receive <strong>up to ₹10 Lakhs capital subsidy</strong> under PMFME and DIC fast-track sanction.
+                        </span>
+                      )}
+                    </span>
+                    {odopHint.gem_category && (
+                      <span className="text-slate-500 font-mono text-[10px] bg-white/80 px-2 py-0.5 rounded border border-slate-200">
+                        GeM: {odopHint.gem_category.length > 30 ? `${odopHint.gem_category.slice(0, 30)}...` : odopHint.gem_category}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : formData.district_name ? (
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Info className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>
+                      District: <strong>{formData.district_name}</strong> • Standard central MSME schemes (PMEGP up to 35%, MUDRA, CGTMSE) apply.
+                    </span>
+                  </div>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -1102,8 +1192,8 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
             </div>
           )}
 
-          {/* Navigation Controls */}
-          <div className="flex justify-between items-center gap-2 pt-4 border-t border-slate-200">
+          {/* Navigation Controls — sticky on mobile for thumb-zone access */}
+          <div className="flex justify-between items-center gap-2 pt-4 border-t border-slate-200 sticky bottom-0 bg-white pb-2 sm:pb-0 sm:relative sm:bg-transparent z-10">
             {currentStep > 1 ? (
               <button
                 type="button"

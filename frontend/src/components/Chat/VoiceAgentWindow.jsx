@@ -203,8 +203,16 @@ export function VoiceAgentWindow() {
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const [micVolume, setMicVolume] = useState(0);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
 
   const isActive = voiceAgentState && voiceAgentState !== 'IDLE';
+
+  // Track viewport size for responsive layout
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Microphone recorder for conversational loop
   const {
@@ -235,9 +243,9 @@ export function VoiceAgentWindow() {
     }
   }, [voiceAgentState]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Position the window below the Siri toggle
+  // Position the window below the Siri toggle (desktop only)
   useEffect(() => {
-    if (!siriToggleRef?.current || !isActive) return;
+    if (!siriToggleRef?.current || !isActive || isMobile) return;
 
     const updatePosition = () => {
       const rect = siriToggleRef.current.getBoundingClientRect();
@@ -254,7 +262,7 @@ export function VoiceAgentWindow() {
     updatePosition();
     window.addEventListener('resize', updatePosition);
     return () => window.removeEventListener('resize', updatePosition);
-  }, [isActive, siriToggleRef]);
+  }, [isActive, siriToggleRef, isMobile]);
 
   // Handle visibility transitions
   useEffect(() => {
@@ -313,12 +321,39 @@ export function VoiceAgentWindow() {
           0% { transform: scale(1) translateY(0); opacity: 1; }
           100% { transform: scale(0.8) translateY(-10px); opacity: 0; }
         }
+        @keyframes voiceSheetEnter {
+          0% { transform: translateY(100%); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes voiceSheetExit {
+          0% { transform: translateY(0); opacity: 1; }
+          100% { transform: translateY(100%); opacity: 0; }
+        }
       `}</style>
+
+      {/* Mobile: backdrop scrim */}
+      {isMobile && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs"
+          onClick={handleDismiss}
+          style={{
+            animation: isAnimatingOut
+              ? 'voiceWidgetExit 0.28s ease-in forwards'
+              : 'voiceWidgetEnter 0.3s ease forwards',
+            opacity: isAnimatingOut ? 0 : 1,
+          }}
+        />
+      )}
 
       <div
         ref={windowRef}
-        className="fixed z-50"
-        style={{
+        className={isMobile ? 'fixed inset-x-0 bottom-0 z-50' : 'fixed z-50'}
+        style={isMobile ? {
+          animation: isAnimatingOut
+            ? 'voiceSheetExit 0.28s ease-in forwards'
+            : 'voiceSheetEnter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        } : {
           top: `${position.top}px`,
           right: `${position.right}px`,
           animation: isAnimatingOut
@@ -327,42 +362,84 @@ export function VoiceAgentWindow() {
         }}
       >
         <div
-          className="relative rounded-2xl overflow-hidden transition-all duration-300"
+          className={`relative overflow-hidden transition-all duration-300 ${
+            isMobile
+              ? 'rounded-t-2xl'
+              : 'rounded-2xl'
+          }`}
           style={{
-            width: '210px',
+            width: isMobile ? '100%' : '210px',
             background: 'linear-gradient(150deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96))',
             backdropFilter: 'blur(32px)',
             border: '1px solid rgba(226,232,240,0.9)',
-            boxShadow: '0 20px 45px -12px rgba(15,23,42,0.14), 0 4px 12px rgba(0,0,0,0.04), 0 0 0 1px rgba(255,255,255,0.9) inset',
+            boxShadow: isMobile
+              ? '0 -20px 45px -12px rgba(15,23,42,0.14), 0 -4px 12px rgba(0,0,0,0.04)'
+              : '0 20px 45px -12px rgba(15,23,42,0.14), 0 4px 12px rgba(0,0,0,0.04), 0 0 0 1px rgba(255,255,255,0.9) inset',
           }}
         >
-          {/* Top accent line */}
-          <div
-            className="h-[2px] w-full"
-            style={{
-              background: voiceAgentState === 'LISTENING'
-                ? 'linear-gradient(90deg, transparent, #06b6d4, transparent)'
-                : voiceAgentState === 'THINKING'
-                ? 'linear-gradient(90deg, transparent, #6366f1, transparent)'
-                : voiceAgentState === 'SPEAKING'
-                ? 'linear-gradient(90deg, transparent, #10b981, transparent)'
-                : 'linear-gradient(90deg, transparent, rgba(203,213,225,0.9), transparent)',
-            }}
-          />
+          {/* Swipe handle (mobile) or top accent line */}
+          {isMobile ? (
+            <div className="flex justify-center pt-2.5 pb-1">
+              <div className="w-10 h-1 rounded-full bg-slate-300" />
+            </div>
+          ) : (
+            <div
+              className="h-[2px] w-full"
+              style={{
+                background: voiceAgentState === 'LISTENING'
+                  ? 'linear-gradient(90deg, transparent, #06b6d4, transparent)'
+                  : voiceAgentState === 'THINKING'
+                  ? 'linear-gradient(90deg, transparent, #6366f1, transparent)'
+                  : voiceAgentState === 'SPEAKING'
+                  ? 'linear-gradient(90deg, transparent, #10b981, transparent)'
+                  : 'linear-gradient(90deg, transparent, rgba(203,213,225,0.9), transparent)',
+              }}
+            />
+          )}
 
-          {/* Close button */}
-          <button
-            type="button"
-            onClick={handleDismiss}
-            className="absolute top-2.5 right-2.5 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100/90 hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition-all z-10 cursor-pointer border border-slate-200/80 shadow-xs"
-            title="End conversation"
-            aria-label="End voice conversation"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+          {/* Mobile header row */}
+          {isMobile && (
+            <div className="flex items-center justify-between px-4 pt-1 pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                Mira Voice Assistant
+              </span>
+              <div className="flex items-center gap-2">
+                {detectedLangDisplay && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                    {detectedLangDisplay}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDismiss}
+                  className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100/90 hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition-all cursor-pointer border border-slate-200/80"
+                  title="End conversation"
+                  aria-label="End voice conversation"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Close button (desktop only) */}
+          {!isMobile && (
+            <button
+              type="button"
+              onClick={handleDismiss}
+              className="absolute top-2.5 right-2.5 w-6 h-6 flex items-center justify-center rounded-full bg-slate-100/90 hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition-all z-10 cursor-pointer border border-slate-200/80 shadow-xs"
+              title="End conversation"
+              aria-label="End voice conversation"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           {/* Main content */}
-          <div className="flex flex-col items-center pt-6 pb-4 px-4">
+          <div className={`flex flex-col items-center ${
+            isMobile ? 'pt-2 pb-5 px-6' : 'pt-6 pb-4 px-4'
+          }`}>
             {/* Audio-reactive avatar */}
             <button
               type="button"
@@ -378,8 +455,8 @@ export function VoiceAgentWindow() {
               <StateLabel state={voiceAgentState} />
             </div>
 
-            {/* Detected language badge */}
-            {detectedLangDisplay && (
+            {/* Detected language badge (desktop only — mobile shows in header) */}
+            {!isMobile && detectedLangDisplay && (
               <div className="mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide bg-slate-100/90 text-slate-600 border border-slate-200/80 shadow-xs">
                 {detectedLangDisplay}
               </div>
@@ -387,12 +464,33 @@ export function VoiceAgentWindow() {
 
             {/* Transcript snippet */}
             {voiceSession?.transcript && voiceAgentState !== 'LISTENING' && (
-              <div className="mt-3 w-full px-1">
-                <p className="text-[10px] text-slate-600 font-medium text-center truncate leading-relaxed italic">
-                  &ldquo;{voiceSession.transcript.length > 50
-                    ? voiceSession.transcript.substring(0, 47) + '...'
-                    : voiceSession.transcript}&rdquo;
+              <div className={`mt-3 w-full ${isMobile ? 'px-2' : 'px-1'}`}>
+                <p className={`text-slate-600 font-medium text-center leading-relaxed italic ${
+                  isMobile ? 'text-xs' : 'text-[10px] truncate'
+                }`}>
+                  &ldquo;{isMobile
+                    ? (voiceSession.transcript.length > 120
+                      ? voiceSession.transcript.substring(0, 117) + '...'
+                      : voiceSession.transcript)
+                    : (voiceSession.transcript.length > 50
+                      ? voiceSession.transcript.substring(0, 47) + '...'
+                      : voiceSession.transcript)
+                  }&rdquo;
                 </p>
+              </div>
+            )}
+
+            {/* Mobile action buttons */}
+            {isMobile && (
+              <div className="flex items-center gap-2 mt-4 w-full">
+                <button
+                  type="button"
+                  onClick={handleDismiss}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  End Voice
+                </button>
               </div>
             )}
           </div>

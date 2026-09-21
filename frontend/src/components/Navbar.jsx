@@ -22,7 +22,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-all w-full">
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-all w-full">
       {/* Sovereign Top Gradient Accent Line */}
       <div className="h-[3px] w-full bg-gradient-to-r from-sovereign-900 via-sky-500 via-indigo-600 to-emerald-500" />
       
@@ -67,10 +67,10 @@ export function Navbar({ health, onToggleMobileSidebar }) {
         </div>
 
         {/* Right: Controls, Personas, AI Chat & Identity */}
-        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2.5 shrink-0">
           
-          {/* Persona Switcher: Beneficiary (उद्यमी) vs Banker / Auditor (बैंक प्रबंधक) */}
-          <PersonaSwitcher />
+          {/* Persona Switcher: Compact icon-only on mobile, full labels on lg+ */}
+          <PersonaSwitcher compact />
 
           {/* Persistent AI Chatbot Navigation Button */}
           <ChatbotNavButton />
@@ -102,7 +102,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
             <span>{t('newEnterprise')}</span>
           </Link>
 
-          {/* Language Selector */}
+          {/* Language Selector — visible on sm+; mobile users get it in the sidebar drawer */}
           <div className="hidden sm:block shrink-0">
             <LanguageSelector />
           </div>

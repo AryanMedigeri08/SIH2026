@@ -63,14 +63,14 @@ export function ChatbotNavButton() {
           />
         </span>
 
-        {/* Label */}
-        <span className="font-semibold tracking-tight whitespace-nowrap">
+        {/* Label — hidden on small mobile to save horizontal space */}
+        <span className="hidden sm:inline font-semibold tracking-tight whitespace-nowrap">
           {t('chatbot') || 'Chatbot'}
         </span>
 
-        {/* Subtle AI Badge / Sparkle */}
+        {/* Subtle AI Badge / Sparkle — hidden on xs */}
         <span
-          className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-full uppercase tracking-wider shrink-0 ${
+          className={`hidden sm:inline text-[9px] font-extrabold px-1.5 py-0.2 rounded-full uppercase tracking-wider shrink-0 ${
             isChatOpen
               ? isEmerald
                 ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'

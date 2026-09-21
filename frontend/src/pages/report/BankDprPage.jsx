@@ -44,6 +44,11 @@ export function BankDprPage({ reportData }) {
     loadDpr();
   }, [reportId, format, token, language]);
 
+  const sanitizedDprHtml = React.useMemo(() => {
+    if (!dprContent || format !== 'html') return dprContent;
+    return dprContent.replace(/body\s*\{/gi, '.dpr-inner-doc {');
+  }, [dprContent, format]);
+
   if (!reportData) return null;
 
   const handlePrint = () => {
@@ -252,8 +257,8 @@ export function BankDprPage({ reportData }) {
           </div>
         ) : format === 'html' ? (
           <div 
-            className="bg-white text-slate-900 rounded-xl p-3.5 sm:p-10 shadow-card max-w-4xl mx-auto overflow-x-auto scroll-touch-x border border-slate-200/90 print:p-0 print:shadow-none"
-            dangerouslySetInnerHTML={{ __html: dprContent }}
+            className="dpr-inner-doc bg-white text-slate-900 rounded-xl p-3.5 sm:p-10 shadow-card max-w-4xl mx-auto overflow-x-auto scroll-touch-x border border-slate-200/90 print:p-0 print:shadow-none print:max-w-none print:border-none print:m-0"
+            dangerouslySetInnerHTML={{ __html: sanitizedDprHtml }}
           />
         ) : (
           <pre className="font-mono text-xs text-slate-800 p-3.5 sm:p-6 bg-white rounded-xl border border-slate-200/90 whitespace-pre-wrap max-w-4xl mx-auto overflow-x-auto scroll-touch-x shadow-card">

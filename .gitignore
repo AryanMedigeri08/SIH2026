@@ -79,6 +79,8 @@ Desktop.ini
 # Logs & Temporary Media Storage
 *.log
 *.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
 .tempmediaStorage/
 browser/scratchpad_*.md
 scratch/
@@ -92,3 +94,4 @@ SIH Pitch.pdf
 
 # Local Documentation & Reference Notes
 UDYAM_SAATHI_APPRAISAL_TERMS_GUIDE.md
+misc/
