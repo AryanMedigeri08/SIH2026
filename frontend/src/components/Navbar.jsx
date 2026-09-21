@@ -67,10 +67,10 @@ export function Navbar({ health, onToggleMobileSidebar }) {
         </div>
 
         {/* Right: Controls, Personas, AI Chat & Identity */}
-        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2.5 shrink-0">
           
-          {/* Persona Switcher: Beneficiary (उद्यमी) vs Banker / Auditor (बैंक प्रबंधक) */}
-          <PersonaSwitcher />
+          {/* Persona Switcher: Compact icon-only on mobile, full labels on lg+ */}
+          <PersonaSwitcher compact />
 
           {/* Persistent AI Chatbot Navigation Button */}
           <ChatbotNavButton />
@@ -102,7 +102,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
             <span>{t('newEnterprise')}</span>
           </Link>
 
-          {/* Language Selector */}
+          {/* Language Selector — visible on sm+; mobile users get it in the sidebar drawer */}
           <div className="hidden sm:block shrink-0">
             <LanguageSelector />
           </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useLocation, Link } from 'react-router-dom';
+import { NavLink, useLocation, Link, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   BrainCircuit,
@@ -20,12 +20,15 @@ import {
   Layers,
   Tag,
   Megaphone,
+  LogOut,
 } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
-import { BusinessStatusPill } from '../BusinessSwitcher';
+import { BusinessSwitcher, BusinessStatusPill } from '../BusinessSwitcher';
+import { LanguageSelector } from '../LanguageSelector';
 import { TranslatedText } from '../TranslatedText';
 import { useLanguage } from '../../context/LanguageContext';
 import { useViewMode } from '../../context/ViewModeContext';
+import { useAuth } from '../../context/AuthContext';
 
 export function Sidebar({
   isCollapsed,
@@ -35,9 +38,17 @@ export function Sidebar({
   reportId,
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { activeBusiness } = useBusiness();
   const { isBeneficiary } = useViewMode();
   const { t } = useLanguage();
+  const { isAuthenticated, userProfile, logout } = useAuth();
+
+  const handleLogout = () => {
+    onCloseMobile();
+    navigate('/login', { replace: true });
+    void logout();
+  };
 
   const reportNavItems = isBeneficiary
     ? [
@@ -289,6 +300,22 @@ export function Sidebar({
             </button>
           </div>
 
+          {/* ═══════ Mobile-Only: Enterprise Switcher & Language Selector ═══════ */}
+          <div className="lg:hidden px-3 pt-3 space-y-2.5">
+            {/* Enterprise Switcher (full-width compact mode) */}
+            {isAuthenticated && (
+              <div>
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 font-mono flex items-center gap-1 mb-1.5 px-0.5">
+                  <Building2 className="w-3 h-3 text-sovereign-700" />
+                  Your Enterprises
+                </span>
+                <BusinessSwitcher compact />
+              </div>
+            )}
+            {/* Language Selector (full-width) */}
+            <LanguageSelector compact />
+          </div>
+
           {/* Active Enterprise Banner Pill (Clean info view - NO duplicate dropdown) */}
           {!isCollapsed && activeBusiness && (
             <div className="p-3 mx-3 mt-3 rounded-xl bg-slate-50 border border-slate-200/90 shadow-xs space-y-1">
@@ -338,8 +365,32 @@ export function Sidebar({
           )}
         </div>
 
-        {/* Bottom Bar / Quick Action */}
-        <div className="p-3 border-t border-slate-200/80 bg-slate-50/50">
+        {/* Bottom Bar / Quick Action + Mobile User Identity */}
+        <div className="p-3 border-t border-slate-200/80 bg-slate-50/50 space-y-2">
+          {/* Mobile-Only: User Identity & Logout */}
+          {isAuthenticated && (
+            <div className="lg:hidden flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-700 text-white flex items-center justify-center text-[11px] font-bold shrink-0">
+                  {userProfile?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 truncate">{userProfile?.name || 'User'}</div>
+                  <div className="text-[10px] text-slate-500 truncate">{userProfile?.email || ''}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-[11px] font-bold transition-colors shrink-0"
+                title="Sign out of Udyam Saathi"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Logout</span>
+              </button>
+            </div>
+          )}
+
           {!isCollapsed ? (
             <Link
               to="/wizard"

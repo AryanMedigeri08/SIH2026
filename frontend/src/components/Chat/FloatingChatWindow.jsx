@@ -83,6 +83,14 @@ export function FloatingChatWindow() {
   const themeMenuRef = useRef(null);
   const langMenuRef = useRef(null);
 
+  // Responsive detection
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const { tabTitle, icon, quickPrompts } = getActiveTabTelemetry();
 
   // Active language metadata
@@ -153,8 +161,9 @@ export function FloatingChatWindow() {
     };
   }, [navButtonRef, position, size]);
 
-  // Dragging logic from window header
+  // Dragging logic from window header (desktop only — disabled on mobile)
   const handlePointerDown = (e) => {
+    if (isMobile) return; // No drag on mobile
     if (
       e.target.closest('button') ||
       e.target.closest('input') ||
@@ -282,7 +291,12 @@ export function FloatingChatWindow() {
       ref={windowRef}
       role="dialog"
       aria-label="Udyam Saathi Groq AI Conversational Advisor"
-      style={{
+      style={isMobile ? {
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        ...animationStyle,
+      } : {
         position: 'fixed',
         left: `${position.x}px`,
         top: `${position.y}px`,
@@ -291,7 +305,9 @@ export function FloatingChatWindow() {
         zIndex: 9999,
         ...animationStyle,
       }}
-      className={`rounded-2xl flex flex-col overflow-hidden border shadow-2xl transition-colors select-none ${currentTheme.windowBg}`}
+      className={`${
+        isMobile ? 'flex flex-col overflow-hidden border-0 rounded-none' : 'rounded-2xl flex flex-col overflow-hidden border shadow-2xl'
+      } transition-colors select-none ${currentTheme.windowBg}`}
     >
       {/* Top Accent Gradient Line */}
       <div className={`h-1.5 w-full shrink-0 ${currentTheme.topBar}`} />
@@ -300,7 +316,9 @@ export function FloatingChatWindow() {
       <div
         onMouseDown={handlePointerDown}
         onTouchStart={handlePointerDown}
-        className={`px-3.5 py-2.5 flex items-center justify-between cursor-move shrink-0 ${currentTheme.headerBg}`}
+        className={`px-3.5 py-2.5 flex items-center justify-between shrink-0 ${
+          isMobile ? '' : 'cursor-move'
+        } ${currentTheme.headerBg}`}
       >
         {/* Left: Bot Identity & Active Enterprise */}
         <div className="flex items-center gap-2 min-w-0">
