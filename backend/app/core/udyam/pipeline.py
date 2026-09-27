@@ -145,7 +145,7 @@ class VillageIntelligencePipeline:
         self.gazetteer = gazetteer or Gazetteer()
         self.resolver = GeographicResolver(self.gazetteer)
 
-    def analyze(
+    async def analyze(
         self,
         state: str,
         district: str,
@@ -222,12 +222,12 @@ class VillageIntelligencePipeline:
         else:
             logger.info(f"[PIPELINE {run_id}] Step 1: Retrieving UDYAM records")
             if pincode:
-                records, retrieval_meta = self.client.fetch_by_state_district_pincode(
+                records, retrieval_meta = await self.client.fetch_by_state_district_pincode(
                     state=state, district=district, pincode=pincode,
                     max_records=max_records,
                 )
             else:
-                records, retrieval_meta = self.client.fetch_by_district(
+                records, retrieval_meta = await self.client.fetch_by_district(
                     state=state, district=district,
                     max_records=max_records,
                 )
@@ -238,7 +238,10 @@ class VillageIntelligencePipeline:
             metadata.errors.extend(retrieval_meta.errors)
 
             if records:
-                raw_dict_records = [asdict(r) if hasattr(r, '__dataclass_fields__') else r for r in records]
+                # Memory optimization: snapshot only first 200 records for audit/replay
+                # Full record set stays in memory briefly for pipeline processing
+                snapshot_limit = min(len(records), 200)
+                raw_dict_records = [asdict(r) if hasattr(r, '__dataclass_fields__') else r for r in records[:snapshot_limit]]
                 snap = snapshot_store.create_snapshot(
                     source="UDYAM_MSME",
                     query_parameters={"state": state, "district": district, "pincode": pincode, "max_records": max_records},

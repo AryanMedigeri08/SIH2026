@@ -19,6 +19,7 @@ Covers:
 import sys
 import json
 import time
+import asyncio
 import unittest.mock as mock
 from pathlib import Path
 
@@ -27,6 +28,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 sys.path.insert(0, str(ROOT / "backend" / "app" / "core"))
 
 import pytest
+import httpx
 from fastapi.testclient import TestClient
 from app.main import app
 from app.core.intelligence.engine import MarketOpportunityEngine
@@ -93,14 +95,16 @@ def test_snapshot_3x_replay_determinism():
     confidences = []
 
     for i in range(3):
-        rep = engine.analyze_opportunity(
-            state=qp.get("state", "TELANGANA"),
-            district=qp.get("district", "MEDAK"),
-            village=qp.get("village", "Balanagar"),
-            target_lat=qp.get("target_lat"),
-            target_lon=qp.get("target_lon"),
-            business_intent="dairy",
-            snapshot_id=target_snap["snapshot_id"],
+        rep = asyncio.run(
+            engine.analyze_opportunity(
+                state=qp.get("state", "TELANGANA"),
+                district=qp.get("district", "MEDAK"),
+                village=qp.get("village", "Balanagar"),
+                target_lat=qp.get("target_lat"),
+                target_lon=qp.get("target_lon"),
+                business_intent="dairy",
+                snapshot_id=target_snap["snapshot_id"],
+            )
         )
         scores.append(rep.composite_score)
         verdicts.append(rep.recommendation)
@@ -117,36 +121,52 @@ def test_snapshot_3x_replay_determinism():
 # ==============================================================================
 def test_udyam_upstream_failure_handling():
     """Simulate upstream timeouts, 429s, 500s, empty responses, and malformed JSON."""
-    client_instance = UdyamClient(max_retries=1, request_timeout=0.1)
+    client_instance = UdyamClient(max_retries=1, request_timeout=5)
 
-    # Case A: Upstream 500 error simulation
-    with mock.patch.object(client_instance._session, "get") as mock_get:
-        mock_resp = mock.MagicMock()
-        mock_resp.status_code = 500
-        mock_resp.text = "Internal Server Error"
-        mock_get.return_value = mock_resp
+    async def _run_upstream_tests():
+        # Case A: Upstream 500 error simulation
+        async def mock_500(*args, **kwargs):
+            return httpx.Response(500, text="Internal Server Error", request=httpx.Request("GET", "http://test"))
 
-        records, meta = client_instance.fetch_by_district("TELANGANA", "MEDAK", max_records=50)
+        mock_async_client = mock.AsyncMock(spec=httpx.AsyncClient)
+        mock_async_client.get = mock_500
+        mock_async_client.is_closed = False
+        client_instance._client = mock_async_client
+
+        records, meta = await client_instance.fetch_by_district("TELANGANA", "MEDAK", max_records=50)
         assert isinstance(records, list)
         assert meta.http_status == 500
 
-    # Case B: Upstream timeout simulation
-    import requests
-    with mock.patch.object(client_instance._session, "get", side_effect=requests.exceptions.Timeout("ReadTimeout")):
-        records, meta = client_instance.fetch_by_district("TELANGANA", "MEDAK", max_records=50)
+        # Case B: Upstream timeout simulation
+        async def mock_timeout(*args, **kwargs):
+            raise httpx.TimeoutException("ReadTimeout")
+
+        mock_async_client_b = mock.AsyncMock(spec=httpx.AsyncClient)
+        mock_async_client_b.get = mock_timeout
+        mock_async_client_b.is_closed = False
+        client_instance._client = mock_async_client_b
+
+        records, meta = await client_instance.fetch_by_district("TELANGANA", "MEDAK", max_records=50)
         assert isinstance(records, list)
         assert len(meta.warnings) > 0 or len(meta.errors) > 0
 
-    # Case C: Empty response
-    with mock.patch.object(client_instance._session, "get") as mock_get:
-        mock_resp = mock.MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"records": [], "count": 0, "total": 0}
-        mock_get.return_value = mock_resp
+        # Case C: Empty response
+        async def mock_empty(*args, **kwargs):
+            return httpx.Response(
+                200,
+                json={"records": [], "count": 0, "total": 0},
+                request=httpx.Request("GET", "http://test"),
+            )
 
-        records, meta = client_instance.fetch_by_district("TELANGANA", "MEDAK", max_records=50)
+        mock_async_client_c = mock.AsyncMock(spec=httpx.AsyncClient)
+        mock_async_client_c.get = mock_empty
+        mock_async_client_c.is_closed = False
+        client_instance._client = mock_async_client_c
+
+        records, meta = await client_instance.fetch_by_district("TELANGANA", "MEDAK", max_records=50)
         assert records == []
 
+    asyncio.run(_run_upstream_tests())
     print("\n[PASS] Phase 5 & 18: Upstream timeouts, 500s, and empty responses fail gracefully.")
 
 
@@ -439,13 +459,13 @@ def test_controlled_sih_benchmark_balanagar_dairy():
         snap_id = snapshots[0]["snapshot_id"]
     engine = MarketOpportunityEngine()
 
-    report = engine.analyze_opportunity(
+    report = asyncio.run(engine.analyze_opportunity(
         state="TELANGANA",
         district="MEDAK",
         village="Balanagar",
         business_intent="dairy",
         snapshot_id=snap_id,
-    )
+    ))
 
     # Benchmark Acceptance Criteria (Document 3 & 4)
     assert report.composite_score == 46.0, f"Expected benchmark score 46.0, got {report.composite_score}"

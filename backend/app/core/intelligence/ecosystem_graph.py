@@ -717,7 +717,7 @@ class EcosystemGraphAdapter:
             "villageDensity": village_density,
         }
 
-    def build_graph(
+    async def build_graph(
         self,
         state: str,
         district: str,
@@ -756,7 +756,7 @@ class EcosystemGraphAdapter:
                 if centroid:
                     t_lat, t_lon = centroid
 
-        report = self.opportunity_engine.analyze_opportunity(
+        report = await self.opportunity_engine.analyze_opportunity(
             state=state,
             district=district,
             village=village,
