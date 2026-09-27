@@ -54,19 +54,21 @@ export function matchWakeWord(text) {
 export function useWakeWord({
   onWakeWordDetected,
   onSpeechRecognized,
-  enabledByDefault = true,
+  enabledByDefault = false,
   cooldownMs = 2000,
   minSpeechThreshold = 0.022,
   silenceThresholdMs = 500,
   maxUtteranceMs = 3500,
 } = {}) {
+  // Continuous language detection / wake word is OFF by default.
+  // Sarvam only activates when user explicitly triggers Mira.
   const [isEnabled, setIsEnabled] = useState(() => {
     try {
-      const stored = localStorage.getItem('udyam_wake_word_mira_enabled') ?? localStorage.getItem('udyam_wake_word_sakhi_enabled');
+      const stored = localStorage.getItem('udyam_wake_word_mira_enabled');
       if (stored !== null) return stored === 'true';
-      return enabledByDefault;
+      return false;
     } catch {
-      return enabledByDefault;
+      return false;
     }
   });
 

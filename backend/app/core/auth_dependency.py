@@ -80,7 +80,7 @@ def _verify_token_claims(token: str) -> dict[str, Any]:
             from backend.app.core.firebase_admin_client import init_firebase_admin
         init_firebase_admin()
 
-        decoded_claims = firebase_auth.verify_id_token(token, check_revoked=True)
+        decoded_claims = firebase_auth.verify_id_token(token, check_revoked=False)
         return decoded_claims
     except Exception as e:
         err_msg = str(e)
