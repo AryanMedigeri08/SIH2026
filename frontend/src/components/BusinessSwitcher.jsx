@@ -163,7 +163,7 @@ export function BusinessSwitcher({ compact = false }) {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute left-0 sm:right-0 sm:left-auto mt-2 w-[min(calc(100vw-1.5rem),24rem)] rounded-2xl bg-white border border-slate-200 shadow-card-elevated z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute left-0 mt-2 w-[min(calc(100vw-1.5rem),24rem)] rounded-2xl bg-white border border-slate-200 shadow-card-elevated z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
           {/* Header */}
           <div className="p-3.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
