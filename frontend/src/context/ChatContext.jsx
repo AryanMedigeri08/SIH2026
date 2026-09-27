@@ -1192,13 +1192,23 @@ export function ChatProvider({ children }) {
         const audioBase64 = data?.audio_base64 || null;
         const detectedLang = data?.detected_language || null;
 
-        // Update voice session with detected language (independent of dashboard)
+        // Update voice session with detected language
         setVoiceSession((prev) => ({
           ...prev,
           detectedLanguage: detectedLang,
           transcript: transcript,
           responseText: replyText,
         }));
+
+        // Automatically set application language to the language Sarvam identified from user's voice
+        if (detectedLang) {
+          const rawCode = String(detectedLang).split('-')[0].toLowerCase().trim();
+          const supportedLanguages = ['en', 'hi', 'mr', 'ta', 'te', 'kn'];
+          if (supportedLanguages.includes(rawCode) && typeof setLanguage === 'function') {
+            console.info(`[MIRA] Spoken language identified by Sarvam AI: "${detectedLang}" -> Auto-setting platform language to "${rawCode}"`);
+            setLanguage(rawCode);
+          }
+        }
 
         // Execute voice-triggered tool call (navigation, language change, etc.)
         if (data?.tool_call) {
@@ -1384,6 +1394,8 @@ export function ChatProvider({ children }) {
     [sendVoiceAgentQuery]
   );
 
+  // Continuous language detection / wake-word listening is turned off.
+  // Sarvam only activates when user explicitly triggers Mira (button or Alt+M).
   const {
     isSupported: isWakeWordSupported,
     isEnabled: isWakeWordEnabled,
@@ -1396,7 +1408,7 @@ export function ChatProvider({ children }) {
   } = useWakeWord({
     onWakeWordDetected: handleWakeWordDetected,
     onSpeechRecognized: handleFollowUpSpeech,
-    enabledByDefault: true,
+    enabledByDefault: false,
   });
 
   return (

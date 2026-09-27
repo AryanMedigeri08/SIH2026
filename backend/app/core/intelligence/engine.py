@@ -58,7 +58,7 @@ class MarketOpportunityEngine:
         self.udyam_pipeline = udyam_pipeline or VillageIntelligencePipeline(api_key=api_key)
         self.demand_store = DemandFeatureStore(api_key=api_key)
 
-    def analyze_opportunity(
+    async def analyze_opportunity(
         self,
         state: str,
         district: str,
@@ -90,7 +90,7 @@ class MarketOpportunityEngine:
         )
 
         # Step 2: Retrieve and resolve candidate nearby MSMEs via Document 1 pipeline
-        udyam_result = self.udyam_pipeline.analyze(
+        udyam_result = await self.udyam_pipeline.analyze(
             state=state_clean,
             district=district_clean,
             village=village_clean,
@@ -195,7 +195,7 @@ class MarketOpportunityEngine:
             data_lineage=list_all_sources(),
         )
 
-    def compare_categories(
+    async def compare_categories(
         self,
         state: str,
         district: str,
@@ -215,7 +215,7 @@ class MarketOpportunityEngine:
 
         for cat in candidates:
             try:
-                rep = self.analyze_opportunity(
+                rep = await self.analyze_opportunity(
                     state=state,
                     district=district,
                     village=village,

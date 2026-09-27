@@ -107,6 +107,36 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, [handleAuthChange]);
 
+  // Handle global auth-revoked event triggered by 401 API responses
+  useEffect(() => {
+    const handleAuthRevoked = async () => {
+      console.warn("[AuthContext] 401 token revoked/expired event received. Attempting refresh...");
+      if (firebaseUser?.getIdToken) {
+        try {
+          const fresh = await firebaseUser.getIdToken(true);
+          if (fresh) {
+            setToken(fresh);
+            const profile = await authApi.syncSession(fresh);
+            setUserProfile(profile);
+            console.info("[AuthContext] Token refreshed and session re-synchronized successfully.");
+            return;
+          }
+        } catch (refreshErr) {
+          console.warn("[AuthContext] Forced token refresh failed:", refreshErr);
+        }
+      }
+      // If refresh fails or user has no refresh capability, clear local state cleanly
+      localStorage.removeItem(LOCAL_SESSION_KEY);
+      setFirebaseUser(null);
+      setUserProfile(null);
+      setToken(null);
+      setIsDemoMode(false);
+    };
+
+    window.addEventListener("udyam:auth-revoked", handleAuthRevoked);
+    return () => window.removeEventListener("udyam:auth-revoked", handleAuthRevoked);
+  }, [firebaseUser]);
+
   // Sovereign Fallback Login Helper
   const sovereignFallbackLogin = async (email, name = null, profileData = {}, isDemo = false) => {
     const cleanEmail = email.trim().toLowerCase();

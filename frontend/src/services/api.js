@@ -25,6 +25,11 @@ async function authFetch(url, token, options = {}) {
     } catch (_) {}
     const error = new Error(errorDetail);
     error.status = res.status;
+    if (res.status === 401 && (errorDetail.includes('revoked') || errorDetail.includes('expired') || errorDetail.includes('Invalid or expired'))) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('udyam:auth-revoked', { detail: { errorDetail } }));
+      }
+    }
     throw error;
   }
 

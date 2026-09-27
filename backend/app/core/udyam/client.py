@@ -21,6 +21,7 @@ NEVER download the entire national UDYAM dataset for one village query.
 """
 
 from __future__ import annotations
+import asyncio
 import json
 import logging
 import os
@@ -31,7 +32,7 @@ from pathlib import Path
 from typing import Optional, Any
 from dataclasses import dataclass, field
 
-import requests
+import httpx
 
 from .models import (
     UdyamRawRecord,
@@ -58,9 +59,16 @@ OPTIONAL_FIELDS = {
 }
 
 # Pagination limits
-DEFAULT_PAGE_SIZE = 1000
-MAX_PAGE_SIZE = 10000
-MAX_PAGES = 100  # Safety cap: don't fetch more than 100 pages per query
+DEFAULT_PAGE_SIZE = 500
+MAX_PAGE_SIZE = 5000
+MAX_PAGES = 20  # Safety cap: reduced from 100 to limit memory
+
+# Memory safety: hard cap on total records regardless of user input
+MAX_RECORDS_HARD_CAP = 500
+
+# Circuit breaker: skip API calls if data.gov.in failed recently
+# Prevents wasting 30-66 seconds on guaranteed failures
+CIRCUIT_BREAKER_COOLDOWN_SECONDS = 300  # 5 minutes
 
 
 @dataclass
@@ -106,8 +114,8 @@ class UdyamClient:
 
     Usage:
         client = UdyamClient(api_key="...")
-        records = client.fetch_by_district(state="TELANGANA", district="MEDAK")
-        records = client.fetch_by_pincode(pincode="502117")
+        records = await client.fetch_by_district(state="TELANGANA", district="MEDAK")
+        records = await client.fetch_by_pincode(pincode="502117")
     """
 
     def __init__(
@@ -115,9 +123,9 @@ class UdyamClient:
         api_key: Optional[str] = None,
         cache_dir: Optional[Path] = None,
         page_size: int = DEFAULT_PAGE_SIZE,
-        max_retries: int = 3,
+        max_retries: int = 2,
         retry_backoff_base: float = 2.0,
-        request_timeout: int = 60,
+        request_timeout: int = 30,
         rate_limit_delay: float = 0.5,
     ):
         if not api_key:
@@ -150,13 +158,35 @@ class UdyamClient:
         self.cache_dir = cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-        self._session = requests.Session()
-        self._session.headers.update({
-            "User-Agent": "UdyamSaathi/2.0 (SIH2026)",
-            "Accept": "application/json",
-        })
+        # Async HTTP client (non-blocking)
+        self._client: Optional[httpx.AsyncClient] = None
 
-    def fetch_by_district(
+        # Circuit breaker state (class-level shared across instances)
+        # Prevents repeated 30-66s waits when data.gov.in is down
+        if not hasattr(UdyamClient, '_circuit_open_until'):
+            UdyamClient._circuit_open_until = 0.0  # monotonic timestamp
+            UdyamClient._circuit_failure_count = 0
+            UdyamClient._last_successful_fetch = 0.0
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Lazy-initialize the async HTTP client."""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                headers={
+                    "User-Agent": "UdyamSaathi/2.0 (SIH2026)",
+                    "Accept": "application/json",
+                },
+                timeout=httpx.Timeout(self.request_timeout, connect=10.0),
+            )
+        return self._client
+
+    async def close(self):
+        """Close the HTTP client gracefully."""
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
+            self._client = None
+
+    async def fetch_by_district(
         self,
         state: str,
         district: str,
@@ -173,14 +203,14 @@ class UdyamClient:
             "State": state.upper(),
             "District": district.upper(),
         }
-        return self._paginated_fetch(
+        return await self._paginated_fetch(
             filters=filters,
             max_records=max_records,
             state_label=state,
             district_label=district,
         )
 
-    def fetch_by_pincode(
+    async def fetch_by_pincode(
         self,
         pincode: str,
         max_records: Optional[int] = None,
@@ -195,13 +225,13 @@ class UdyamClient:
         filters = {
             "Pincode": str(pincode).strip(),
         }
-        return self._paginated_fetch(
+        return await self._paginated_fetch(
             filters=filters,
             max_records=max_records,
             pincode_label=pincode,
         )
 
-    def fetch_by_state_district_pincode(
+    async def fetch_by_state_district_pincode(
         self,
         state: str,
         district: str,
@@ -217,7 +247,7 @@ class UdyamClient:
             "District": district.upper(),
             "Pincode": str(pincode).strip(),
         }
-        return self._paginated_fetch(
+        return await self._paginated_fetch(
             filters=filters,
             max_records=max_records,
             state_label=state,
@@ -225,7 +255,7 @@ class UdyamClient:
             pincode_label=pincode,
         )
 
-    def _paginated_fetch(
+    async def _paginated_fetch(
         self,
         filters: dict[str, str],
         max_records: Optional[int] = None,
@@ -241,7 +271,40 @@ class UdyamClient:
             - Stops when: records >= total OR API returns fewer than requested
             - Detects: repeated pages, duplicate records, unstable offsets,
               HTTP errors, rate limiting, changing totals
+            - Hard memory cap: never exceed MAX_RECORDS_HARD_CAP records
         """
+        # Enforce hard cap on records
+        effective_max = min(
+            max_records or MAX_RECORDS_HARD_CAP,
+            MAX_RECORDS_HARD_CAP,
+        )
+
+        # ── Circuit Breaker Check ─────────────────────────────────────────
+        # If data.gov.in failed recently, skip the API call entirely
+        # and return empty results immediately (<1 second vs 30-66 seconds)
+        now_mono = time.monotonic()
+        if now_mono < UdyamClient._circuit_open_until:
+            remaining = UdyamClient._circuit_open_until - now_mono
+            logger.warning(
+                f"[UDYAM] Circuit breaker OPEN — skipping API call. "
+                f"data.gov.in failed {UdyamClient._circuit_failure_count}x recently. "
+                f"Retry in {remaining:.0f}s"
+            )
+            metadata = RetrievalMetadata(
+                retrieved_at=datetime.now(timezone.utc).isoformat(),
+                state_filter=state_label,
+                district_filter=district_label,
+                pincode_filter=pincode_label,
+                limit=self.page_size,
+            )
+            metadata.errors.append(
+                f"Circuit breaker open: data.gov.in API unavailable. "
+                f"Retry in {remaining:.0f}s"
+            )
+            metadata.duration_seconds = 0.0
+            return [], metadata
+        # ── End Circuit Breaker ───────────────────────────────────────────
+
         start_time = time.monotonic()
         metadata = RetrievalMetadata(
             retrieved_at=datetime.now(timezone.utc).isoformat(),
@@ -259,9 +322,9 @@ class UdyamClient:
         schema_validated = False
 
         while pages_fetched < MAX_PAGES:
-            # Rate limiting
+            # Rate limiting (non-blocking)
             if pages_fetched > 0:
-                time.sleep(self.rate_limit_delay)
+                await asyncio.sleep(self.rate_limit_delay)
 
             # Build request
             params = {
@@ -273,8 +336,8 @@ class UdyamClient:
             for filter_key, filter_val in filters.items():
                 params[f"filters[{filter_key}]"] = filter_val
 
-            # Execute with retries
-            response_data = self._request_with_retry(params, metadata)
+            # Execute with retries (non-blocking)
+            response_data = await self._request_with_retry(params, metadata)
             if response_data is None:
                 break
 
@@ -317,6 +380,14 @@ class UdyamClient:
                 all_records.append(canonical)
                 page_new_count += 1
 
+                # Hard cap check
+                if len(all_records) >= effective_max:
+                    metadata.warnings.append(
+                        f"Hard cap reached: {effective_max} records "
+                        f"(api_total={api_total})"
+                    )
+                    break
+
             metadata.records_received = len(all_records)
 
             logger.info(
@@ -326,15 +397,15 @@ class UdyamClient:
             )
 
             # Stop conditions
+            if len(all_records) >= effective_max:
+                break
+
             if len(records_list) < self.page_size:
                 # API returned fewer records than requested — last page
                 break
 
             if len(all_records) >= api_total:
                 # We've received all reported records
-                break
-
-            if max_records and len(all_records) >= max_records:
                 break
 
             # Advance offset
@@ -344,14 +415,28 @@ class UdyamClient:
         self._cache_results(all_records, metadata, filters)
 
         metadata.duration_seconds = time.monotonic() - start_time
-        metadata.api_requests_made = pages_fetched
 
-        # Report duplicate count
-        total_raw = sum(
-            len(response_data.get("records", []))
-            for _ in range(pages_fetched)
-        )
-        # (approximation — actual duplicate count tracked via warnings)
+        # ── Circuit Breaker State Update ──────────────────────────────────
+        if len(all_records) > 0:
+            # SUCCESS: reset circuit breaker
+            UdyamClient._circuit_open_until = 0.0
+            UdyamClient._circuit_failure_count = 0
+            UdyamClient._last_successful_fetch = time.monotonic()
+            logger.info(
+                f"[UDYAM] Circuit breaker CLOSED — API healthy"
+            )
+        elif metadata.errors:
+            # FAILURE: trip the circuit breaker open
+            UdyamClient._circuit_failure_count += 1
+            UdyamClient._circuit_open_until = (
+                time.monotonic() + CIRCUIT_BREAKER_COOLDOWN_SECONDS
+            )
+            logger.warning(
+                f"[UDYAM] Circuit breaker OPEN — data.gov.in unavailable. "
+                f"Failures: {UdyamClient._circuit_failure_count}. "
+                f"Next retry in {CIRCUIT_BREAKER_COOLDOWN_SECONDS}s"
+            )
+        # ── End Circuit Breaker Update ────────────────────────────────────
 
         logger.info(
             f"[UDYAM] Retrieval complete: {len(all_records)} unique records "
@@ -360,7 +445,7 @@ class UdyamClient:
 
         return all_records, metadata
 
-    def _request_with_retry(
+    async def _request_with_retry(
         self,
         params: dict,
         metadata: RetrievalMetadata,
@@ -368,18 +453,17 @@ class UdyamClient:
         """
         Execute a single API request with exponential backoff retry.
         Returns parsed JSON dict on success, None on permanent failure.
+        Uses async httpx to avoid blocking the event loop.
         """
+        client = await self._get_client()
+
         for attempt in range(self.max_retries):
             try:
-                resp = self._session.get(
+                resp = await client.get(
                     self.base_url,
                     params=params,
-                    timeout=self.request_timeout,
                 )
                 metadata.http_status = resp.status_code
-                metadata.api_requests_made = (
-                    getattr(metadata, '_total_requests', 0) + 1
-                )
 
                 if resp.status_code == 200:
                     return resp.json()
@@ -394,7 +478,7 @@ class UdyamClient:
                     logger.warning(
                         f"[UDYAM] Rate limited. Waiting {wait:.1f}s"
                     )
-                    time.sleep(wait)
+                    await asyncio.sleep(wait)
                     continue
 
                 if resp.status_code == 502:
@@ -408,27 +492,28 @@ class UdyamClient:
                         f"[UDYAM] Bad Gateway (502). Server-side issue. "
                         f"Retrying in {wait:.1f}s"
                     )
-                    time.sleep(wait)
+                    await asyncio.sleep(wait)
                     continue
 
                 # Other HTTP errors
+                resp_text = resp.text[:200]
                 metadata.errors.append(
-                    f"HTTP {resp.status_code}: {resp.text[:200]}"
+                    f"HTTP {resp.status_code}: {resp_text}"
                 )
                 logger.error(
-                    f"[UDYAM] HTTP {resp.status_code}: {resp.text[:200]}"
+                    f"[UDYAM] HTTP {resp.status_code}: {resp_text}"
                 )
 
                 if resp.status_code >= 500:
                     # Server error — retry
                     wait = self.retry_backoff_base ** (attempt + 1)
-                    time.sleep(wait)
+                    await asyncio.sleep(wait)
                     continue
                 else:
                     # Client error — don't retry
                     return None
 
-            except requests.exceptions.Timeout:
+            except httpx.TimeoutException:
                 wait = self.retry_backoff_base ** (attempt + 1)
                 metadata.warnings.append(
                     f"Timeout on attempt {attempt+1}, waiting {wait:.1f}s"
@@ -436,15 +521,15 @@ class UdyamClient:
                 logger.warning(
                     f"[UDYAM] Request timeout. Retrying in {wait:.1f}s"
                 )
-                time.sleep(wait)
+                await asyncio.sleep(wait)
 
-            except requests.exceptions.ConnectionError as e:
+            except httpx.ConnectError as e:
                 wait = self.retry_backoff_base ** (attempt + 1)
                 metadata.errors.append(
                     f"Connection error on attempt {attempt+1}: {str(e)[:100]}"
                 )
                 logger.error(f"[UDYAM] Connection error: {e}")
-                time.sleep(wait)
+                await asyncio.sleep(wait)
 
             except Exception as e:
                 metadata.errors.append(
@@ -525,6 +610,8 @@ class UdyamClient:
         """
         Cache raw retrieval results to disk.
         Structure: data/raw/udyam/YYYY/MM/DD/<filter_hash>.json
+
+        Memory optimization: only cache metadata + first 50 records (not all).
         """
         try:
             now = datetime.now(timezone.utc)

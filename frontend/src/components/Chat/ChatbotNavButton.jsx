@@ -1,8 +1,7 @@
-import React from 'react';
-import { Bot, Sparkles, MessageSquareCode, Mic } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Bot, Sparkles, Zap } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { initSiriAudio } from '../../utils/siriAudio';
 
 export function ChatbotNavButton() {
   const {
@@ -10,20 +9,48 @@ export function ChatbotNavButton() {
     toggleChat,
     navButtonRef,
     currentTheme,
-    isWakeWordSupported,
-    isWakeWordEnabled,
-    isWakeWordListening,
-    wakeWordEngine,
-    toggleWakeWord,
+    voiceAgentState,
+    startVoiceConversation,
+    endVoiceConversation,
     siriToggleRef,
   } = useChat();
   const { t } = useLanguage();
 
   const isEmerald = currentTheme?.id === 'emerald';
   const isMidnight = currentTheme?.id === 'midnight';
+  const isMiraActive = voiceAgentState && voiceAgentState !== 'IDLE';
+
+  // Toggle Mira on/off
+  const handleMiraToggle = (e) => {
+    e.stopPropagation();
+    if (isMiraActive) {
+      endVoiceConversation();
+    } else {
+      startVoiceConversation();
+    }
+  };
+
+  // Global Keyboard Shortcut: Alt + M → Toggle Mira
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.altKey && (e.key === 'm' || e.key === 'M' || e.code === 'KeyM')) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isMiraActive) {
+          endVoiceConversation();
+        } else {
+          startVoiceConversation();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isMiraActive, startVoiceConversation, endVoiceConversation]);
 
   return (
     <div className="inline-flex items-center gap-1.5 shrink-0">
+      {/* Chatbot Button */}
       <button
         ref={navButtonRef}
         type="button"
@@ -84,42 +111,57 @@ export function ChatbotNavButton() {
         </span>
       </button>
 
-      {/* Voice Wake Word "Mira" — Small Circular Toggle */}
+      {/* ─── Dedicated MIRA Voice Agent Button ─── */}
       <button
         ref={siriToggleRef}
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          initSiriAudio();
-          toggleWakeWord();
-        }}
-        className={`relative flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-300 cursor-pointer shrink-0 ${
-          isWakeWordEnabled
-            ? 'bg-gradient-to-br from-purple-600 via-indigo-600 to-cyan-500 border-purple-400/60 shadow-lg shadow-purple-900/30 ring-2 ring-purple-400/25'
-            : 'bg-white hover:bg-purple-50 border-slate-200 hover:border-purple-300 shadow-sm'
+        onClick={handleMiraToggle}
+        className={`relative inline-flex items-center gap-1.5 text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-full border-2 transition-all duration-300 cursor-pointer shrink-0 ${
+          isMiraActive
+            ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 text-white border-purple-400/60 shadow-lg shadow-purple-900/40 ring-2 ring-purple-400/30 scale-105'
+            : 'bg-white/90 text-purple-700 border-purple-200/80 hover:bg-purple-50 hover:border-purple-400 hover:shadow-md hover:shadow-purple-100 shadow-sm'
         }`}
         title={
-          isWakeWordEnabled
-            ? `🎙️ "Mira" is LISTENING in background [Backend Sarvam + Bhashini ASR]. Speak "Mira" anytime to activate! (Click to mute)`
-            : '🎙️ Click to enable "Mira" voice activation'
+          isMiraActive
+            ? '🎙️ Mira is active — click to stop (Alt+M)'
+            : '🎙️ Activate Mira Voice Assistant (Alt+M)'
         }
-        aria-label="Toggle 'Mira' Voice Activation"
-        aria-pressed={isWakeWordEnabled}
+        aria-label="Toggle Mira Voice Assistant"
+        aria-pressed={isMiraActive}
       >
-        {/* Active listening ping ring */}
-        {isWakeWordListening && (
-          <span className="animate-ping absolute inline-flex w-full h-full rounded-full bg-purple-400 opacity-40" />
+        {/* Active pulsing ring */}
+        {isMiraActive && (
+          <span className="animate-ping absolute inset-0 rounded-full bg-purple-400 opacity-25" />
         )}
-        <Mic
-          className={`w-3.5 h-3.5 transition-all ${
-            isWakeWordEnabled
-              ? 'text-white drop-shadow-sm'
-              : 'text-slate-400 hover:text-purple-600'
+
+        {/* Mira icon — sparkle/zap */}
+        <span className="relative flex items-center justify-center shrink-0">
+          {isMiraActive ? (
+            <Sparkles className="w-3.5 h-3.5 text-white drop-shadow-sm animate-pulse" />
+          ) : (
+            <Sparkles className="w-3.5 h-3.5 text-purple-500 group-hover:text-purple-600 transition-colors" />
+          )}
+        </span>
+
+        {/* MIRA label */}
+        <span className="font-extrabold tracking-wide whitespace-nowrap">
+          MIRA
+        </span>
+
+        {/* Keyboard shortcut badge — hidden on mobile */}
+        <span
+          className={`hidden sm:inline text-[8px] font-mono px-1 py-0.5 rounded ${
+            isMiraActive
+              ? 'bg-white/20 text-white/80'
+              : 'bg-purple-50 text-purple-400 border border-purple-200/60'
           }`}
-        />
-        {/* Tiny active dot indicator */}
-        {isWakeWordEnabled && (
-          <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-400 border border-white shadow-sm">
+        >
+          Alt+M
+        </span>
+
+        {/* Active indicator dot */}
+        {isMiraActive && (
+          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-white shadow-sm">
             <span className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-75" />
           </span>
         )}
@@ -127,4 +169,3 @@ export function ChatbotNavButton() {
     </div>
   );
 }
-

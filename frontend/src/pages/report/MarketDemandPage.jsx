@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { TamFunnelChart } from '../../components/Dashboard/TamFunnelChart';
-import { EcosystemIntelligenceMap } from '../../components/Dashboard/EcosystemIntelligenceMap';
+// import { EcosystemIntelligenceMap } from '../../components/Dashboard/EcosystemIntelligenceMap';
 import { Target, Users, MapPin, Building2, TrendingUp, ShieldCheck, ShoppingCart, IndianRupee, Store, Gauge, Tag, Network, Compass, Crosshair, AlertCircle } from 'lucide-react';
 import { TranslatedText } from '../../components/TranslatedText';
 import { marketOpportunityApi } from '../../services/api';
@@ -57,7 +57,8 @@ export function MarketDemandPage({ reportData }) {
     (initialLat != null && initialLon != null) ? { lat: initialLat, lon: initialLon } : null
   );
 
-  // Initial fetch on mount or when core location/intent parameters change (runs once)
+  // Ecosystem graph fetching temporarily disabled to prevent data.gov.in timeout issues
+  /*
   useEffect(() => {
     if (reportData.ecosystem_graph) {
       setGraphData(reportData.ecosystem_graph);
@@ -104,6 +105,7 @@ export function MarketDemandPage({ reportData }) {
 
     return () => { isMounted = false; };
   }, [reportData.report_id, p.state_name, p.district_name, p.village_name, p.sector]);
+  */
 
   // On-demand GPS Auto-Detection: triggers only when explicitly clicked by user
   const handleAutoDetectLocation = () => {
@@ -232,7 +234,8 @@ export function MarketDemandPage({ reportData }) {
 
       </div>
 
-      {/* Row 2: Interactive Business Ecosystem Intelligence Graph / Map (Document 5) */}
+      {/* Row 2: Interactive Business Ecosystem Intelligence Graph / Map (Temporarily commented out) */}
+      {/*
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -288,6 +291,7 @@ export function MarketDemandPage({ reportData }) {
           targetLocationName={p.village_name || 'Your Target Location'}
         />
       </div>
+      */}
 
       {/* Row 3: 3-Column Grounded Telemetry Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">

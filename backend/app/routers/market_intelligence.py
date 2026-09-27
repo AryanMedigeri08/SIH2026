@@ -50,7 +50,7 @@ def get_pipeline() -> VillageIntelligencePipeline:
 async def analyze_market(req: MarketAnalysisRequest) -> MarketAnalysisResponse:
     try:
         pipeline = get_pipeline()
-        result = pipeline.analyze(
+        result = await pipeline.analyze(
             state=req.state.strip(),
             district=req.district.strip(),
             village=req.village.strip() if req.village else "",
@@ -163,7 +163,7 @@ def get_opportunity_engine() -> MarketOpportunityEngine:
 async def analyze_opportunity(req: OpportunityAnalysisRequest) -> OpportunityAnalysisResponse:
     try:
         engine = get_opportunity_engine()
-        report = engine.analyze_opportunity(
+        report = await engine.analyze_opportunity(
             state=req.state.strip(),
             district=req.district.strip(),
             village=req.village.strip() if req.village else "",
@@ -195,7 +195,7 @@ async def analyze_opportunity(req: OpportunityAnalysisRequest) -> OpportunityAna
 async def compare_categories(req: MultiCategoryCompareRequest) -> MultiCategoryCompareResponse:
     try:
         engine = get_opportunity_engine()
-        comps = engine.compare_categories(
+        comps = await engine.compare_categories(
             state=req.state.strip(),
             district=req.district.strip(),
             village=req.village.strip() if req.village else "",
@@ -285,7 +285,7 @@ async def generate_ecosystem_graph(req: EcosystemGraphRequest) -> EcosystemGraph
 
     try:
         adapter = get_graph_adapter()
-        graph = adapter.build_graph(
+        graph = await adapter.build_graph(
             state=req.state.strip(),
             district=req.district.strip(),
             village=req.village.strip() if req.village else "",
