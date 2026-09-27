@@ -66,6 +66,10 @@ MAX_PAGES = 20  # Safety cap: reduced from 100 to limit memory
 # Memory safety: hard cap on total records regardless of user input
 MAX_RECORDS_HARD_CAP = 500
 
+# Circuit breaker: skip API calls if data.gov.in failed recently
+# Prevents wasting 30-66 seconds on guaranteed failures
+CIRCUIT_BREAKER_COOLDOWN_SECONDS = 300  # 5 minutes
+
 
 @dataclass
 class RetrievalMetadata:
@@ -156,6 +160,13 @@ class UdyamClient:
 
         # Async HTTP client (non-blocking)
         self._client: Optional[httpx.AsyncClient] = None
+
+        # Circuit breaker state (class-level shared across instances)
+        # Prevents repeated 30-66s waits when data.gov.in is down
+        if not hasattr(UdyamClient, '_circuit_open_until'):
+            UdyamClient._circuit_open_until = 0.0  # monotonic timestamp
+            UdyamClient._circuit_failure_count = 0
+            UdyamClient._last_successful_fetch = 0.0
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Lazy-initialize the async HTTP client."""
@@ -268,6 +279,32 @@ class UdyamClient:
             MAX_RECORDS_HARD_CAP,
         )
 
+        # ── Circuit Breaker Check ─────────────────────────────────────────
+        # If data.gov.in failed recently, skip the API call entirely
+        # and return empty results immediately (<1 second vs 30-66 seconds)
+        now_mono = time.monotonic()
+        if now_mono < UdyamClient._circuit_open_until:
+            remaining = UdyamClient._circuit_open_until - now_mono
+            logger.warning(
+                f"[UDYAM] Circuit breaker OPEN — skipping API call. "
+                f"data.gov.in failed {UdyamClient._circuit_failure_count}x recently. "
+                f"Retry in {remaining:.0f}s"
+            )
+            metadata = RetrievalMetadata(
+                retrieved_at=datetime.now(timezone.utc).isoformat(),
+                state_filter=state_label,
+                district_filter=district_label,
+                pincode_filter=pincode_label,
+                limit=self.page_size,
+            )
+            metadata.errors.append(
+                f"Circuit breaker open: data.gov.in API unavailable. "
+                f"Retry in {remaining:.0f}s"
+            )
+            metadata.duration_seconds = 0.0
+            return [], metadata
+        # ── End Circuit Breaker ───────────────────────────────────────────
+
         start_time = time.monotonic()
         metadata = RetrievalMetadata(
             retrieved_at=datetime.now(timezone.utc).isoformat(),
@@ -378,6 +415,28 @@ class UdyamClient:
         self._cache_results(all_records, metadata, filters)
 
         metadata.duration_seconds = time.monotonic() - start_time
+
+        # ── Circuit Breaker State Update ──────────────────────────────────
+        if len(all_records) > 0:
+            # SUCCESS: reset circuit breaker
+            UdyamClient._circuit_open_until = 0.0
+            UdyamClient._circuit_failure_count = 0
+            UdyamClient._last_successful_fetch = time.monotonic()
+            logger.info(
+                f"[UDYAM] Circuit breaker CLOSED — API healthy"
+            )
+        elif metadata.errors:
+            # FAILURE: trip the circuit breaker open
+            UdyamClient._circuit_failure_count += 1
+            UdyamClient._circuit_open_until = (
+                time.monotonic() + CIRCUIT_BREAKER_COOLDOWN_SECONDS
+            )
+            logger.warning(
+                f"[UDYAM] Circuit breaker OPEN — data.gov.in unavailable. "
+                f"Failures: {UdyamClient._circuit_failure_count}. "
+                f"Next retry in {CIRCUIT_BREAKER_COOLDOWN_SECONDS}s"
+            )
+        # ── End Circuit Breaker Update ────────────────────────────────────
 
         logger.info(
             f"[UDYAM] Retrieval complete: {len(all_records)} unique records "
