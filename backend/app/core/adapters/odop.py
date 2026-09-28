@@ -85,11 +85,11 @@ class ODOPAdapter(GovernmentDatasetAdapter):
                 "key_benefits": [],
             }
 
-        product = district_entry.get("odop_product", "")
-        category = district_entry.get("category", "")
-        matching_sectors = [s.upper() for s in district_entry.get("matching_sectors", [])]
-        cfc = district_entry.get("cfc_available", False)
-        benefits = district_entry.get("key_benefits", [])
+        product = district_entry.get("odop_product") or ""
+        category = district_entry.get("category") or ""
+        matching_sectors = [s.upper() for s in district_entry.get("matching_sectors") or []]
+        cfc = bool(district_entry.get("cfc_available"))
+        benefits = district_entry.get("key_benefits") or []
 
         # Check alignment with target category
         is_aligned = False

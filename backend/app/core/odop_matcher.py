@@ -94,21 +94,22 @@ def match_odop(
         # Strict alignment check: does the proposed sector match the district ODOP sector?
         is_aligned = sector_clean in target_sectors
 
-        odop_product = district_odop.get("odop_product", "District Specialty Product")
-        category = district_odop.get("category", "General MSME Cluster")
-        pmfme_eligible = district_odop.get("pmfme_eligible", False) and is_aligned
-        cfc_available = district_odop.get("cfc_available", True)
-        gem_category = district_odop.get("gem_category", "ODOP Catalog")
-        key_benefits = district_odop.get("key_benefits", [])
-        raw_material = district_odop.get("raw_material_availability", "Adequate local raw material")
+        odop_product = district_odop.get("odop_product") or "District Specialty Product"
+        category = district_odop.get("category") or "General MSME Cluster"
+        pmfme_eligible = bool(district_odop.get("pmfme_eligible")) and is_aligned
+        cfc_available = bool(district_odop.get("cfc_available"))
+        gem_category = district_odop.get("gem_category") or ("ODOP Official Catalog" if is_aligned else "General MSME Direct Procurement")
+        raw_material = district_odop.get("raw_material_availability") or f"Adequate local raw material catchment in {district_name}"
 
         if is_aligned:
             status_text = "ODOP ALIGNED"
             badge_title = f"Official ODOP Enterprise — {district_odop.get('matched_district_name', district_name)} {odop_product}"
             resilience_score = 9.2
             resilience_verdict = "HIGH (ODOP Cluster Integrated)"
-            rbi_psl = district_odop.get("rbi_psl_category", "Priority Sector MSME")
-            action_recommendation = (
+            rbi_psl = district_odop.get("rbi_psl_category") or (
+                "Micro Food Processing (PMFME Priority Lending)" if pmfme_eligible else "Priority Sector MSME Cluster"
+            )
+            action_recommendation = district_odop.get("odop_guidance") or (
                 f"Your enterprise in {district_name} directly matches the officially designated ODOP product "
                 f"({odop_product}). You qualify for priority cluster sanction, ODOP GeM seller corridor onboarding, "
                 f"and dedicated cluster common facility access."
@@ -119,6 +120,12 @@ def match_odop(
                 "labeling_compliance": "Official ODOP District Seal Authorized",
                 "is_seal_eligible": True,
             }
+            default_benefits = [
+                "PMFME 35% credit-linked capital subsidy up to ₹10 Lakhs" if pmfme_eligible else "PMEGP 25%-35% rural capital subsidy via KVIC / DIC",
+                "GeM ODOP seller corridor priority listing without tender",
+                "Priority sanction under RBI Priority Sector Lending guidelines",
+                "District ODOP packaging seal authorization",
+            ]
         else:
             status_text = "NON-ODOP SECTOR"
             badge_title = f"Non-ODOP ({district_odop.get('matched_district_name', district_name)} ODOP is {odop_product})"
@@ -142,6 +149,14 @@ def match_odop(
                 "labeling_compliance": "Standard FSSAI / Udyam Label (Non-ODOP)",
                 "is_seal_eligible": False,
             }
+            default_benefits = [
+                "PMEGP 25%–35% rural capital subsidy via KVIC / DIC",
+                "GeM MSME Public Procurement corridor (25% reserved quota)",
+                "MUDRA collateral-free credit access (Shishu / Kishore / Tarun)",
+                "DIC District Industries Centre general enterprise support",
+            ]
+
+        key_benefits = district_odop.get("key_benefits") or default_benefits
 
         return {
             "has_odop_record": True,
