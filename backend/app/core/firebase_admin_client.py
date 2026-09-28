@@ -88,7 +88,7 @@ def init_firebase_admin() -> Optional[firebase_admin.App]:
             "Server token verification will operate in emulator/test validation mode."
         )
         try:
-            options = {"projectId": project_id or "udyam-saathi-sih2026"}
+            options = {"projectId": project_id or "udyam-saathi"}
             _firebase_app = firebase_admin.initialize_app(options=options)
             return _firebase_app
         except Exception as e:

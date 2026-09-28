@@ -17,6 +17,12 @@ dist
 browser
 *.log
 *.sqlite3
+*.pdf
+*.docx
+misc
 To be Deleted
 tests/__pycache__
 backend/__pycache__
+docs
+notebooks
+scratch

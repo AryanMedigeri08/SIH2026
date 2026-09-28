@@ -612,7 +612,7 @@ export function AppContent() {
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-3 sm:py-5 text-center text-xs text-slate-600 shadow-subtle">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 flex flex-col sm:flex-row items-center justify-between gap-1.5 sm:gap-2">
-          <span className="font-medium text-[11px] sm:text-xs">🇮🇳 Udyam Saathi (उद्यम साथी) • SIH 2026</span>
+          <span className="font-medium text-[11px] sm:text-xs">🇮🇳 Udyam Saathi (उद्यम साथी) • MoMSME</span>
           <span className="font-mono text-[10px] sm:text-[11px] text-slate-500 font-medium text-center leading-relaxed break-words">
             FastAPI • PostgreSQL • XGBoost • Groq LLM
           </span>

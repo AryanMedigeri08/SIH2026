@@ -402,7 +402,7 @@ def _build_synthesis_prompt(
     numbers as immutable constants. Instructs the LLM to generate narrative and grounded SWOT in English.
     """
     system_prompt = (
-        "You are the Chief Credit Appraisal & Enterprise Advisory AI for Udyam Saathi (SIH 2026 PS 26091).\n"
+        "You are the Chief Credit Appraisal & Enterprise Advisory AI for Udyam Saathi.\n"
         "Your mission is to synthesize pre-computed financial, market, risk, and machine-learning signals "
         "into a professional, bank-ready Detailed Project Report (DPR) executive summary and grounded SWOT analysis.\n\n"
         "STRICT ARCHITECTURAL INVARIANTS:\n"

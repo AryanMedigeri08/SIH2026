@@ -89,7 +89,7 @@ export const LoginPage = () => {
     setLocalError(null);
     setIsSubmitting(true);
     try {
-      const authRes = await loginAsDemo("evaluator@sih.gov.in", "SIH Jury Evaluator");
+      const authRes = await loginAsDemo("evaluator@udyam.gov.in", "Demo Evaluator");
       const target = await resolveTargetRoute(authRes);
       navigate(target, { replace: true });
     } catch (err) {

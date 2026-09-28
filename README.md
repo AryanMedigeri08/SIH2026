@@ -1,6 +1,24 @@
 # 🇮🇳 Udyam Saathi (उद्यम साथी)
 ### *AI-Powered Micro & Small Enterprise Feasibility, Credit Appraisal & Statutory Bank DPR Engine*
-**Smart India Hackathon (SIH 2026) • Ministry of Micro, Small & Medium Enterprises (MoMSME)**
+**Ministry of Micro, Small & Medium Enterprises (MoMSME)**
+
+---
+
+<div align="center">
+  <a href="https://aryanmedigeri08.github.io/SIH2026/demo/" target="_blank">
+    <img src="docs/demo/preview.jpg" alt="▶ Watch Udyam Saathi Platform Intro" width="720" />
+  </a>
+  <br/>
+  <strong><a href="https://aryanmedigeri08.github.io/SIH2026/demo/">▶ Watch Platform Intro</a></strong>
+  <br/><br/>
+  <a href="https://youtu.be/JAXM0-vxC8Q">
+    <img src="https://img.shields.io/badge/▶_Demo_Video-YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Demo Video" />
+  </a>
+  &nbsp;
+  <a href="https://drive.google.com/drive/folders/1WX7d066za4qVKMmDHejj-qmfqrsuhzt4?usp=sharing">
+    <img src="https://img.shields.io/badge/📄_Research_&_Documentation-Google_Drive-4285F4?style=for-the-badge&logo=googledrive&logoColor=white" alt="Research & Documentation" />
+  </a>
+</div>
 
 ---
 
@@ -17,7 +35,6 @@
 [![Groq Cloud](https://img.shields.io/badge/Groq%20Cloud-LLM%20%26%20Whisper-F05A28.svg?logo=meta&logoColor=white)](https://groq.com/)
 [![Schemes](https://img.shields.io/badge/Government%20Schemes-17%20Integrated-8B5CF6.svg)](https://www.jansamarth.in/)
 [![Languages](https://img.shields.io/badge/Languages-6%20Indian%20Languages-10B981.svg)](https://cloud.google.com/translate)
-[![Tests](https://img.shields.io/badge/Verification%20Suites-19%2F19%20Passed%20(100%25)-10B981.svg)](https://github.com/)
 
 ---
 
@@ -55,8 +72,9 @@ Unlike generic LLM wrappers that hallucinate financial metrics and lack institut
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │               TIER 3: MULTI-LINGUAL AI SYNTHESIS & VOICE TELEMETRY                     │
 │  • Groq Cloud LLaMA 3.3 70B Versatile Single-Call Executive Synthesis                   │
-│  • Groq Whisper v3 High-Speed Multilingual Speech-to-Text (< 400ms)                    │
-│  • gTTS Audio Synthesis for regional audio responses                                   │
+│  • Bhashini ASR/STT + TTS for Multilingual Speech (Hindi, Marathi, Tamil, etc.)        │
+│  • Sarvam AI Language Detection & Conversational LLM Fallback                          │
+│  • MIRA Voice Agent — Manual-Trigger Multilingual Voice Assistant (Alt+M)              │
 │  • 6 Languages Supported: English, Hindi, Marathi, Tamil, Telugu, Kannada              │
 │  • Zero Financial Recalculation Invariant (LLM is strictly forbidden from editing math)│
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
@@ -80,43 +98,43 @@ Unlike generic LLM wrappers that hallucinate financial metrics and lack institut
 
 ## 🚀 Key Platform Features
 
-* **⚡ Sub-2-Second End-to-End Execution**: Calculates population projections, working capital buffers, debt service coverage, amenities scoring, XGBoost classification, TreeSHAP explainability, and compiles the complete 7-section DPR in $< 2\text{s}$.
-* **🎙️ Multilingual Voice & AI Chat Assistant**: Speak naturally in **Hindi, Marathi, Tamil, Telugu, Kannada, or English** via the dashboard voice chatbot. Audio is transcribed via Groq Whisper v3 and answered via Groq LLaMA 3.3 70B with synchronized regional audio output.
+* **⚡ Sub-2-Second End-to-End Execution**: Calculates population projections, working capital buffers, debt service coverage, amenities scoring, XGBoost classification, TreeSHAP explainability, and compiles the complete 7-section DPR in under 2 seconds.
+* **🎙️ MIRA — Multilingual Voice & AI Chat Assistant**: Speak naturally in **Hindi, Marathi, Tamil, Telugu, Kannada, or English** via the MIRA voice agent (triggered via `Alt+M` or the dashboard button). Audio is transcribed via Bhashini ASR with Sarvam AI language detection and answered via Groq LLaMA 3.3 70B with synchronized regional TTS output.
 * **🌐 Mother-Tongue DPR Translation**: Full statutory Detailed Project Reports can be instantly translated, viewed, and printed in 6 native languages while preserving table alignments, currency symbols, and official banking formatting.
 * **🤖 Lundberg TreeSHAP Explainability**: Replaces heuristic rules with exact mathematical game-theoretic Shapley values calculated by `shap.TreeExplainer` over 10 dimensions.
 * **🏛️ 17 Central & State Schemes Integrated**: Evaluates eligibility and ranks programs across PMEGP, PMFME, MUDRA (Shishu/Kishore/Tarun/Tarun Plus), Stand-Up India, PM Vishwakarma, DAY-NRLM, AHIDF, CGTMSE, Margin Money Scheme, CLCSS, PM-EGMS, NSFDC, NBCFDC, NHFDC, and NMDFC.
 * **🔐 Production Security & IDOR Protection**: Firebase Authentication + Neon PostgreSQL with strict row-level ownership checks (`user_id == current_user.uid`) preventing unauthorized cross-tenant data access.
-* **📊 Dual Multi-Business Management**: Manage multiple enterprises, track appraisal statuses (Draft, In Analysis, Bank Ready, Flagged Risk), and isolate scenario histories.
+* **📊 Multi-Business Management**: Manage multiple enterprises, track appraisal statuses (Draft, In Analysis, Bank Ready, Flagged Risk), and isolate scenario histories.
 
 ---
 
 ## 📁 Repository Directory Structure
 
 ```
-SIH2026/
+udyam-saathi/
 ├── backend/
 │   ├── app/
 │   │   ├── core/                    # Deterministic financial math, ML inference & AI
-│   │   │   ├── amenities_client.py   # Data.gov.in 613 village amenities client
-│   │   │   ├── audio_chat_service.py # Groq Whisper + gTTS Multilingual Voice Service
-│   │   │   ├── auth_dependency.py    # Firebase Bearer token verification & IDOR guard
-│   │   │   ├── chat_service.py       # Contextual RAG Chatbot engine
-│   │   │   ├── dpr_generator.py      # Statutory 7-Section Bank DPR compiler & HTML renderer
+│   │   │   ├── amenities_client.py  # Data.gov.in 613 village amenities client
+│   │   │   ├── audio_chat_service.py# Bhashini + Sarvam Multilingual Voice Service
+│   │   │   ├── auth_dependency.py   # Firebase Bearer token verification & IDOR guard
+│   │   │   ├── chat_service.py      # Contextual RAG Chatbot engine
+│   │   │   ├── dpr_generator.py     # Statutory 7-Section Bank DPR compiler & HTML renderer
 │   │   │   ├── executive_synthesizer.py # Single-call LLM narrative synthesizer
-│   │   │   ├── feature_extractor.py  # 10-D Feature Vector extractor (x0..x9)
+│   │   │   ├── feature_extractor.py # 10-D Feature Vector extractor (x0..x9)
 │   │   │   ├── financial_calculator.py# EMI, amortization, DSCR & 17-scheme ranker
-│   │   │   ├── inference.py          # XGBoost classifier & Lundberg TreeSHAP explainer
-│   │   │   ├── market_analyzer.py    # Census CAGR population & TAM engine
-│   │   │   ├── pricing_engine.py     # CPI inflation floor & pricing recommendations
-│   │   │   ├── risk_analyzer.py      # 8-Point quantified risk matrix & rupee buffers
-│   │   │   ├── swot_analyzer.py      # Grounded 4-quadrant SWOT matrix
+│   │   │   ├── inference.py         # XGBoost classifier & Lundberg TreeSHAP explainer
+│   │   │   ├── market_analyzer.py   # Census CAGR population & TAM engine
+│   │   │   ├── pricing_engine.py    # CPI inflation floor & pricing recommendations
+│   │   │   ├── risk_analyzer.py     # 8-Point quantified risk matrix & rupee buffers
+│   │   │   ├── swot_analyzer.py     # Grounded 4-quadrant SWOT matrix
 │   │   │   └── translation_service.py# Google Cloud Translation & regional dictionary
-│   │   ├── data/                    # Ground-truth JSONs, models & SQLite persistence
+│   │   ├── data/                    # Ground-truth JSONs, models & persistence
 │   │   │   ├── district_resources.json
 │   │   │   ├── government_schemes.json # 17 statutory schemes
 │   │   │   ├── growth_rates.json
 │   │   │   ├── model_metadata.json
-│   │   │   └── viability_xgb.joblib  # Trained supervised XGBoost model
+│   │   │   └── viability_xgb.joblib # Trained supervised XGBoost model
 │   │   ├── models/                  # Pydantic request & response schemas
 │   │   │   └── schemas.py
 │   │   ├── routers/                 # REST API endpoints
@@ -131,17 +149,17 @@ SIH2026/
 │   │   ├── config.py                # Pydantic BaseSettings
 │   │   ├── database.py              # Neon PostgreSQL async pool & SQLite fallback
 │   │   └── main.py                  # FastAPI application factory & middleware
-│   └── Dockerfile                   # Production Python 3.11 Slim container
 ├── frontend/
 │   ├── src/
 │   │   ├── components/              # Reusable UI components & modals
-│   │   │   ├── AudioChatbotModal.jsx# Multilingual voice assistant modal
+│   │   │   ├── AudioChatbotModal.jsx# MIRA multilingual voice assistant modal
 │   │   │   ├── ChatbotModal.jsx     # Contextual RAG chat modal
 │   │   │   ├── DprModal.jsx         # Quick-view DPR modal with print/download
 │   │   │   ├── TranslatedText.jsx   # Live reactive translation component
 │   │   │   └── Wizard/              # 7-Step Enterprise Feasibility Wizard
 │   │   ├── context/                 # React Context Providers
 │   │   │   ├── AuthContext.jsx      # Firebase auth & profile state
+│   │   │   ├── ChatContext.jsx      # Voice agent lifecycle & language state
 │   │   │   ├── LanguageContext.jsx  # 6-Language translation state & cache
 │   │   │   └── ProjectContext.jsx   # Multi-project selection & persistence
 │   │   ├── pages/                   # Application route pages
@@ -149,39 +167,26 @@ SIH2026/
 │   │   │   ├── FeasibilityPage.jsx  # 7-step wizard entry page
 │   │   │   ├── LoginPage.jsx        # Email/password & Google OAuth login
 │   │   │   ├── RegisterPage.jsx     # Entrepreneur onboarding
-│   │   │   ├── report/              # 8 Dedicated dimension report pages
-│   │   │   │   ├── BankDprPage.jsx  # Official DPR page with language selector
-│   │   │   │   ├── FinancialsPage.jsx
-│   │   │   │   ├── MarketPage.jsx
-│   │   │   │   ├── OverviewPage.jsx
-│   │   │   │   ├── RiskPage.jsx
-│   │   │   │   ├── SchemesPage.jsx
-│   │   │   │   ├── SwotPage.jsx
-│   │   │   │   └── ViabilityPage.jsx
+│   │   │   └── report/              # Dedicated dimension report pages
+│   │   │       ├── BankDprPage.jsx  # Official DPR page with language selector
+│   │   │       ├── FinancialsPage.jsx
+│   │   │       ├── MarketPage.jsx
+│   │   │       ├── OverviewPage.jsx
+│   │   │       ├── RiskPage.jsx
+│   │   │       ├── SchemesPage.jsx
+│   │   │       ├── SwotPage.jsx
+│   │   │       └── ViabilityPage.jsx
 │   │   └── services/
 │   │       ├── api.js               # Centralized Axios/fetch client
 │   │       └── firebaseClient.js    # Firebase Client SDK initializer
 │   ├── Dockerfile                   # Multi-stage Node 20 + Nginx Alpine
-│   └── nginx.conf                   # High-performance SPA reverse proxy
-├── notebooks/                       # Exploratory & validation Jupyter Notebooks
-│   └── Audio_Chatbot_language_selector_edition.ipynb
-├── tests/                           # Complete automated platform test harness
-│   ├── test_audio_chat_service.py
-│   ├── test_business_management.py
-│   ├── test_chat_service.py
-│   ├── test_modular_endpoints.py
-│   ├── test_neon_persistence.py
-│   ├── test_phase2.py
-│   ├── test_phase3.py
-│   ├── test_phase4.py
-│   ├── test_phase5.py
-│   ├── test_phase6.py
-│   ├── test_phase7.py
-│   └── test_translation_service.py
+│   └── nginx.conf                   # SPA reverse proxy
+├── tests/                           # Automated platform test harness
 ├── docs/                            # Implementation plans & system blueprints
+├── misc/                            # Presentation slides, scripts & reference docs
 ├── docker-compose.yml               # Local & production multi-container setup
 ├── requirements.txt                 # Backend Python dependencies
-├── run_tests.py                     # Master test suite runner (100% pass)
+├── Dockerfile                       # Root backend container for Cloud Run
 └── README.md
 ```
 
@@ -237,8 +242,6 @@ docker-compose up --build
 
 ### 1. Backend (FastAPI + Python 3.11)
 ```bash
-cd SIH2026
-
 # Create virtual environment
 python -m venv venv
 venv\Scripts\activate  # On Linux/macOS: source venv/bin/activate
@@ -263,38 +266,26 @@ npm run dev
 
 ---
 
-## 🧪 Master Platform Test Suite & Audit Verification
+## 🔑 Environment Variables
 
-Udyam Saathi maintains a rigorous, zero-hallucination verification suite covering deterministic accounting balance, LGD demographic scaling, 17-scheme ranking, Lundberg TreeSHAP game-theoretic invariants, multi-lingual audio/text synthesis, IDOR tenancy security, immutable snapshot replay, and 5-class competitor relevance:
+Copy `.env.example` for a full template. Key variables:
 
-```bash
-# Run all 19 verification test suites across all phases
-python run_tests.py
-```
-
-```
-==========================================================================================
-TEST EXECUTION SUMMARY:
-==========================================================================================
-Total Test Suites: 19
-Suites Passed:     19 / 19 (100% Success Rate)
-Suites Failed:     0
-==========================================================================================
-ALL PLATFORM TEST SUITES PASSED WITH 100% SUCCESS RATE!
-```
-
-### 📋 Production Hardening & Audit Documentation
-* **[Comprehensive Audit Matrix](AUDIT_FINAL_MATRIX.md):** 30 audit gates and Gates A–F proofs.
-* **[Production Hardening Final Report](PHASE4_FINAL_REPORT.md):** 5-class classifier metrics (75.24% exact-match vs 100% direct competitor precision), independent math reproduction, and benchmark validations.
-* **[Deployment & Operational Runbook](DEPLOYMENT_RUNBOOK.md):** Topology, environment variables, startup commands, smoke tests, and failure recovery.
-* **[Codebase Architectural Inventory](PHASE4_CODEBASE_REVIEW.md):** Complete component map of all 16 modules, routers, database adapters, and test files.
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Neon PostgreSQL connection string |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase Admin SDK credentials (JSON string) |
+| `GROQ_API_KEY` | Groq Cloud API key for LLM & Whisper |
+| `DATA_GOV_IN_API_KEY` | Open Government Data API key |
+| `GOOGLE_TRANSLATE_API_KEY` | Google Cloud Translation API key |
+| `SARVAM_API_KEY` | Sarvam AI key for language detection & STT |
+| `BHASHINI_API_KEY` | Bhashini ULCA key for ASR/TTS |
 
 ---
 
 ## 👥 Contributors & Acknowledgements
 
-* **Developed for Smart India Hackathon (SIH 2026)**
-* **Problem Statement ID**: PS 26091 • AI Credit Appraisal & Feasibility System for MSMEs
+* **Problem Domain**: AI Credit Appraisal & Feasibility System for MSMEs
+* **Ministry**: Ministry of Micro, Small & Medium Enterprises (MoMSME)
 * **Data Sources**: Census of India (2011), Ministry of MSME Udyam Portal, MoSPI Rural CPI Index, Open Government Data (data.gov.in) Mission Antyodaya OGD Platform.
 
 ---

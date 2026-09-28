@@ -47,7 +47,7 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
             No Active Feasibility Assessment
           </h3>
           <p className="text-xs text-slate-600 leading-relaxed font-medium">
-            Click any of the SIH Benchmark Scenarios above, or launch the 7-Step Feasibility Wizard to generate an instant bank-ready credit appraisal.
+            Click any of the Quick-Start Benchmark Scenarios above, or launch the 7-Step Feasibility Wizard to generate an instant bank-ready credit appraisal.
           </p>
           <button
             onClick={onOpenWizard}

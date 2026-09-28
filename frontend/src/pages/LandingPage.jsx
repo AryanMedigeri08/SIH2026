@@ -36,7 +36,7 @@ export const LandingPage = () => {
       {/* Top Banner / Ticker */}
       <div className="border-b border-sovereign-200 bg-gradient-to-r from-sovereign-50 via-white to-sky-50 px-2.5 py-1.5 sm:px-4 sm:py-2 text-center text-xs text-sovereign-800 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 shadow-xs">
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sovereign-100 text-sovereign-900 border border-sovereign-300 font-mono shrink-0">
-          SIH 2026 PS 26091
+          MoMSME
         </span>
         <span className="font-semibold text-[11px] sm:text-xs">
           National Micro-Enterprise Feasibility & Bank DPR Advisory Engine
@@ -265,7 +265,7 @@ export const LandingPage = () => {
             </div>
             <span className="font-bold text-slate-900 font-display">Udyam Saathi (उद्यम साथी)</span>
             <span className="text-slate-400">|</span>
-            <span className="font-mono text-slate-500">SIH 2026 PS 26091</span>
+            <span className="font-mono text-slate-500">MoMSME</span>
           </div>
 
           <div className="flex flex-wrap justify-center items-center gap-3 sm:gap-6 font-semibold">

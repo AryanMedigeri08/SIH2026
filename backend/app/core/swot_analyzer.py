@@ -1,6 +1,6 @@
 """
 swot_analyzer.py — Grounded SWOT Analysis Engine with Deterministic Fallback.
-Udyam Saathi (SIH 2026 PS 26091).
+Udyam Saathi (उद्यम साथी).
 
 Builds a grounded SWOT matrix:
 - Primary Mode: LLM-synthesized via Groq with structured data sources and language awareness.

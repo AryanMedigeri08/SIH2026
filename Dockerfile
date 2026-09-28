@@ -22,7 +22,6 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
 COPY backend /app/backend
-COPY serviceAccountKey.json* /app/
 COPY .env.example* /app/
 
 RUN mkdir -p /app/backend/app/data && \

@@ -173,7 +173,7 @@ class UdyamClient:
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
                 headers={
-                    "User-Agent": "UdyamSaathi/2.0 (SIH2026)",
+                    "User-Agent": "UdyamSaathi/2.0",
                     "Accept": "application/json",
                 },
                 timeout=httpx.Timeout(self.request_timeout, connect=10.0),
