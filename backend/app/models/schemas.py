@@ -146,8 +146,8 @@ class ODOPLookupResponse(BaseModel):
     category: str
     matching_sectors: list[str] = Field(default_factory=list)
     pmfme_eligible: bool = False
-    gem_category: str = ""
-    cfc_available: bool = False
+    gem_category: Optional[str] = ""
+    cfc_available: Optional[bool] = False
     key_benefits: list[str] = Field(default_factory=list)
 
 

@@ -71,18 +71,26 @@ async def get_district_odop(
 
     record = find_district_odop(state_name=state_name, district_name=district_name)
     if record:
+        pmfme_ok = bool(record.get("pmfme_eligible"))
+        gem_cat = record.get("gem_category") or "ODOP National Portal Catalog"
+        cfc_ok = bool(record.get("cfc_available"))
+        benefits = record.get("key_benefits") or [
+            "PMFME 35% Credit-Linked Capital Subsidy" if pmfme_ok else "PMEGP 25%-35% Capital Subsidy",
+            "GeM ODOP seller portal direct onboarding without minimum turnover criteria",
+            "District Industries Centre (DIC) cluster facilitation",
+        ]
         return ODOPLookupResponse(
             has_odop_record=True,
-            district_name=record.get("matched_district_name", district_name),
-            state_name=record.get("matched_state_name", state_name),
-            odop_product=record.get("odop_product", ""),
+            district_name=record.get("matched_district_name") or district_name,
+            state_name=record.get("matched_state_name") or state_name,
+            odop_product=record.get("odop_product") or "District Specialty Product",
             secondary_product=record.get("secondary_product"),
-            category=record.get("category", "MSME Cluster"),
-            matching_sectors=record.get("matching_sectors", []),
-            pmfme_eligible=record.get("pmfme_eligible", False),
-            gem_category=record.get("gem_category", ""),
-            cfc_available=record.get("cfc_available", False),
-            key_benefits=record.get("key_benefits", []),
+            category=record.get("category") or "MSME Cluster",
+            matching_sectors=record.get("matching_sectors") or [],
+            pmfme_eligible=pmfme_ok,
+            gem_category=gem_cat,
+            cfc_available=cfc_ok,
+            key_benefits=benefits,
         )
 
     return ODOPLookupResponse(
