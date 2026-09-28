@@ -148,7 +148,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Udyam Saathi (उद्यम साथी) — SIH 2026 AI-Powered Rural & Semi-Urban Enterprise Feasibility & Bank Credit Advisory REST API.",
+    description="Udyam Saathi (उद्यम साथी) — AI-Powered Rural & Semi-Urban Enterprise Feasibility & Bank Credit Advisory REST API.",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url=f"{settings.API_V2_STR}/openapi.json",

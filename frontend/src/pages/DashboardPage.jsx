@@ -15,7 +15,7 @@ export function DashboardPage({
 
   return (
     <div className="space-y-4">
-      {/* 1-Click SIH Pitch Preset Cases Bar — ONLY visible in Quick Login / Evaluator Demo Mode */}
+      {/* 1-Click Preset Cases Bar — ONLY visible in Quick Login / Evaluator Demo Mode */}
       {isDemoMode && (
         <CaseStudiesBar
           activeCaseId={activeCaseId}

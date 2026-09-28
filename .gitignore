@@ -2,9 +2,14 @@
 # Udyam Saathi — Git Ignore Configuration
 # ==============================================================================
 
-# Unwanted / Staged Deletion Directories
+# Misc / Archived Files
+misc/
 To be Deleted/
 to_delete/
+
+# Docs (keep only demo/ for GitHub Pages)
+docs/*
+!docs/demo/
 
 # Environment Variables & Secrets
 .env
@@ -76,22 +81,17 @@ Desktop.ini
 *.swo
 *~
 
-# Logs & Temporary Media Storage
+# Logs & Temporary Storage
 *.log
 *.sqlite3
 *.sqlite3-shm
 *.sqlite3-wal
 .tempmediaStorage/
 browser/scratchpad_*.md
-scratch/
 backend/app/core/data/raw/
 backend/app/data/snapshots/
 
-SIH26091_Recursive_Rebels.pdf
-SIH Pitch.pdf
+# Presentation & Document Files (only main PDF kept in root manually)
 *.pdf
 *.docx
-
-# Local Documentation & Reference Notes
-UDYAM_SAATHI_APPRAISAL_TERMS_GUIDE.md
-misc/
+*.pptx

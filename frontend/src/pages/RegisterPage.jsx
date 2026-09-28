@@ -87,7 +87,7 @@ export const RegisterPage = () => {
     setLocalError(null);
     setIsSubmitting(true);
     try {
-      const authRes = await loginAsDemo("evaluator@sih.gov.in", "SIH Jury Evaluator");
+      const authRes = await loginAsDemo("evaluator@udyam.gov.in", "Demo Evaluator");
       const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
       try {
         const res = await loadUserBusinesses(userToken);
