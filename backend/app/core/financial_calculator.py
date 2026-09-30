@@ -122,9 +122,15 @@ class SchemeRanking:
         return d
 
 
+_CACHED_SCHEMES: Optional[list[dict]] = None
+
+
 def _load_schemes() -> list[dict]:
-    with open(_SCHEMES_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)["schemes"]
+    global _CACHED_SCHEMES
+    if _CACHED_SCHEMES is None:
+        with open(_SCHEMES_PATH, "r", encoding="utf-8") as f:
+            _CACHED_SCHEMES = json.load(f)["schemes"]
+    return _CACHED_SCHEMES
 
 
 def emi_with_moratorium(

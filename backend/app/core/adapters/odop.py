@@ -20,6 +20,9 @@ from .registry import DATA_SOURCES
 logger = logging.getLogger("udyam_saathi.adapters.odop")
 
 
+_SHARED_ODOP_DATA: Optional[dict] = None
+
+
 class ODOPAdapter(GovernmentDatasetAdapter):
     """
     Adapter for Ministry of Commerce / DPIIT ODOP Focus Registry.
@@ -34,10 +37,15 @@ class ODOPAdapter(GovernmentDatasetAdapter):
         self._load_registry()
 
     def _load_registry(self) -> None:
+        global _SHARED_ODOP_DATA
+        if _SHARED_ODOP_DATA is not None:
+            self._data = _SHARED_ODOP_DATA
+            return
         try:
             if self.registry_path.exists():
                 with open(self.registry_path, "r", encoding="utf-8") as f:
-                    self._data = json.load(f)
+                    _SHARED_ODOP_DATA = json.load(f)
+                    self._data = _SHARED_ODOP_DATA
         except Exception as e:
             logger.warning(f"Failed to load ODOP registry from {self.registry_path}: {e}")
             self._data = {}
