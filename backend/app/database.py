@@ -136,7 +136,7 @@ class DatabaseManager:
                 self.pool = await asyncpg.create_pool(
                     settings.DATABASE_URL.strip(),
                     min_size=1,
-                    max_size=10,
+                    max_size=3,
                     timeout=10.0,
                 )
                 logger.info("Connected to Neon PostgreSQL pool successfully.")
@@ -884,6 +884,9 @@ class DatabaseManager:
             "updated_at": now,
         }
         self.in_memory_projects[project_id] = record
+        if len(self.in_memory_projects) > 30:
+            for old_id in list(self.in_memory_projects.keys())[:-20]:
+                self.in_memory_projects.pop(old_id, None)
 
         if self.sqlite:
             # Keep the complete enterprise and generated analysis payload in a
@@ -1084,6 +1087,9 @@ class DatabaseManager:
         if isinstance(report_data, dict):
             report_data["_owner_id"] = user_id
         self.in_memory_reports[report_id] = report_data
+        if len(self.in_memory_reports) > 20:
+            for old_id in list(self.in_memory_reports.keys())[:-15]:
+                self.in_memory_reports.pop(old_id, None)
 
         if self.sqlite:
             self.sqlite.execute("INSERT INTO feasibility_reports (report_id, user_id, payload, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(report_id) DO UPDATE SET user_id=excluded.user_id, payload=excluded.payload", (report_id, user_id, json.dumps(report_data), datetime.now(timezone.utc).isoformat()))

@@ -157,6 +157,9 @@ class TranslationService:
                 row = cur.execute("SELECT translated_text FROM translation_cache WHERE cache_key = ?", (cache_key,)).fetchone()
                 if row and row[0]:
                     self._memory_cache[cache_key] = row[0]
+                    if len(self._memory_cache) > 1500:
+                        for old_k in list(self._memory_cache.keys())[:-1200]:
+                            self._memory_cache.pop(old_k, None)
                     return row[0]
             except Exception:
                 pass
@@ -164,6 +167,9 @@ class TranslationService:
 
     def _save_cached_translation(self, cache_key: str, source_lang: str, target_lang: str, source_text: str, translated_text: str, provider: str):
         self._memory_cache[cache_key] = translated_text
+        if len(self._memory_cache) > 1500:
+            for old_k in list(self._memory_cache.keys())[:-1200]:
+                self._memory_cache.pop(old_k, None)
         if self._sqlite_conn:
             try:
                 self._sqlite_conn.execute(

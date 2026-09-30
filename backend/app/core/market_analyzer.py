@@ -108,9 +108,15 @@ class CompetitionIntensity:
         return d
 
 
+_CACHED_GROWTH_RATES: Optional[dict] = None
+
+
 def _load_growth_rates() -> dict:
-    with open(_GROWTH_RATES_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    global _CACHED_GROWTH_RATES
+    if _CACHED_GROWTH_RATES is None:
+        with open(_GROWTH_RATES_PATH, "r", encoding="utf-8") as f:
+            _CACHED_GROWTH_RATES = json.load(f)
+    return _CACHED_GROWTH_RATES
 
 
 def project_population(
