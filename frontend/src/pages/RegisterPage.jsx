@@ -1,9 +1,10 @@
 /**
- * RegisterPage.jsx — Multi-Section Sovereign Account & Promoter Profile Registration.
+ * RegisterPage.jsx — Rural Entrepreneur Registration with Phone-First Design.
+ * Phone number is mandatory, email is optional. Auto-detects browser geolocation.
  * Styled in complete harmony with the Udyam Saathi Institutional Dashboard Theme.
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useBusiness } from "../context/BusinessContext";
@@ -20,6 +21,8 @@ import {
   Loader2,
   Zap,
   Sparkles,
+  MapPin,
+  CheckCircle2,
 } from "lucide-react";
 
 export const RegisterPage = () => {
@@ -31,34 +34,87 @@ export const RegisterPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState(null);
 
+  // Geolocation auto-detection state
+  const [detectedLocation, setDetectedLocation] = useState(null);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [locationStatus, setLocationStatus] = useState("idle"); // idle | detecting | success | error
+
   const { registerWithEmail, loginWithGoogle, loginAsDemo, authError } = useAuth();
   const { t } = useLanguage();
   const { loadUserBusinesses } = useBusiness();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!email || !password || !name) {
-      setLocalError("Please fill in your name, email, and password.");
+  // Auto-detect geolocation on page load
+  const detectLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationStatus("error");
       return;
     }
-    if (password.length < 6) {
-      setLocalError("Password must be at least 6 characters.");
+    setIsDetectingLocation(true);
+    setLocationStatus("detecting");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const loc = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        };
+        setDetectedLocation(loc);
+        setIsDetectingLocation(false);
+        setLocationStatus("success");
+      },
+      (err) => {
+        console.warn("Geolocation detection failed:", err.message);
+        setIsDetectingLocation(false);
+        setLocationStatus("error");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  }, []);
+
+  useEffect(() => {
+    detectLocation();
+  }, [detectLocation]);
+
+  // Validate Indian phone number (10 digits)
+  const isValidPhone = (ph) => /^[6-9]\d{9}$/.test(ph.replace(/\s/g, ""));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Phone is mandatory
+    if (!name.trim()) {
+      setLocalError("कृपया अपना नाम दर्ज करें / Please enter your name.");
+      return;
+    }
+    if (!phone.trim() || !isValidPhone(phone.trim())) {
+      setLocalError("कृपया अपना 10 अंकों का मोबाइल नंबर दर्ज करें / Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    if (!password || password.length < 6) {
+      setLocalError("कृपया कम से कम 6 अक्षरों का पासवर्ड दर्ज करें / Password must be at least 6 characters.");
       return;
     }
 
     setLocalError(null);
     setIsSubmitting(true);
 
+    // Use phone-based email if no email provided (for Firebase compatibility)
+    const effectiveEmail = email.trim() || `${phone.trim()}@udyam.phone.in`;
+
     try {
-      await registerWithEmail(email.trim(), password, {
+      await registerWithEmail(effectiveEmail, password, {
         name: name.trim(),
         gender,
-        phone: phone.trim() || null,
+        phone: phone.trim(),
+        latitude: detectedLocation?.latitude || null,
+        longitude: detectedLocation?.longitude || null,
       });
-      navigate("/wizard", { replace: true });
+      // Redirect to the new conversational onboarding instead of wizard
+      navigate("/onboarding", { replace: true });
     } catch (err) {
-      setLocalError(err.message || "Failed to create promoter account.");
+      setLocalError(err.message || "खाता बनाने में विफल / Failed to create account.");
     } finally {
       setIsSubmitting(false);
     }
@@ -72,9 +128,9 @@ export const RegisterPage = () => {
       const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
       try {
         const res = await loadUserBusinesses(userToken);
-        navigate(res?.hasBusinesses ? "/dashboard" : "/wizard", { replace: true });
+        navigate(res?.hasBusinesses ? "/dashboard" : "/onboarding", { replace: true });
       } catch (_) {
-        navigate("/wizard", { replace: true });
+        navigate("/onboarding", { replace: true });
       }
     } catch (err) {
       setLocalError(err.message || "Google signup was cancelled or failed.");
@@ -91,9 +147,9 @@ export const RegisterPage = () => {
       const userToken = authRes?.user?.getIdToken ? await authRes.user.getIdToken() : null;
       try {
         const res = await loadUserBusinesses(userToken);
-        navigate(res?.hasBusinesses ? "/dashboard" : "/wizard", { replace: true });
+        navigate(res?.hasBusinesses ? "/dashboard" : "/onboarding", { replace: true });
       } catch (_) {
-        navigate("/wizard", { replace: true });
+        navigate("/onboarding", { replace: true });
       }
     } catch (err) {
       setLocalError(err.message || "Demo access failed.");
@@ -124,10 +180,10 @@ export const RegisterPage = () => {
             </span>
           </Link>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display">
-            {t('createAccount') || 'Create Promoter Account'}
+            {t('createAccount') || 'उद्यमी खाता बनाएँ'}
           </h1>
           <p className="mt-2 text-xs sm:text-sm text-slate-600 font-medium">
-            Set up your verified profile for AI-driven feasibility appraisals and institutional bank DPR generation.
+            अपना प्रोफ़ाइल बनाएँ और AI-संचालित व्यवसाय सहायता प्राप्त करें
           </p>
         </div>
 
@@ -167,17 +223,94 @@ export const RegisterPage = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Section 1: Security & Identity */}
+            {/* Section 1: Promoter Identity (Name + Phone First) */}
+            <div>
+              <div className="flex items-center gap-2 pb-2 mb-3.5 border-b border-slate-200 text-sovereign-800 text-xs font-bold uppercase tracking-wider">
+                <User className="w-4 h-4 text-sovereign-700" />
+                <span>1. आपकी पहचान / Your Identity</span>
+              </div>
+
+              <div className="space-y-4">
+                {/* Full Name — Required */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    पूरा नाम / Full Name <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative rounded-xl shadow-subtle">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <User className="h-4 w-4" />
+                    </div>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. रमेश चंद्र शर्मा"
+                      required
+                      className="block w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
+                    />
+                  </div>
+                </div>
+
+                {/* Phone Number — Required */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    मोबाइल नंबर / Mobile Number <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative rounded-xl shadow-subtle">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <Phone className="h-4 w-4" />
+                    </div>
+                    <div className="absolute inset-y-0 left-10 flex items-center pointer-events-none">
+                      <span className="text-sm text-slate-500 font-medium">+91</span>
+                    </div>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                        setPhone(val);
+                      }}
+                      placeholder="9876543210"
+                      required
+                      maxLength={10}
+                      className="block w-full pl-[5.5rem] pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    यह नंबर आपके खाते से जुड़ा रहेगा / This number will be linked to your account
+                  </p>
+                </div>
+
+                {/* Gender */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    लिंग / Gender
+                  </label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="block w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
+                  >
+                    <option value="Unspecified">निर्दिष्ट नहीं / Unspecified</option>
+                    <option value="Male">पुरुष / Male</option>
+                    <option value="Female">महिला / Female</option>
+                    <option value="Other">अन्य / Other</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Account Security */}
             <div>
               <div className="flex items-center gap-2 pb-2 mb-3.5 border-b border-slate-200 text-sovereign-800 text-xs font-bold uppercase tracking-wider">
                 <ShieldCheck className="w-4 h-4 text-sovereign-700" />
-                <span>1. Account Credentials</span>
+                <span>2. खाता सुरक्षा / Account Security</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Email Address <span className="text-rose-500">*</span>
+                    ईमेल / Email <span className="text-slate-400 font-normal">(वैकल्पिक / Optional)</span>
                   </label>
                   <div className="relative rounded-xl shadow-subtle">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -187,8 +320,7 @@ export const RegisterPage = () => {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="promoter@enterprise.in"
-                      required
+                      placeholder="optional@email.com"
                       className="block w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
                     />
                   </div>
@@ -196,7 +328,7 @@ export const RegisterPage = () => {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Account Password <span className="text-rose-500">*</span>
+                    पासवर्ड / Password <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative rounded-xl shadow-subtle">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -216,74 +348,53 @@ export const RegisterPage = () => {
               </div>
             </div>
 
-            {/* Section 2: Promoter Profile */}
-            <div>
-              <div className="flex items-center gap-2 pb-2 mb-3.5 border-b border-slate-200 text-sovereign-800 text-xs font-bold uppercase tracking-wider">
-                <User className="w-4 h-4 text-sovereign-700" />
-                <span>2. Promoter Profile</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Full Legal Name <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative rounded-xl shadow-subtle">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <User className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g. Ramesh Chandra Sharma"
-                      required
-                      className="block w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Gender
-                  </label>
-                  <select
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    className="block w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
-                  >
-                    <option value="Unspecified">Unspecified</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="mt-3.5">
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Mobile / Phone Number (Optional)
-                </label>
-                <div className="relative rounded-xl shadow-subtle">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <Phone className="h-4 w-4" />
-                  </div>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="9876543210"
-                    className="block w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
-                  />
-                </div>
-              </div>
+            {/* Location Detection Status Banner */}
+            <div className={`p-3 rounded-xl flex items-center gap-2 text-xs font-medium transition-all duration-300 ${
+              locationStatus === "success"
+                ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                : locationStatus === "detecting"
+                ? "bg-sky-50 border border-sky-200 text-sky-800"
+                : locationStatus === "error"
+                ? "bg-amber-50 border border-amber-200 text-amber-800"
+                : "bg-slate-50 border border-slate-200 text-slate-600"
+            }`}>
+              {locationStatus === "success" ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>📍 आपका स्थान सफलतापूर्वक पहचाना गया / Location detected successfully</span>
+                </>
+              ) : locationStatus === "detecting" ? (
+                <>
+                  <Loader2 className="w-4 h-4 text-sky-600 animate-spin shrink-0" />
+                  <span>📍 आपका स्थान पहचान रहे हैं... / Detecting your location...</span>
+                </>
+              ) : locationStatus === "error" ? (
+                <>
+                  <MapPin className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>
+                    📍 स्थान पहचानने में असमर्थ / Unable to detect location.{" "}
+                    <button
+                      type="button"
+                      onClick={detectLocation}
+                      className="underline font-bold hover:text-amber-900 transition-colors"
+                    >
+                      पुनः प्रयास करें / Retry
+                    </button>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <MapPin className="w-4 h-4 text-slate-500 shrink-0" />
+                  <span>📍 Location will be auto-detected</span>
+                </>
+              )}
             </div>
 
-            {/* Note on Step-by-Step Business Details */}
+            {/* Note about MIRA onboarding */}
             <div className="p-3 rounded-xl bg-sovereign-50 border border-sovereign-200 text-xs text-sovereign-900 flex items-center gap-2 font-medium">
               <Sparkles className="w-4 h-4 text-sovereign-700 shrink-0" />
               <span>
-                Enterprise parameters & supplementary context are entered in the 7-Step Feasibility Wizard next.
+                आगे MIRA आपसे बातचीत करके आपके व्यवसाय की जानकारी लेगी / Next, MIRA will chat with you to understand your business idea.
               </span>
             </div>
 
@@ -296,11 +407,11 @@ export const RegisterPage = () => {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Registering Sovereign Account...</span>
+                  <span>खाता बना रहे हैं... / Creating Account...</span>
                 </>
               ) : (
                 <>
-                  <span>Create Account & Start Feasibility Wizard</span>
+                  <span>खाता बनाएँ और MIRA से बात करें / Create Account & Talk to MIRA</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </>
               )}

@@ -28,6 +28,8 @@ class UserRegisterRequest(BaseModel):
     gender: Optional[str] = Field("Unspecified", description="Male | Female | Other | Unspecified")
     phone: Optional[str] = Field(None, description="Mobile / Contact number")
     additional_business_details: Optional[str] = Field(None, max_length=1000, description="Optional free-text context for AI narrative")
+    latitude: Optional[float] = Field(None, description="Browser auto-detected GPS latitude")
+    longitude: Optional[float] = Field(None, description="Browser auto-detected GPS longitude")
 
 
 class UserUpdateRequest(BaseModel):

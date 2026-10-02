@@ -34,6 +34,7 @@ import { MarketingPage } from './pages/report/MarketingPage';
 
 // Standalone System Pages
 import { WizardPage } from './pages/WizardPage';
+import { OnboardingPage } from './pages/OnboardingPage';
 import { CalculatorPage } from './pages/CalculatorPage';
 import { DataSourcesPage } from './pages/DataSourcesPage';
 import { SchemesPage } from './pages/SchemesPage';
@@ -160,7 +161,7 @@ export function AppContent() {
   } = useBusiness();
   const { language } = useLanguage();
 
-  const isAuthOrLanding = ['/', '/landing', '/login', '/register'].includes(location.pathname);
+  const isAuthOrLanding = ['/', '/landing', '/login', '/register'].includes(location.pathname) || location.pathname.startsWith('/onboarding');
 
   // Health check on app start
   useEffect(() => {
@@ -281,6 +282,17 @@ export function AppContent() {
         <Route path="/landing" element={<Navigate to="/" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <OnboardingPage
+                onWizardSubmit={handleWizardSubmit}
+                isLoading={isGenerating}
+              />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     );
   }
@@ -561,6 +573,19 @@ export function AppContent() {
                     <AppraisalSectionWrapper skeleton={MarketSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses}>
                       <MarketingPage reportData={reportData} />
                     </AppraisalSectionWrapper>
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Conversational Onboarding */}
+              <Route
+                path="/onboarding"
+                element={
+                  <ProtectedRoute>
+                    <OnboardingPage
+                      onWizardSubmit={handleWizardSubmit}
+                      isLoading={isGenerating}
+                    />
                   </ProtectedRoute>
                 }
               />

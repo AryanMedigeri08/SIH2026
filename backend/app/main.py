@@ -100,6 +100,7 @@ from app.routers import (
     translation_router,
     chat_router,
     market_intelligence_router,
+    onboarding_router,
 )
 from app.core.telemetry import TelemetryMiddleware
 from inference import ViabilityModelLoader
@@ -218,6 +219,8 @@ app.include_router(projects_router, prefix=settings.API_V2_STR)
 app.include_router(data_sources_router, prefix=settings.API_V2_STR)
 app.include_router(translation_router, prefix=settings.API_V2_STR)
 app.include_router(chat_router, prefix=f"{settings.API_V2_STR}/chat", tags=["AI Chatbot & Groq Advisor"])
+app.include_router(onboarding_router, prefix=f"{settings.API_V2_STR}/chat", tags=["Conversational Onboarding"])
+app.include_router(onboarding_router, prefix=settings.API_V2_STR, tags=["Conversational Onboarding"])
 app.include_router(market_intelligence_router, prefix=settings.API_V2_STR)
 app.include_router(market_intelligence_router, prefix="")
 

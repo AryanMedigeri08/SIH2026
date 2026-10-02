@@ -40,12 +40,12 @@ export const LoginPage = () => {
     }
 
     if (typeof authSession?.profile?.projects_count === "number") {
-      return authSession.profile.projects_count > 0 ? "/dashboard" : "/wizard";
+      return authSession.profile.projects_count > 0 ? "/dashboard" : "/onboarding";
     }
 
     try {
       const res = await loadUserBusinesses(authSession?.token);
-      return res?.hasBusinesses ? "/dashboard" : "/wizard";
+      return res?.hasBusinesses ? "/dashboard" : "/onboarding";
     } catch (e) {
       return "/dashboard";
     }
