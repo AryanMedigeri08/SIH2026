@@ -1,14 +1,15 @@
 """
-onboarding.py — Conversational Onboarding API Router.
+onboarding.py — Conversational Onboarding API Router for Mira.
 
-Processes natural language input from MIRA's chat interface and extracts
-structured wizard fields using Sarvam LLM, with ODOP alignment intelligence.
-Replaces the 7-step wizard with an intelligent conversational Q&A flow.
+Processes natural language input from Mira's chat interface and extracts
+structured wizard fields using Sarvam LLM, with ODOP benchmarking intelligence (0-100 score).
+Replaces the 7-step wizard with an intelligent conversational flow.
 """
 
 from __future__ import annotations
 import json
 import logging
+import re
 import sqlite3
 import time
 from datetime import datetime, timezone
@@ -38,8 +39,8 @@ REQUIRED_FIELDS = [
     "business_category",    # manufacturing | service (auto-inferred from sector)
     "sector",               # dairy, food_processing, repair, apparel, etc.
     "promoter_category",    # general | sc | st | obc | women | women_shg
-    "state_name",           # auto-resolved from GPS during registration
-    "district_name",        # auto-resolved from GPS during registration
+    "state_name",           # auto-resolved from GPS or selected in menu
+    "district_name",        # auto-resolved from GPS or selected in menu
     "project_cost",         # user specifies e.g. 2 lakh
 ]
 
@@ -83,6 +84,69 @@ def reverse_geocode_coords(lat: float, lon: float) -> Optional[dict[str, str]]:
     except Exception as e:
         logger.warning("Reverse geocode error for coords (%s, %s): %s", lat, lon, e)
     return None
+
+
+def clean_for_bhashini_tts(text: str, lang: str = "hi") -> str:
+    """
+    Cleans text for Bhashini TTS:
+    - Converts symbols like ₹ and % to spoken vernacular words.
+    - Strips punctuation that Bhashini literally says out loud ('question mark', 'colon', 'slash', etc.).
+    - Leaves plain, natural, human speech sentences.
+    """
+    if not text:
+        return ""
+
+    t = text
+    if lang == "hi":
+        t = re.sub(r'₹\s*(\d+(?:\.\d+)?)', r'\1 रुपये', t)
+        t = re.sub(r'(\d+(?:\.\d+)?)\s*%', r'\1 प्रतिशत', t)
+        t = t.replace('/', ' या ')
+    elif lang == "mr":
+        t = re.sub(r'₹\s*(\d+(?:\.\d+)?)', r'\1 रुपये', t)
+        t = re.sub(r'(\d+(?:\.\d+)?)\s*%', r'\1 टक्के', t)
+        t = t.replace('/', ' किंवा ')
+    else:
+        t = re.sub(r'₹\s*(\d+(?:\.\d+)?)', r'\1 rupees', t)
+        t = re.sub(r'(\d+(?:\.\d+)?)\s*%', r'\1 percent', t)
+        t = t.replace('/', ' or ')
+
+    # Strip markdown syntax
+    t = re.sub(r'\*\*(.*?)\*\*', r'\1', t)
+    t = re.sub(r'[*#_`~]', ' ', t)
+
+    # Format bullet numbers like '1.' and '2.' so Bhashini doesn't say 'one dot'
+    if lang == "hi":
+        t = re.sub(r'(?:^|\s)1\.\s*', ' पहला विकल्प ', t)
+        t = re.sub(r'(?:^|\s)2\.\s*', ' दूसरा विकल्प ', t)
+    elif lang == "mr":
+        t = re.sub(r'(?:^|\s)1\.\s*', ' पहिला पर्याय ', t)
+        t = re.sub(r'(?:^|\s)2\.\s*', ' दुसरा पर्याय ', t)
+    else:
+        t = re.sub(r'(?:^|\s)1\.\s*', ' Option 1 ', t)
+        t = re.sub(r'(?:^|\s)2\.\s*', ' Option 2 ', t)
+
+    # Remove symbols that Bhashini vocally pronounces awkwardly
+    for sym in ['?', ':', ';', '(', ')', '[', ']', '{', '}', '"', "'", '!', '@', '#', '$', '^', '&', '*', '+', '=', '<', '>', '|', '\\']:
+        t = t.replace(sym, ' ')
+
+    t = t.replace('-', ' ')
+    t = t.replace(',', ' ')
+    t = re.sub(r'\s+', ' ', t).strip()
+
+    # Bhashini ULCA handles up to 1800 characters smoothly without audio truncation
+    if len(t) > 1800:
+        sentences = t.split('. ')
+        chosen = []
+        curr_len = 0
+        for s in sentences:
+            if curr_len + len(s) + 2 <= 1800:
+                chosen.append(s)
+                curr_len += len(s) + 2
+            else:
+                break
+        t = '. '.join(chosen) if chosen else t[:1800]
+
+    return t
 
 
 # ── Sector Name Mapping ─────────────────────────────────────────────────────
@@ -136,22 +200,25 @@ class OnboardingRequest(BaseModel):
     user_name: str = Field("Entrepreneur", description="User's display name")
     collected_fields: Dict[str, Any] = Field(default_factory=dict, description="Already collected wizard fields")
     conversation_step: int = Field(0, description="Current conversation step index")
-    user_location: Optional[Dict[str, Any]] = Field(None, description="GPS coordinates {latitude, longitude}")
+    current_action: Optional[str] = Field(None, description="UI action trigger (confirm_loc, change_loc, submit_loc, odop_decision)")
+    user_location: Optional[Dict[str, Any]] = Field(None, description="GPS coordinates or hierarchy")
 
 
 class OnboardingResponse(BaseModel):
-    reply: str = Field(..., description="MIRA's conversational response text")
-    extracted_fields: Dict[str, Any] = Field(default_factory=dict, description="Fields extracted from user's latest message")
-    next_step: int = Field(0, description="Updated conversation step")
-    all_fields_collected: bool = Field(False, description="True if all required fields are filled")
-    odop_alignment: Optional[Dict[str, Any]] = Field(None, description="ODOP comparison & synergy data")
-    odop_comparison: Optional[Dict[str, Any]] = Field(None, description="ODOP synergy alignment details for UI cards")
+    reply: str = Field(..., description="Mira's conversational response text")
+    tts_text: Optional[str] = Field(None, description="Cleaned speech text without awkward symbols for Bhashini")
+    extracted_fields: Dict[str, Any] = Field(default_factory=dict)
+    next_step: int = Field(0)
+    next_phase: str = Field("business_idea", description="Current conversation phase")
+    all_fields_collected: bool = Field(False)
+    odop_alignment: Optional[Dict[str, Any]] = None
+    odop_comparison: Optional[Dict[str, Any]] = None
     message: Optional[Dict[str, str]] = None
 
 
 # ── Field Extraction System Prompt ───────────────────────────────────────────
 
-EXTRACTION_SYSTEM_PROMPT = """You are MIRA, an intelligent MSME advisor for Indian entrepreneurs.
+EXTRACTION_SYSTEM_PROMPT = """You are Mira, an intelligent and friendly MSME advisor for Indian entrepreneurs.
 Your task is to extract structured business information from the user's natural language input.
 
 IMPORTANT: Respond ONLY with valid JSON. No explanation text.
@@ -171,29 +238,26 @@ Return JSON like: {"enterprise_name": "Sharma Ice Cream", "sector": "dairy", "pr
 Empty JSON {} is valid if no structured fields are present.
 """
 
-CONVERSATION_SYSTEM_PROMPT_TEMPLATE = """You are MIRA (MSME Intelligent Rural Advisor), a very sweet, warm, understanding, and empathetic business advisor.
-You speak {language_name} fluently with natural human warmth and respect (ji / जी). You are helping {user_name} start their business journey.
+CONVERSATION_SYSTEM_PROMPT_TEMPLATE = """You are Mira, a loving, sweet, polite, charming, calm, caring, and encouraging business advisor.
+There is NO full form for your name, you are simply Mira. You speak {language_name} with deep warmth, respect (using जी / Ji), and encouragement.
 
-CURRENT ENTERPRISE STATUS:
-- Entrepreneur: {user_name}
-- Verified Location: {location_info}
-- Information Gathered So Far:
+CURRENT USER STATUS:
+- Entrepreneur Name: {user_name}
+- Location: {location_info}
+- Information Gathered:
 {collected_info}
 
-STILL NEEDED TO COMPLETE APPRAISAL:
+STILL NEEDED:
 {missing_fields}
 
-CRITICAL OPERATIONAL RULES (FOLLOW STRICTLY):
-1. LOCATION IS ALREADY VERIFIED: The user's location is ALREADY KNOWN from registration GPS as {location_info}. DO NOT ASK the user where they are from, what district they are in, or what state they belong to! If you mention location, warmly acknowledge it (e.g., "बहुत खुशी की बात है कि आप {district_name}, {state_name} में व्यवसाय शुरू कर रहे हैं").
-2. DO NOT ASK FOR ANNUAL SALES / TURNOVER: NEVER ask the user for their "annual turnover", "gross sales", "yearly income", or "expected revenue". That is a banking figure calculated automatically on the server.
-3. REMAINING QUESTIONS TO ASK (ask only ONE at a time in natural, simple language):
-   - If business idea is missing: Ask what kind of business or product they want to start (e.g. dairy, ice cream, food processing, clothes/tailoring, mobile repair, grocery).
-   - If investment is missing: Ask how much capital/money they have to invest (e.g., ₹2 लाख, ₹5 लाख).
-   - If category is missing: Ask which social category they belong to (General, OBC, SC, ST, or Women Entrepreneur).
-4. TONE & STYLE:
-   - Very warm, encouraging, respectful, like a supportive elder sister.
-   - Keep answers short and clear: 2 to 4 sentences maximum.
-   - If all required fields are collected, warmly congratulate {user_name} and tell them their feasibility report and ODOP alignment are ready!
+CRITICAL RULES (FOLLOW STRICTLY):
+1. TONE: Loving, caring, polite, charming, sweet, calm, and encouraging. Make {user_name} feel valued, excited, and confident.
+2. DO NOT ASK FOR LOCATION: Location is already confirmed as {location_info}. Never ask state or district!
+3. DO NOT ASK FOR ANNUAL SALES / TURNOVER: Never ask for turnover, yearly sales, or gross sales. That is computed by the backend.
+4. QUESTIONS TO ASK (ask only ONE at a time in very sweet, natural language):
+   - If business idea is missing: Praise them, and ask what type of business or product they want to start with lovely examples (e.g. ice cream, dairy, bakery, clothes/boutique, mobile repair).
+   - If investment is missing: Praise their business idea charmingly ("अरे वाह! कितना सुंदर विचार है"), then ask how much capital / promoter's equity they have ready to invest.
+5. LENGTH: Keep responses to 2-3 sweet, clear sentences. No long lectures.
 """
 
 LANGUAGE_NAMES = {
@@ -209,26 +273,22 @@ def _extract_fields_from_text(text: str, existing_fields: dict) -> dict:
     extracted = {}
     text_lower = text.lower()
 
-    # --- Sector detection ---
     for keyword, sector_val in SECTOR_MAP.items():
         if keyword in text_lower and "sector" not in existing_fields:
             extracted["sector"] = sector_val
             break
 
-    # --- Category detection ---
     for keyword, cat_val in CATEGORY_MAP.items():
         if keyword in text_lower and "promoter_category" not in existing_fields:
             extracted["promoter_category"] = cat_val
             break
 
-    # --- Business category ---
     for keyword, bcat_val in BUSINESS_CATEGORY_MAP.items():
         if keyword in text_lower and "business_category" not in existing_fields:
             extracted["business_category"] = bcat_val
             break
 
-    # --- Investment / project cost ---
-    import re
+    # Investment / project cost
     cost_patterns = [
         (r'(?:₹|rs\.?|rupees?)\s*(\d+(?:\.\d+)?)\s*(?:lakh|lac|लाख)', lambda m: float(m.group(1)) * 100000),
         (r'(\d+(?:\.\d+)?)\s*(?:lakh|lac|लाख)', lambda m: float(m.group(1)) * 100000),
@@ -268,7 +328,6 @@ def _llm_extract_fields(user_text: str) -> dict:
                     content_clean = content_clean[4:]
             data = json.loads(content_clean)
             if isinstance(data, dict):
-                # Never extract annual_turnover_estimate from LLM
                 data.pop("annual_turnover_estimate", None)
                 data.pop("turnover", None)
                 return data
@@ -284,7 +343,7 @@ def _generate_mira_response(
     collected_fields: dict,
     missing_fields: list,
 ) -> str:
-    """Generate MIRA's conversational response using Sarvam LLM."""
+    """Generate Mira's conversational response using Sarvam LLM."""
     lang_name = LANGUAGE_NAMES.get(language, "Hindi")
 
     district_name = collected_fields.get("district_name", "your area")
@@ -326,12 +385,12 @@ def _generate_mira_response(
         if content and content.strip():
             return content.strip()
     except Exception as e:
-        logger.error("MIRA response generation failed: %s", e)
+        logger.error("Mira response generation failed: %s", e)
 
-    # Fallback response
+    # Fallback sweet responses
     if language == "hi":
-        return f"नमस्ते {user_name} जी! मैं आपकी बात समझ गई। कृपया मुझे अपने व्यवसाय के बारे में थोड़ा और बताएँ। 🙏"
-    return f"Namaste {user_name} Ji! I understand. Please tell me a bit more about your business idea. 🙏"
+        return f"नमस्ते {user_name} जी! मैं आपकी बात बहुत अच्छे से समझ रही हूँ। कृपया मुझे अपने व्यवसाय के बारे में थोड़ा और बताइए ना। 🙏"
+    return f"Namaste {user_name} Ji! I understand completely. Please tell me a bit more about your business idea. 🙏"
 
 
 def _generate_odop_synergy(
@@ -341,8 +400,8 @@ def _generate_odop_synergy(
     district: str,
 ) -> Optional[dict[str, Any]]:
     """
-    Constructs a 3-pillar strategic synergy aligning the user's business with the district's ODOP.
-    Does NOT change or replace the user's idea; instead enriches it for 35% PMFME subsidy eligibility.
+    Constructs a 3-pillar strategic synergy aligning the user's business with the district's ODOP,
+    complete with a 0-100 Benchmarking Alignment Score.
     """
     try:
         odop_data = find_district_odop(state, district) or {}
@@ -350,11 +409,69 @@ def _generate_odop_synergy(
         odop_item = odop_data.get("odop_product") or pmfme_item
 
         primary_crop = pmfme_item.split("(")[0].strip() if "(" in pmfme_item else pmfme_item
-
-        # Tailored synergy descriptions based on sector
         sector_clean = sector.replace("_", " ").title()
-        
-        # Product Innovation Pillar
+
+        # ── Benchmarking Alignment Score (0 - 100) ───────────────────────────
+        score = 0
+        sector_norm = sector.lower().strip()
+        idea_norm = user_business.lower().strip()
+        target_sectors = [s.lower() for s in odop_data.get("matching_sectors", [])]
+        odop_product_lower = odop_item.lower()
+        pmfme_lower = pmfme_item.lower()
+
+        # Pillar 1: Sector Overlap & Synergy (up to 50 pts)
+        if sector_norm in target_sectors:
+            score += 50
+        elif any(kw in idea_norm for kw in ["ice cream", "kulfi", "sweet", "dessert", "bakery", "snack", "juice", "jam", "chocolat"]) and any(kw in (odop_product_lower + " " + pmfme_lower) for kw in ["millet", "fruit", "dairy", "milk", "grain", "mango", "orange", "banana"]):
+            score += 48
+        elif sector_norm in ("dairy", "food_processing") and any(s in target_sectors for s in ("dairy", "food_processing", "agriculture")):
+            score += 44
+        elif sector_norm in ("repair", "fabrication") and any(kw in (odop_product_lower + " " + pmfme_lower) for kw in ["machinery", "engineering", "steel", "tools", "hardware"]):
+            score += 40
+        elif sector_norm in ("apparel", "artisan_trades") and any(kw in (odop_product_lower + " " + pmfme_lower) for kw in ["textile", "garment", "silk", "cotton", "handloom", "carpet"]):
+            score += 45
+        elif sector_norm in ("service", "repair", "general"):
+            score += 26
+        else:
+            score += 15
+
+        # Pillar 2: Local Sourcing & Catchment Feasibility (up to 25 pts)
+        if odop_data.get("raw_material_availability"):
+            score += 15
+        else:
+            score += 10
+        if odop_data.get("cfc_available"):
+            score += 10
+        else:
+            score += 5
+
+        # Pillar 3: PMFME 35% Scheme Subsidy Qualification (up to 25 pts)
+        if odop_data.get("pmfme_eligible") or "food" in sector_norm or "dairy" in sector_norm or "millet" in (odop_product_lower + " " + pmfme_lower):
+            score += 25
+        elif odop_data.get("key_benefits"):
+            score += 18
+        else:
+            score += 12
+
+        final_score = max(20, min(96, score))
+
+        if final_score >= 70:
+            verdict_key = "recommended"
+            verdict_title = "उत्कृष्ट तालमेल (Highly Recommended)"
+            mira_recommendation = "Mira Recommends: Excellent ODOP Synergy for 35% Subsidy"
+            verdict_spoken = f"मुझे आपके व्यवसाय का {primary_crop} के साथ बहुत सुंदर तालमेल मिला है और इसका स्कोर {final_score} आया है। मेरी दिल से सलाह है कि आप इसे ज़रूर अपनाएँ ताकि आपको 35 प्रतिशत सरकारी सब्सिडी मिल सके।"
+        elif final_score >= 45:
+            verdict_key = "viable"
+            verdict_title = "सकारात्मक तालमेल (Viable Synergy)"
+            mira_recommendation = "Mira Recommends: Viable Strategic Opportunity"
+            verdict_spoken = f"आपके व्यवसाय का ODOP के साथ स्कोर {final_score} है। यह एक अच्छा अतिरिक्त विकल्प है जिसे आप सब्सिडी के लिए जोड़ सकते हैं या अपने सामान्य विचार के साथ भी बढ़ सकते हैं।"
+        else:
+            verdict_key = "not_recommended"
+            verdict_title = "कम तालमेल (Standard MSME Recommended)"
+            mira_recommendation = "Mira Recommends: Continue with Standard Business Model"
+            verdict_spoken = f"मैं आपसे बिल्कुल सच कहूँगी, आपके इस विचार के लिए जबरदस्ती ODOP जोड़ना सही नहीं रहेगा। आपका स्कोर {final_score} है। मेरी सलाह है कि आप अपने मूल विचार के साथ ही PMEGP और मुद्रा लोन का लाभ लें।"
+
+        # Tailored synergy descriptions
         if sector in ("dairy", "food_processing"):
             innov_title = f"Product Innovation ({primary_crop}-Infused {sector_clean})"
             innov_desc = (
@@ -381,32 +498,37 @@ def _generate_odop_synergy(
                 f"and qualifying for government cluster incentives."
             )
 
-        # Local Sourcing Advantage Pillar
         source_title = f"Local Sourcing Advantage ({district} Farmer Clusters)"
         source_desc = (
             f"Source raw {primary_crop} directly from {district}'s local farmer clusters, FPOs, and recognized "
             f"brands, reducing procurement transit costs and fulfilling statutory ODOP cluster mandates."
         )
 
-        # Financial Incentives Pillar
         fin_title = "Financial Incentives (PMFME 35% Capital Subsidy)"
         fin_desc = (
             f"Using this product formulation qualifies your enterprise for the PMFME Scheme's 35% credit-linked "
             f"capital subsidy (up to ₹10 Lakhs) on machinery and processing tools, with priority GeM portal listing."
         )
 
+        what_is_odop = (
+            f"Under the central government's One District One Product (ODOP) and PMFME initiative, "
+            f"**{primary_crop}** has been designated as the key focus product for **{district}** to promote "
+            f"local processing and farming clusters. By aligning your business idea with ODOP, you qualify for "
+            f"a **35% capital subsidy (up to ₹10 Lakhs)** on machinery and priority government procurement."
+        )
+
         return {
-            "what_is_odop": (
-                f"Under the central government's One District One Product (ODOP) and PMFME initiative, "
-                f"**{primary_crop}** has been designated as the key focus product for **{district}** to promote "
-                f"local processing and farming clusters. By aligning your business idea with ODOP, you qualify for "
-                f"a **35% capital subsidy (up to ₹10 Lakhs)** on machinery and priority government procurement."
-            ),
+            "what_is_odop": what_is_odop,
             "user_business": f"{user_business} ({sector_clean})",
             "district_odop": f"{pmfme_item}",
             "primary_odop_product": primary_crop,
             "district": district,
             "state": state,
+            "alignment_score": final_score,
+            "verdict_key": verdict_key,
+            "verdict_title": verdict_title,
+            "mira_recommendation": mira_recommendation,
+            "verdict_spoken": verdict_spoken,
             "synergy_pillars": {
                 "product_innovation": {
                     "title": innov_title,
@@ -427,7 +549,6 @@ def _generate_odop_synergy(
                 "Access to District Cluster Common Facility Centers (CFC)",
                 "Premium Price Advantage with Certified ODOP Regional Branding",
             ],
-            # Backward compatibility flags for UI
             "odop_product": pmfme_item,
         }
     except Exception as e:
@@ -449,41 +570,22 @@ def _generate_odop_synergy(
 )
 async def process_onboarding_message(payload: OnboardingRequest):
     """
-    MIRA Conversational Onboarding Endpoint.
+    Mira Conversational Onboarding Endpoint.
     
-    1. Pre-resolves state & district from user GPS coordinates automatically.
-    2. Extracts structured wizard fields using keyword matching + LLM.
-    3. Auto-calculates annual turnover without interrogating the user.
-    4. Generates warm, empathetic conversational response.
-    5. Formulates 3-pillar ODOP strategic synergy without changing user's idea.
+    1. Handles location confirmation & menu update.
+    2. Extracts structured business & equity fields using keyword matching + LLM.
+    3. Auto-calculates annual turnover without asking the user.
+    4. Formulates 0-100 ODOP Benchmarking Alignment and 3-pillar synergy.
+    5. Cleans all speech outputs so Bhashini TTS never reads out punctuation awkwardly.
     """
     start_time = time.perf_counter()
 
     try:
-        last_user_msg = ""
-        for msg in reversed(payload.messages):
-            if msg.role == "user":
-                last_user_msg = msg.content
-                break
-
-        if not last_user_msg:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No user message found in the conversation",
-            )
-
-        logger.info(
-            "🧭 [ONBOARDING] User '%s' (step %d, lang=%s): \"%s\"",
-            payload.user_name,
-            payload.conversation_step,
-            payload.language,
-            last_user_msg[:80],
-        )
-
         existing_fields = dict(payload.collected_fields)
         new_fields = {}
+        action = payload.current_action
 
-        # ── Step 0: Auto-resolve location from GPS coordinates ───────────────
+        # ── Step 0: Auto-resolve location from GPS coordinates if present ──────
         if payload.user_location and payload.user_location.get("latitude") and payload.user_location.get("longitude"):
             if "state_name" not in existing_fields or "district_name" not in existing_fields:
                 try:
@@ -497,20 +599,99 @@ async def process_onboarding_message(payload: OnboardingRequest):
                         if "district_name" not in existing_fields:
                             existing_fields["district_name"] = geo["district_name"]
                             new_fields["district_name"] = geo["district_name"]
-                        logger.info(
-                            "📍 [ONBOARDING GPS] Auto-resolved coords (%.4f, %.4f) -> %s, %s",
-                            lat, lon, geo["district_name"], geo["state_name"]
-                        )
                 except Exception as geo_err:
                     logger.warning("Failed to auto-resolve user location coords: %s", geo_err)
 
-        # ── Step 1: Rapid keyword-based field extraction ─────────────────────
-        keyword_fields = _extract_fields_from_text(last_user_msg, existing_fields)
+        # Direct hierarchy injection from location menu
+        if payload.user_location:
+            for k in ("state_name", "district_name", "block_name", "village_name", "is_rural"):
+                if payload.user_location.get(k) is not None:
+                    existing_fields[k] = payload.user_location[k]
+                    new_fields[k] = payload.user_location[k]
 
-        # ── Step 2: LLM-based extraction for natural language inputs ────────
+        district_name = existing_fields.get("district_name", "your area")
+        state_name = existing_fields.get("state_name", "India")
+        loc_str = f"{district_name}, {state_name}"
+
+        # ── Phase-specific Handling ──────────────────────────────────────────
+
+        # Action: User confirmed the auto-detected location
+        if action == "confirm_location":
+            if payload.language == "hi":
+                reply = f"बहुत अच्छा लगा {payload.user_name} जी! हम {loc_str} से आपकी खूबसूरत व्यवसाय यात्रा शुरू कर रहे हैं। अब मुझे प्यार से बताइए, आप किस तरह का व्यवसाय शुरू करना चाहते हैं? जैसे कि डेयरी फार्म, आइसक्रीम पार्लर, बेकरी, कपड़ों की दुकान या मोबाइल रिपेयर?"
+            elif payload.language == "mr":
+                reply = f"खूप छान {payload.user_name} जी! आपण {loc_str} मधून तुमचा व्यवसाय प्रवास सुरू करत आहोत. आता मला सांगा, तुम्हाला कोणत्या प्रकारचा व्यवसाय सुरू करायचा आहे? जसे की डेअरी, आईस्क्रीम, बेकरी, कापड दुकान किंवा मोबाइल दुरुस्ती?"
+            else:
+                reply = f"Wonderful {payload.user_name} Ji! We are beginning your entrepreneurial journey in {loc_str}. Now please tell me, what type of business or product do you want to start? For example, an ice cream venture, bakery, garment boutique, dairy farm, or repair center?"
+
+            tts_clean = clean_for_bhashini_tts(reply, payload.language)
+            return OnboardingResponse(
+                reply=reply,
+                tts_text=tts_clean,
+                extracted_fields=new_fields,
+                next_step=1,
+                next_phase="business_idea",
+                all_fields_collected=False,
+                message={"role": "assistant", "content": reply},
+            )
+
+        # Action: User requested location change menu
+        if action == "request_change_location":
+            if payload.language == "hi":
+                reply = f"कोई बात नहीं {payload.user_name} जी! आप जहाँ से भी अपना व्यवसाय शुरू करना चाहते हैं, कृपया नीचे दिए गए मेन्यू से अपना राज्य, ज़िला, ब्लॉक और गाँव चुन लीजिए।"
+            elif payload.language == "mr":
+                reply = f"काही हरकत नाही {payload.user_name} जी! तुम्हाला जिथून व्यवसाय सुरू करायचा आहे, कृपया खालील मेनूमधून तुमचे राज्य, जिल्हा, ब्लॉक आणि गाव निवडा."
+            else:
+                reply = f"No problem at all {payload.user_name} Ji! Please select your preferred state, district, block, and village from the menu below."
+
+            tts_clean = clean_for_bhashini_tts(reply, payload.language)
+            return OnboardingResponse(
+                reply=reply,
+                tts_text=tts_clean,
+                extracted_fields=new_fields,
+                next_step=1,
+                next_phase="location_menu",
+                all_fields_collected=False,
+                message={"role": "assistant", "content": reply},
+            )
+
+        # Action: User submitted location from dropdown menu
+        if action == "submit_new_location":
+            if payload.language == "hi":
+                reply = f"बहुत खूब {payload.user_name} जी! आपकी लोकेशन {loc_str} सफलतापूर्वक सुरक्षित कर ली गई है। अब मुझे बताइए, आप किस तरह का व्यवसाय शुरू करना चाहते हैं? जैसे कि डेयरी, आइसक्रीम, बेकरी, कपड़े, या मोबाइल रिपेयर?"
+            elif payload.language == "mr":
+                reply = f"फार छान {payload.user_name} जी! तुमचे स्थान {loc_str} यशस्वीरित्या अपडेट झाले आहे. आता सांगा, तुम्हाला कोणत्या प्रकारचा व्यवसाय सुरू करायचा आहे?"
+            else:
+                reply = f"Excellent {payload.user_name} Ji! Your location has been confirmed as {loc_str}. Now tell me, what kind of business or product do you want to start? Like dairy, ice cream, food processing, garments, or repairs?"
+
+            tts_clean = clean_for_bhashini_tts(reply, payload.language)
+            return OnboardingResponse(
+                reply=reply,
+                tts_text=tts_clean,
+                extracted_fields=new_fields,
+                next_step=2,
+                next_phase="business_idea",
+                all_fields_collected=False,
+                message={"role": "assistant", "content": reply},
+            )
+
+        # ── Regular Conversational Turns ─────────────────────────────────────
+        last_user_msg = ""
+        for msg in reversed(payload.messages):
+            if msg.role == "user":
+                last_user_msg = msg.content
+                break
+
+        if not last_user_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No user message found in conversation",
+            )
+
+        # Extract fields from text
+        keyword_fields = _extract_fields_from_text(last_user_msg, existing_fields)
         llm_fields = _llm_extract_fields(last_user_msg)
 
-        # Merge extracted fields
         for key in set(list(keyword_fields.keys()) + list(llm_fields.keys())):
             if key not in existing_fields:
                 val = keyword_fields.get(key) or llm_fields.get(key)
@@ -519,8 +700,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
 
         merged_fields = {**existing_fields, **new_fields}
 
-        # ── Step 3: Auto-derive dependent fields without asking user ──────────
-        # 3a. Auto-infer business_category (manufacturing vs service)
+        # Auto-infer business_category
         if "sector" in merged_fields and "business_category" not in merged_fields:
             if merged_fields["sector"] in ("repair", "general", "service"):
                 merged_fields["business_category"] = "service"
@@ -529,13 +709,13 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 merged_fields["business_category"] = "manufacturing"
                 new_fields["business_category"] = "manufacturing"
 
-        # 3b. Auto-infer enterprise_name if not provided
+        # Auto-infer enterprise_name
         if "enterprise_name" not in merged_fields and "sector" in merged_fields:
             sector_label = merged_fields["sector"].replace("_", " ").title()
             merged_fields["enterprise_name"] = f"{payload.user_name}'s {sector_label} Venture"
             new_fields["enterprise_name"] = merged_fields["enterprise_name"]
 
-        # 3c. Auto-calculate annual_turnover_estimate based on project_cost
+        # Auto-calculate annual_turnover_estimate
         if "project_cost" in merged_fields and "annual_turnover_estimate" not in merged_fields:
             try:
                 cost = float(merged_fields["project_cost"])
@@ -545,22 +725,159 @@ async def process_onboarding_message(payload: OnboardingRequest):
             except (ValueError, TypeError):
                 pass
 
-        # ── Step 4: Determine missing required fields ─────────────────────────
+        # Determine missing fields
         missing = [f for f in REQUIRED_FIELDS if f not in merged_fields or not merged_fields[f]]
-        all_collected = len(missing) == 0
 
-        # ── Step 5: ODOP Strategic Synergy Generation ─────────────────────────
+        # ── Step: Business idea just provided $\rightarrow$ Sweet acknowledgment & Ask for capital ──
+        if "sector" in merged_fields and "project_cost" not in merged_fields:
+            sector_label = merged_fields["sector"].replace("_", " ").title()
+            if payload.language == "hi":
+                reply = (
+                    f"अरे वाह {payload.user_name} जी! मैंने नोट कर लिया है। सच में कितना सुंदर और दिलचस्प व्यवसाय विचार है! "
+                    f"अब मुझे यह बताइए कि इस उद्यम को शुरू करने के लिए आपके पास अपनी खुद की लगभग कितनी पूँजी या निवेश राशि तैयार है? "
+                    f"जैसे ₹2 लाख, ₹5 लाख या ₹10 लाख?"
+                )
+            elif payload.language == "mr":
+                reply = (
+                    f"अरे वा {payload.user_name} जी! मी नोंदवून घेतले आहे. किती छान आणि उत्तम व्यवसाय कल्पना आहे! "
+                    f"आता मला सांगा की हा व्यवसाय सुरू करण्यासाठी तुमच्याकडे स्वतःचे किती भांडवल किंवा गुंतवणूक तयार आहे? "
+                    f"जसे ₹2 लाख किंवा ₹5 लाख?"
+                )
+            else:
+                reply = (
+                    f"Wonderful {payload.user_name} Ji! I have noted that down. What a promising and exciting business idea! "
+                    f"Now please tell me, how much investment capital (promoter's equity) do you have ready to start? "
+                    f"For example, ₹2 lakh, ₹5 lakh, or ₹10 lakh?"
+                )
+
+            tts_clean = clean_for_bhashini_tts(reply, payload.language)
+            return OnboardingResponse(
+                reply=reply,
+                tts_text=tts_clean,
+                extracted_fields=new_fields,
+                next_step=payload.conversation_step + 1,
+                next_phase="promoter_equity",
+                all_fields_collected=False,
+                message={"role": "assistant", "content": reply},
+            )
+
+        # ── Step: ODOP Alignment & Benchmarking Check ────────────────────────
         odop_synergy = None
-        if "state_name" in merged_fields and "district_name" in merged_fields and "sector" in merged_fields:
+        if "sector" in merged_fields and "project_cost" in merged_fields:
             user_biz = merged_fields.get("enterprise_name") or f"{merged_fields['sector'].replace('_', ' ').title()} Business"
             odop_synergy = _generate_odop_synergy(
                 user_business=user_biz,
                 sector=merged_fields["sector"],
-                state=merged_fields["state_name"],
-                district=merged_fields["district_name"],
+                state=district_name,
+                district=state_name,
+            )
+            # Use real state & district
+            if existing_fields.get("state_name") and existing_fields.get("district_name"):
+                odop_synergy = _generate_odop_synergy(
+                    user_business=user_biz,
+                    sector=merged_fields["sector"],
+                    state=existing_fields["state_name"],
+                    district=existing_fields["district_name"],
+                )
+
+        # If project_cost was just collected, speak the ODOP intro & verdict
+        if "project_cost" in new_fields and odop_synergy:
+            p_crop = odop_synergy.get("primary_odop_product", "District Product")
+            score_val = odop_synergy.get("alignment_score", 75)
+            is_good_synergy = score_val >= 60
+
+            biz_desc = (
+                merged_fields.get("enterprise_name")
+                or f"{merged_fields.get('sector', 'MSME').replace('_', ' ').title()} Business"
             )
 
-        # ── Step 6: Generate MIRA's conversational response ───────────────────
+            if payload.language == "hi":
+                if is_good_synergy:
+                    synergy_spoken = (
+                        f"यह तालमेल आपके लिए बहुत ही फायदेमंद रहेगा क्योंकि आप अपने उत्पाद में स्थानीय {p_crop} का उपयोग करके "
+                        f"सीधे 35 प्रतिशत PMFME पूंजीगत सब्सिडी और स्थानीय किसान नेटवर्क का पूरा लाभ उठा सकते हैं।"
+                    )
+                else:
+                    synergy_spoken = (
+                        f"मैं आपसे बिल्कुल सच कहूँगी, आपके इस व्यवसाय के साथ {district_name} के {p_crop} का कोई उचित तालमेल नहीं बैठ रहा है "
+                        f"और इसका अलाइनमेंट स्कोर केवल {score_val} आया है। इसलिए किसी जबरदस्ती के बिना, मेरी दिल से सलाह है कि आप अपने "
+                        f"मूल विचार के साथ ही आगे बढ़ें जहाँ आपको PMEGP और मुद्रा लोन का पूरा लाभ मिलेगा।"
+                    )
+
+                reply = (
+                    f"अरे वाह {payload.user_name} जी! मैंने आपके व्यवसाय को बहुत ही गहराई और प्यार से समझ लिया है। "
+                    f"आप {district_name} में {biz_desc} शुरू करना चाहते हैं और आपका यह अंदाज़ मुझे बहुत पसंद आया! "
+                    f"क्या आप जानते हैं? सरकार की वन डिस्ट्रिक्ट वन प्रोडक्ट यानी ODOP योजना के तहत अगर आप अपने ज़िले के चयनित उत्पाद से जुड़ते हैं, "
+                    f"तो मशीनरी और प्लांट पर पूरे 35 प्रतिशत की भारी सरकारी सब्सिडी मिलती है! "
+                    f"और जहाँ तक मैंने आपके व्यवसाय को समझा है, आपके {district_name} ज़िले का आधिकारिक ODOP {p_crop} है और आपका व्यवसाय विचार {biz_desc} का है। "
+                    f"मैंने इन दोनों को मिलाकर आपके लिए एक सुंदर रास्ता तैयार किया है, और इसका अलाइनमेंट स्कोर 100 में से {score_val} आया है! "
+                    f"{synergy_spoken} "
+                    f"नीचे दिए गए कार्ड में मैंने आपका पूरा विश्लेषण तैयार किया है। तो अब आप मुझे बताइए, आप क्या चुनना चाहेंगे:\n"
+                    f"1. ODOP से जुड़ें\n"
+                    f"2. अपना मूल विचार रखें"
+                )
+            elif payload.language == "mr":
+                if is_good_synergy:
+                    synergy_spoken_mr = (
+                        f"हा मेळ तुमच्यासाठी अत्यंत फायदेशीर ठरेल! कारण तुम्ही स्थानिक {p_crop} चा वापर करून थेट 35 टक्के सरकारी सबसिडी "
+                        f"आणि स्थानिक शेतकरी क्लस्टरचा पूर्ण लाभ घेऊ शकता."
+                    )
+                else:
+                    synergy_spoken_mr = (
+                        f"मी तुमच्याशी अगदी खरे बोलेन, तुमच्या या व्यवसायाचा {district_name} च्या {p_crop} सोबत कोणताही थेट मेळ बसत नाही "
+                        f"आणि याचा स्कोअर फक्त {score_val} आला आहे. म्हणूनच जबरदस्ती न करता, तुम्ही तुमच्या मूळ कल्पनेसह पुढे जावे हा माझा सल्ला आहे."
+                    )
+
+                reply = (
+                    f"अरे वा {payload.user_name} जी! मी तुमचा व्यवसाय अतिशय प्रेमाने आणि काळजीपूर्वक समजून घेतला आहे. "
+                    f"तुम्ही {district_name} मध्ये {biz_desc} सुरू करू इच्छिता आणि तुमची ही कल्पना मला मनापासून आवडली! "
+                    f"तुम्हाला माहिती आहे का? शासनाच्या एक जिल्हा एक उत्पादन म्हणजेच ODOP योजनेअंतर्गत स्थानिक उत्पादनाशी जोडल्यास यंत्रसामग्रीवर तब्बल 35 टक्के सबसिडी मिळते! "
+                    f"मला समजले त्यानुसार तुमच्या {district_name} जिल्ह्याचे मुख्य उत्पादन {p_crop} आहे आणि तुमची कल्पना {biz_desc} ची आहे. "
+                    f"मी या दोघांचा अतिशय सुंदर मेळ घातला असून त्याचा स्कोअर 100 पैकी {score_val} आला आहे! "
+                    f"{synergy_spoken_mr} "
+                    f"आता मला सांगा, तुम्हाला कोणता पर्याय निवडायला आवडेल:\n"
+                    f"1. ODOP शी जोडा\n"
+                    f"2. माझी मूळ कल्पना ठेवा"
+                )
+            else:
+                if is_good_synergy:
+                    synergy_spoken_en = (
+                        f"This alignment is wonderfully beneficial for you! By integrating {district_name}'s local {p_crop} into your venture, "
+                        f"you qualify for the 35 percent PMFME capital grant up to 10 lakh rupees and direct farmer sourcing."
+                    )
+                else:
+                    synergy_spoken_en = (
+                        f"I will be completely honest with you my dear friend. Forced alignment with {district_name}'s {p_crop} does not make practical sense "
+                        f"for your venture, and its alignment score is only {score_val} out of 100. My sincere recommendation is to proudly proceed with your "
+                        f"original business model under standard PMEGP and Mudra loan schemes."
+                    )
+
+                reply = (
+                    f"Oh wonderful {payload.user_name} Ji! I have understood your business venture deeply and lovingly. "
+                    f"You wish to establish {biz_desc} in {district_name}, and I truly admire your dedication! "
+                    f"Did you know? Under the government's One District One Product ODOP initiative, enterprises aligned with their district's designated product get a massive 35 percent capital subsidy on machinery! "
+                    f"From what I have understood, your district {district_name} has {p_crop} as its official ODOP, while your business idea is {biz_desc}. "
+                    f"I tried aligning both for you, and here is your strategic match with an alignment score of {score_val} out of 100! "
+                    f"{synergy_spoken_en} "
+                    f"I have presented your complete alignment match in the card below. Now please tell me what you would love to choose:\n"
+                    f"1. Align with ODOP\n"
+                    f"2. Keep my idea"
+                )
+
+            tts_clean = clean_for_bhashini_tts(reply, payload.language)
+            return OnboardingResponse(
+                reply=reply,
+                tts_text=tts_clean,
+                extracted_fields=new_fields,
+                next_step=payload.conversation_step + 1,
+                next_phase="odop_alignment",
+                all_fields_collected=len(missing) == 0,
+                odop_alignment=odop_synergy,
+                odop_comparison=odop_synergy,
+                message={"role": "assistant", "content": reply},
+            )
+
+        # General MIRA conversational response fallback
         conversation_history = [
             {"role": m.role, "content": m.content}
             for m in payload.messages
@@ -574,22 +891,15 @@ async def process_onboarding_message(payload: OnboardingRequest):
             missing_fields=missing,
         )
 
-        next_step = payload.conversation_step + 1
-        latency_ms = (time.perf_counter() - start_time) * 1000
-
-        logger.info(
-            "🧭 [ONBOARDING] Extracted %d new fields | Total: %d/%d | Missing: %s | ⏱️ %dms",
-            len(new_fields),
-            len(merged_fields),
-            len(REQUIRED_FIELDS),
-            ", ".join(missing[:3]) if missing else "NONE (ALL READY)",
-            int(latency_ms),
-        )
+        all_collected = len(missing) == 0
+        tts_clean = clean_for_bhashini_tts(mira_reply, payload.language)
 
         return OnboardingResponse(
             reply=mira_reply,
+            tts_text=tts_clean,
             extracted_fields=new_fields,
-            next_step=next_step,
+            next_step=payload.conversation_step + 1,
+            next_phase="completed" if all_collected else "chatting",
             all_fields_collected=all_collected,
             odop_alignment=odop_synergy,
             odop_comparison=odop_synergy,
