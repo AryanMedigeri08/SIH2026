@@ -8056,18 +8056,19 @@
         "data_tier": "curated"
       },
       "Thane": {
-        "odop_product": "Dairy Processing & Fish Marine Products",
-        "secondary_product": "Warli Tribal Art & Handicrafts",
-        "category": "Agro-Food Processing & Marine Cluster",
+        "odop_product": "Millets (Ragi, Nagli & Millet based products)",
+        "secondary_product": "Dairy Processing & Fish Marine Products",
+        "category": "Agro-Food Processing & Millets Cluster",
         "matching_sectors": [
           "dairy",
           "food_processing",
+          "agriculture",
           "artisan_trades"
         ],
         "pmfme_eligible": true,
-        "gem_category": "Fresh Dairy Products, Processed Fish & Traditional Art",
+        "gem_category": "Millet Products, Fresh Dairy & Marine Produce",
         "cfc_available": true,
-        "raw_material_availability": "Thane rural coastal belt, Kalyan-Bhiwandi dairy sheds and Dahanu-Warli artisan belt",
+        "raw_material_availability": "Thane rural tribal belt (Shahapur, Murbad), Kalyan-Bhiwandi dairy sheds",
         "rbi_psl_category": "Micro Food Processing & Priority Sector Lending",
         "key_benefits": [
           "PMFME 35% credit-linked capital subsidy up to ₹10 Lakhs",
@@ -8076,6 +8077,7 @@
           "NABARD rural infrastructure development support"
         ],
         "dpiit_odop_products": [
+          "Millets & Processed Food Products",
           "Garments & Textiles"
         ],
         "pmfme_odop_product": "Millet based products (Hill Millet/ ragi etc.)",

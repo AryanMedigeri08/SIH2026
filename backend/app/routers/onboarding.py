@@ -151,24 +151,46 @@ def clean_for_bhashini_tts(text: str, lang: str = "hi") -> str:
 
 # ── Sector Name Mapping ─────────────────────────────────────────────────────
 SECTOR_MAP = {
+    # Dairy
     "dairy": "dairy", "milk": "dairy", "cow": "dairy", "buffalo": "dairy",
     "दूध": "dairy", "डेयरी": "dairy", "गाय": "dairy", "भैंस": "dairy",
+    "ice cream": "dairy", "icecream": "dairy", "कुल्फी": "dairy", "आइसक्रीम": "dairy",
+    "paneer": "dairy", "पनीर": "dairy", "ghee": "dairy", "घी": "dairy", "butter": "dairy", "मक्खन": "dairy",
+
+    # Food Processing
     "food": "food_processing", "snacks": "food_processing", "pickle": "food_processing",
     "bakery": "food_processing", "papad": "food_processing", "chips": "food_processing",
-    "ice cream": "dairy", "icecream": "dairy", "कुल्फी": "dairy", "आइसक्रीम": "dairy",
     "खाना": "food_processing", "खाद्य": "food_processing", "नमकीन": "food_processing",
-    "अचार": "food_processing", "बेकरी": "food_processing",
+    "अचार": "food_processing", "बेकरी": "food_processing", "पापड़": "food_processing",
+    "restaurant": "food_processing", "hotel": "food_processing", "होटल": "food_processing",
+    "cafe": "food_processing", "कैफे": "food_processing", "catering": "food_processing",
+    "sweet": "food_processing", "sweets": "food_processing", "मिठाई": "food_processing",
+    "millet": "food_processing", "मिलेट": "food_processing", "flour": "food_processing", "आटा": "food_processing",
+    "spices": "food_processing", "masala": "food_processing", "मसाला": "food_processing",
+    "juice": "food_processing", "जूस": "food_processing", "oil": "food_processing", "तेल": "food_processing",
+
+    # Repair & Electronics
     "repair": "repair", "mobile": "repair", "electronics": "repair", "mechanic": "repair",
-    "मरम्मत": "repair", "मोबाइल": "repair", "इलेक्ट्रॉनिक्स": "repair",
+    "मरम्मत": "repair", "मोबाइल": "repair", "इलेक्ट्रॉनिक्स": "repair", "मैकेनिक": "repair",
+    "auto": "repair", "garage": "repair", "ऑटो": "repair", "गैराज": "repair", "bike": "repair",
+
+    # Apparel & Textiles
     "cloth": "apparel", "apparel": "apparel", "garment": "apparel", "tailoring": "apparel",
-    "कपड़े": "apparel", "सिलाई": "apparel", "दर्जी": "apparel",
+    "कपड़े": "apparel", "सिलाई": "apparel", "दर्जी": "apparel", "boutique": "apparel", "बुटीक": "apparel",
+    "textile": "apparel", "कपड़ा": "apparel", "dress": "apparel",
+
+    # Fabrication & Engineering
     "fabrication": "fabrication", "welding": "fabrication", "steel": "fabrication",
-    "वेल्डिंग": "fabrication", "लोहा": "fabrication",
+    "वेल्डिंग": "fabrication", "लोहा": "fabrication", "फ्रेब्रिकेशन": "fabrication", "iron": "fabrication",
+
+    # Artisan & Handicrafts
     "artisan": "artisan_trades", "handicraft": "artisan_trades", "craft": "artisan_trades",
-    "pottery": "artisan_trades", "weaving": "artisan_trades",
+    "pottery": "artisan_trades", "weaving": "artisan_trades", "कुम्हार": "artisan_trades",
     "हस्तशिल्प": "artisan_trades", "बुनाई": "artisan_trades", "मिट्टी": "artisan_trades",
-    "salon": "service", "beauty": "service", "parlour": "service",
-    "shop": "general", "store": "general", "kirana": "general", "दुकान": "general",
+
+    # Services & Retail
+    "salon": "service", "beauty": "service", "parlour": "service", "ब्यूटी": "service", "पार्लर": "service",
+    "shop": "general", "store": "general", "kirana": "general", "दुकान": "general", "किराना": "general",
 }
 
 CATEGORY_MAP = {
@@ -230,11 +252,12 @@ Fields to extract if present in the text:
 - promoter_category: one of "general", "sc", "st", "obc", "women", "women_shg"
 - state_name: string (if mentioned)
 - district_name: string (if mentioned)
-- project_cost: number (total investment in INR, convert lakhs/crores to absolute value: e.g. 2 lakh = 200000)
+- promoter_equity: number (the user's own investment capital/promoter's equity in INR, e.g. 1 lakh = 100000, 50 thousand = 50000)
+- project_cost: number (total investment in INR if explicitly stated)
 - additional_business_details: string (any extra business context)
 
 DO NOT extract annual_turnover_estimate or gross sales.
-Return JSON like: {"enterprise_name": "Sharma Ice Cream", "sector": "dairy", "project_cost": 300000}
+Return JSON like: {"enterprise_name": "Sharma Ice Cream", "sector": "dairy", "promoter_equity": 100000}
 Empty JSON {} is valid if no structured fields are present.
 """
 
@@ -251,12 +274,12 @@ STILL NEEDED:
 {missing_fields}
 
 CRITICAL RULES (FOLLOW STRICTLY):
-1. TONE: Loving, caring, polite, charming, sweet, calm, and encouraging. Make {user_name} feel valued, excited, and confident.
+1. TONE: Loving, caring, polite, charming, sweet, calm, and encouraging. Make {user_name} feel valued, excited, and confident. Never command the user to be polite or say 'प्यार से बताइए' — you be polite and respectful to them!
 2. DO NOT ASK FOR LOCATION: Location is already confirmed as {location_info}. Never ask state or district!
 3. DO NOT ASK FOR ANNUAL SALES / TURNOVER: Never ask for turnover, yearly sales, or gross sales. That is computed by the backend.
 4. QUESTIONS TO ASK (ask only ONE at a time in very sweet, natural language):
-   - If business idea is missing: Praise them, and ask what type of business or product they want to start with lovely examples (e.g. ice cream, dairy, bakery, clothes/boutique, mobile repair).
-   - If investment is missing: Praise their business idea charmingly ("अरे वाह! कितना सुंदर विचार है"), then ask how much capital / promoter's equity they have ready to invest.
+   - If business idea is missing: Politely ask what type of business or product they want to start with lovely examples (e.g. ice cream, dairy, bakery, clothes/boutique, mobile repair).
+   - If promoter's equity is missing: Praise their business idea charmingly, then politely ask how much promoter equity (their own contribution/capital) they have ready to invest.
 5. LENGTH: Keep responses to 2-3 sweet, clear sentences. No long lectures.
 """
 
@@ -288,7 +311,7 @@ def _extract_fields_from_text(text: str, existing_fields: dict) -> dict:
             extracted["business_category"] = bcat_val
             break
 
-    # Investment / project cost
+    # Promoter's Equity / investment amount
     cost_patterns = [
         (r'(?:₹|rs\.?|rupees?)\s*(\d+(?:\.\d+)?)\s*(?:lakh|lac|लाख)', lambda m: float(m.group(1)) * 100000),
         (r'(\d+(?:\.\d+)?)\s*(?:lakh|lac|लाख)', lambda m: float(m.group(1)) * 100000),
@@ -297,11 +320,11 @@ def _extract_fields_from_text(text: str, existing_fields: dict) -> dict:
         (r'(?:₹|rs\.?|rupees?)\s*(\d{4,})', lambda m: float(m.group(1))),
     ]
 
-    if "project_cost" not in existing_fields:
+    if "promoter_equity" not in existing_fields and "project_cost" not in existing_fields:
         for pattern, converter in cost_patterns:
             match = re.search(pattern, text_lower, re.IGNORECASE)
             if match:
-                extracted["project_cost"] = converter(match)
+                extracted["promoter_equity"] = converter(match)
                 break
 
     return extracted
@@ -618,11 +641,11 @@ async def process_onboarding_message(payload: OnboardingRequest):
         # Action: User confirmed the auto-detected location
         if action == "confirm_location":
             if payload.language == "hi":
-                reply = f"बहुत अच्छा लगा {payload.user_name} जी! हम {loc_str} से आपकी खूबसूरत व्यवसाय यात्रा शुरू कर रहे हैं। अब मुझे प्यार से बताइए, आप किस तरह का व्यवसाय शुरू करना चाहते हैं? जैसे कि डेयरी फार्म, आइसक्रीम पार्लर, बेकरी, कपड़ों की दुकान या मोबाइल रिपेयर?"
+                reply = f"बहुत अच्छा लगा {payload.user_name} जी! हम {loc_str} से आपकी खूबसूरत व्यवसाय यात्रा शुरू कर रहे हैं। कृपया मुझे बताइए कि आप किस प्रकार का व्यवसाय शुरू करना चाहते हैं? जैसे कि डेयरी फार्म, आइसक्रीम पार्लर, बेकरी, कपड़ों की दुकान या मोबाइल रिपेयर?"
             elif payload.language == "mr":
-                reply = f"खूप छान {payload.user_name} जी! आपण {loc_str} मधून तुमचा व्यवसाय प्रवास सुरू करत आहोत. आता मला सांगा, तुम्हाला कोणत्या प्रकारचा व्यवसाय सुरू करायचा आहे? जसे की डेअरी, आईस्क्रीम, बेकरी, कापड दुकान किंवा मोबाइल दुरुस्ती?"
+                reply = f"खूप छान {payload.user_name} जी! आपण {loc_str} मधून तुमचा व्यवसाय प्रवास सुरू करत आहोत. कृपया मला सांगा की तुम्हाला कोणत्या प्रकारचा व्यवसाय सुरू करायचा आहे? जसे की डेअरी, आईस्क्रीम, बेकरी, कापड दुकान किंवा मोबाइल दुरुस्ती?"
             else:
-                reply = f"Wonderful {payload.user_name} Ji! We are beginning your entrepreneurial journey in {loc_str}. Now please tell me, what type of business or product do you want to start? For example, an ice cream venture, bakery, garment boutique, dairy farm, or repair center?"
+                reply = f"Wonderful {payload.user_name} Ji! We are beginning your entrepreneurial journey in {loc_str}. Could you please tell me what type of business or product you want to start? For example, an ice cream venture, bakery, garment boutique, dairy farm, or repair center?"
 
             tts_clean = clean_for_bhashini_tts(reply, payload.language)
             return OnboardingResponse(
@@ -658,11 +681,11 @@ async def process_onboarding_message(payload: OnboardingRequest):
         # Action: User submitted location from dropdown menu
         if action == "submit_new_location":
             if payload.language == "hi":
-                reply = f"बहुत खूब {payload.user_name} जी! आपकी लोकेशन {loc_str} सफलतापूर्वक सुरक्षित कर ली गई है। अब मुझे बताइए, आप किस तरह का व्यवसाय शुरू करना चाहते हैं? जैसे कि डेयरी, आइसक्रीम, बेकरी, कपड़े, या मोबाइल रिपेयर?"
+                reply = f"बहुत खूब {payload.user_name} जी! आपकी लोकेशन {loc_str} सफलतापूर्वक सुरक्षित कर ली गई है। कृपया मुझे बताइए कि आप किस प्रकार का व्यवसाय शुरू करना चाहते हैं? जैसे कि डेयरी, आइसक्रीम, बेकरी, कपड़े, या मोबाइल रिपेयर?"
             elif payload.language == "mr":
-                reply = f"फार छान {payload.user_name} जी! तुमचे स्थान {loc_str} यशस्वीरित्या अपडेट झाले आहे. आता सांगा, तुम्हाला कोणत्या प्रकारचा व्यवसाय सुरू करायचा आहे?"
+                reply = f"फार छान {payload.user_name} जी! तुमचे स्थान {loc_str} यशस्वीरित्या अपडेट झाले आहे. कृपया मला सांगा की तुम्हाला कोणत्या प्रकारचा व्यवसाय सुरू करायचा आहे?"
             else:
-                reply = f"Excellent {payload.user_name} Ji! Your location has been confirmed as {loc_str}. Now tell me, what kind of business or product do you want to start? Like dairy, ice cream, food processing, garments, or repairs?"
+                reply = f"Excellent {payload.user_name} Ji! Your location has been confirmed as {loc_str}. Could you please tell me what kind of business or product you want to start? Like dairy, ice cream, food processing, garments, or repairs?"
 
             tts_clean = clean_for_bhashini_tts(reply, payload.language)
             return OnboardingResponse(
@@ -700,7 +723,41 @@ async def process_onboarding_message(payload: OnboardingRequest):
 
         merged_fields = {**existing_fields, **new_fields}
 
-        # Auto-infer business_category
+        # ── Auto-Detect Sector on Business Idea turn to NEVER ask twice ─────
+        if "sector" not in merged_fields and last_user_msg:
+            text_l = last_user_msg.lower()
+            # Check if this message was an amount, not a business idea
+            is_amount_only = bool(re.search(r'^\s*(?:₹|rs\.?)?\s*\d+(?:\.\d+)?\s*(?:lakh|lac|लाख|crore|करोड़|k)?\s*$', text_l))
+            if not is_amount_only:
+                detected_sector = "general"
+                if any(w in text_l for w in ["दूध", "डेयरी", "गाय", "भैंस", "आइसक्रीम", "dairy", "milk", "kulfi", "ice cream"]):
+                    detected_sector = "dairy"
+                elif any(w in text_l for w in ["खाद्य", "खाना", "food", "मसाला", "अचार", "बेकरी", "मिठाई", "जूस", "तेल", "sweet", "grain", "snack", "bakery", "restaurant", "cafe", "hotel", "होटल"]):
+                    detected_sector = "food_processing"
+                elif any(w in text_l for w in ["कपड़ा", "कपड़े", "सिलाई", "दर्जी", "boutique", "cloth", "garment", "apparel", "textile"]):
+                    detected_sector = "apparel"
+                elif any(w in text_l for w in ["गाड़ी", "मोबाइल", "मरम्मत", "repair", "service", "mechanic", "electronics", "auto"]):
+                    detected_sector = "repair"
+                elif any(w in text_l for w in ["लोहा", "वेल्डिंग", "fabrication", "steel", "iron"]):
+                    detected_sector = "fabrication"
+                elif any(w in text_l for w in ["हस्तशिल्प", "art", "craft", "wood", "pottery", "weaving"]):
+                    detected_sector = "artisan_trades"
+                elif any(w in text_l for w in ["salon", "beauty", "parlour", "दुकान", "किराना", "shop", "store"]):
+                    detected_sector = "service"
+                else:
+                    detected_sector = "food_processing" if ("बनाना" in text_l or "manufacturing" in text_l or "उत्पादन" in text_l) else "general"
+
+                new_fields["sector"] = detected_sector
+                merged_fields["sector"] = detected_sector
+                new_fields["additional_business_details"] = last_user_msg
+                merged_fields["additional_business_details"] = last_user_msg
+                clean_name = last_user_msg.strip()
+                if len(clean_name) > 50:
+                    clean_name = clean_name[:50] + "..."
+                new_fields["enterprise_name"] = clean_name
+                merged_fields["enterprise_name"] = clean_name
+
+        # ── Auto-infer business_category ─────────────────────────────────────
         if "sector" in merged_fields and "business_category" not in merged_fields:
             if merged_fields["sector"] in ("repair", "general", "service"):
                 merged_fields["business_category"] = "service"
@@ -715,6 +772,29 @@ async def process_onboarding_message(payload: OnboardingRequest):
             merged_fields["enterprise_name"] = f"{payload.user_name}'s {sector_label} Venture"
             new_fields["enterprise_name"] = merged_fields["enterprise_name"]
 
+        # ── Check for Promoter's Equity in message ───────────────────────────
+        cost_patterns = [
+            (r'(?:₹|rs\.?|rupees?)\s*(\d+(?:\.\d+)?)\s*(?:lakh|lac|लाख)', lambda m: float(m.group(1)) * 100000),
+            (r'(\d+(?:\.\d+)?)\s*(?:lakh|lac|लाख)', lambda m: float(m.group(1)) * 100000),
+            (r'(?:₹|rs\.?|rupees?)\s*(\d+(?:\.\d+)?)\s*(?:crore|करोड़)', lambda m: float(m.group(1)) * 10000000),
+            (r'(\d+(?:\.\d+)?)\s*(?:crore|करोड़)', lambda m: float(m.group(1)) * 10000000),
+            (r'(?:₹|rs\.?|rupees?)\s*(\d{4,})', lambda m: float(m.group(1))),
+        ]
+
+        if "promoter_equity" not in existing_fields:
+            for pattern, converter in cost_patterns:
+                match = re.search(pattern, last_user_msg, re.IGNORECASE)
+                if match:
+                    eq_val = converter(match)
+                    new_fields["promoter_equity"] = eq_val
+                    merged_fields["promoter_equity"] = eq_val
+                    # Derive project_cost assuming ~15% promoter margin in MSME lending
+                    if "project_cost" not in merged_fields:
+                        derived_cost = round(eq_val / 0.15, -2)
+                        new_fields["project_cost"] = derived_cost
+                        merged_fields["project_cost"] = derived_cost
+                    break
+
         # Auto-calculate annual_turnover_estimate
         if "project_cost" in merged_fields and "annual_turnover_estimate" not in merged_fields:
             try:
@@ -728,26 +808,26 @@ async def process_onboarding_message(payload: OnboardingRequest):
         # Determine missing fields
         missing = [f for f in REQUIRED_FIELDS if f not in merged_fields or not merged_fields[f]]
 
-        # ── Step: Business idea just provided $\rightarrow$ Sweet acknowledgment & Ask for capital ──
-        if "sector" in merged_fields and "project_cost" not in merged_fields:
+        # ── Step: Business idea just provided -> Sweet acknowledgment & Ask for Promoter's Equity ──
+        if "sector" in merged_fields and "promoter_equity" not in merged_fields and "promoter_equity" not in new_fields:
             sector_label = merged_fields["sector"].replace("_", " ").title()
             if payload.language == "hi":
                 reply = (
-                    f"अरे वाह {payload.user_name} जी! मैंने नोट कर लिया है। सच में कितना सुंदर और दिलचस्प व्यवसाय विचार है! "
-                    f"अब मुझे यह बताइए कि इस उद्यम को शुरू करने के लिए आपके पास अपनी खुद की लगभग कितनी पूँजी या निवेश राशि तैयार है? "
-                    f"जैसे ₹2 लाख, ₹5 लाख या ₹10 लाख?"
+                    f"अरे वाह {payload.user_name} जी! मैंने नोट कर लिया है। सच में आपका यह व्यवसाय विचार बहुत ही सुंदर और दिलचस्प है! "
+                    f"कृपया मुझे बताइए कि इस उद्यम को शुरू करने के लिए आपके पास अपनी खुद की कितनी प्रमोटर इक्विटी यानी आपकी अपनी बचत या पूँजी तैयार है? "
+                    f"जैसे ₹50,000, ₹1 लाख या ₹2 लाख?"
                 )
             elif payload.language == "mr":
                 reply = (
-                    f"अरे वा {payload.user_name} जी! मी नोंदवून घेतले आहे. किती छान आणि उत्तम व्यवसाय कल्पना आहे! "
-                    f"आता मला सांगा की हा व्यवसाय सुरू करण्यासाठी तुमच्याकडे स्वतःचे किती भांडवल किंवा गुंतवणूक तयार आहे? "
-                    f"जसे ₹2 लाख किंवा ₹5 लाख?"
+                    f"अरे वा {payload.user_name} जी! मी नोंदवून घेतले आहे. तुमची ही व्यवसाय कल्पना खूपच सुंदर आणि उत्तम आहे! "
+                    f"कृपया मला सांगा की हा व्यवसाय सुरू करण्यासाठी तुमच्याकडे स्वतःचे किती प्रमोटर इक्विटी भांडवल किंवा स्वतःची बचत तयार आहे? "
+                    f"जसे ₹50,000, ₹1 लाख किंवा ₹2 लाख?"
                 )
             else:
                 reply = (
                     f"Wonderful {payload.user_name} Ji! I have noted that down. What a promising and exciting business idea! "
-                    f"Now please tell me, how much investment capital (promoter's equity) do you have ready to start? "
-                    f"For example, ₹2 lakh, ₹5 lakh, or ₹10 lakh?"
+                    f"Could you please share how much promoter equity (your own personal capital or savings) you have ready to start? "
+                    f"For example, ₹50,000, ₹1 Lakh, or ₹2 Lakhs?"
                 )
 
             tts_clean = clean_for_bhashini_tts(reply, payload.language)
@@ -763,25 +843,20 @@ async def process_onboarding_message(payload: OnboardingRequest):
 
         # ── Step: ODOP Alignment & Benchmarking Check ────────────────────────
         odop_synergy = None
-        if "sector" in merged_fields and "project_cost" in merged_fields:
-            user_biz = merged_fields.get("enterprise_name") or f"{merged_fields['sector'].replace('_', ' ').title()} Business"
+        if "sector" in merged_fields and ("project_cost" in merged_fields or "promoter_equity" in merged_fields):
+            user_biz = merged_fields.get("additional_business_details") or merged_fields.get("enterprise_name") or f"{merged_fields['sector'].replace('_', ' ').title()} Business"
+            # Use verified state & district
+            s_name = existing_fields.get("state_name") or state_name
+            d_name = existing_fields.get("district_name") or district_name
             odop_synergy = _generate_odop_synergy(
                 user_business=user_biz,
                 sector=merged_fields["sector"],
-                state=district_name,
-                district=state_name,
+                state=s_name,
+                district=d_name,
             )
-            # Use real state & district
-            if existing_fields.get("state_name") and existing_fields.get("district_name"):
-                odop_synergy = _generate_odop_synergy(
-                    user_business=user_biz,
-                    sector=merged_fields["sector"],
-                    state=existing_fields["state_name"],
-                    district=existing_fields["district_name"],
-                )
 
-        # If project_cost was just collected, speak the ODOP intro & verdict
-        if "project_cost" in new_fields and odop_synergy:
+        # If promoter_equity was just collected, speak the ODOP intro & verdict
+        if ("promoter_equity" in new_fields or "project_cost" in new_fields) and odop_synergy:
             p_crop = odop_synergy.get("primary_odop_product", "District Product")
             score_val = odop_synergy.get("alignment_score", 75)
             is_good_synergy = score_val >= 60

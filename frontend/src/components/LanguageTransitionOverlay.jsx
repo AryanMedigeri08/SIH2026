@@ -16,6 +16,11 @@ const SETTLE_CHECK_INTERVAL = 300;
 const FADE_DURATION_MS = 600;
 
 export function LanguageTransitionOverlay() {
+  // Do not show transition overlay during onboarding
+  if (typeof window !== "undefined" && window.location.pathname.includes("onboarding")) {
+    return null;
+  }
+
   const {
     isTransitioning,
     previousLanguage,

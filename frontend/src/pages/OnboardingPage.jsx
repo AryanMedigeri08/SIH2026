@@ -53,7 +53,6 @@ const ONBOARDING_LANGUAGES = [
     code: "hi",
     label: "Hindi",
     native: "हिन्दी",
-    initials: "अआइ",
     gradient: "from-orange-500 to-amber-600",
     gradientBorder: "border-orange-400/60",
     selectedGlow: "ring-orange-400/50 shadow-orange-500/20",
@@ -63,7 +62,6 @@ const ONBOARDING_LANGUAGES = [
     code: "en",
     label: "English",
     native: "English",
-    initials: "ABC",
     gradient: "from-sky-500 to-blue-600",
     gradientBorder: "border-sky-400/60",
     selectedGlow: "ring-sky-400/50 shadow-sky-500/20",
@@ -73,7 +71,6 @@ const ONBOARDING_LANGUAGES = [
     code: "mr",
     label: "Marathi",
     native: "मराठी",
-    initials: "अआइ",
     gradient: "from-emerald-500 to-teal-600",
     gradientBorder: "border-emerald-400/60",
     selectedGlow: "ring-emerald-400/50 shadow-emerald-500/20",
@@ -83,7 +80,6 @@ const ONBOARDING_LANGUAGES = [
     code: "te",
     label: "Telugu",
     native: "తెలుగు",
-    initials: "అఆఇ",
     gradient: "from-purple-500 to-violet-600",
     gradientBorder: "border-purple-400/60",
     selectedGlow: "ring-purple-400/50 shadow-purple-500/20",
@@ -93,7 +89,6 @@ const ONBOARDING_LANGUAGES = [
     code: "ta",
     label: "Tamil",
     native: "தமிழ்",
-    initials: "அஆஇ",
     gradient: "from-rose-500 to-pink-600",
     gradientBorder: "border-rose-400/60",
     selectedGlow: "ring-rose-400/50 shadow-rose-500/20",
@@ -103,7 +98,6 @@ const ONBOARDING_LANGUAGES = [
     code: "kn",
     label: "Kannada",
     native: "ಕನ್ನಡ",
-    initials: "ಅಆಇ",
     gradient: "from-cyan-500 to-indigo-600",
     gradientBorder: "border-cyan-400/60",
     selectedGlow: "ring-cyan-400/50 shadow-cyan-500/20",
@@ -124,7 +118,7 @@ const GREETINGS = {
 export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const navigate = useNavigate();
   const { userProfile, token, updateProfile } = useAuth();
-  const { setLanguage } = useLanguage();
+  const { setLanguage, dismissTransition } = useLanguage();
   const { createAndSaveBusiness } = useBusiness();
 
   // ─── State Management ──────────────────────────────────────────────────
@@ -350,7 +344,10 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   // ─── Step 1: Language Selected & Initial Greeting ───────────────────────
   const handleLanguageSelect = useCallback(async (langCode) => {
     setSelectedLang(langCode);
-    setLanguage(langCode);
+    setLanguage(langCode, false);
+    if (dismissTransition) {
+      dismissTransition();
+    }
 
     if (token && updateProfile) {
       try {
@@ -844,13 +841,10 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   } bg-white`}
                 >
                   <div className={`absolute top-0 left-3 right-3 h-1 rounded-b-full bg-gradient-to-r ${lang.gradient} opacity-${isSelected ? '100' : '0'} group-hover:opacity-100 transition-opacity duration-300`} />
-                  <div className={`text-2xl sm:text-3xl font-black mb-2 bg-gradient-to-r ${lang.gradient} bg-clip-text text-transparent leading-tight`}>
-                    {lang.initials}
-                  </div>
-                  <div className="text-base sm:text-lg font-bold text-slate-900 mb-0.5">
+                  <div className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5 group-hover:text-indigo-950 transition-colors">
                     {lang.native}
                   </div>
-                  <div className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">
+                  <div className="text-xs text-slate-500 font-semibold tracking-wide">
                     {lang.label}
                   </div>
                   {isSelected && (

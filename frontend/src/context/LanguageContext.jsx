@@ -796,14 +796,16 @@ export function LanguageProvider({ children }) {
     }
   }, []);
 
-  const setLanguage = useCallback((nextLanguage) => {
+  const setLanguage = useCallback((nextLanguage, showTransition = true) => {
     const valid = LANGUAGES.some(({ code }) => code === nextLanguage) ? nextLanguage : "en";
     if (valid === language) return; // No-op for same language
 
-    // Trigger transition overlay
-    setPreviousLanguage(language);
-    pendingTranslationCount.current = 0;
-    setIsTransitioning(true);
+    // Trigger transition overlay only if requested
+    if (showTransition) {
+      setPreviousLanguage(language);
+      pendingTranslationCount.current = 0;
+      setIsTransitioning(true);
+    }
 
     localStorage.setItem(LANGUAGE_STORAGE_KEY, valid);
     setLanguageState(valid);
