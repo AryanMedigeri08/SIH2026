@@ -16,6 +16,7 @@ logger = logging.getLogger("udyam_saathi.feasibility")
 
 from financial_calculator import (
     emi_with_moratorium, working_capital_estimate, compute_dscr, rank_eligible_schemes,
+    compute_break_even_and_payback,
 )
 from market_analyzer import (
     project_population, estimate_tam, compute_msme_density, compute_competition_intensity,
@@ -29,6 +30,11 @@ from executive_synthesizer import generate_executive_synthesis
 from dpr_generator import build_bank_dpr, dpr_to_printable_markdown, dpr_to_html, BankDPRDocument
 from amenities_client import fetch_village_amenities
 from opportunity_matcher import get_alternative_recommendations
+
+try:
+    from app.core.machinery_matcher import calculate_intelligent_turnover
+except ImportError:
+    from backend.app.core.machinery_matcher import calculate_intelligent_turnover
 
 from app.config import settings
 from app.database import db_manager
@@ -110,7 +116,6 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     )
 
     # 2. Financial & Scheme Optimization (Tier 1)
-    wc = working_capital_estimate(input_data.annual_turnover_estimate, input_data.sector)
     schemes = rank_eligible_schemes(
         project_cost=input_data.project_cost,
         business_category=input_data.business_category,
@@ -127,6 +132,19 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     loan_principal = max(input_data.project_cost - top_scheme.subsidy_grant_amount - promoter_margin_val, 1.0)
     amort = emi_with_moratorium(loan_principal, top_scheme.effective_interest_rate_pct, input_data.tenure_years, input_data.moratorium_months)
 
+    # Intelligently ground annual turnover with physical machine capacity, Census TAM, and RBI debt solvency
+    turnover_audit = calculate_intelligent_turnover(
+        project_cost=input_data.project_cost,
+        sector=input_data.sector,
+        business_category=input_data.business_category,
+        expected_monthly_units=input_data.expected_monthly_units,
+        annual_tam=tam.annual_tam,
+        monthly_emi=amort.monthly_emi,
+    )
+    if not input_data.annual_turnover_estimate or input_data.annual_turnover_estimate <= 0:
+        input_data.annual_turnover_estimate = turnover_audit["projected_turnover"]
+
+    wc = working_capital_estimate(input_data.annual_turnover_estimate, input_data.sector)
     monthly_noi = input_data.monthly_net_operating_income_override or (input_data.annual_turnover_estimate * 0.30 / 12)
     dscr_res = compute_dscr(monthly_noi, amort.monthly_emi)
     subsidy_coverage_ratio = top_scheme.subsidy_grant_amount / input_data.project_cost if input_data.project_cost else 0.0
@@ -134,7 +152,8 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     logger.info(
         f"🏛️ [TIER 1 SCHEMES] Querying Source: 'government_schemes.json' | Evaluated {len(schemes)} schemes -> "
         f"Top Scheme: {top_scheme.scheme_id} ({top_scheme.full_name}) | Subsidy: ₹{top_scheme.subsidy_grant_amount:,.0f} ({subsidy_coverage_ratio * 100:.1f}%) | "
-        f"EMI: ₹{amort.monthly_emi:,.2f} | DSCR: {dscr_res.dscr:.2f} ({dscr_res.verdict})"
+        f"EMI: ₹{amort.monthly_emi:,.2f} | DSCR: {dscr_res.dscr:.2f} ({dscr_res.verdict}) | "
+        f"Turnover: ₹{input_data.annual_turnover_estimate:,.0f} ({turnover_audit.get('derivation_basis', 'Triangulated')})"
     )
 
     # Compute additional key financial appraisal ratios (ROI & Break-Even)
@@ -142,10 +161,18 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     annual_net_profit = monthly_net_profit * 12
     roi_pct = round((annual_net_profit / input_data.project_cost) * 100, 2) if input_data.project_cost > 0 else 0.0
 
-    fixed_cost_monthly = amort.monthly_emi + (wc.monthly_working_capital_outlay * 0.35)
-    contrib_margin_ratio = 0.30
-    annual_bep_sales = (fixed_cost_monthly * 12) / contrib_margin_ratio
-    break_even_pct = round(min((annual_bep_sales / input_data.annual_turnover_estimate) * 100, 100.0), 2) if input_data.annual_turnover_estimate > 0 else 0.0
+    # Dynamic statutory Break-Even Horizon & Capital Payback Period
+    bep_res = compute_break_even_and_payback(
+        project_cost=input_data.project_cost,
+        annual_turnover=input_data.annual_turnover_estimate,
+        monthly_emi=amort.monthly_emi,
+        monthly_working_capital_outlay=wc.monthly_working_capital_outlay,
+        moratorium_months=input_data.moratorium_months,
+        subsidy_amount=top_scheme.subsidy_grant_amount,
+        promoter_margin_val=promoter_margin_val,
+        loan_principal=loan_principal,
+    )
+    break_even_pct = bep_res.break_even_pct
 
     # 3. Pricing Engine (Tier 1)
     expected_units = input_data.expected_monthly_units or max(input_data.annual_turnover_estimate / 12 / 250, 50.0)
@@ -352,6 +379,15 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         "attribution": f"District: {odop_alignment.get('district_name')}, Product: {odop_alignment.get('odop_product')} ({odop_alignment.get('status_text')})",
     })
 
+    data_sources_used.append({
+        "layer": "Tier 1: Sales Demand & Machine Capacity",
+        "logical_source": "Census 2011 Catchment TAM & 37-Profile MSME Machinery Capacity",
+        "table_or_file": "msme_machinery_dataset.json + census_raw",
+        "records_matched": 1,
+        "status": "Calibrated OK",
+        "attribution": f"Projected Sales: ₹{input_data.annual_turnover_estimate:,.0f} | Basis: {turnover_audit.get('derivation_basis', 'Triangulated Machine Capacity & Catchment TAM')}",
+    })
+
     feasibility_report = FeasibilityReport(
         report_id=report_id,
         generated_at_utc=now_iso,
@@ -366,6 +402,8 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
             "village_amenities_613": amenities.to_dict(),
         },
         financial_analysis={
+            "annual_turnover_estimate": round(input_data.annual_turnover_estimate, 2),
+            "gross_annual_sales": round(input_data.annual_turnover_estimate, 2),
             "working_capital": wc.to_dict(),
             "amortization": amort.to_dict(),
             "dscr": dscr_res.to_dict(),
@@ -375,7 +413,18 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
             "annual_net_profit": round(annual_net_profit, 2),
             "roi_pct": roi_pct,
             "break_even_pct": break_even_pct,
+            "break_even_year": bep_res.break_even_year,
+            "break_even_year_label": bep_res.break_even_year_label,
+            "break_even_month": bep_res.break_even_month,
+            "break_even_milestone": bep_res.break_even_milestone,
+            "break_even_badge": bep_res.break_even_badge,
+            "payback_period_years": bep_res.payback_period_years,
+            "equity_payback_years": bep_res.equity_payback_years,
+            "break_even_rationale": bep_res.rationale,
             "cpi_inflation_pct": cpi_pct,
+            "turnover_derivation_basis": turnover_audit.get("derivation_basis", ""),
+            "turnover_capacity_estimate": turnover_audit.get("capacity_turnover"),
+            "turnover_velocity_estimate": turnover_audit.get("velocity_turnover"),
         },
         scheme_optimization=[s.to_dict() for s in schemes[:5]],
         ml_viability=ml_pred.to_dict(),

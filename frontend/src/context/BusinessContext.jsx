@@ -205,6 +205,12 @@ export const BusinessProvider = ({ children }) => {
         is_rural: formData.is_rural ?? true,
         tenure_years: Number(formData.tenure_years || 5.0),
         moratorium_months: Number(formData.moratorium_months || 6),
+        expected_monthly_units: formData.expected_monthly_units ? Number(formData.expected_monthly_units) : null,
+        infrastructure_score: formData.infrastructure_score ? Number(formData.infrastructure_score) : null,
+        promoter_equity: formData.promoter_equity ? Number(formData.promoter_equity) : null,
+        gross_project_cost: formData.gross_project_cost ? Number(formData.gross_project_cost) : null,
+        owned_machinery_value: formData.owned_machinery_value ? Number(formData.owned_machinery_value) : null,
+        promoter_margin_pct: formData.promoter_margin_pct ? Number(formData.promoter_margin_pct) : null,
         language: "en",
         additional_business_details: formData.additional_business_details || null,
         monthly_net_operating_income_override: formData.monthly_net_operating_income_override

@@ -107,11 +107,15 @@ class UserInput(BaseModel):
     village_name: str = Field("N/A", description="Village Name")
     is_rural: bool = Field(True, description="True if rural, False if urban")
     project_cost: float = Field(..., gt=0, description="Total capital outlay in INR (₹)")
-    annual_turnover_estimate: float = Field(..., gt=0, description="Estimated annual gross sales/turnover in INR (₹)")
+    annual_turnover_estimate: Optional[float] = Field(None, description="Estimated annual gross sales/turnover in INR (₹). If omitted, smartly computed from machinery capacity, Census TAM, and RBI debt solvency.")
     tenure_years: float = Field(5.0, gt=0, le=15, description="Requested bank loan repayment tenure in years")
     moratorium_months: int = Field(6, ge=0, le=36, description="Moratorium grace period in months")
     expected_monthly_units: Optional[float] = Field(None, description="Expected monthly production / service units")
     infrastructure_score: Optional[float] = Field(None, ge=0, le=10, description="Optional site infrastructure score (0-10)")
+    promoter_equity: Optional[float] = Field(None, description="Promoter equity capital contribution (INR)")
+    gross_project_cost: Optional[float] = Field(None, description="Total benchmarked capital outlay before deductions (INR)")
+    owned_machinery_value: Optional[float] = Field(None, description="Valuation of existing machinery credited as in-kind asset (INR)")
+    promoter_margin_pct: Optional[float] = Field(None, description="Promoter margin benchmark percentage")
     cpi_inflation_pct: Optional[float] = Field(None, description="Optional state CPI inflation override (%)")
     weather_risk_score: Optional[float] = Field(None, ge=0, le=1, description="Optional weather disruption score (0-1)")
     monthly_net_operating_income_override: Optional[float] = Field(None, description="Optional monthly net profit override (₹)")
@@ -268,6 +272,12 @@ class ProjectCreate(BaseModel):
     is_rural: bool = True
     tenure_years: float = 5.0
     moratorium_months: int = 6
+    expected_monthly_units: Optional[float] = None
+    infrastructure_score: Optional[float] = None
+    promoter_equity: Optional[float] = None
+    gross_project_cost: Optional[float] = None
+    owned_machinery_value: Optional[float] = None
+    promoter_margin_pct: Optional[float] = None
     language: str = "en"
     additional_business_details: Optional[str] = None
     monthly_net_operating_income_override: Optional[float] = None
@@ -280,6 +290,12 @@ class ProjectUpdate(BaseModel):
     annual_turnover_estimate: Optional[float] = None
     tenure_years: Optional[float] = None
     moratorium_months: Optional[int] = None
+    expected_monthly_units: Optional[float] = None
+    infrastructure_score: Optional[float] = None
+    promoter_equity: Optional[float] = None
+    gross_project_cost: Optional[float] = None
+    owned_machinery_value: Optional[float] = None
+    promoter_margin_pct: Optional[float] = None
     language: Optional[str] = None
     additional_business_details: Optional[str] = None
     monthly_net_operating_income_override: Optional[float] = None
@@ -303,6 +319,12 @@ class ProjectModel(BaseModel):
     is_rural: bool
     tenure_years: float
     moratorium_months: int
+    expected_monthly_units: Optional[float] = None
+    infrastructure_score: Optional[float] = None
+    promoter_equity: Optional[float] = None
+    gross_project_cost: Optional[float] = None
+    owned_machinery_value: Optional[float] = None
+    promoter_margin_pct: Optional[float] = None
     language: str
     additional_business_details: Optional[str] = None
     monthly_net_operating_income_override: Optional[float] = None

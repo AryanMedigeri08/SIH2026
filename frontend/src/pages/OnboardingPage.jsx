@@ -45,6 +45,9 @@ import {
   Building2,
   Check,
   RefreshCw,
+  Wrench,
+  Zap,
+  ChevronDown,
 } from "lucide-react";
 
 // ─── Language Cards Configuration ─────────────────────────────────────
@@ -134,6 +137,9 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const [chatStep, setChatStep] = useState("location_confirm"); // location_confirm | location_menu | business_idea | promoter_equity | odop_alignment | completed
   const [collectedFields, setCollectedFields] = useState({});
   const [odopData, setOdopData] = useState(null);
+  const [applicableMachinery, setApplicableMachinery] = useState(null);
+  const [selectedOwnedMachines, setSelectedOwnedMachines] = useState([]);
+  const [machineryConfirmed, setMachineryConfirmed] = useState(false);
 
   // Location selector menu state
   const [showLocationMenu, setShowLocationMenu] = useState(false);
@@ -160,7 +166,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, showLocationMenu, odopData]);
+  }, [messages, showLocationMenu, odopData, applicableMachinery]);
 
   // Audio cleanup on unmount
   useEffect(() => {
@@ -652,6 +658,18 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
         }
 
+        if (data.applicable_machinery) {
+          setApplicableMachinery(data.applicable_machinery);
+        }
+
+        if (data.extracted_fields?.machinery_selection_confirmed) {
+          setMachineryConfirmed(true);
+        }
+
+        if (data.extracted_fields?.owned_machines && Array.isArray(data.extracted_fields.owned_machines)) {
+          setSelectedOwnedMachines(data.extracted_fields.owned_machines.map(m => m.machine_name || m));
+        }
+
         if (data.odop_alignment) {
           setOdopData(data.odop_alignment);
           setChatStep("odop_alignment");
@@ -669,7 +687,9 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         playTTS(data.tts_text || data.reply, selectedLang || "hi");
 
         if (data.all_fields_collected && !data.odop_alignment) {
-          setPhase("processing");
+          setTimeout(() => {
+            setPhase("processing");
+          }, 2600);
         }
       }
     } catch (err) {
@@ -679,51 +699,168 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     }
   }, [inputText, isSending, messages, selectedLang, userName, collectedFields, token, getAutoDetectedLocation, playTTS]);
 
-  // ─── Step 5: ODOP Decision (Align vs Keep Original Idea) ────────────────
-  const handleOdopDecision = useCallback(async (alignWithOdop) => {
-    const decision = alignWithOdop ? "align" : "keep_original";
+  // ─── Step 4b: Owned Machinery Selection (Interactive Dropdown / Checklist) ─
+  const handleConfirmMachinery = useCallback(async (machinesToConfirm) => {
+    if (isSending) return;
+    setIsSending(true);
 
-    let synergyNote = "";
-    if (alignWithOdop && odopData) {
-      const pInnov = odopData.synergy_pillars?.product_innovation?.title || "";
-      const pDesc = odopData.synergy_pillars?.product_innovation?.description || "";
-      synergyNote = `ODOP Strategic Synergy: ${pInnov}. ${pDesc}`;
+    const hasSelection = machinesToConfirm && machinesToConfirm.length > 0;
+    
+    // Calculate total valuation for UI user bubble
+    let totalVal = 0;
+    if (hasSelection && applicableMachinery?.machinery_list) {
+      for (const name of machinesToConfirm) {
+        const item = applicableMachinery.machinery_list.find(m => m.machine_name === name);
+        if (item) totalVal += (item.estimated_cost_inr || 0);
+      }
     }
 
-    setCollectedFields(prev => ({
-      ...prev,
-      odop_decision: decision,
-      odop_synergy_aligned: alignWithOdop,
-      odop_product: odopData?.primary_odop_product || odopData?.district_odop || odopData?.odop_product || null,
-      additional_business_details: [
-        prev.additional_business_details || "",
-        synergyNote,
-      ].filter(Boolean).join(" | "),
-    }));
+    const valFormatted = totalVal >= 100000 
+      ? `₹${(totalVal / 100000).toFixed(2)} Lakhs` 
+      : `₹${totalVal.toLocaleString("en-IN")}`;
 
-    const responseText = alignWithOdop
+    const userLabel = hasSelection
       ? (selectedLang === "en"
-        ? `Wonderful decision! We have strategically aligned your business with ${odopData?.primary_odop_product || 'district ODOP'}. This unlocks the 35% PMFME capital subsidy on machinery and priority GeM onboarding!`
-        : `शानदार निर्णय! हमने आपके व्यवसाय को ${odopData?.primary_odop_product || 'जिले के ODOP'} के साथ जोड़ दिया है। इससे आपको मशीनरी पर 35% PMFME सरकारी सब्सिडी और GeM पोर्टल पर प्राथमिकता मिलेगी!`)
+          ? `I already own: ${machinesToConfirm.join(", ")} (Valuation Credit: ${valFormatted})`
+          : `मेरे पास पहले से उपलब्ध मशीनें: ${machinesToConfirm.join(", ")} (कुल बचत: ${valFormatted})`)
       : (selectedLang === "en"
-        ? "Understood! We will proceed with your original business model under standard PMEGP & MUDRA loan schemes."
-        : "समझ गई! हम मानक PMEGP और मुद्रा ऋण योजनाओं के तहत आपके मूल व्यवसाय मॉडल के साथ आगे बढ़ेंगे।");
+          ? "I don't own any of these machines. I will acquire 100% fresh equipment."
+          : "मेरे पास इनमें से कोई मशीन नहीं है, मुझे सभी नए उपकरणों की आवश्यकता होगी।");
 
-    setMessages(prev => [...prev, {
-      id: `odop-decision-${Date.now()}`,
-      role: "assistant",
-      content: responseText,
+    const userMsg = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: userLabel,
       timestamp: new Date().toISOString(),
-    }]);
+    };
+    setMessages(prev => [...prev, userMsg]);
 
-    setOdopData(null);
-    playTTS(responseText, selectedLang || "hi");
+    try {
+      const locCoords = getAutoDetectedLocation();
+      const res = await fetch("/api/v2/chat/onboarding", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
+          language: selectedLang || "hi",
+          user_name: userName,
+          collected_fields: collectedFields,
+          conversation_step: messages.length + 1,
+          current_action: "select_owned_machinery",
+          selected_machines: machinesToConfirm.map(name => {
+            const item = applicableMachinery?.machinery_list?.find(m => m.machine_name === name);
+            return item || { machine_name: name };
+          }),
+          user_location: locCoords,
+        }),
+      });
 
-    // Transition to final processing after 2.5 seconds
-    setTimeout(() => {
-      setPhase("processing");
-    }, 2400);
-  }, [selectedLang, odopData, playTTS]);
+      if (res.ok) {
+        const data = await res.json();
+        setMachineryConfirmed(true);
+
+        if (data.extracted_fields) {
+          setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
+        }
+
+        if (data.applicable_machinery) {
+          setApplicableMachinery(data.applicable_machinery);
+        }
+
+        if (data.odop_alignment) {
+          setOdopData(data.odop_alignment);
+          setChatStep("odop_alignment");
+        }
+
+        const assistantMsg = {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: data.reply,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+        playTTS(data.tts_text || data.reply, selectedLang || "hi");
+
+        if (data.all_fields_collected && !data.odop_alignment) {
+          setTimeout(() => {
+            setPhase("processing");
+          }, 2600);
+        }
+      }
+    } catch (err) {
+      console.error("Machinery selection error:", err);
+    } finally {
+      setIsSending(false);
+    }
+  }, [isSending, selectedLang, messages, token, userName, collectedFields, applicableMachinery, getAutoDetectedLocation, playTTS]);
+
+  // ─── Step 5: ODOP Decision (Align vs Keep Original Idea) ────────────────
+  const handleOdopDecision = useCallback(async (alignWithOdop) => {
+    if (isSending) return;
+    setIsSending(true);
+
+    const decision = alignWithOdop ? "align" : "keep_original";
+    const decisionLabel = alignWithOdop
+      ? (selectedLang === "en" ? "1. Align with ODOP (Unlock 35% Subsidy)" : "1. ODOP से जुड़ें")
+      : (selectedLang === "en" ? "2. Keep my original idea" : "2. अपना मूल विचार रखें");
+
+    const userMsg = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: decisionLabel,
+      timestamp: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, userMsg]);
+
+    try {
+      const locCoords = getAutoDetectedLocation();
+      const res = await fetch("/api/v2/chat/onboarding", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
+          language: selectedLang || "hi",
+          user_name: userName,
+          collected_fields: collectedFields,
+          conversation_step: messages.length + 1,
+          current_action: "odop_decision",
+          odop_decision: decision,
+          user_location: locCoords,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.extracted_fields) {
+          setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
+        }
+
+        const assistantMsg = {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: data.reply,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+        playTTS(data.tts_text || data.reply, selectedLang || "hi");
+
+        // Transition to final processing after audio plays
+        setTimeout(() => {
+          setPhase("processing");
+        }, 2800);
+      }
+    } catch (err) {
+      console.error("ODOP decision error:", err);
+    } finally {
+      setIsSending(false);
+    }
+  }, [isSending, selectedLang, messages, token, userName, collectedFields, getAutoDetectedLocation, playTTS]);
 
   // ─── Step 6: Final Feasibility Appraisal Report Generation ─────────────
   const handleFinalSubmit = useCallback(async () => {
@@ -1115,6 +1252,236 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             </div>
           )}
 
+          {/* ─── Step 4b: Interactive Machinery Dropdown & Checklist Card ───── */}
+          {applicableMachinery && applicableMachinery.machinery_list && applicableMachinery.machinery_list.length > 0 && (
+            <div className="animate-[fadeIn_0.4s_ease-out] max-w-xl mx-auto my-3">
+              <div className="bg-white rounded-3xl border-2 border-indigo-400/80 shadow-2xl overflow-hidden">
+                {/* Header Banner */}
+                <div className="bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 text-white p-4 sm:p-5 relative">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">
+                      <Wrench className="w-3.5 h-3.5" />
+                      {selectedLang === "en" ? "Standard MSME Plant & Machinery" : "मानक प्लांट एवं मशीनरी"}
+                    </span>
+                    <span className="text-xs text-indigo-200 font-semibold flex items-center gap-1">
+                      <Zap className="w-3.5 h-3.5 text-amber-400" />
+                      {applicableMachinery.typical_capacity || "Commercial Scale"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 mt-2">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-bold font-display text-white">
+                        {applicableMachinery.business_name}
+                      </h3>
+                      <p className="text-xs text-indigo-200/90 mt-0.5">
+                        {selectedLang === "en"
+                          ? "Select any machines you already own from the dropdown or checklist below to credit their valuation against your bank loan & lower your EMI:"
+                          : "क्या आपके पास इनमें से कोई मशीन पहले से है? नीचे ड्रॉपडाउन या सूची से चुनें—हम उसकी कीमत सीधे आपके लोन में से घटा देंगे:"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-6 space-y-4 text-slate-800">
+                  {/* Quick-Pick Dropdown */}
+                  <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-indigo-950 mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <ChevronDown className="w-3.5 h-3.5 text-indigo-700" />
+                        {selectedLang === "en" ? "Select Machine from Dropdown:" : "मशीन ड्रॉपडाउन से चुनें:"}
+                      </span>
+                      <span className="text-[10px] text-indigo-600 font-semibold">
+                        {applicableMachinery.machinery_list.length} {selectedLang === "en" ? "options" : "विकल्प"}
+                      </span>
+                    </label>
+                    <select
+                      disabled={machineryConfirmed || isSending}
+                      value=""
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val) return;
+                        setSelectedOwnedMachines(prev =>
+                          prev.includes(val) ? prev.filter(m => m !== val) : [...prev, val]
+                        );
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer disabled:opacity-60"
+                    >
+                      <option value="">{selectedLang === "en" ? "-- Tap to choose a machine from dropdown --" : "-- ड्रॉपडाउन से कोई भी मशीन चुनें --"}</option>
+                      {applicableMachinery.machinery_list.map((mach, idx) => {
+                        const isSelected = selectedOwnedMachines.includes(mach.machine_name);
+                        return (
+                          <option key={idx} value={mach.machine_name}>
+                            {isSelected ? "✓ [Selected] " : "+ "} {mach.machine_name} (₹{(mach.estimated_cost_inr / 100000).toFixed(2)} Lakhs)
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  {/* Visual Checklist Cards */}
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-1">
+                      {selectedLang === "en" ? "Or Tap Applicable Equipment Below:" : "या नीचे दिए गए उपकरणों पर टैप करें:"}
+                    </div>
+                    {applicableMachinery.machinery_list.map((mach, idx) => {
+                      const isSelected = selectedOwnedMachines.includes(mach.machine_name);
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            if (machineryConfirmed || isSending) return;
+                            setSelectedOwnedMachines(prev =>
+                              prev.includes(mach.machine_name)
+                                ? prev.filter(m => m !== mach.machine_name)
+                                : [...prev, mach.machine_name]
+                            );
+                          }}
+                          className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                            isSelected
+                              ? "bg-emerald-50/90 border-emerald-400 shadow-sm ring-1 ring-emerald-300"
+                              : "bg-slate-50 hover:bg-slate-100/80 border-slate-200"
+                          } ${machineryConfirmed ? "cursor-default opacity-90" : ""}`}
+                        >
+                          {/* Styled Checkbox */}
+                          <div className={`mt-0.5 w-5 h-5 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                            isSelected
+                              ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/30"
+                              : "border-2 border-slate-300 bg-white"
+                          }`}>
+                            {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          </div>
+
+                          {/* Machine Details */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-xs text-slate-900 truncate">
+                                {mach.machine_name}
+                              </span>
+                              <span className="text-[11px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full shrink-0">
+                                ₹{(mach.estimated_cost_inr / 100000).toFixed(2)} Lakhs
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-600 mt-0.5 line-clamp-1">
+                              {mach.technical_specs}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              {mach.power_hp > 0 && (
+                                <span className="text-[10px] text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded font-medium border border-indigo-200">
+                                  ⚡ {mach.power_hp} HP
+                                </span>
+                              )}
+                              <span className="text-[10px] text-slate-500">
+                                Qty: {mach.quantity || 1}
+                              </span>
+                              {mach.is_mandatory && (
+                                <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-medium border border-amber-200">
+                                  Core Machine
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Live Calculation / Benefit Banner */}
+                  {selectedOwnedMachines.length > 0 && (
+                    <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-950 space-y-1">
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="flex items-center gap-1.5 text-emerald-900">
+                          <Sparkles className="w-4 h-4 text-emerald-600" />
+                          {selectedLang === "en" ? "In-Kind Asset Valuation Credited:" : "इन-काइंड एसेट क्रेडिट:"}
+                        </span>
+                        <span className="text-emerald-700 text-sm font-black">
+                          ₹{(
+                            applicableMachinery.machinery_list
+                              .filter(m => selectedOwnedMachines.includes(m.machine_name))
+                              .reduce((sum, m) => sum + (m.estimated_cost_inr || 0), 0) / 100000
+                          ).toFixed(2)} Lakhs
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-800">
+                        {selectedLang === "en"
+                          ? `✓ Deducted directly from fresh loan requirement • Lowers your monthly EMI`
+                          : `✓ आपके आवश्यक बैंक लोन में से घटाया जाएगा • मासिक EMI में भारी बचत`}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Action Buttons or Confirmed State */}
+                  {machineryConfirmed ? (
+                    <div className="pt-2 flex items-center justify-between gap-3">
+                      <div className="flex-1 p-3 rounded-2xl bg-emerald-50 border border-emerald-300 font-bold text-xs text-emerald-900 flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>
+                          {selectedOwnedMachines.length > 0
+                            ? (selectedLang === "en"
+                                ? `Equipment Locked: ${selectedOwnedMachines.length} machine(s) credited`
+                                : `मशीनरी सुरक्षित: ${selectedOwnedMachines.length} उपकरण का मूल्य घटाया गया`)
+                            : (selectedLang === "en"
+                                ? "100% Fresh Machinery Mode Confirmed"
+                                : "सभी नए उपकरणों का विकल्प सुरक्षित किया गया")}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMachineryConfirmed(false)}
+                        disabled={isSending}
+                        className="px-3 py-3 rounded-xl border border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100 text-xs font-semibold cursor-pointer shrink-0 transition-colors"
+                      >
+                        {selectedLang === "en" ? "Change" : "बदलें"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+                      {selectedOwnedMachines.length > 0 ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmMachinery(selectedOwnedMachines)}
+                            disabled={isSending}
+                            className="flex-1 py-3 px-4 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                          >
+                            <Check className="w-4 h-4" />
+                            <span>
+                              {selectedLang === "en"
+                                ? `Confirm ${selectedOwnedMachines.length} Machine(s) Owned`
+                                : `मेरे पास उपलब्ध ${selectedOwnedMachines.length} मशीनें सुरक्षित करें`}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOwnedMachines([])}
+                            disabled={isSending}
+                            className="sm:w-auto py-3 px-3 rounded-xl font-semibold text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer"
+                          >
+                            {selectedLang === "en" ? "Clear" : "हटाएं"}
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmMachinery([])}
+                          disabled={isSending}
+                          className="w-full py-3 px-4 rounded-xl font-bold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-300 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                        >
+                          <span>
+                            {selectedLang === "en"
+                              ? "I don't own any of these (I need all fresh machines)"
+                              : "मेरे पास इनमें से कोई मशीन नहीं है (मुझे सभी नई मशीनें चाहिए)"}
+                          </span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ─── Step 5: 0-100 Benchmarked ODOP Alignment Synergy Card ─────── */}
           {odopData && (
             <div className="animate-[fadeIn_0.4s_ease-out] max-w-xl mx-auto my-3">
@@ -1235,29 +1602,48 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     </div>
                   </div>
 
-                  {/* Decision Buttons */}
-                  <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => handleOdopDecision(true)}
-                      className="flex-1 py-3 px-4 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Sparkles className="w-4 h-4 text-emerald-200" />
-                      <span>
-                        {selectedLang === "en"
-                          ? "Align with ODOP (Unlock 35% Subsidy) ✨"
-                          : "ODOP से जोड़ें (35% सब्सिडी अनलॉक करें) ✨"}
-                      </span>
-                    </button>
+                  {/* Decision Buttons or Confirmed State */}
+                  {collectedFields.odop_decision ? (
+                    <div className="pt-2">
+                      <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-center font-bold text-xs text-emerald-950 flex items-center justify-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>
+                          {collectedFields.odop_decision === "align"
+                            ? (selectedLang === "en"
+                                ? "Confirmed: Aligned with ODOP (35% PMFME Subsidy Unlocked) ✨"
+                                : "स्वीकृत: ODOP से जोड़ा गया (35% PMFME सरकारी सब्सिडी सुरक्षित) ✨")
+                            : (selectedLang === "en"
+                                ? "Confirmed: Proceeding with Original Business Model (PMEGP/MUDRA)"
+                                : "स्वीकृत: मूल व्यवसाय मॉडल के साथ आगे बढ़ रहे हैं (PMEGP/मुद्रा)")}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOdopDecision(true)}
+                        disabled={isSending}
+                        className="flex-1 py-3 px-4 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <Sparkles className="w-4 h-4 text-emerald-200" />
+                        <span>
+                          {selectedLang === "en"
+                            ? "Align with ODOP (Unlock 35% Subsidy) ✨"
+                            : "ODOP से जोड़ें (35% सब्सिडी अनलॉक करें) ✨"}
+                        </span>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleOdopDecision(false)}
-                      className="sm:w-auto py-3 px-4 rounded-xl font-semibold text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer"
-                    >
-                      {selectedLang === "en" ? "Keep My Idea" : "मेरा विचार रखें"}
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => handleOdopDecision(false)}
+                        disabled={isSending}
+                        className="sm:w-auto py-3 px-4 rounded-xl font-semibold text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {selectedLang === "en" ? "Keep My Idea" : "मेरा विचार रखें"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1367,21 +1753,104 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             </p>
 
             {/* Collected Details Summary */}
-            <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 mb-6 text-left">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Verified Enterprise Parameters</div>
-              <div className="space-y-1.5 text-xs text-slate-700">
-                {Object.entries(collectedFields)
-                  .filter(([key]) => !["latitude", "longitude", "odop_decision", "additional_business_details"].includes(key))
-                  .map(([key, val]) => (
-                    <div key={key} className="flex justify-between">
-                      <span className="text-slate-500 font-medium capitalize">{key.replace(/_/g, " ")}</span>
-                      <span className="font-semibold text-slate-900 text-right max-w-[60%] truncate">
-                        {key === "project_cost" 
-                          ? `₹${Number(val).toLocaleString('en-IN')}`
-                          : (typeof val === "boolean" ? (val ? "Yes" : "No") : String(val))}
+            <div className="bg-slate-50 rounded-2xl border border-slate-200/90 p-4 mb-6 text-left space-y-3.5 max-h-72 overflow-y-auto">
+              <div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+                  Enterprise & Location
+                </div>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Enterprise Name</span>
+                    <span className="font-bold text-slate-900 truncate max-w-[55%] text-right">{collectedFields.enterprise_name || `${userName}'s Venture`}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Sector & Category</span>
+                    <span className="font-semibold text-slate-900 capitalize text-right">
+                      {(collectedFields.sector || "MSME").replace(/_/g, " ")} • {collectedFields.business_category || "Manufacturing"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Target Location</span>
+                    <span className="font-semibold text-slate-900 text-right">
+                      {collectedFields.district_name || "Thane"}, {collectedFields.state_name || "Maharashtra"} ({collectedFields.is_rural ? "Rural" : "Urban"})
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200/70 pt-2.5">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  Financial Outlay & Promoter Equity
+                </div>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Promoter Equity</span>
+                    <span className="font-bold text-emerald-700">
+                      ₹{Number(collectedFields.promoter_equity || 100000).toLocaleString('en-IN')}
+                      {collectedFields.promoter_margin_pct && (
+                        <span className="ml-1 text-[10px] text-slate-500 font-normal">({collectedFields.promoter_margin_pct}% Margin)</span>
+                      )}
+                    </span>
+                  </div>
+                  {collectedFields.gross_project_cost && Number(collectedFields.gross_project_cost) !== Number(collectedFields.project_cost) && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Gross Project Outlay</span>
+                      <span className="font-semibold text-slate-700">₹{Number(collectedFields.gross_project_cost).toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  {Number(collectedFields.owned_machinery_value || 0) > 0 && (
+                    <div className="text-emerald-800 bg-emerald-50/80 px-2 py-1.5 rounded-md space-y-0.5">
+                      <div className="flex justify-between">
+                        <span className="font-medium text-[11px]">Owned Machinery Credit</span>
+                        <span className="font-bold text-[11px]">-₹{Number(collectedFields.owned_machinery_value).toLocaleString('en-IN')}</span>
+                      </div>
+                      {collectedFields.owned_machines && Array.isArray(collectedFields.owned_machines) && collectedFields.owned_machines.length > 0 && (
+                        <div className="text-[10px] text-emerald-700/80 truncate">
+                          Credited: {collectedFields.owned_machines.map(m => m.machine_name || m).join(", ")}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex justify-between bg-white px-2 py-1 rounded-md border border-slate-200">
+                    <span className="text-slate-900 font-bold text-xs">Net Fresh Bank Loan Base</span>
+                    <span className="font-extrabold text-indigo-950 text-xs">₹{Number(collectedFields.project_cost || 500000).toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200/70 pt-2.5">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  Statutory MSME Banking Policy
+                </div>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Loan Repayment Period</span>
+                    <span className="font-semibold text-slate-800">{collectedFields.tenure_years || 7.0} Years (RBI Norms)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Moratorium Grace Period</span>
+                    <span className="font-semibold text-slate-800">{collectedFields.moratorium_months || 6} Months (Setup & Trial)</span>
+                  </div>
+                  {collectedFields.expected_monthly_units && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Production Capacity</span>
+                      <span className="font-semibold text-slate-800">
+                        {Number(collectedFields.expected_monthly_units).toLocaleString('en-IN')} {collectedFields.capacity_unit_label || "units"}/mo
                       </span>
                     </div>
-                  ))}
+                  )}
+                  {collectedFields.odop_product && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">ODOP Status</span>
+                      <span className="font-semibold text-indigo-600 truncate max-w-[55%] text-right">
+                        {collectedFields.odop_synergy_aligned ? `Aligned (${collectedFields.odop_product})` : "Standard Model"}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
