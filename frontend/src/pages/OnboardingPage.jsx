@@ -1,12 +1,13 @@
 /**
- * OnboardingPage.jsx — MIRA Conversational Onboarding for Rural Entrepreneurs.
+ * OnboardingPage.jsx — MIRA Conversational Onboarding for Rural & Semi-Urban MSME Entrepreneurs.
  * 
  * Replaces the 7-step wizard with an intelligent conversational interface:
- * 1. Language Selection with beautiful gradient cards
- * 2. MIRA greets user by name in selected language
- * 3. Collects business idea, capital, category via natural Q&A
- * 4. ODOP alignment check with pros/cons comparison
- * 5. Auto-fills wizard fields in the background
+ * 1. Regional Language Selection with beautiful gradient cards
+ * 2. MIRA greets user by name in selected language, acknowledging auto-detected GPS location
+ * 3. Collects business idea, capital, and category via natural empathetic Q&A
+ * 4. 3-Pillar ODOP Strategic Synergy (Product Innovation, Local Sourcing, 35% PMFME Subsidy)
+ * 5. Multi-tier TTS Voice Synthesis (Bhashini Indic Voice + gTTS + Web Speech API fallback)
+ * 6. Background calculation of annual sales and bank feasibility parameters
  */
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -20,6 +21,7 @@ import {
   MicOff,
   Send,
   Volume2,
+  VolumeX,
   Loader2,
   Sparkles,
   Globe,
@@ -27,6 +29,9 @@ import {
   CheckCircle2,
   MapPin,
   MessageSquare,
+  Info,
+  ShieldCheck,
+  TrendingUp,
 } from "lucide-react";
 
 // ─── Language Cards Configuration ─────────────────────────────────────
@@ -93,19 +98,14 @@ const ONBOARDING_LANGUAGES = [
   },
 ];
 
-// ─── Greeting templates per language ──────────────────────────────────
+// ─── Warm Natural Greeting Templates (Acknowledging Location Without Asking Again) ───
 const GREETINGS = {
-  en: (name) => `Namaste ${name} Ji! 🙏\n\nI am MIRA, your business advisor. I'm here to help you start your business journey.\n\nPlease tell me:\n1. **What business do you want to start?** (e.g., dairy, mobile repair, clothing shop)\n2. **How much money do you have to invest?** (e.g., ₹2 lakh, ₹5 lakh)\n3. **Which category do you belong to?** (General / OBC / SC / ST / Women Entrepreneur)`,
-  hi: (name) => `नमस्ते ${name} जी! 🙏\n\nमैं MIRA हूँ, आपकी व्यवसाय सहायक। मैं आपकी व्यवसाय यात्रा शुरू करने में आपकी मदद करने के लिए यहाँ हूँ।\n\nकृपया मुझे बताएँ:\n1. **आप कौन सा व्यवसाय शुरू करना चाहते हैं?** (जैसे डेयरी, मोबाइल रिपेयर, कपड़े की दुकान)\n2. **आपके पास निवेश के लिए कितने पैसे हैं?** (जैसे ₹2 लाख, ₹5 लाख)\n3. **आप किस वर्ग से हैं?** (सामान्य / OBC / SC / ST / महिला उद्यमी)`,
-  mr: (name) => `नमस्कार ${name} जी! 🙏\n\nमी MIRA आहे, तुमची व्यवसाय सल्लागार. तुमचा व्यवसाय प्रवास सुरू करण्यात मदत करण्यासाठी मी येथे आहे.\n\nकृपया मला सांगा:\n1. **तुम्हाला कोणता व्यवसाय सुरू करायचा आहे?** (जसे डेअरी, मोबाइल दुरुस्ती, कापड दुकान)\n2. **तुमच्याकडे गुंतवणुकीसाठी किती पैसे आहेत?** (जसे ₹2 लाख, ₹5 लाख)\n3. **तुम्ही कोणत्या प्रवर्गातून आहात?** (सामान्य / OBC / SC / ST / महिला उद्योजक)`,
-  te: (name) => `నమస్తే ${name} జీ! 🙏\n\nనేను MIRA, మీ వ్యాపార సలహాదారు. మీ వ్యాపార ప్రయాణాన్ని ప్రారంభించడంలో మీకు సహాయం చేయడానికి ఇక్కడ ఉన్నాను.\n\nదయచేసి నాకు చెప్పండి:\n1. **మీరు ఏ వ్యాపారం ప్రారంభించాలనుకుంటున్నారు?** (ఉదా: డైరీ, మొబైల్ రిపేర్, బట్టల దుకాణం)\n2. **మీ దగ్గర పెట్టుబడికి ఎంత డబ్బు ఉంది?** (ఉదా: ₹2 లక్షలు, ₹5 లక్షలు)\n3. **మీరు ఏ వర్గానికి చెందుతారు?** (జనరల్ / OBC / SC / ST / మహిళా వ్యాపారవేత్త)`,
-  ta: (name) => `வணக்கம் ${name} ஜி! 🙏\n\nநான் MIRA, உங்கள் வணிக ஆலோசகர். உங்கள் வணிகப் பயணத்தைத் தொடங்க உதவ இங்கே இருக்கிறேன்.\n\nதயவுசெய்து சொல்லுங்கள்:\n1. **என்ன தொழில் தொடங்க விரும்புகிறீர்கள்?** (எ.கா: பால் பண்ணை, மொபைல் பழுது, ஆடை கடை)\n2. **எவ்வளவு பணம் முதலீடு செய்ய உள்ளது?** (எ.கா: ₹2 லட்சம், ₹5 லட்சம்)\n3. **நீங்கள் எந்தப் பிரிவில் இருக்கிறீர்கள்?** (பொது / OBC / SC / ST / பெண் தொழில்முனைவோர்)`,
-  kn: (name) => `ನಮಸ್ಕಾರ ${name} ಜೀ! 🙏\n\nನಾನು MIRA, ನಿಮ್ಮ ವ್ಯಾಪಾರ ಸಲಹೆಗಾರ್ತಿ. ನಿಮ್ಮ ವ್ಯಾಪಾರ ಪ್ರಯಾಣವನ್ನು ಪ್ರಾರಂಭಿಸಲು ಸಹಾಯ ಮಾಡಲು ನಾನಿಲ್ಲಿದ್ದೇನೆ.\n\nದಯವಿಟ್ಟು ನನಗೆ ಹೇಳಿ:\n1. **ನೀವು ಯಾವ ವ್ಯಾಪಾರ ಪ್ರಾರಂಭಿಸಲು ಬಯಸುತ್ತೀರಿ?** (ಉದಾ: ಡೈರಿ, ಮೊಬೈಲ್ ರಿಪೇರಿ, ಬಟ್ಟೆ ಅಂಗಡಿ)\n2. **ನಿಮ್ಮ ಬಳಿ ಎಷ್ಟು ಹಣ ಹೂಡಲು ಇದೆ?** (ಉದಾ: ₹2 ಲಕ್ಷ, ₹5 ಲಕ್ಷ)\n3. **ನೀವು ಯಾವ ವರ್ಗಕ್ಕೆ ಸೇರಿದ್ದೀರಿ?** (ಸಾಮಾನ್ಯ / OBC / SC / ST / ಮಹಿಳಾ ಉದ್ಯಮಿ)`,
-};
-
-const LANG_SELECT_PROMPT = {
-  en: "Choose your language",
-  hi: "अपनी भाषा चुनें",
+  en: (name, loc) => `Namaste ${name} Ji! 🙏\n\nI am MIRA, your MSME business advisor. ${loc ? `I see you are planning your venture in **${loc}**! ` : ""}I'm here to help you turn your idea into a successful, bank-funded enterprise.\n\nPlease tell me:\n1. **What business or product do you want to start?** (e.g., dairy, ice cream, food processing, clothes, mobile repair)\n2. **How much capital do you have to invest?** (e.g., ₹2 lakh, ₹5 lakh)`,
+  hi: (name, loc) => `नमस्ते ${name} जी! 🙏\n\nमैं MIRA हूँ, आपकी MSME व्यवसाय सलाहकार। ${loc ? `मैंने देखा कि आप **${loc}** में अपना उद्यम शुरू करने की योजना बना रहे हैं! ` : ""}मैं आपकी व्यवसाय यात्रा शुरू करने और 35% तक सरकारी सब्सिडी प्राप्त करने में मदद करूँगी।\n\nकृपया मुझे बताएँ:\n1. **आप कौन सा व्यवसाय या उत्पाद शुरू करना चाहते हैं?** (जैसे डेयरी, आइसक्रीम, खाद्य प्रसंस्करण, कपड़े, मोबाइल रिपेयर)\n2. **आपके पास निवेश के लिए कितना पैसा / पूँजी है?** (जैसे ₹2 लाख, ₹5 लाख)`,
+  mr: (name, loc) => `नमस्कार ${name} जी! 🙏\n\nमी MIRA आहे, तुमची MSME व्यवसाय सल्लागार. ${loc ? `मी पाहिले की तुम्ही **${loc}** मध्ये तुमचा व्यवसाय सुरू करण्याचा विचार करत आहात! ` : ""}तुमचा व्यवसाय प्रवास सुरू करण्यात आणि 35% पर्यंत सरकारी अनुदान मिळवण्यात मदत करण्यासाठी मी येथे आहे.\n\nकृपया मला सांगा:\n1. **तुम्हाला कोणता व्यवसाय किंवा उत्पादन सुरू करायचे आहे?** (जसे डेअरी, आईस्क्रीम, अन्न प्रक्रिया, कापड, मोबाइल दुरुस्ती)\n2. **तुमच्याकडे गुंतवणुकीसाठी किती पैसे आहेत?** (जसे ₹2 लाख, ₹5 लाख)`,
+  te: (name, loc) => `నమస్తే ${name} జీ! 🙏\n\nనేను MIRA, మీ MSME వ్యాపార సలహాదారు. ${loc ? `మీరు **${loc}** లో మీ వ్యాపారాన్ని ప్రారంభించాలనుకుంటున్నారని నేను చూశాను! ` : ""}మీ వ్యాపార ప్రయాణాన్ని విజయవంతం చేయడానికి మరియు ప్రభుత్వ సబ్సిడీలను పొందడంలో మీకు సహాయం చేయడానికి నేను ఇక్కడ ఉన్నాను.\n\nదయచేసి నాకు చెప్పండి:\n1. **మీరు ఏ వ్యాపారం లేదా ఉత్పత్తిని ప్రారంభించాలనుకుంటున్నారు?** (ఉదా: డైరీ, ఐస్ క్రీం, ఫుడ్ ప్రాసెసింగ్, బట్టలు, మొబైల్ రిపేర్)\n2. **మీ దగ్గర పెట్టుబడికి ఎంత డబ్బు ఉంది?** (ఉదా: ₹2 లక్షలు, ₹5 లక్షలు)`,
+  ta: (name, loc) => `வணக்கம் ${name} ஜி! 🙏\n\nநான் MIRA, உங்கள் MSME வணிக ஆலோசகர். ${loc ? `நீங்கள் **${loc}** இல் தொழில் தொடங்க திட்டமிட்டுள்ளீர்கள் என்பதை நான் காண்கிறேன்! ` : ""}உங்கள் தொழில் பயணத்தைத் தொடங்கவும் அரசு மானியங்களைப் பெறவும் உதவ நான் இங்கே இருக்கிறேன்.\n\nதயவுசெய்து சொல்லுங்கள்:\n1. **என்ன தொழில் அல்லது தயாரிப்பைத் தொடங்க விரும்புகிறீர்கள்?** (எ.கா: பால் பண்ணை, ஐஸ்கிரீம், உணவு பதப்படுத்துதல், ஆடை, மொபைல் பழுது)\n2. **எவ்வளவு முதலீடு செய்ய பணம் உள்ளது?** (எ.கா: ₹2 லட்சம், ₹5 லட்சம்)`,
+  kn: (name, loc) => `ನಮಸ್ಕಾರ ${name} ಜೀ! 🙏\n\nನಾನು MIRA, ನಿಮ್ಮ MSME ವ್ಯಾಪಾರ ಸಲಹೆಗಾರ್ತಿ. ${loc ? `ನೀವು **${loc}** ನಲ್ಲಿ ನಿಮ್ಮ ಉದ್ಯಮವನ್ನು ಪ್ರಾರಂಭಿಸಲು ಯೋಜಿಸುತ್ತಿರುವುದನ್ನು ನಾನು ನೋಡಿದ್ದೇನೆ! ` : ""}ನಿಮ್ಮ ವ್ಯಾಪಾರ ಪ್ರಯಾಣವನ್ನು ಪ್ರಾರಂಭಿಸಲು ಮತ್ತು ಸರ್ಕಾರಿ ಸಬ್ಸಿಡಿಗಳನ್ನು ಪಡೆಯಲು ಸಹಾಯ ಮಾಡಲು ನಾನಿಲ್ಲಿದ್ದೇನೆ.\n\nದಯವಿಟ್ಟು ನನಗೆ ಹೇಳಿ:\n1. **ನೀವು ಯಾವ ವ್ಯಾಪಾರ ಅಥವಾ ಉತ್ಪನ್ನವನ್ನು ಪ್ರಾರಂಭಿಸಲು ಬಯಸುತ್ತೀರಿ?** (ಉದಾ: ಡೈರಿ, ಐಸ್ ಕ್ರೀಮ್, ಆಹಾರ ಸಂಸ್ಕರಣೆ, ಬಟ್ಟೆ, ಮೊಬೈಲ್ ರಿಪೇರಿ)\n2. **ನಿಮ್ಮ ಬಳಿ ಹೂಡಿಕೆಗೆ ಎಷ್ಟು ಹಣ ಇದೆ?** (ಉದಾ: ₹2 ಲಕ್ಷ, ₹5 ಲಕ್ಷ)`,
 };
 
 export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
@@ -124,12 +124,13 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [collectedFields, setCollectedFields] = useState({});
   const [odopData, setOdopData] = useState(null);
-  const [conversationStep, setConversationStep] = useState(0); // track Q&A progress
+  const [conversationStep, setConversationStep] = useState(0);
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const currentAudioRef = useRef(null);
 
   const userName = userProfile?.name || "Entrepreneur";
 
@@ -138,12 +139,142 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ─── Language Selection Handler ─────────────────────────────────────
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      if (currentAudioRef.current) {
+        try {
+          currentAudioRef.current.pause();
+          currentAudioRef.current = null;
+        } catch (_) {}
+      }
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  // ─── Browser Web Speech API Guaranteed Fallback ─────────────────────────
+  const speakWithWebSpeech = useCallback((text, lang) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      setIsPlayingAudio(false);
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      const clean = text.replace(/[*#_~`]/g, " ").replace(/\n+/g, ". ").slice(0, 350);
+      const utterance = new SpeechSynthesisUtterance(clean);
+      const langMap = {
+        hi: "hi-IN",
+        en: "en-IN",
+        mr: "mr-IN",
+        te: "te-IN",
+        ta: "ta-IN",
+        kn: "kn-IN",
+      };
+      utterance.lang = langMap[lang] || "hi-IN";
+      utterance.rate = 0.95;
+      utterance.onend = () => setIsPlayingAudio(false);
+      utterance.onerror = () => setIsPlayingAudio(false);
+      setIsPlayingAudio(true);
+      window.speechSynthesis.speak(utterance);
+    } catch (_) {
+      setIsPlayingAudio(false);
+    }
+  }, []);
+
+  // ─── Robust Multi-Tier TTS Playback ─────────────────────────────────────
+  const playTTS = useCallback(async (text, lang) => {
+    try {
+      setIsPlayingAudio(true);
+      const clean = text.replace(/[*#_~`]/g, " ").replace(/\n+/g, ". ").slice(0, 450);
+
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+
+      if (currentAudioRef.current) {
+        try {
+          currentAudioRef.current.pause();
+          currentAudioRef.current.currentTime = 0;
+        } catch (_) {}
+      }
+
+      // Try server TTS endpoint (Bhashini Indic / gTTS)
+      const res = await fetch("/api/v2/chat/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: clean, language: lang }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.audio_base64 && data.audio_base64.length > 20) {
+          // Normalize audio source — prevents double data URL prefix bug
+          const audioSrc = data.audio_base64.startsWith("data:")
+            ? data.audio_base64
+            : `data:audio/wav;base64,${data.audio_base64}`;
+
+          const audio = new Audio(audioSrc);
+          currentAudioRef.current = audio;
+
+          audio.onended = () => setIsPlayingAudio(false);
+          audio.onerror = (e) => {
+            console.warn("Audio element error, using browser speech synthesis:", e);
+            speakWithWebSpeech(clean, lang);
+          };
+
+          try {
+            await audio.play();
+            return;
+          } catch (playErr) {
+            console.warn("Audio autoplay blocked by browser policy, using browser synthesis:", playErr);
+            speakWithWebSpeech(clean, lang);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("TTS server call error, falling back to Web Speech:", e);
+    }
+
+    // Fallback: browser speech synthesis
+    speakWithWebSpeech(text, lang);
+  }, [speakWithWebSpeech]);
+
+  // ─── Stop Audio Playback ────────────────────────────────────────────────
+  const stopAudio = useCallback(() => {
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+      } catch (_) {}
+    }
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setIsPlayingAudio(false);
+  }, []);
+
+  // ─── Retrieve Auto-Detected Location ────────────────────────────────────
+  const getAutoDetectedLocation = useCallback(() => {
+    if (userProfile?.latitude && userProfile?.longitude) {
+      return { latitude: userProfile.latitude, longitude: userProfile.longitude };
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem("user_detected_location") || "{}");
+      if (saved.latitude && saved.longitude) {
+        return { latitude: saved.latitude, longitude: saved.longitude };
+      }
+    } catch (_) {}
+    return null;
+  }, [userProfile]);
+
+  // ─── Language Selection Handler ─────────────────────────────────────────
   const handleLanguageSelect = useCallback(async (langCode) => {
     setSelectedLang(langCode);
     setLanguage(langCode);
 
-    // Save language preference to backend
     if (token && updateProfile) {
       try {
         await updateProfile({ preferred_language: langCode });
@@ -152,10 +283,15 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       }
     }
 
-    // Transition to chat phase with greeting
+    const locCoords = getAutoDetectedLocation();
+
+    // Transition to chat phase with personalized greeting
     setTimeout(() => {
       const greetFn = GREETINGS[langCode] || GREETINGS.en;
-      const greetingText = greetFn(userName);
+      const initialLocLabel = collectedFields.district_name 
+        ? `${collectedFields.district_name}, ${collectedFields.state_name || ''}`
+        : "";
+      const greetingText = greetFn(userName, initialLocLabel);
       
       setMessages([
         {
@@ -167,37 +303,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       ]);
       setPhase("chatting");
 
-      // Auto-play greeting via TTS
       playTTS(greetingText, langCode);
-    }, 400);
-  }, [userName, token, updateProfile, setLanguage]);
+    }, 350);
+  }, [userName, token, updateProfile, setLanguage, collectedFields, getAutoDetectedLocation, playTTS]);
 
-  // ─── TTS Playback ────────────────────────────────────────────────────
-  const playTTS = useCallback(async (text, lang) => {
-    try {
-      setIsPlayingAudio(true);
-      const res = await fetch("/api/v2/chat/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: text.replace(/[*#\n]/g, " ").slice(0, 500), language: lang }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.audio_base64) {
-          const audio = new Audio(`data:audio/wav;base64,${data.audio_base64}`);
-          audio.onended = () => setIsPlayingAudio(false);
-          audio.onerror = () => setIsPlayingAudio(false);
-          await audio.play().catch(() => setIsPlayingAudio(false));
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn("TTS playback error:", e);
-    }
-    setIsPlayingAudio(false);
-  }, []);
-
-  // ─── Send Text Message ──────────────────────────────────────────────
+  // ─── Send Text Message ──────────────────────────────────────────────────
   const handleSendMessage = useCallback(async (overrideText = null) => {
     const text = overrideText || inputText.trim();
     if (!text || isSending) return;
@@ -214,13 +324,13 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     setIsSending(true);
 
     try {
-      // Build conversation history for the LLM
       const conversationHistory = [...messages, userMsg].map(m => ({
         role: m.role,
         content: m.content,
       }));
 
-      // Send to backend onboarding endpoint
+      const locCoords = getAutoDetectedLocation();
+
       const response = await fetch("/api/v2/chat/onboarding", {
         method: "POST",
         headers: {
@@ -233,50 +343,41 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           user_name: userName,
           collected_fields: collectedFields,
           conversation_step: conversationStep,
-          user_location: {
-            latitude: userProfile?.latitude || null,
-            longitude: userProfile?.longitude || null,
-          },
+          user_location: locCoords,
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
 
-        // Update collected fields from backend extraction
         if (data.extracted_fields) {
           setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
         }
 
-        // Update conversation step
         if (data.next_step !== undefined) {
           setConversationStep(data.next_step);
         }
 
-        // ODOP alignment data
         if (data.odop_alignment) {
           setOdopData(data.odop_alignment);
         }
 
-        // Add assistant response
         const assistantMsg = {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          content: data.reply || data.message?.content || "I understand. Let me help you further.",
+          content: data.reply || data.message?.content || "मैं समझ गई। कृपया और बताएँ।",
           timestamp: new Date().toISOString(),
           odop_comparison: data.odop_comparison || null,
         };
         setMessages(prev => [...prev, assistantMsg]);
 
-        // Play TTS for the response
         playTTS(assistantMsg.content, selectedLang || "hi");
 
-        // Check if all fields are collected — if so, show confirmation
         if (data.all_fields_collected) {
           setPhase("processing");
         }
       } else {
-        // Fallback: use regular chat endpoint
+        // Fallback: general chat endpoint
         const fallbackRes = await chatApi.sendMessage(
           [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
           { onboarding: true },
@@ -306,9 +407,9 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     } finally {
       setIsSending(false);
     }
-  }, [inputText, isSending, messages, selectedLang, userName, collectedFields, conversationStep, token, userProfile, playTTS]);
+  }, [inputText, isSending, messages, selectedLang, userName, collectedFields, conversationStep, token, getAutoDetectedLocation, playTTS]);
 
-  // ─── Audio Recording ────────────────────────────────────────────────
+  // ─── Audio Recording (Microphone) ───────────────────────────────────────
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -324,7 +425,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         stream.getTracks().forEach(t => t.stop());
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
 
-        // Send audio to voice chat endpoint
         setIsSending(true);
         try {
           const formData = new FormData();
@@ -340,39 +440,13 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
           if (res.ok) {
             const data = await res.json();
-
-            // Add user's transcribed message
-            if (data.user_transcript) {
-              setMessages(prev => [...prev, {
-                id: `user-voice-${Date.now()}`,
-                role: "user",
-                content: data.user_transcript,
-                timestamp: new Date().toISOString(),
-                isVoice: true,
-              }]);
-            }
-
-            // Send the transcript through onboarding pipeline for field extraction
-            if (data.user_transcript) {
-              handleSendMessage(data.user_transcript);
-            } else {
-              // If no transcript, add the LLM reply directly
-              setMessages(prev => [...prev, {
-                id: `assistant-voice-${Date.now()}`,
-                role: "assistant",
-                content: data.reply || "मुझे आपकी आवाज़ स्पष्ट नहीं सुनाई दी। कृपया दोबारा बोलें।",
-                timestamp: new Date().toISOString(),
-              }]);
-
-              // Play TTS
-              if (data.audio_base64) {
-                const audio = new Audio(`data:audio/wav;base64,${data.audio_base64}`);
-                audio.play().catch(() => {});
-              }
+            const transcript = data.user_transcript || data.transcript || "";
+            if (transcript.trim()) {
+              handleSendMessage(transcript.trim());
             }
           }
         } catch (e) {
-          console.error("Voice processing error:", e);
+          console.error("Voice recording processing error:", e);
         } finally {
           setIsSending(false);
         }
@@ -381,7 +455,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       mediaRecorder.start();
       setIsRecording(true);
     } catch (err) {
-      console.error("Microphone access denied:", err);
+      console.error("Microphone access error:", err);
     }
   }, [selectedLang, collectedFields, token, handleSendMessage]);
 
@@ -392,7 +466,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     }
   }, []);
 
-  // ─── Handle Enter Key ───────────────────────────────────────────────
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -400,18 +473,35 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     }
   };
 
-  // ─── ODOP Alignment Decision Handler ────────────────────────────────
+  // ─── 3-Pillar ODOP Strategic Synergy Decision Handler ───────────────────
   const handleOdopDecision = useCallback(async (alignWithOdop) => {
     const decision = alignWithOdop ? "align" : "keep_original";
-    setCollectedFields(prev => ({ ...prev, odop_decision: decision }));
+
+    let synergyNote = "";
+    if (alignWithOdop && odopData) {
+      const pInnov = odopData.synergy_pillars?.product_innovation?.title || "";
+      const pDesc = odopData.synergy_pillars?.product_innovation?.description || "";
+      synergyNote = `ODOP Strategic Synergy: ${pInnov}. ${pDesc}`;
+    }
+
+    setCollectedFields(prev => ({
+      ...prev,
+      odop_decision: decision,
+      odop_synergy_aligned: alignWithOdop,
+      odop_product: odopData?.primary_odop_product || odopData?.district_odop || odopData?.odop_product || null,
+      additional_business_details: [
+        prev.additional_business_details || "",
+        synergyNote,
+      ].filter(Boolean).join(" | "),
+    }));
 
     const responseText = alignWithOdop
       ? (selectedLang === "en"
-        ? "Excellent choice! I'll align your business with the district's ODOP product for additional benefits."
-        : "बहुत अच्छा फैसला! मैं आपके व्यवसाय को जिले के ODOP उत्पाद के साथ जोड़ दूँगी जिससे आपको अतिरिक्त लाभ मिलेंगे।")
+        ? `Brilliant decision! We have strategically aligned your enterprise with ${odopData?.primary_odop_product || 'district ODOP'}. This unlocks the 35% PMFME capital subsidy on machinery and priority GeM onboarding!`
+        : `शानदार निर्णय! हमने आपके व्यवसाय को ${odopData?.primary_odop_product || 'जिले के ODOP'} के साथ जोड़ दिया है। इससे आपको मशीनरी पर 35% PMFME सरकारी सब्सिडी और GeM पोर्टल पर प्राथमिकता मिलेगी!`)
       : (selectedLang === "en"
-        ? "Understood! I'll continue with your original business idea. There are still great schemes available for you."
-        : "समझ गई! मैं आपके मूल व्यवसाय विचार के साथ आगे बढ़ूँगी। आपके लिए अभी भी बेहतरीन योजनाएँ उपलब्ध हैं।");
+        ? "Understood! We will proceed with your original business model under standard PMEGP & MUDRA loan schemes."
+        : "समझ गई! हम मानक PMEGP और मुद्रा ऋण योजनाओं के तहत आपके मूल व्यवसाय मॉडल के साथ आगे बढ़ेंगे।");
 
     setMessages(prev => [...prev, {
       id: `odop-decision-${Date.now()}`,
@@ -422,52 +512,47 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
     setOdopData(null);
     playTTS(responseText, selectedLang || "hi");
-  }, [selectedLang, playTTS]);
+  }, [selectedLang, odopData, playTTS]);
 
-  // ─── Process Collected Fields & Submit ──────────────────────────────
+  // ─── Final Report Generation Submission ─────────────────────────────────
   const handleFinalSubmit = useCallback(async () => {
     const submitFn = onWizardSubmit || createAndSaveBusiness;
     if (!submitFn) return;
     try {
+      const locCoords = getAutoDetectedLocation();
       await submitFn({
         ...collectedFields,
         language: selectedLang || "en",
-        latitude: userProfile?.latitude || null,
-        longitude: userProfile?.longitude || null,
+        latitude: locCoords?.latitude || null,
+        longitude: locCoords?.longitude || null,
       });
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error("Submission failed:", err);
     }
-  }, [collectedFields, selectedLang, userProfile, onWizardSubmit, createAndSaveBusiness, navigate]);
+  }, [collectedFields, selectedLang, onWizardSubmit, createAndSaveBusiness, getAutoDetectedLocation, navigate]);
 
-  // ─── Render: Language Selection Phase ───────────────────────────────
+  // ─── Render: Language Selection Phase ───────────────────────────────────
   if (phase === "lang_select") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/30 flex items-center justify-center px-4 py-8 relative overflow-hidden">
-        {/* Background ambient glow */}
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40rem] h-[40rem] bg-sovereign-100/40 blur-[180px] rounded-full pointer-events-none" />
         <div className="absolute bottom-1/4 right-1/3 w-80 h-80 bg-sky-100/40 blur-[140px] rounded-full pointer-events-none" />
 
         <div className="max-w-2xl w-full relative z-10">
-          {/* MIRA Avatar & Welcome */}
-          <div className="text-center mb-8 animate-[fadeIn_0.5s_ease-out]">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-sovereign-900 via-sovereign-800 to-indigo-900 flex items-center justify-center text-white text-3xl font-black mx-auto mb-4 shadow-xl shadow-sovereign-950/20 ring-4 ring-white">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sovereign-900 via-sovereign-800 to-indigo-900 text-white flex items-center justify-center text-2xl font-black mx-auto mb-4 shadow-xl shadow-sovereign-950/20 border border-sovereign-700/50">
               उ
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold font-display text-slate-900 mb-2">
-              नमस्ते {userName} जी! 🙏
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display mb-2">
+              Namaste {userName} Ji! 🙏
             </h1>
-            <p className="text-sm text-slate-600 font-medium mb-1">
-              Welcome to Udyam Saathi
-            </p>
-            <p className="text-lg font-bold text-sovereign-800 mt-4">
-              {LANG_SELECT_PROMPT.hi} / {LANG_SELECT_PROMPT.en}
+            <p className="text-sm text-slate-600 max-w-md mx-auto">
+              Please choose your preferred language to begin your conversational onboarding with MIRA.
             </p>
           </div>
 
-          {/* Language Cards Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 sm:gap-4">
             {ONBOARDING_LANGUAGES.map((lang) => {
               const isSelected = selectedLang === lang.code;
               return (
@@ -480,25 +565,16 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                       : `border-slate-200/80 hover:${lang.gradientBorder} hover:shadow-lg hover:scale-[1.01] shadow-sm`
                   } bg-white`}
                 >
-                  {/* Gradient top accent bar */}
                   <div className={`absolute top-0 left-3 right-3 h-1 rounded-b-full bg-gradient-to-r ${lang.gradient} opacity-${isSelected ? '100' : '0'} group-hover:opacity-100 transition-opacity duration-300`} />
-
-                  {/* Language Initials (ABC equivalent in that script) */}
                   <div className={`text-2xl sm:text-3xl font-black mb-2 bg-gradient-to-r ${lang.gradient} bg-clip-text text-transparent leading-tight`}>
                     {lang.initials}
                   </div>
-
-                  {/* Native Name */}
                   <div className="text-base sm:text-lg font-bold text-slate-900 mb-0.5">
                     {lang.native}
                   </div>
-
-                  {/* English Label */}
                   <div className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">
                     {lang.label}
                   </div>
-
-                  {/* Selected check */}
                   {isSelected && (
                     <div className="absolute -top-1.5 -right-1.5">
                       <div className={`w-6 h-6 rounded-full bg-gradient-to-r ${lang.gradient} flex items-center justify-center shadow-md`}>
@@ -512,7 +588,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           </div>
         </div>
 
-        {/* CSS Animation */}
         <style>{`
           @keyframes fadeIn {
             from { opacity: 0; transform: translateY(12px); }
@@ -523,10 +598,9 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     );
   }
 
-  // ─── Render: Chat Phase ────────────────────────────────────────────
+  // ─── Render: Chat Phase ────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/30 flex flex-col relative overflow-hidden">
-      {/* Background ambient glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] bg-sovereign-100/30 blur-[160px] rounded-full pointer-events-none" />
 
       {/* Header Bar */}
@@ -538,19 +612,36 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           <div className="flex-1 min-w-0">
             <h1 className="text-sm font-bold truncate flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-sky-300" />
-              MIRA — Business Advisor
+              MIRA — Business & Credit Advisor
             </h1>
-            <p className="text-[11px] text-sky-200/80 truncate">
-              {selectedLang && ONBOARDING_LANGUAGES.find(l => l.code === selectedLang)?.native} • 
-              {isPlayingAudio ? " 🔊 Speaking..." : " Online"}
+            <p className="text-[11px] text-sky-200/80 truncate flex items-center gap-1.5">
+              <span>{selectedLang && ONBOARDING_LANGUAGES.find(l => l.code === selectedLang)?.native}</span>
+              <span>•</span>
+              {isPlayingAudio ? (
+                <span className="text-emerald-300 font-semibold animate-pulse flex items-center gap-1">
+                  <Volume2 className="w-3 h-3" /> Speaking...
+                </span>
+              ) : (
+                <span className="text-sky-300">Ready to assist</span>
+              )}
             </p>
           </div>
-          
-          {/* Collected Fields Progress Indicator */}
-          <div className="flex items-center gap-1.5">
+
+          <div className="flex items-center gap-2">
+            {isPlayingAudio && (
+              <button
+                type="button"
+                onClick={stopAudio}
+                className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-400/30 text-[10px] font-bold hover:bg-rose-500/30 transition-colors flex items-center gap-1"
+                title="Stop speech"
+              >
+                <VolumeX className="w-3 h-3" /> Stop
+              </button>
+            )}
+
             {Object.keys(collectedFields).length > 0 && (
-              <div className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-lg border border-emerald-400/30 font-bold">
-                {Object.keys(collectedFields).length} fields
+              <div className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-lg border border-emerald-400/30 font-bold">
+                {Object.keys(collectedFields).filter(k => !["latitude", "longitude"].includes(k)).length} Details Extracted
               </div>
             )}
           </div>
@@ -567,7 +658,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 msg.role === "user" ? "justify-end" : "justify-start"
               }`}
             >
-              {/* Assistant Avatar */}
               {msg.role === "assistant" && (
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sovereign-900 to-indigo-900 flex items-center justify-center text-white text-xs font-black shrink-0 mt-0.5 shadow-md">
                   उ
@@ -581,10 +671,8 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     : "bg-white text-slate-800 border border-slate-200/80 rounded-bl-md"
                 }`}
               >
-                {/* Render markdown-like text */}
                 <div className="whitespace-pre-wrap">
                   {msg.content.split("\n").map((line, i) => {
-                    // Bold text
                     const boldParsed = line.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
                     return (
                       <p key={i} className={i > 0 ? "mt-1.5" : ""} dangerouslySetInnerHTML={{ __html: boldParsed }} />
@@ -592,28 +680,20 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   })}
                 </div>
 
-                {/* Voice indicator */}
-                {msg.isVoice && (
-                  <div className="mt-1.5 flex items-center gap-1 text-[10px] opacity-70">
-                    <Mic className="w-3 h-3" />
-                    <span>Voice message</span>
-                  </div>
-                )}
-
-                {/* TTS playback button for assistant messages */}
                 {msg.role === "assistant" && (
-                  <button
-                    onClick={() => playTTS(msg.content, selectedLang || "hi")}
-                    className="mt-2 inline-flex items-center gap-1 text-[11px] text-sovereign-600 hover:text-sovereign-800 font-medium transition-colors"
-                    disabled={isPlayingAudio}
-                  >
-                    <Volume2 className="w-3.5 h-3.5" />
-                    <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
-                  </button>
+                  <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => playTTS(msg.content, selectedLang || "hi")}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-sovereign-700 hover:text-sovereign-900 cursor-pointer"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                      <span>{isPlayingAudio ? "Speaking..." : "Listen"}</span>
+                    </button>
+                  </div>
                 )}
               </div>
 
-              {/* User Avatar */}
               {msg.role === "user" && (
                 <div className="w-8 h-8 rounded-xl bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold shrink-0 mt-0.5">
                   {userName.charAt(0).toUpperCase()}
@@ -622,65 +702,129 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             </div>
           ))}
 
-          {/* ODOP Comparison Cards */}
+          {/* ─── 3-Pillar ODOP Strategic Synergy Card (User-Centric Alignment) ─── */}
           {odopData && (
-            <div className="animate-[fadeIn_0.4s_ease-out]">
-              <div className="bg-white rounded-2xl border border-sovereign-200 shadow-lg overflow-hidden max-w-lg mx-auto">
-                <div className="bg-gradient-to-r from-sovereign-900 to-indigo-900 text-white px-4 py-3 text-sm font-bold flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-sky-300" />
-                  ODOP Alignment Opportunity
+            <div className="animate-[fadeIn_0.4s_ease-out] max-w-xl mx-auto my-3">
+              <div className="bg-white rounded-3xl border-2 border-emerald-400/80 shadow-2xl overflow-hidden">
+                {/* Top Banner */}
+                <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-sovereign-950 text-white p-4 sm:p-5 relative">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      ODOP Strategic Alignment
+                    </span>
+                    <span className="text-xs text-emerald-200 font-semibold flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5" /> 35% PMFME Subsidy Ready
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold font-display text-white">
+                    {selectedLang === "en"
+                      ? "Align Your Business with District ODOP for 35% Capital Subsidy"
+                      : "जिले के ODOP से जुड़कर 35% सरकारी सब्सिडी का लाभ उठाएँ"}
+                  </h3>
                 </div>
-                <div className="p-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Without ODOP */}
-                    <div className="rounded-xl border border-slate-200 p-3 bg-slate-50">
-                      <div className="text-[11px] font-bold text-slate-500 uppercase mb-1">Your Idea</div>
-                      <div className="text-sm font-bold text-slate-900 mb-2">{odopData.user_business || "Your Business"}</div>
-                      <ul className="text-[11px] text-slate-600 space-y-0.5">
-                        {(odopData.without_odop_pros || []).map((p, i) => (
-                          <li key={i} className="flex items-start gap-1">
-                            <span className="text-emerald-500 mt-0.5">✓</span> {p}
-                          </li>
-                        ))}
-                        {(odopData.without_odop_cons || []).map((c, i) => (
-                          <li key={i} className="flex items-start gap-1">
-                            <span className="text-rose-500 mt-0.5">✗</span> {c}
-                          </li>
-                        ))}
-                      </ul>
+
+                <div className="p-4 sm:p-6 space-y-4 text-slate-800">
+                  {/* Explainer Box: What is ODOP? */}
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-xs leading-relaxed text-emerald-950">
+                    <p className="font-bold text-emerald-900 mb-1 flex items-center gap-1.5">
+                      <Info className="w-4 h-4 text-emerald-700 shrink-0" />
+                      {selectedLang === "en" ? "What is the ODOP Initiative?" : "ODOP योजना क्या है?"}
+                    </p>
+                    <p className="text-emerald-900/90">
+                      {odopData.what_is_odop || "The One District One Product (ODOP) initiative by the central government focuses on each district's designated indigenous product to provide 35% PMFME capital subsidies, priority procurement on GeM, and cluster common facility centers."}
+                    </p>
+                  </div>
+
+                  {/* Current Business & District ODOP Badges */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        {selectedLang === "en" ? "Your Current Business" : "आपका वर्तमान व्यवसाय"}
+                      </div>
+                      <div className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                        <span>🏪</span>
+                        <span className="truncate">{odopData.user_business || "Your Enterprise"}</span>
+                      </div>
                     </div>
 
-                    {/* With ODOP */}
-                    <div className="rounded-xl border-2 border-emerald-300 p-3 bg-emerald-50/50">
-                      <div className="text-[11px] font-bold text-emerald-600 uppercase mb-1">ODOP Aligned</div>
-                      <div className="text-sm font-bold text-slate-900 mb-2">{odopData.odop_product || "ODOP Product"}</div>
-                      <ul className="text-[11px] text-slate-600 space-y-0.5">
-                        {(odopData.with_odop_pros || []).map((p, i) => (
-                          <li key={i} className="flex items-start gap-1">
-                            <span className="text-emerald-500 mt-0.5">✓</span> {p}
-                          </li>
-                        ))}
-                        {(odopData.with_odop_cons || []).map((c, i) => (
-                          <li key={i} className="flex items-start gap-1">
-                            <span className="text-rose-500 mt-0.5">✗</span> {c}
-                          </li>
-                        ))}
-                      </ul>
+                    <div className="p-3 rounded-2xl bg-teal-50 border border-teal-200">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-teal-700 mb-1">
+                        {selectedLang === "en" ? "The District's ODOP" : "जिले का आधिकारिक ODOP"}
+                      </div>
+                      <div className="font-bold text-sm text-teal-950 flex items-center gap-1.5">
+                        <span>🌾</span>
+                        <span className="truncate">{odopData.district_odop || odopData.odop_product}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  {/* How We Aligned Both (3 Structured Pillars) */}
+                  <div className="space-y-2.5 pt-1">
+                    <div className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span>
+                        {selectedLang === "en"
+                          ? "How We Aligned Both (Strategic Synergy):"
+                          : "हमने दोनों को कैसे जोड़ा (रणनीतिक तालमेल):"}
+                      </span>
+                    </div>
+
+                    {/* Pillar 1: Product Innovation */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1">
+                      <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-[11px] font-black shrink-0">1</span>
+                        <span>{odopData.synergy_pillars?.product_innovation?.title || "Product Innovation"}</span>
+                      </div>
+                      <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                        {odopData.synergy_pillars?.product_innovation?.description}
+                      </p>
+                    </div>
+
+                    {/* Pillar 2: Local Sourcing Advantage */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1">
+                      <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-[11px] font-black shrink-0">2</span>
+                        <span>{odopData.synergy_pillars?.local_sourcing?.title || "Local Sourcing Advantage"}</span>
+                      </div>
+                      <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                        {odopData.synergy_pillars?.local_sourcing?.description}
+                      </p>
+                    </div>
+
+                    {/* Pillar 3: Financial Incentives */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1">
+                      <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-[11px] font-black shrink-0">3</span>
+                        <span>{odopData.synergy_pillars?.financial_incentives?.title || "Financial & Scheme Incentives"}</span>
+                      </div>
+                      <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                        {odopData.synergy_pillars?.financial_incentives?.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Decision Buttons */}
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
                     <button
-                      onClick={() => handleOdopDecision(false)}
-                      className="flex-1 py-2.5 text-xs font-bold rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
-                    >
-                      {selectedLang === "en" ? "Keep My Idea" : "मेरा विचार रखें"}
-                    </button>
-                    <button
+                      type="button"
                       onClick={() => handleOdopDecision(true)}
-                      className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 transition-all shadow-md"
+                      className="flex-1 py-3 px-4 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      {selectedLang === "en" ? "Align with ODOP ✨" : "ODOP से जोड़ें ✨"}
+                      <Sparkles className="w-4 h-4 text-emerald-200" />
+                      <span>
+                        {selectedLang === "en"
+                          ? "Adopt ODOP Synergy (Unlock 35% Subsidy) ✨"
+                          : "ODOP तालमेल अपनाएँ (35% सब्सिडी अनलॉक करें) ✨"}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOdopDecision(false)}
+                      className="sm:w-auto py-3 px-4 rounded-xl font-semibold text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer"
+                    >
+                      {selectedLang === "en" ? "Continue Standard Idea" : "सामान्य रूप से जारी रखें"}
                     </button>
                   </div>
                 </div>
@@ -711,18 +855,18 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         </div>
       </div>
 
-      {/* Input Bar — Fixed at bottom */}
+      {/* Input Bar — Sticky at Bottom */}
       <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 px-3 sm:px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-end gap-2">
-            {/* Voice Record Button */}
             <button
+              type="button"
               onMouseDown={startRecording}
               onMouseUp={stopRecording}
               onTouchStart={startRecording}
               onTouchEnd={stopRecording}
               disabled={isSending}
-              className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
+              className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 cursor-pointer ${
                 isRecording
                   ? "bg-rose-500 text-white shadow-lg shadow-rose-500/30 scale-110 animate-pulse"
                   : "bg-slate-100 text-slate-600 hover:bg-sovereign-100 hover:text-sovereign-800 border border-slate-200"
@@ -732,7 +876,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
               {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
             </button>
 
-            {/* Text Input */}
             <div className="flex-1 relative">
               <textarea
                 ref={textareaRef}
@@ -751,32 +894,32 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
               />
             </div>
 
-            {/* Send Button */}
             <button
+              type="button"
               onClick={() => handleSendMessage()}
               disabled={!inputText.trim() || isSending}
-              className="shrink-0 w-11 h-11 rounded-xl bg-gradient-to-r from-sovereign-800 via-sovereign-700 to-indigo-800 text-white flex items-center justify-center shadow-md shadow-sovereign-900/20 hover:shadow-lg disabled:opacity-40 disabled:shadow-none transition-all duration-200"
+              className="shrink-0 w-11 h-11 rounded-xl bg-gradient-to-r from-sovereign-900 via-sovereign-800 to-indigo-900 text-white flex items-center justify-center shadow-md shadow-sovereign-950/20 hover:shadow-lg disabled:opacity-40 transition-all duration-200 cursor-pointer"
             >
-              {isSending ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Send className="w-5 h-5" />
-              )}
+              {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
             </button>
           </div>
 
-          {/* Bottom hint */}
-          <div className="text-center mt-2">
-            <p className="text-[10px] text-slate-400 font-medium">
-              {selectedLang === "en"
-                ? "MIRA uses Sarvam AI & Bhashini for intelligent multilingual assistance"
-                : "MIRA बुद्धिमान बहुभाषी सहायता के लिए Sarvam AI और भाषिनी का उपयोग करती है"}
-            </p>
+          <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400 px-1">
+            <span>
+              {isRecording 
+                ? "🎙️ Recording... Release button to send" 
+                : (selectedLang === "en" ? "Press Enter to send" : "भेजने के लिए Enter दबाएँ")}
+            </span>
+            <span className="truncate max-w-[220px]">
+              {collectedFields.district_name 
+                ? `📍 ${collectedFields.district_name}, ${collectedFields.state_name || ''}` 
+                : "📍 Auto-detecting location..."}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Processing Phase Overlay */}
+      {/* Processing Phase Overlay Modal */}
       {phase === "processing" && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center animate-[fadeIn_0.3s_ease-out]">
@@ -788,29 +931,33 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             </h2>
             <p className="text-sm text-slate-600 mb-6">
               {selectedLang === "en"
-                ? "MIRA has understood your business idea. Click below to generate your complete feasibility report."
-                : "MIRA ने आपके व्यवसाय के विचार को समझ लिया है। अपनी पूरी व्यवहार्यता रिपोर्ट बनाने के लिए नीचे क्लिक करें।"}
+                ? "MIRA has gathered your enterprise details. Click below to generate your complete bank-ready feasibility appraisal."
+                : "MIRA ने आपके व्यवसाय की सभी आवश्यक जानकारी एकत्र कर ली है। अपनी पूरी व्यवहार्यता रिपोर्ट और बैंक डीपीआर बनाने के लिए नीचे क्लिक करें।"}
             </p>
 
             {/* Collected Fields Summary */}
             <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 mb-6 text-left">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Collected Details</div>
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Verified Enterprise Parameters</div>
               <div className="space-y-1.5 text-xs text-slate-700">
-                {Object.entries(collectedFields).map(([key, val]) => (
-                  <div key={key} className="flex justify-between">
-                    <span className="text-slate-500 font-medium capitalize">{key.replace(/_/g, " ")}</span>
-                    <span className="font-semibold text-slate-900 text-right max-w-[60%] truncate">
-                      {typeof val === "boolean" ? (val ? "Yes" : "No") : String(val)}
-                    </span>
-                  </div>
-                ))}
+                {Object.entries(collectedFields)
+                  .filter(([key]) => !["latitude", "longitude", "odop_decision", "additional_business_details"].includes(key))
+                  .map(([key, val]) => (
+                    <div key={key} className="flex justify-between">
+                      <span className="text-slate-500 font-medium capitalize">{key.replace(/_/g, " ")}</span>
+                      <span className="font-semibold text-slate-900 text-right max-w-[60%] truncate">
+                        {key === "project_cost" 
+                          ? `₹${Number(val).toLocaleString('en-IN')}`
+                          : (typeof val === "boolean" ? (val ? "Yes" : "No") : String(val))}
+                      </span>
+                    </div>
+                  ))}
               </div>
             </div>
 
             <button
               onClick={handleFinalSubmit}
               disabled={parentLoading}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-sovereign-900 via-sovereign-800 to-indigo-900 text-white font-bold text-sm shadow-lg shadow-sovereign-950/20 hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-50"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-sovereign-900 via-sovereign-800 to-indigo-900 text-white font-bold text-sm shadow-lg shadow-sovereign-950/20 hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-50 cursor-pointer"
             >
               {parentLoading ? (
                 <>
@@ -828,7 +975,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         </div>
       )}
 
-      {/* CSS Animation */}
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(8px); }

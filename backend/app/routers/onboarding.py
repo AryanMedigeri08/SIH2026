@@ -9,8 +9,10 @@ Replaces the 7-step wizard with an intelligent conversational Q&A flow.
 from __future__ import annotations
 import json
 import logging
+import sqlite3
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
@@ -29,15 +31,16 @@ logger = logging.getLogger("udyam_saathi.api.onboarding")
 router = APIRouter()
 
 # ── Required Fields for XGBoost Feasibility Model ────────────────────────────
+# Note: annual_turnover_estimate is automatically computed by the backend based
+# on capital investment and sector velocity ratios. It is NEVER asked from the user.
 REQUIRED_FIELDS = [
     "enterprise_name",
-    "business_category",    # manufacturing | service
+    "business_category",    # manufacturing | service (auto-inferred from sector)
     "sector",               # dairy, food_processing, repair, apparel, etc.
     "promoter_category",    # general | sc | st | obc | women | women_shg
-    "state_name",
-    "district_name",
-    "project_cost",
-    "annual_turnover_estimate",
+    "state_name",           # auto-resolved from GPS during registration
+    "district_name",        # auto-resolved from GPS during registration
+    "project_cost",         # user specifies e.g. 2 lakh
 ]
 
 OPTIONAL_FIELDS = [
@@ -51,12 +54,44 @@ OPTIONAL_FIELDS = [
     "additional_business_details",
 ]
 
+# ── Reverse Geocoding from SQLite Locality Master ─────────────────────────────
+_LOCALITY_DB_PATH = Path(__file__).resolve().parent.parent / "core" / "data" / "locality_master.sqlite3"
+
+
+def reverse_geocode_coords(lat: float, lon: float) -> Optional[dict[str, str]]:
+    """Resolves GPS latitude and longitude to state, district, and locality using locality_master.sqlite3."""
+    try:
+        if not _LOCALITY_DB_PATH.exists():
+            return None
+        conn = sqlite3.connect(str(_LOCALITY_DB_PATH))
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT state, district, office_name
+            FROM pincode_localities
+            WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+            ORDER BY ((latitude - ?)*(latitude - ?)*1.5 + (longitude - ?)*(longitude - ?)) ASC
+            LIMIT 1
+        """, (lat, lat, lon, lon))
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            return {
+                "state_name": row[0],
+                "district_name": row[1],
+                "locality_name": row[2],
+            }
+    except Exception as e:
+        logger.warning("Reverse geocode error for coords (%s, %s): %s", lat, lon, e)
+    return None
+
+
 # ── Sector Name Mapping ─────────────────────────────────────────────────────
 SECTOR_MAP = {
     "dairy": "dairy", "milk": "dairy", "cow": "dairy", "buffalo": "dairy",
     "दूध": "dairy", "डेयरी": "dairy", "गाय": "dairy", "भैंस": "dairy",
     "food": "food_processing", "snacks": "food_processing", "pickle": "food_processing",
     "bakery": "food_processing", "papad": "food_processing", "chips": "food_processing",
+    "ice cream": "dairy", "icecream": "dairy", "कुल्फी": "dairy", "आइसक्रीम": "dairy",
     "खाना": "food_processing", "खाद्य": "food_processing", "नमकीन": "food_processing",
     "अचार": "food_processing", "बेकरी": "food_processing",
     "repair": "repair", "mobile": "repair", "electronics": "repair", "mechanic": "repair",
@@ -109,78 +144,56 @@ class OnboardingResponse(BaseModel):
     extracted_fields: Dict[str, Any] = Field(default_factory=dict, description="Fields extracted from user's latest message")
     next_step: int = Field(0, description="Updated conversation step")
     all_fields_collected: bool = Field(False, description="True if all required fields are filled")
-    odop_alignment: Optional[Dict[str, Any]] = Field(None, description="ODOP comparison data when applicable")
-    odop_comparison: Optional[Dict[str, Any]] = Field(None, description="ODOP pros/cons comparison for UI cards")
+    odop_alignment: Optional[Dict[str, Any]] = Field(None, description="ODOP comparison & synergy data")
+    odop_comparison: Optional[Dict[str, Any]] = Field(None, description="ODOP synergy alignment details for UI cards")
     message: Optional[Dict[str, str]] = None
 
 
 # ── Field Extraction System Prompt ───────────────────────────────────────────
 
-EXTRACTION_SYSTEM_PROMPT = """You are MIRA, a friendly rural business advisor for Indian MSME entrepreneurs.
+EXTRACTION_SYSTEM_PROMPT = """You are MIRA, an intelligent MSME advisor for Indian entrepreneurs.
 Your task is to extract structured business information from the user's natural language input.
 
 IMPORTANT: Respond ONLY with valid JSON. No explanation text.
 
-Extract the following fields from the user's message. Return ONLY fields that can be confidently determined from the text.
-Do NOT infer or guess fields that are not mentioned.
-
-Fields to extract:
-- enterprise_name: string (name of the business, e.g. "Sharma Dairy Farm")
-- business_category: "manufacturing" or "service"  
+Fields to extract if present in the text:
+- enterprise_name: string (name of the business, e.g. "Sharma Dairy", "Cool Ice Cream")
+- business_category: "manufacturing" or "service"
 - sector: one of "dairy", "food_processing", "repair", "apparel", "fabrication", "artisan_trades", "general"
 - promoter_category: one of "general", "sc", "st", "obc", "women", "women_shg"
-- state_name: string (Indian state name)
-- district_name: string (district name)
-- block_name: string (block/tehsil)
-- village_name: string (village)
-- project_cost: number (total investment in INR, convert lakhs/crores to absolute value)
-- annual_turnover_estimate: number (estimated yearly revenue in INR)
-- is_rural: boolean
+- state_name: string (if mentioned)
+- district_name: string (if mentioned)
+- project_cost: number (total investment in INR, convert lakhs/crores to absolute value: e.g. 2 lakh = 200000)
 - additional_business_details: string (any extra business context)
 
-Examples of conversion:
-- "2 lakh" = 200000, "5 lakh" = 500000, "1 crore" = 10000000
-- "2 लाख" = 200000, "5 लाख" = 500000
-
-Return JSON like: {"enterprise_name": "value", "sector": "dairy", "project_cost": 500000}
-Only include fields you are CONFIDENT about from the user's text. Empty JSON {} is valid if nothing can be extracted.
+DO NOT extract annual_turnover_estimate or gross sales.
+Return JSON like: {"enterprise_name": "Sharma Ice Cream", "sector": "dairy", "project_cost": 300000}
+Empty JSON {} is valid if no structured fields are present.
 """
 
-
 CONVERSATION_SYSTEM_PROMPT_TEMPLATE = """You are MIRA (MSME Intelligent Rural Advisor), a very sweet, warm, understanding, and empathetic business advisor.
-You speak {language_name} fluently with proper human emotion. You are helping {user_name} start their business journey.
+You speak {language_name} fluently with natural human warmth and respect (ji / जी). You are helping {user_name} start their business journey.
 
-Your tone should be:
-- Very sweet and appealing, like a caring elder sister/advisor
-- Consoling and understanding when the user seems confused
-- Encouraging and motivating
-- Use simple language that rural entrepreneurs can understand
-- Mix Hindi/regional words naturally for warmth
-
-CURRENT COLLECTED INFORMATION:
+CURRENT ENTERPRISE STATUS:
+- Entrepreneur: {user_name}
+- Verified Location: {location_info}
+- Information Gathered So Far:
 {collected_info}
 
-MISSING FIELDS (still needed):
+STILL NEEDED TO COMPLETE APPRAISAL:
 {missing_fields}
 
-YOUR TASK:
-1. Acknowledge what the user just told you warmly
-2. If the user mentioned business details, confirm what you understood
-3. Ask about the NEXT missing piece of information naturally (don't ask all at once)
-4. If the user seems confused about costs/investment, help them think through it
-5. Keep responses SHORT and conversational (3-5 sentences max)
-6. If all required information is collected, congratulate them and say you'll generate their report
-
-FIELD PRIORITIES (ask in this order):
-1. Business idea / sector (what they want to do)
-2. Investment amount (project cost)
-3. Location (state, district)  
-4. Promoter category (general/SC/ST/OBC/women)
-5. Expected revenue/turnover
-6. Enterprise name (can be auto-generated)
-
-IMPORTANT: Never use technical terms. Say "kitna paisa lagana hai" instead of "project cost".
-Say "aap kahan se hain" instead of "state_name". Be natural!
+CRITICAL OPERATIONAL RULES (FOLLOW STRICTLY):
+1. LOCATION IS ALREADY VERIFIED: The user's location is ALREADY KNOWN from registration GPS as {location_info}. DO NOT ASK the user where they are from, what district they are in, or what state they belong to! If you mention location, warmly acknowledge it (e.g., "बहुत खुशी की बात है कि आप {district_name}, {state_name} में व्यवसाय शुरू कर रहे हैं").
+2. DO NOT ASK FOR ANNUAL SALES / TURNOVER: NEVER ask the user for their "annual turnover", "gross sales", "yearly income", or "expected revenue". That is a banking figure calculated automatically on the server.
+3. REMAINING QUESTIONS TO ASK (ask only ONE at a time in natural, simple language):
+   - If business idea is missing: Ask what kind of business or product they want to start (e.g. dairy, ice cream, food processing, clothes/tailoring, mobile repair, grocery).
+   - If investment is missing: Ask how much capital/money they have to invest (e.g., ₹2 लाख, ₹5 लाख).
+   - If category is missing: Ask which social category they belong to (General, OBC, SC, ST, or Women Entrepreneur).
+4. TONE & STYLE:
+   - Very warm, encouraging, respectful, like a supportive elder sister.
+   - Keep answers short and clear: 2 to 4 sentences maximum.
+   - If all required fields are collected, warmly congratulate {user_name} and tell them their feasibility report and ODOP alignment are ready!
 """
 
 LANGUAGE_NAMES = {
@@ -192,13 +205,9 @@ LANGUAGE_NAMES = {
 # ── Core Processing Logic ────────────────────────────────────────────────────
 
 def _extract_fields_from_text(text: str, existing_fields: dict) -> dict:
-    """
-    Uses keyword matching to rapidly extract obvious fields.
-    Falls back to LLM extraction for complex inputs.
-    """
+    """Uses keyword matching to rapidly extract obvious fields."""
     extracted = {}
     text_lower = text.lower()
-    text_words = set(text_lower.split())
 
     # --- Sector detection ---
     for keyword, sector_val in SECTOR_MAP.items():
@@ -220,7 +229,6 @@ def _extract_fields_from_text(text: str, existing_fields: dict) -> dict:
 
     # --- Investment / project cost ---
     import re
-    # Match patterns like "2 lakh", "₹5 lakh", "2लाख", "10 lacs", "1 crore"
     cost_patterns = [
         (r'(?:₹|rs\.?|rupees?)\s*(\d+(?:\.\d+)?)\s*(?:lakh|lac|लाख)', lambda m: float(m.group(1)) * 100000),
         (r'(\d+(?:\.\d+)?)\s*(?:lakh|lac|लाख)', lambda m: float(m.group(1)) * 100000),
@@ -234,77 +242,38 @@ def _extract_fields_from_text(text: str, existing_fields: dict) -> dict:
             match = re.search(pattern, text_lower, re.IGNORECASE)
             if match:
                 extracted["project_cost"] = converter(match)
-                # Estimate turnover as 2x project cost if not set
-                if "annual_turnover_estimate" not in existing_fields:
-                    extracted["annual_turnover_estimate"] = extracted["project_cost"] * 2
                 break
-
-    # --- Location (basic keyword matching) ---
-    # Common Indian state names
-    STATES = {
-        "karnataka": "Karnataka", "कर्नाटक": "Karnataka",
-        "maharashtra": "Maharashtra", "महाराष्ट्र": "Maharashtra",
-        "rajasthan": "Rajasthan", "राजस्थान": "Rajasthan",
-        "uttar pradesh": "Uttar Pradesh", "उत्तर प्रदेश": "Uttar Pradesh",
-        "madhya pradesh": "Madhya Pradesh", "मध्य प्रदेश": "Madhya Pradesh",
-        "west bengal": "West Bengal", "पश्चिम बंगाल": "West Bengal",
-        "tamil nadu": "Tamil Nadu", "तमिलनाडु": "Tamil Nadu",
-        "andhra pradesh": "Andhra Pradesh",
-        "telangana": "Telangana", "तेलंगाना": "Telangana",
-        "gujarat": "Gujarat", "गुजरात": "Gujarat",
-        "bihar": "Bihar", "बिहार": "Bihar",
-        "odisha": "Odisha", "ओडिशा": "Odisha",
-        "kerala": "Kerala", "केरल": "Kerala",
-        "punjab": "Punjab", "पंजाब": "Punjab",
-        "haryana": "Haryana", "हरियाणा": "Haryana",
-        "jharkhand": "Jharkhand", "झारखंड": "Jharkhand",
-        "chhattisgarh": "Chhattisgarh", "छत्तीसगढ़": "Chhattisgarh",
-        "assam": "Assam", "असम": "Assam",
-        "goa": "Goa", "गोवा": "Goa",
-        "uttarakhand": "Uttarakhand", "उत्तराखंड": "Uttarakhand",
-        "himachal pradesh": "Himachal Pradesh", "हिमाचल प्रदेश": "Himachal Pradesh",
-        "delhi": "Delhi", "दिल्ली": "Delhi",
-    }
-    if "state_name" not in existing_fields:
-        for keyword, state_val in STATES.items():
-            if keyword in text_lower:
-                extracted["state_name"] = state_val
-                break
-
-    # --- Rural/Urban detection ---
-    if "is_rural" not in existing_fields:
-        if any(w in text_lower for w in ("rural", "village", "gram", "gaon", "गाँव", "ग्राम", "ग्रामीण")):
-            extracted["is_rural"] = True
-        elif any(w in text_lower for w in ("urban", "city", "town", "शहर", "नगर")):
-            extracted["is_rural"] = False
 
     return extracted
 
 
-def _llm_extract_fields(text: str) -> dict:
-    """Use the Sarvam LLM to extract structured fields from natural language."""
+def _llm_extract_fields(user_text: str) -> dict:
+    """Uses Sarvam LLM for structured field extraction from natural language."""
     try:
         messages = [
             {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
-            {"role": "user", "content": text},
+            {"role": "user", "content": f"Extract fields from this user message: \"{user_text}\""},
         ]
         content, _, _ = chat_service._call_llm_chat_completion(
             messages=messages,
             temperature=0.1,
             max_tokens=256,
-            timeout_s=10.0,
+            timeout_s=8.0,
         )
         if content:
-            # Parse JSON from the response
             content_clean = content.strip()
             if content_clean.startswith("```"):
-                # Strip markdown code fence
                 content_clean = content_clean.split("```")[1]
                 if content_clean.startswith("json"):
                     content_clean = content_clean[4:]
-            return json.loads(content_clean)
+            data = json.loads(content_clean)
+            if isinstance(data, dict):
+                # Never extract annual_turnover_estimate from LLM
+                data.pop("annual_turnover_estimate", None)
+                data.pop("turnover", None)
+                return data
     except Exception as e:
-        logger.warning("LLM field extraction failed: %s", e)
+        logger.warning("LLM field extraction notice: %s", e)
     return {}
 
 
@@ -318,35 +287,41 @@ def _generate_mira_response(
     """Generate MIRA's conversational response using Sarvam LLM."""
     lang_name = LANGUAGE_NAMES.get(language, "Hindi")
 
+    district_name = collected_fields.get("district_name", "your area")
+    state_name = collected_fields.get("state_name", "India")
+    location_info = f"{district_name}, {state_name}"
+
     collected_info = "\n".join(
         f"- {k.replace('_', ' ').title()}: {v}"
         for k, v in collected_fields.items()
-        if v is not None
-    ) or "Nothing collected yet"
+        if v is not None and k not in ("latitude", "longitude")
+    ) or "None yet"
 
     missing_info = "\n".join(
         f"- {f.replace('_', ' ').title()}"
         for f in missing_fields
-    ) or "All required fields collected!"
+    ) or "All required fields gathered!"
 
     system_prompt = CONVERSATION_SYSTEM_PROMPT_TEMPLATE.format(
         language_name=lang_name,
         user_name=user_name,
+        location_info=location_info,
+        district_name=district_name,
+        state_name=state_name,
         collected_info=collected_info,
         missing_fields=missing_info,
     )
 
     llm_messages = [{"role": "system", "content": system_prompt}]
-    # Include recent conversation history (last 6 messages)
     for msg in messages[-6:]:
         llm_messages.append({"role": msg["role"], "content": msg["content"]})
 
     try:
-        content, _, model = chat_service._call_llm_chat_completion(
+        content, _, _ = chat_service._call_llm_chat_completion(
             messages=llm_messages,
-            temperature=0.6,
+            temperature=0.3,
             max_tokens=300,
-            timeout_s=15.0,
+            timeout_s=12.0,
         )
         if content and content.strip():
             return content.strip()
@@ -355,60 +330,108 @@ def _generate_mira_response(
 
     # Fallback response
     if language == "hi":
-        return "मैं समझ गई! कृपया मुझे और बताएँ ताकि मैं आपकी बेहतर मदद कर सकूँ। 🙏"
-    return "I understand! Please tell me more so I can help you better. 🙏"
+        return f"नमस्ते {user_name} जी! मैं आपकी बात समझ गई। कृपया मुझे अपने व्यवसाय के बारे में थोड़ा और बताएँ। 🙏"
+    return f"Namaste {user_name} Ji! I understand. Please tell me a bit more about your business idea. 🙏"
 
 
-def _check_odop_alignment(collected_fields: dict) -> Optional[dict]:
-    """Check ODOP alignment when both state and district are known."""
-    state = collected_fields.get("state_name")
-    district = collected_fields.get("district_name")
-    sector = collected_fields.get("sector")
-
-    if not (state and district and sector):
-        return None
-
+def _generate_odop_synergy(
+    user_business: str,
+    sector: str,
+    state: str,
+    district: str,
+) -> Optional[dict[str, Any]]:
+    """
+    Constructs a 3-pillar strategic synergy aligning the user's business with the district's ODOP.
+    Does NOT change or replace the user's idea; instead enriches it for 35% PMFME subsidy eligibility.
+    """
     try:
-        odop_data = find_district_odop(state, district)
-        if not odop_data:
-            return None
+        odop_data = find_district_odop(state, district) or {}
+        pmfme_item = odop_data.get("pmfme_odop_product") or odop_data.get("odop_product") or "Local Agricultural Produce"
+        odop_item = odop_data.get("odop_product") or pmfme_item
 
-        odop_product = odop_data.get("odop_product", "District Product")
-        target_sectors = [s.lower() for s in odop_data.get("matching_sectors", [])]
-        is_aligned = sector.lower() in target_sectors
+        primary_crop = pmfme_item.split("(")[0].strip() if "(" in pmfme_item else pmfme_item
 
-        if is_aligned:
-            return None  # Already aligned, no need to show comparison
+        # Tailored synergy descriptions based on sector
+        sector_clean = sector.replace("_", " ").title()
+        
+        # Product Innovation Pillar
+        if sector in ("dairy", "food_processing"):
+            innov_title = f"Product Innovation ({primary_crop}-Infused {sector_clean})"
+            innov_desc = (
+                f"Introduce a premium, health-conscious line of products made with a {primary_crop} base "
+                f"(e.g., lactose-free or fortified options) or incorporating {primary_crop} malted flavors "
+                f"and crunchy mix-ins, targeting high-margin urban and local retail markets."
+            )
+        elif sector in ("apparel", "artisan_trades"):
+            innov_title = f"Design Innovation (Local {primary_crop} & Craft Blend)"
+            innov_desc = (
+                f"Incorporate {district}'s indigenous {primary_crop} or traditional artisan patterns into "
+                f"modern apparel and lifestyle products, unlocking premium export and boutique retail corridors."
+            )
+        elif sector in ("repair", "fabrication", "service"):
+            innov_title = f"Service Expansion (Agri-Cluster & Equipment Support)"
+            innov_desc = (
+                f"Expand your {sector_clean} operations to provide specialized repair, maintenance, and tooling "
+                f"for machinery used by local {primary_crop} farmers and processing units in {district}."
+            )
+        else:
+            innov_title = f"Product Innovation ({primary_crop} Integration)"
+            innov_desc = (
+                f"Introduce an innovative product line utilizing {primary_crop}, enhancing product differentiation "
+                f"and qualifying for government cluster incentives."
+            )
 
-        # Build comparison data for the UI cards
+        # Local Sourcing Advantage Pillar
+        source_title = f"Local Sourcing Advantage ({district} Farmer Clusters)"
+        source_desc = (
+            f"Source raw {primary_crop} directly from {district}'s local farmer clusters, FPOs, and recognized "
+            f"brands, reducing procurement transit costs and fulfilling statutory ODOP cluster mandates."
+        )
+
+        # Financial Incentives Pillar
+        fin_title = "Financial Incentives (PMFME 35% Capital Subsidy)"
+        fin_desc = (
+            f"Using this product formulation qualifies your enterprise for the PMFME Scheme's 35% credit-linked "
+            f"capital subsidy (up to ₹10 Lakhs) on machinery and processing tools, with priority GeM portal listing."
+        )
+
         return {
-            "user_business": f"{sector.replace('_', ' ').title()} Business",
-            "odop_product": odop_product,
+            "what_is_odop": (
+                f"Under the central government's One District One Product (ODOP) and PMFME initiative, "
+                f"**{primary_crop}** has been designated as the key focus product for **{district}** to promote "
+                f"local processing and farming clusters. By aligning your business idea with ODOP, you qualify for "
+                f"a **35% capital subsidy (up to ₹10 Lakhs)** on machinery and priority government procurement."
+            ),
+            "user_business": f"{user_business} ({sector_clean})",
+            "district_odop": f"{pmfme_item}",
+            "primary_odop_product": primary_crop,
             "district": district,
             "state": state,
-            "without_odop_pros": [
-                "You can pursue your original idea",
-                "Standard PMEGP/MUDRA schemes available",
-                f"Existing demand in {district}",
+            "synergy_pillars": {
+                "product_innovation": {
+                    "title": innov_title,
+                    "description": innov_desc,
+                },
+                "local_sourcing": {
+                    "title": source_title,
+                    "description": source_desc,
+                },
+                "financial_incentives": {
+                    "title": fin_title,
+                    "description": fin_desc,
+                },
+            },
+            "key_benefits": [
+                "35% Credit-Linked Capital Subsidy on Machinery (PMFME)",
+                "Priority Seller Onboarding on GeM Government Portal",
+                "Access to District Cluster Common Facility Centers (CFC)",
+                "Premium Price Advantage with Certified ODOP Regional Branding",
             ],
-            "without_odop_cons": [
-                "No ODOP cluster benefits",
-                "Standard subsidy rates only",
-                "No priority GeM listing",
-            ],
-            "with_odop_pros": [
-                f"35% capital subsidy for {odop_product}",
-                "Priority GeM seller corridor",
-                "ODOP seal price premium (15-18%)",
-                "Cluster common facility access",
-            ],
-            "with_odop_cons": [
-                f"Must pivot to {odop_product} sector",
-                "May need new skills/training",
-            ],
+            # Backward compatibility flags for UI
+            "odop_product": pmfme_item,
         }
     except Exception as e:
-        logger.warning("ODOP alignment check failed: %s", e)
+        logger.warning("ODOP synergy generation error: %s", e)
         return None
 
 
@@ -428,16 +451,15 @@ async def process_onboarding_message(payload: OnboardingRequest):
     """
     MIRA Conversational Onboarding Endpoint.
     
-    1. Receives user's natural language message from the chat interface
-    2. Extracts structured wizard fields using keyword matching + LLM
-    3. Generates warm, empathetic conversational response
-    4. Checks ODOP alignment when location + sector are known
-    5. Returns updated fields, next step, and MIRA's response
+    1. Pre-resolves state & district from user GPS coordinates automatically.
+    2. Extracts structured wizard fields using keyword matching + LLM.
+    3. Auto-calculates annual turnover without interrogating the user.
+    4. Generates warm, empathetic conversational response.
+    5. Formulates 3-pillar ODOP strategic synergy without changing user's idea.
     """
     start_time = time.perf_counter()
 
     try:
-        # Get the latest user message
         last_user_msg = ""
         for msg in reversed(payload.messages):
             if msg.role == "user":
@@ -458,46 +480,87 @@ async def process_onboarding_message(payload: OnboardingRequest):
             last_user_msg[:80],
         )
 
-        # Step 1: Rapid keyword-based field extraction
         existing_fields = dict(payload.collected_fields)
+        new_fields = {}
+
+        # ── Step 0: Auto-resolve location from GPS coordinates ───────────────
+        if payload.user_location and payload.user_location.get("latitude") and payload.user_location.get("longitude"):
+            if "state_name" not in existing_fields or "district_name" not in existing_fields:
+                try:
+                    lat = float(payload.user_location["latitude"])
+                    lon = float(payload.user_location["longitude"])
+                    geo = reverse_geocode_coords(lat, lon)
+                    if geo:
+                        if "state_name" not in existing_fields:
+                            existing_fields["state_name"] = geo["state_name"]
+                            new_fields["state_name"] = geo["state_name"]
+                        if "district_name" not in existing_fields:
+                            existing_fields["district_name"] = geo["district_name"]
+                            new_fields["district_name"] = geo["district_name"]
+                        logger.info(
+                            "📍 [ONBOARDING GPS] Auto-resolved coords (%.4f, %.4f) -> %s, %s",
+                            lat, lon, geo["district_name"], geo["state_name"]
+                        )
+                except Exception as geo_err:
+                    logger.warning("Failed to auto-resolve user location coords: %s", geo_err)
+
+        # ── Step 1: Rapid keyword-based field extraction ─────────────────────
         keyword_fields = _extract_fields_from_text(last_user_msg, existing_fields)
 
-        # Step 2: LLM-based extraction for complex inputs
+        # ── Step 2: LLM-based extraction for natural language inputs ────────
         llm_fields = _llm_extract_fields(last_user_msg)
 
-        # Merge: keyword results take priority, LLM fills gaps
-        new_fields = {}
+        # Merge extracted fields
         for key in set(list(keyword_fields.keys()) + list(llm_fields.keys())):
             if key not in existing_fields:
-                new_fields[key] = keyword_fields.get(key) or llm_fields.get(key)
+                val = keyword_fields.get(key) or llm_fields.get(key)
+                if val is not None:
+                    new_fields[key] = val
 
-        # Merge into collected fields
         merged_fields = {**existing_fields, **new_fields}
 
-        # Auto-fill defaults
+        # ── Step 3: Auto-derive dependent fields without asking user ──────────
+        # 3a. Auto-infer business_category (manufacturing vs service)
         if "sector" in merged_fields and "business_category" not in merged_fields:
-            if merged_fields["sector"] in ("repair", "general"):
+            if merged_fields["sector"] in ("repair", "general", "service"):
                 merged_fields["business_category"] = "service"
                 new_fields["business_category"] = "service"
             else:
                 merged_fields["business_category"] = "manufacturing"
                 new_fields["business_category"] = "manufacturing"
 
+        # 3b. Auto-infer enterprise_name if not provided
         if "enterprise_name" not in merged_fields and "sector" in merged_fields:
             sector_label = merged_fields["sector"].replace("_", " ").title()
-            merged_fields["enterprise_name"] = f"{payload.user_name}'s {sector_label} Enterprise"
+            merged_fields["enterprise_name"] = f"{payload.user_name}'s {sector_label} Venture"
             new_fields["enterprise_name"] = merged_fields["enterprise_name"]
 
-        # Step 3: Determine missing required fields
+        # 3c. Auto-calculate annual_turnover_estimate based on project_cost
+        if "project_cost" in merged_fields and "annual_turnover_estimate" not in merged_fields:
+            try:
+                cost = float(merged_fields["project_cost"])
+                multiplier = 2.2 if merged_fields.get("business_category") == "manufacturing" else 1.8
+                merged_fields["annual_turnover_estimate"] = round(cost * multiplier, -2)
+                new_fields["annual_turnover_estimate"] = merged_fields["annual_turnover_estimate"]
+            except (ValueError, TypeError):
+                pass
+
+        # ── Step 4: Determine missing required fields ─────────────────────────
         missing = [f for f in REQUIRED_FIELDS if f not in merged_fields or not merged_fields[f]]
         all_collected = len(missing) == 0
 
-        # Step 4: ODOP alignment check
-        odop_comparison = None
+        # ── Step 5: ODOP Strategic Synergy Generation ─────────────────────────
+        odop_synergy = None
         if "state_name" in merged_fields and "district_name" in merged_fields and "sector" in merged_fields:
-            odop_comparison = _check_odop_alignment(merged_fields)
+            user_biz = merged_fields.get("enterprise_name") or f"{merged_fields['sector'].replace('_', ' ').title()} Business"
+            odop_synergy = _generate_odop_synergy(
+                user_business=user_biz,
+                sector=merged_fields["sector"],
+                state=merged_fields["state_name"],
+                district=merged_fields["district_name"],
+            )
 
-        # Step 5: Generate MIRA's conversational response
+        # ── Step 6: Generate MIRA's conversational response ───────────────────
         conversation_history = [
             {"role": m.role, "content": m.content}
             for m in payload.messages
@@ -519,7 +582,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
             len(new_fields),
             len(merged_fields),
             len(REQUIRED_FIELDS),
-            ", ".join(missing[:3]) if missing else "NONE",
+            ", ".join(missing[:3]) if missing else "NONE (ALL READY)",
             int(latency_ms),
         )
 
@@ -528,8 +591,8 @@ async def process_onboarding_message(payload: OnboardingRequest):
             extracted_fields=new_fields,
             next_step=next_step,
             all_fields_collected=all_collected,
-            odop_alignment=odop_comparison if odop_comparison else None,
-            odop_comparison=odop_comparison,
+            odop_alignment=odop_synergy,
+            odop_comparison=odop_synergy,
             message={"role": "assistant", "content": mira_reply},
         )
 

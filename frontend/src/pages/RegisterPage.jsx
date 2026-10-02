@@ -61,6 +61,9 @@ export const RegisterPage = () => {
           accuracy: position.coords.accuracy,
         };
         setDetectedLocation(loc);
+        try {
+          localStorage.setItem("user_detected_location", JSON.stringify(loc));
+        } catch (_) {}
         setIsDetectingLocation(false);
         setLocationStatus("success");
       },
