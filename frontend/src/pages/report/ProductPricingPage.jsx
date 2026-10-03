@@ -337,6 +337,9 @@ export function ProductPricingPage({ reportData }) {
                   {isProfitable ? (
                     <span>
                       <TranslatedText text="By day" /> <strong>{daysToBreakEven}</strong>, <TranslatedText text="all overheads, bills, and your bank EMI of" /> <strong>₹{monthlyEmi.toLocaleString('en-IN')}</strong> <TranslatedText text="are fully paid off. The remaining" /> <strong>{Math.max(0, 26 - daysToBreakEven)} <TranslatedText text="working days" /></strong> <TranslatedText text="generate pure family income." />
+                      <span className="block pt-1.5 text-[10px] text-emerald-800 font-semibold border-t border-emerald-200/60 mt-1">
+                        🎯 <TranslatedText text="Enterprise Capital Break-Even Milestone:" /> <strong>{reportData?.financial_analysis?.break_even_milestone || 'Year 2 (Month 16)'}</strong> · <TranslatedText text="Capital Payback:" /> <strong>{reportData?.financial_analysis?.payback_period_years || 2.6} <TranslatedText text="Years" /></strong>
+                      </span>
                     </span>
                   ) : (
                     <span>

@@ -21,10 +21,26 @@ from pydantic import BaseModel, Field
 try:
     from app.core.chat_service import chat_service
     from app.core.odop_matcher import match_odop, find_district_odop
+    from app.core.machinery_matcher import (
+        find_matching_machinery_profile,
+        detect_owned_machinery,
+        calculate_tiered_capital_outlay,
+        compute_statutory_banking_parameters,
+        calculate_intelligent_turnover,
+        load_machinery_dataset,
+    )
     from app.config import settings
 except ImportError:
     from backend.app.core.chat_service import chat_service
     from backend.app.core.odop_matcher import match_odop, find_district_odop
+    from backend.app.core.machinery_matcher import (
+        find_matching_machinery_profile,
+        detect_owned_machinery,
+        calculate_tiered_capital_outlay,
+        compute_statutory_banking_parameters,
+        calculate_intelligent_turnover,
+        load_machinery_dataset,
+    )
     from backend.app.config import settings
 
 logger = logging.getLogger("udyam_saathi.api.onboarding")
@@ -41,17 +57,27 @@ REQUIRED_FIELDS = [
     "promoter_category",    # general | sc | st | obc | women | women_shg
     "state_name",           # auto-resolved from GPS or selected in menu
     "district_name",        # auto-resolved from GPS or selected in menu
-    "project_cost",         # user specifies e.g. 2 lakh
+    "project_cost",         # user specifies or derived from promoter equity
 ]
 
 OPTIONAL_FIELDS = [
     "block_name",
     "village_name",
     "is_rural",
+    "promoter_equity",
+    "gross_project_cost",
+    "owned_machinery_value",
+    "owned_machines",
+    "machinery_selection_confirmed",
+    "promoter_margin_pct",
     "tenure_years",
     "moratorium_months",
     "expected_monthly_units",
     "infrastructure_score",
+    "capacity_unit_label",
+    "tenure_reason",
+    "moratorium_reason",
+    "infra_reason",
     "additional_business_details",
 ]
 
@@ -222,8 +248,10 @@ class OnboardingRequest(BaseModel):
     user_name: str = Field("Entrepreneur", description="User's display name")
     collected_fields: Dict[str, Any] = Field(default_factory=dict, description="Already collected wizard fields")
     conversation_step: int = Field(0, description="Current conversation step index")
-    current_action: Optional[str] = Field(None, description="UI action trigger (confirm_loc, change_loc, submit_loc, odop_decision)")
+    current_action: Optional[str] = Field(None, description="UI action trigger (confirm_loc, change_loc, submit_loc, odop_decision, select_owned_machinery)")
+    odop_decision: Optional[str] = Field(None, description="User's ODOP decision: 'align' or 'keep_original'")
     user_location: Optional[Dict[str, Any]] = Field(None, description="GPS coordinates or hierarchy")
+    selected_machines: Optional[List[Any]] = Field(None, description="List of owned machine items or names selected from dropdown/checklist")
 
 
 class OnboardingResponse(BaseModel):
@@ -235,6 +263,9 @@ class OnboardingResponse(BaseModel):
     all_fields_collected: bool = Field(False)
     odop_alignment: Optional[Dict[str, Any]] = None
     odop_comparison: Optional[Dict[str, Any]] = None
+    machinery_analysis: Optional[Dict[str, Any]] = None
+    banking_parameters: Optional[Dict[str, Any]] = None
+    applicable_machinery: Optional[Dict[str, Any]] = None
     message: Optional[Dict[str, str]] = None
 
 
@@ -416,166 +447,347 @@ def _generate_mira_response(
     return f"Namaste {user_name} Ji! I understand completely. Please tell me a bit more about your business idea. 🙏"
 
 
+# ── ODOP 100-Point Fixed Benchmarking System Prompt ───────────────────────────
+ODOP_BENCHMARK_SYSTEM_PROMPT = """You are an expert MSME and Agro-Industrial Benchmarking Evaluator for the Government of India's One District One Product (ODOP) and MoFPI PMFME Scheme.
+
+Your task is to evaluate the strategic alignment between an entrepreneur's proposed business venture and the statutory ODOP product of their district using a strictly calibrated 100-point fixed statutory benchmark.
+
+### 100-POINT STATUTORY BENCHMARKING CRITERIA:
+
+1. Pillar 1: Sector Overlap & Value-Addition Synergy (0 to 50 points)
+   - 40 to 50 pts: Direct processing or primary value-addition with the district ODOP produce (e.g. Tomato -> Ketchup/Paste/Purée, Milk -> Ice Cream/Paneer/Ghee, Cotton -> Garments/Apparel, Turmeric -> Extraction/Powder, Mango -> Pulp/Pickle).
+   - 25 to 39 pts: Allied food processing, cold chain, packaging, or complementary machinery/equipment servicing local ODOP clusters.
+   - 0 to 24 pts: Unrelated services, retail, or disconnected trades with no raw material or process overlap (e.g. mobile repair, beauty salon, hardware store).
+
+2. Pillar 2: Local Sourcing & Catchment Feasibility (0 to 25 points)
+   - 18 to 25 pts: The district possesses established farmer clusters, FPOs, APMC mandis, or Common Facility Centers (CFC) for this ODOP commodity. Raw materials can be procured locally at lower freight cost.
+   - 10 to 17 pts: Partial local catchment; secondary processing or inter-district transit sourcing needed.
+   - 0 to 9 pts: Infeasible local sourcing; the venture does not utilize agricultural or indigenous district raw materials.
+
+3. Pillar 3: PMFME 35% Scheme Subsidy Qualification (0 to 25 points)
+   - 20 to 25 pts: Fully qualifies for MoFPI PMFME credit-linked capital subsidy (35% up to ₹10 Lakhs) on plant and machinery, Common Facility Center (CFC) access, and priority GeM onboarding.
+   - 12 to 19 pts: Partial cluster incentive; eligible under allied MSME schemes (PMEGP 15-35%).
+   - 0 to 11 pts: Ineligible under PMFME (must rely solely on general PMEGP/MUDRA schemes).
+
+### SCORING & RECOMMENDATION RULES:
+- alignment_score = pillar_1_score + pillar_2_score + pillar_3_score (clamped between 15 and 98).
+- If alignment_score >= 65:
+  * verdict_key: "recommended"
+  * verdict_title: "उत्कृष्ट तालमेल (Highly Recommended)"
+  * mira_recommendation: "Mira Recommends: Excellent ODOP Synergy for 35% Subsidy"
+  * recommendation logic: Enthusiastically recommend aligning with ODOP to capture the 35% PMFME capital subsidy (up to ₹10 Lakhs) and local farmer procurement.
+- If alignment_score is 50 to 64:
+  * verdict_key: "viable"
+  * verdict_title: "सकारात्मक तालमेल (Viable Synergy)"
+  * mira_recommendation: "Mira Recommends: Viable Strategic Opportunity"
+  * recommendation logic: Viable strategic opportunity if the entrepreneur wants to add a district product line for subsidy, but also viable to keep the original plan.
+- If alignment_score < 50:
+  * verdict_key: "not_recommended"
+  * verdict_title: "कम तालमेल (Standard MSME Recommended)"
+  * mira_recommendation: "Mira Recommends: Continue with Standard Business Model"
+  * recommendation logic: Honestly advise against forced alignment. Sincere recommendation to proudly proceed with the original business model under standard PMEGP/MUDRA schemes.
+
+### OUTPUT FORMAT:
+You MUST respond with valid JSON ONLY. No markdown wrappers, no conversational commentary.
+{
+  "pillar_1_score": <int 0-50>,
+  "pillar_2_score": <int 0-25>,
+  "pillar_3_score": <int 0-25>,
+  "alignment_score": <int 15-98>,
+  "verdict_key": "recommended" | "viable" | "not_recommended",
+  "verdict_title": "<Localized title in English or Hindi>",
+  "mira_recommendation": "<Concise recommendation statement>",
+  "verdict_spoken": "<One or two clean spoken sentences in the requested language giving Mira's verdict>",
+  "product_innovation_title": "<Title for Pillar 1>",
+  "product_innovation_desc": "<Detailed strategic idea description for Pillar 1>",
+  "local_sourcing_title": "<Title for Pillar 2>",
+  "local_sourcing_desc": "<Detailed description for Pillar 2>",
+  "financial_incentives_title": "<Title for Pillar 3>",
+  "financial_incentives_desc": "<Detailed description for Pillar 3>"
+}
+"""
+
+
+def _compute_deterministic_benchmark(
+    sector: str,
+    user_business: str,
+    state: str,
+    district: str,
+    odop_product: str,
+    pmfme_item: str,
+    target_sectors: list[str],
+    raw_material_available: bool,
+    cfc_available: bool,
+    pmfme_eligible: bool,
+    language: str = "hi",
+) -> dict[str, Any]:
+    sector_norm = (sector or "general").lower().strip()
+    idea_norm = (user_business or "").lower().strip()
+    odop_lower = (odop_product or "").lower()
+    pmfme_lower = (pmfme_item or "").lower()
+    primary_crop = pmfme_item.split("(")[0].strip() if "(" in pmfme_item else pmfme_item
+    sector_clean = sector.replace("_", " ").title()
+
+    # Pillar 1: Sector Overlap & Value-Addition (0 to 50 pts)
+    p1 = 0
+    if sector_norm in target_sectors:
+        p1 = 49
+    elif any(kw in idea_norm for kw in ["ice cream", "kulfi", "sweet", "dessert", "bakery", "snack", "juice", "jam", "chocolat", "sauce", "ketchup", "puree", "pasta", "flour", "oil"]) and any(kw in (odop_lower + " " + pmfme_lower) for kw in ["millet", "fruit", "dairy", "milk", "grain", "mango", "orange", "banana", "tomato", "chilli", "spice", "pulses", "rice"]):
+        p1 = 48
+    elif sector_norm in ("dairy", "food_processing") and any(s in target_sectors for s in ("dairy", "food_processing", "agriculture")):
+        p1 = 44
+    elif sector_norm in ("repair", "fabrication") and any(kw in (odop_lower + " " + pmfme_lower) for kw in ["machinery", "engineering", "steel", "tools", "hardware"]):
+        p1 = 38
+    elif sector_norm in ("apparel", "artisan_trades") and any(kw in (odop_lower + " " + pmfme_lower) for kw in ["textile", "garment", "silk", "cotton", "handloom", "carpet"]):
+        p1 = 45
+    elif sector_norm in ("service", "repair", "general"):
+        p1 = 18
+    else:
+        p1 = 12
+
+    # Pillar 2: Local Sourcing & Catchment Feasibility (0 to 25 pts)
+    p2 = 0
+    if raw_material_available and cfc_available:
+        p2 = 24
+    elif raw_material_available:
+        p2 = 20
+    elif cfc_available:
+        p2 = 15
+    else:
+        p2 = 10
+    if sector_norm in ("repair", "service", "general") and p1 < 25:
+        p2 = min(p2, 8)
+
+    # Pillar 3: PMFME 35% Scheme Subsidy Qualification (0 to 25 pts)
+    p3 = 0
+    if pmfme_eligible and (p1 >= 30 or "food" in sector_norm or "dairy" in sector_norm):
+        p3 = 24
+    elif pmfme_eligible:
+        p3 = 16
+    else:
+        p3 = 8
+    if sector_norm in ("repair", "service", "general") and p1 < 25:
+        p3 = 7
+
+    score = max(15, min(98, p1 + p2 + p3))
+
+    if score >= 65:
+        verdict_key = "recommended"
+        verdict_title = "उत्कृष्ट तालमेल (Highly Recommended)"
+        mira_rec = "Mira Recommends: Excellent ODOP Synergy for 35% Subsidy"
+        if language == "hi":
+            verdict_spoken = f"मुझे आपके व्यवसाय का {primary_crop} के साथ बहुत सुंदर तालमेल मिला है और इसका स्कोर {score} आया है। मेरी दिल से सलाह है कि आप इसे ज़रूर अपनाएँ ताकि आपको 35 प्रतिशत सरकारी सब्सिडी मिल सके।"
+        elif language == "mr":
+            verdict_spoken = f"मला तुमच्या व्यवसायाचा {primary_crop} सोबत अतिशय सुंदर मेळ मिळाला आहे आणि याचा स्कोअर {score} आला आहे. 35 टक्के सरकारी सबसिडीसाठी तुम्ही हा पर्याय नक्की निवडावा असा माझा सल्ला आहे."
+        else:
+            verdict_spoken = f"I found an excellent strategic synergy between your venture and {primary_crop} with an alignment score of {score} out of 100. My sincere recommendation is to align with ODOP to unlock the 35 percent capital subsidy."
+    elif score >= 50:
+        verdict_key = "viable"
+        verdict_title = "सकारात्मक तालमेल (Viable Synergy)"
+        mira_rec = "Mira Recommends: Viable Strategic Opportunity"
+        if language == "hi":
+            verdict_spoken = f"आपके व्यवसाय का ODOP के साथ स्कोर {score} है। यह एक अच्छा अतिरिक्त विकल्प है जिसे आप सब्सिडी के लिए जोड़ सकते हैं या अपने मूल विचार के साथ भी बढ़ सकते हैं।"
+        elif language == "mr":
+            verdict_spoken = f"तुमच्या व्यवसायाचा ODOP सोबत स्कोअर {score} आला आहे. सबसिडी मिळवण्यासाठी तुम्ही हा पर्याय जोडू शकता किंवा मूळ कल्पनेनेही पुढे जाऊ शकता."
+        else:
+            verdict_spoken = f"Your venture has a viable strategic synergy score of {score} out of 100 with ODOP. It provides a rewarding opportunity for capital subsidy, though proceeding with your original model is also viable."
+    else:
+        verdict_key = "not_recommended"
+        verdict_title = "कम तालमेल (Standard MSME Recommended)"
+        mira_rec = "Mira Recommends: Continue with Standard Business Model"
+        if language == "hi":
+            verdict_spoken = f"मैं आपसे बिल्कुल सच कहूँगी, आपके इस विचार के लिए जबरदस्ती ODOP जोड़ना सही नहीं रहेगा। आपका स्कोर {score} है। मेरी सलाह है कि आप अपने मूल विचार के साथ ही PMEGP और मुद्रा लोन का लाभ लें।"
+        elif language == "mr":
+            verdict_spoken = f"मी तुमच्याशी अगदी खरे बोलेन, या व्यवसायासाठी जबरदस्तीने ODOP जोडणे योग्य ठरणार नाही. तुमचा स्कोअर {score} आहे. तुम्ही तुमच्या मूळ कल्पनेसह PMEGP आणि मुद्रा कर्ज योजनांचा लाभ घ्यावा."
+        else:
+            verdict_spoken = f"I will be completely honest with you. Forced alignment with {primary_crop} does not suit your business model, and the alignment score is only {score} out of 100. My sincere recommendation is to proceed with your original business model under standard PMEGP and Mudra loan schemes."
+
+    if sector_norm in ("dairy", "food_processing"):
+        innov_title = f"Product Innovation ({primary_crop}-Infused {sector_clean})"
+        innov_desc = f"Introduce a premium, health-conscious line of products made with a {primary_crop} base or incorporating {primary_crop} malted flavors and mix-ins, targeting high-margin regional retail corridors."
+    elif sector_norm in ("apparel", "artisan_trades"):
+        innov_title = f"Design Innovation (Local {primary_crop} & Craft Blend)"
+        innov_desc = f"Incorporate {district}'s indigenous {primary_crop} fibers or traditional motifs into modern apparel and lifestyle lines, unlocking premium export corridors."
+    elif sector_norm in ("repair", "fabrication", "service"):
+        innov_title = f"Service Expansion (Agri-Cluster Tooling & Equipment Support)"
+        innov_desc = f"Expand your {sector_clean} operations to provide specialized repair, maintenance, and tooling support for machinery used by {primary_crop} processing units in {district}."
+    else:
+        innov_title = f"Product Innovation ({primary_crop} Integration)"
+        innov_desc = f"Introduce a specialized product line utilizing {primary_crop}, achieving regional differentiation and government cluster priority."
+
+    source_title = f"Local Sourcing Advantage ({district} Farmer Clusters)"
+    source_desc = f"Procure raw {primary_crop} directly from registered FPOs and APMC mandis in {district}, eliminating intermediary markups and ensuring freshness."
+
+    fin_title = "Financial Incentives (PMFME 35% Capital Subsidy)"
+    fin_desc = f"Aligning with {primary_crop} qualifies your enterprise for the MoFPI PMFME 35% credit-linked capital subsidy up to ₹10 Lakhs on plant and machinery, along with priority GeM onboarding."
+
+    what_is_odop = (
+        f"Under the central government's One District One Product (ODOP) and PMFME initiative, "
+        f"**{primary_crop}** has been designated as the key focus product for **{district}** to promote "
+        f"local processing and farming clusters. By aligning your business idea with ODOP, you qualify for "
+        f"a **35% capital subsidy (up to ₹10 Lakhs)** on machinery and priority government procurement."
+    )
+
+    return {
+        "what_is_odop": what_is_odop,
+        "user_business": f"{user_business} ({sector_clean})",
+        "district_odop": f"{pmfme_item}",
+        "primary_odop_product": primary_crop,
+        "district": district,
+        "state": state,
+        "alignment_score": score,
+        "pillar_scores": {
+            "pillar_1_sector_overlap": p1,
+            "pillar_2_local_sourcing": p2,
+            "pillar_3_subsidy_qualification": p3,
+        },
+        "verdict_key": verdict_key,
+        "verdict_title": verdict_title,
+        "mira_recommendation": mira_rec,
+        "verdict_spoken": verdict_spoken,
+        "synergy_pillars": {
+            "product_innovation": {
+                "title": innov_title,
+                "description": innov_desc,
+            },
+            "local_sourcing": {
+                "title": source_title,
+                "description": source_desc,
+            },
+            "financial_incentives": {
+                "title": fin_title,
+                "description": fin_desc,
+            },
+        },
+        "key_benefits": [
+            "35% Credit-Linked Capital Subsidy on Machinery (PMFME)",
+            "Priority Seller Onboarding on GeM Government Portal",
+            "Access to District Cluster Common Facility Centers (CFC)",
+            "Premium Price Advantage with Certified ODOP Regional Branding",
+        ],
+        "odop_product": pmfme_item,
+    }
+
+
 def _generate_odop_synergy(
     user_business: str,
     sector: str,
     state: str,
     district: str,
+    language: str = "hi",
 ) -> Optional[dict[str, Any]]:
     """
     Constructs a 3-pillar strategic synergy aligning the user's business with the district's ODOP,
-    complete with a 0-100 Benchmarking Alignment Score.
+    scored 0-100 against fixed statutory benchmarks evaluated by LLM with deterministic fallback.
     """
     try:
         odop_data = find_district_odop(state, district) or {}
         pmfme_item = odop_data.get("pmfme_odop_product") or odop_data.get("odop_product") or "Local Agricultural Produce"
         odop_item = odop_data.get("odop_product") or pmfme_item
-
         primary_crop = pmfme_item.split("(")[0].strip() if "(" in pmfme_item else pmfme_item
-        sector_clean = sector.replace("_", " ").title()
-
-        # ── Benchmarking Alignment Score (0 - 100) ───────────────────────────
-        score = 0
-        sector_norm = sector.lower().strip()
-        idea_norm = user_business.lower().strip()
         target_sectors = [s.lower() for s in odop_data.get("matching_sectors", [])]
-        odop_product_lower = odop_item.lower()
-        pmfme_lower = pmfme_item.lower()
+        raw_mat = bool(odop_data.get("raw_material_availability", True))
+        cfc_avail = bool(odop_data.get("cfc_available", False))
+        pmfme_elig = bool(odop_data.get("pmfme_eligible", True))
 
-        # Pillar 1: Sector Overlap & Synergy (up to 50 pts)
-        if sector_norm in target_sectors:
-            score += 50
-        elif any(kw in idea_norm for kw in ["ice cream", "kulfi", "sweet", "dessert", "bakery", "snack", "juice", "jam", "chocolat"]) and any(kw in (odop_product_lower + " " + pmfme_lower) for kw in ["millet", "fruit", "dairy", "milk", "grain", "mango", "orange", "banana"]):
-            score += 48
-        elif sector_norm in ("dairy", "food_processing") and any(s in target_sectors for s in ("dairy", "food_processing", "agriculture")):
-            score += 44
-        elif sector_norm in ("repair", "fabrication") and any(kw in (odop_product_lower + " " + pmfme_lower) for kw in ["machinery", "engineering", "steel", "tools", "hardware"]):
-            score += 40
-        elif sector_norm in ("apparel", "artisan_trades") and any(kw in (odop_product_lower + " " + pmfme_lower) for kw in ["textile", "garment", "silk", "cotton", "handloom", "carpet"]):
-            score += 45
-        elif sector_norm in ("service", "repair", "general"):
-            score += 26
-        else:
-            score += 15
-
-        # Pillar 2: Local Sourcing & Catchment Feasibility (up to 25 pts)
-        if odop_data.get("raw_material_availability"):
-            score += 15
-        else:
-            score += 10
-        if odop_data.get("cfc_available"):
-            score += 10
-        else:
-            score += 5
-
-        # Pillar 3: PMFME 35% Scheme Subsidy Qualification (up to 25 pts)
-        if odop_data.get("pmfme_eligible") or "food" in sector_norm or "dairy" in sector_norm or "millet" in (odop_product_lower + " " + pmfme_lower):
-            score += 25
-        elif odop_data.get("key_benefits"):
-            score += 18
-        else:
-            score += 12
-
-        final_score = max(20, min(96, score))
-
-        if final_score >= 70:
-            verdict_key = "recommended"
-            verdict_title = "उत्कृष्ट तालमेल (Highly Recommended)"
-            mira_recommendation = "Mira Recommends: Excellent ODOP Synergy for 35% Subsidy"
-            verdict_spoken = f"मुझे आपके व्यवसाय का {primary_crop} के साथ बहुत सुंदर तालमेल मिला है और इसका स्कोर {final_score} आया है। मेरी दिल से सलाह है कि आप इसे ज़रूर अपनाएँ ताकि आपको 35 प्रतिशत सरकारी सब्सिडी मिल सके।"
-        elif final_score >= 45:
-            verdict_key = "viable"
-            verdict_title = "सकारात्मक तालमेल (Viable Synergy)"
-            mira_recommendation = "Mira Recommends: Viable Strategic Opportunity"
-            verdict_spoken = f"आपके व्यवसाय का ODOP के साथ स्कोर {final_score} है। यह एक अच्छा अतिरिक्त विकल्प है जिसे आप सब्सिडी के लिए जोड़ सकते हैं या अपने सामान्य विचार के साथ भी बढ़ सकते हैं।"
-        else:
-            verdict_key = "not_recommended"
-            verdict_title = "कम तालमेल (Standard MSME Recommended)"
-            mira_recommendation = "Mira Recommends: Continue with Standard Business Model"
-            verdict_spoken = f"मैं आपसे बिल्कुल सच कहूँगी, आपके इस विचार के लिए जबरदस्ती ODOP जोड़ना सही नहीं रहेगा। आपका स्कोर {final_score} है। मेरी सलाह है कि आप अपने मूल विचार के साथ ही PMEGP और मुद्रा लोन का लाभ लें।"
-
-        # Tailored synergy descriptions
-        if sector in ("dairy", "food_processing"):
-            innov_title = f"Product Innovation ({primary_crop}-Infused {sector_clean})"
-            innov_desc = (
-                f"Introduce a premium, health-conscious line of products made with a {primary_crop} base "
-                f"(e.g., lactose-free or fortified options) or incorporating {primary_crop} malted flavors "
-                f"and crunchy mix-ins, targeting high-margin urban and local retail markets."
-            )
-        elif sector in ("apparel", "artisan_trades"):
-            innov_title = f"Design Innovation (Local {primary_crop} & Craft Blend)"
-            innov_desc = (
-                f"Incorporate {district}'s indigenous {primary_crop} or traditional artisan patterns into "
-                f"modern apparel and lifestyle products, unlocking premium export and boutique retail corridors."
-            )
-        elif sector in ("repair", "fabrication", "service"):
-            innov_title = f"Service Expansion (Agri-Cluster & Equipment Support)"
-            innov_desc = (
-                f"Expand your {sector_clean} operations to provide specialized repair, maintenance, and tooling "
-                f"for machinery used by local {primary_crop} farmers and processing units in {district}."
-            )
-        else:
-            innov_title = f"Product Innovation ({primary_crop} Integration)"
-            innov_desc = (
-                f"Introduce an innovative product line utilizing {primary_crop}, enhancing product differentiation "
-                f"and qualifying for government cluster incentives."
-            )
-
-        source_title = f"Local Sourcing Advantage ({district} Farmer Clusters)"
-        source_desc = (
-            f"Source raw {primary_crop} directly from {district}'s local farmer clusters, FPOs, and recognized "
-            f"brands, reducing procurement transit costs and fulfilling statutory ODOP cluster mandates."
+        # Baseline deterministic benchmark evaluation
+        baseline = _compute_deterministic_benchmark(
+            sector=sector,
+            user_business=user_business,
+            state=state,
+            district=district,
+            odop_product=odop_item,
+            pmfme_item=pmfme_item,
+            target_sectors=target_sectors,
+            raw_material_available=raw_mat,
+            cfc_available=cfc_avail,
+            pmfme_eligible=pmfme_elig,
+            language=language,
         )
 
-        fin_title = "Financial Incentives (PMFME 35% Capital Subsidy)"
-        fin_desc = (
-            f"Using this product formulation qualifies your enterprise for the PMFME Scheme's 35% credit-linked "
-            f"capital subsidy (up to ₹10 Lakhs) on machinery and processing tools, with priority GeM portal listing."
+        # Call LLM to evaluate the entrepreneur's nuances against the fixed benchmark
+        eval_prompt = (
+            f"Evaluate strategic alignment for:\n"
+            f"- Proposed Business: {user_business}\n"
+            f"- Sector: {sector}\n"
+            f"- Location: {district}, {state}\n"
+            f"- District ODOP Product: {pmfme_item} ({primary_crop})\n"
+            f"- Target Cluster Sectors: {', '.join(target_sectors) if target_sectors else 'Agro / Processing'}\n"
+            f"- PMFME Scheme Eligible: {pmfme_elig}\n"
+            f"- CFC Available: {cfc_avail}\n"
+            f"- Raw Material Abundance in District: {raw_mat}\n"
+            f"- User Preferred Language: {language}\n"
         )
 
-        what_is_odop = (
-            f"Under the central government's One District One Product (ODOP) and PMFME initiative, "
-            f"**{primary_crop}** has been designated as the key focus product for **{district}** to promote "
-            f"local processing and farming clusters. By aligning your business idea with ODOP, you qualify for "
-            f"a **35% capital subsidy (up to ₹10 Lakhs)** on machinery and priority government procurement."
-        )
+        llm_messages = [
+            {"role": "system", "content": ODOP_BENCHMARK_SYSTEM_PROMPT},
+            {"role": "user", "content": eval_prompt},
+        ]
 
-        return {
-            "what_is_odop": what_is_odop,
-            "user_business": f"{user_business} ({sector_clean})",
-            "district_odop": f"{pmfme_item}",
-            "primary_odop_product": primary_crop,
-            "district": district,
-            "state": state,
-            "alignment_score": final_score,
-            "verdict_key": verdict_key,
-            "verdict_title": verdict_title,
-            "mira_recommendation": mira_recommendation,
-            "verdict_spoken": verdict_spoken,
-            "synergy_pillars": {
-                "product_innovation": {
-                    "title": innov_title,
-                    "description": innov_desc,
-                },
-                "local_sourcing": {
-                    "title": source_title,
-                    "description": source_desc,
-                },
-                "financial_incentives": {
-                    "title": fin_title,
-                    "description": fin_desc,
-                },
-            },
-            "key_benefits": [
-                "35% Credit-Linked Capital Subsidy on Machinery (PMFME)",
-                "Priority Seller Onboarding on GeM Government Portal",
-                "Access to District Cluster Common Facility Centers (CFC)",
-                "Premium Price Advantage with Certified ODOP Regional Branding",
-            ],
-            "odop_product": pmfme_item,
-        }
+        try:
+            content, _, _ = chat_service._call_llm_chat_completion(
+                messages=llm_messages,
+                temperature=0.1,
+                max_tokens=550,
+                timeout_s=10.0,
+            )
+            if content and content.strip():
+                clean_json_str = content.strip()
+                if "```json" in clean_json_str:
+                    clean_json_str = clean_json_str.split("```json")[1].split("```")[0].strip()
+                elif "```" in clean_json_str:
+                    clean_json_str = clean_json_str.split("```")[1].split("```")[0].strip()
+
+                parsed = json.loads(clean_json_str)
+
+                p1 = int(parsed.get("pillar_1_score", baseline["pillar_scores"]["pillar_1_sector_overlap"]))
+                p2 = int(parsed.get("pillar_2_score", baseline["pillar_scores"]["pillar_2_local_sourcing"]))
+                p3 = int(parsed.get("pillar_3_score", baseline["pillar_scores"]["pillar_3_subsidy_qualification"]))
+
+                # Clamp to statutory limits
+                p1 = max(0, min(50, p1))
+                p2 = max(0, min(25, p2))
+                p3 = max(0, min(25, p3))
+                final_score = max(15, min(98, p1 + p2 + p3))
+
+                verdict_key = "recommended" if final_score >= 65 else ("viable" if final_score >= 50 else "not_recommended")
+
+                baseline["alignment_score"] = final_score
+                baseline["pillar_scores"] = {
+                    "pillar_1_sector_overlap": p1,
+                    "pillar_2_local_sourcing": p2,
+                    "pillar_3_subsidy_qualification": p3,
+                }
+                baseline["verdict_key"] = verdict_key
+
+                if parsed.get("verdict_title"):
+                    baseline["verdict_title"] = parsed["verdict_title"]
+                if parsed.get("mira_recommendation"):
+                    baseline["mira_recommendation"] = parsed["mira_recommendation"]
+                if parsed.get("verdict_spoken"):
+                    baseline["verdict_spoken"] = parsed["verdict_spoken"]
+
+                if parsed.get("product_innovation_title") and parsed.get("product_innovation_desc"):
+                    baseline["synergy_pillars"]["product_innovation"] = {
+                        "title": parsed["product_innovation_title"],
+                        "description": parsed["product_innovation_desc"],
+                    }
+                if parsed.get("local_sourcing_title") and parsed.get("local_sourcing_desc"):
+                    baseline["synergy_pillars"]["local_sourcing"] = {
+                        "title": parsed["local_sourcing_title"],
+                        "description": parsed["local_sourcing_desc"],
+                    }
+                if parsed.get("financial_incentives_title") and parsed.get("financial_incentives_desc"):
+                    baseline["synergy_pillars"]["financial_incentives"] = {
+                        "title": parsed["financial_incentives_title"],
+                        "description": parsed["financial_incentives_desc"],
+                    }
+        except Exception as llm_err:
+            logger.warning("LLM ODOP benchmark scoring fallback used due to: %s", llm_err)
+
+        return baseline
     except Exception as e:
-        logger.warning("ODOP synergy generation error: %s", e)
+        logger.error("ODOP synergy generation error: %s", e, exc_info=True)
         return None
 
 
@@ -705,10 +917,476 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 last_user_msg = msg.content
                 break
 
-        if not last_user_msg:
+        if not last_user_msg and action not in ("odop_decision", "select_owned_machinery"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No user message found in conversation",
+            )
+
+        merged_fields = {**existing_fields, **new_fields}
+
+        # ── Action: Owned Machinery Selection from Interactive Dropdown / Checklist ──
+        if action == "select_owned_machinery":
+            biz_query = (
+                merged_fields.get("additional_business_details")
+                or merged_fields.get("enterprise_name")
+                or last_user_msg
+            )
+            matched_mach = find_matching_machinery_profile(
+                biz_query,
+                merged_fields.get("sector"),
+            )
+            if matched_mach:
+                m_name = matched_mach.get("business_name")
+                new_fields["matched_machinery_profile"] = m_name
+                merged_fields["matched_machinery_profile"] = m_name
+
+            chosen_items = payload.selected_machines or []
+            confirmed_owned: List[Dict[str, Any]] = []
+
+            if chosen_items:
+                profile_machines = matched_mach.get("machinery_list", []) if matched_mach else []
+                for item in chosen_items:
+                    if isinstance(item, dict):
+                        m_name = item.get("machine_name", "")
+                        m_cost = float(item.get("estimated_cost_inr", 0))
+                        m_specs = item.get("technical_specs", "")
+                        m_hp = float(item.get("power_hp", 0))
+                    else:
+                        m_name = str(item)
+                        m_cost = 0.0
+                        m_specs = ""
+                        m_hp = 0.0
+
+                    for pm in profile_machines:
+                        if pm.get("machine_name", "").lower() == m_name.lower():
+                            if m_cost == 0:
+                                m_cost = float(pm.get("estimated_cost_inr", 0))
+                            if not m_specs:
+                                m_specs = pm.get("technical_specs", "")
+                            if m_hp == 0:
+                                m_hp = float(pm.get("power_hp", 0))
+                            break
+
+                    confirmed_owned.append({
+                        "machine_name": m_name,
+                        "estimated_cost_inr": m_cost,
+                        "technical_specs": m_specs,
+                        "power_hp": m_hp,
+                    })
+
+            total_owned_val = sum(m.get("estimated_cost_inr", 0) for m in confirmed_owned)
+            new_fields["owned_machines"] = confirmed_owned
+            new_fields["owned_machinery_value"] = total_owned_val
+            new_fields["machinery_selection_confirmed"] = True
+            merged_fields["owned_machines"] = confirmed_owned
+            merged_fields["owned_machinery_value"] = total_owned_val
+            merged_fields["machinery_selection_confirmed"] = True
+
+            # Outlay recalculation if equity is present
+            emi_saved = 0.0
+            if "promoter_equity" in merged_fields:
+                outlay_calc = calculate_tiered_capital_outlay(
+                    promoter_equity=float(merged_fields["promoter_equity"]),
+                    owned_machinery_value=total_owned_val,
+                    explicit_project_cost=existing_fields.get("explicit_project_cost"),
+                )
+                new_fields["gross_project_cost"] = outlay_calc["gross_project_cost"]
+                new_fields["project_cost"] = outlay_calc["net_project_cost"]
+                new_fields["promoter_margin_pct"] = outlay_calc["promoter_margin_pct"]
+                new_fields["estimated_monthly_emi_saved"] = outlay_calc["estimated_monthly_emi_saved_inr"]
+                new_fields["estimated_interest_saved"] = outlay_calc["estimated_interest_saved_inr"]
+                new_fields["outlay_tier_name"] = outlay_calc["tier_name"]
+                merged_fields.update({
+                    "gross_project_cost": outlay_calc["gross_project_cost"],
+                    "project_cost": outlay_calc["net_project_cost"],
+                    "promoter_margin_pct": outlay_calc["promoter_margin_pct"],
+                    "estimated_monthly_emi_saved": outlay_calc["estimated_monthly_emi_saved_inr"],
+                    "estimated_interest_saved": outlay_calc["estimated_interest_saved_inr"],
+                    "outlay_tier_name": outlay_calc["tier_name"],
+                })
+                emi_saved = outlay_calc["estimated_monthly_emi_saved_inr"]
+
+            # Banking parameters
+            if "sector" in merged_fields and "project_cost" in merged_fields:
+                bank_params = compute_statutory_banking_parameters(
+                    sector=merged_fields["sector"],
+                    business_category=merged_fields.get("business_category", "manufacturing"),
+                    project_cost=merged_fields["project_cost"],
+                    is_rural=bool(merged_fields.get("is_rural", True)),
+                    matched_profile=matched_mach,
+                )
+                for k, v in bank_params.items():
+                    new_fields[k] = v
+                    merged_fields[k] = v
+
+            mach_names_list = [m["machine_name"] for m in confirmed_owned]
+            mach_names_str = ", ".join(mach_names_list) if mach_names_list else "आपकी मशीनें"
+
+            applicable_mach_payload = {
+                "business_name": matched_mach.get("business_name") if matched_mach else None,
+                "category": matched_mach.get("category") if matched_mach else None,
+                "industry_sector": matched_mach.get("industry_sector") if matched_mach else None,
+                "typical_capacity": matched_mach.get("typical_capacity") if matched_mach else None,
+                "total_machinery_cost_inr": matched_mach.get("total_machinery_cost_inr") if matched_mach else None,
+                "machinery_list": matched_mach.get("machinery_list", []) if matched_mach else [],
+            } if matched_mach else None
+
+            # Case A: Promoter equity not yet known
+            if "promoter_equity" not in merged_fields:
+                if total_owned_val > 0:
+                    if payload.language == "hi":
+                        reply = (
+                            f"बहुत खूब {payload.user_name} जी! आपने {mach_names_str} चुना है, जिसकी कुल अनुमानित कीमत लगभग ₹{int(total_owned_val):,} है। "
+                            f"हमने इसे इन-काइंड एसेट मानकर आपके आवश्यक बैंक लोन में से घटा दिया है, जिससे आपको कम लोन लेना पड़ेगा! "
+                            f"अब कृपया मुझे बताइए कि इस उद्यम को शुरू करने के लिए आपके पास अपनी खुद की कितनी प्रमोटर इक्विटी यानी आपकी अपनी बचत या पूँजी तैयार है? "
+                            f"जैसे ₹50,000, ₹1 लाख या ₹2 लाख?"
+                        )
+                    elif payload.language == "mr":
+                        reply = (
+                            f"अतिशय छान {payload.user_name} जी! तुम्ही {mach_names_str} निवडले आहे, ज्याचे मूल्य सुमारे ₹{int(total_owned_val):,} आहे. "
+                            f"आम्ही हे तुमच्या आवश्यक बँक कर्जातून वजा केले आहे! "
+                            f"आता कृपया मला सांगा की हा व्यवसाय सुरू करण्यासाठी तुमच्याकडे स्वतःचे किती प्रमोटर इक्विटी भांडवल किंवा स्वतःची बचत तयार आहे? "
+                            f"जसे ₹50,000, ₹1 लाख किंवा ₹2 लाख?"
+                        )
+                    else:
+                        reply = (
+                            f"Excellent {payload.user_name} Ji! You have selected {mach_names_str} valued at approximately ₹{int(total_owned_val):,}. "
+                            f"We have credited this as an in-kind promoter contribution, reducing your required bank loan! "
+                            f"Now please share how much promoter equity (your own personal savings or capital) you have ready to invest? "
+                            f"For example, ₹50,000, ₹1 Lakh, or ₹2 Lakhs?"
+                        )
+                else:
+                    if payload.language == "hi":
+                        reply = (
+                            f"बहुत अच्छा {payload.user_name} जी! मैंने नोट कर लिया है कि आपको सभी नए उपकरणों की आवश्यकता होगी। "
+                            f"हम पूरा प्रोजेक्ट नए आधुनिक प्लांट व मशीनरी के आधार पर तैयार कर रहे हैं। "
+                            f"अब कृपया मुझे बताइए कि इस उद्यम को शुरू करने के लिए आपके पास अपनी खुद की कितनी प्रमोटर इक्विटी यानी आपकी अपनी बचत या पूँजी तैयार है? "
+                            f"जैसे ₹50,000, ₹1 लाख या ₹2 लाख?"
+                        )
+                    elif payload.language == "mr":
+                        reply = (
+                            f"खूप छान {payload.user_name} जी! मी नोंदवून घेतले आहे की तुम्हाला सर्व नवीन यंत्रसामग्रीची आवश्यकता असेल. "
+                            f"आपण नवीन उपकरणांनुसार प्रकल्प तयार करत आहोत. "
+                            f"आता कृपया मला सांगा की हा व्यवसाय सुरू करण्यासाठी तुमच्याकडे स्वतःचे किती प्रमोटर इक्विटी भांडवल किंवा स्वतःची बचत तयार आहे? "
+                            f"जसे ₹50,000, ₹1 लाख किंवा ₹2 लाख?"
+                        )
+                    else:
+                        reply = (
+                            f"Understood {payload.user_name} Ji! I have noted that you will be acquiring all new machinery. "
+                            f"We are planning your project outlay for brand new equipment. "
+                            f"Now please tell me how much promoter equity (your own personal savings or capital) you have ready to start? "
+                            f"For example, ₹50,000, ₹1 Lakh, or ₹2 Lakhs?"
+                        )
+
+                tts_clean = clean_for_bhashini_tts(reply, payload.language)
+                return OnboardingResponse(
+                    reply=reply,
+                    tts_text=tts_clean,
+                    extracted_fields=new_fields,
+                    next_step=payload.conversation_step + 1,
+                    next_phase="promoter_equity",
+                    all_fields_collected=False,
+                    applicable_machinery=applicable_mach_payload,
+                    machinery_analysis={
+                        "matched_profile": merged_fields.get("matched_machinery_profile"),
+                        "owned_machines": confirmed_owned,
+                        "owned_machinery_value": total_owned_val,
+                        "gross_project_cost": merged_fields.get("gross_project_cost"),
+                        "net_project_cost": merged_fields.get("project_cost"),
+                        "promoter_margin_pct": merged_fields.get("promoter_margin_pct"),
+                        "monthly_emi_saved": emi_saved,
+                    },
+                    banking_parameters={
+                        "tenure_years": merged_fields.get("tenure_years"),
+                        "moratorium_months": merged_fields.get("moratorium_months"),
+                        "infrastructure_score": merged_fields.get("infrastructure_score"),
+                        "expected_monthly_units": merged_fields.get("expected_monthly_units"),
+                        "capacity_unit_label": merged_fields.get("capacity_unit_label"),
+                        "tenure_reason": merged_fields.get("tenure_reason"),
+                        "moratorium_reason": merged_fields.get("moratorium_reason"),
+                    } if "tenure_years" in merged_fields else None,
+                    message={"role": "assistant", "content": reply},
+                )
+
+            # Case B: Promoter equity is already known -> Present ODOP synergy benchmarking!
+            odop_synergy = _generate_odop_synergy(
+                user_business=merged_fields.get("additional_business_details") or merged_fields.get("enterprise_name") or f"{merged_fields.get('sector', 'MSME')} Business",
+                sector=merged_fields["sector"],
+                state=existing_fields.get("state_name") or state_name,
+                district=existing_fields.get("district_name") or district_name,
+                language=payload.language,
+            )
+
+            p_crop = odop_synergy.get("primary_odop_product", "District Product")
+            score_val = odop_synergy.get("alignment_score", 75)
+            is_good_synergy = score_val >= 60
+            biz_desc = merged_fields.get("enterprise_name") or f"{merged_fields.get('sector', 'MSME').replace('_', ' ').title()} Business"
+
+            if payload.language == "hi":
+                owned_lead = (
+                    f"बहुत खूब {payload.user_name} जी! आपने {mach_names_str} चुना है (कीमत ₹{int(total_owned_val):,})। "
+                    f"हमने इसे आपके आवश्यक बैंक लोन में से घटा दिया है, जिससे आपकी मासिक EMI में लगभग ₹{int(emi_saved):,} रुपये की बचत होगी! "
+                    if total_owned_val > 0 else
+                    f"बहुत अच्छा {payload.user_name} जी! मैंने नोट कर लिया है कि आपको सभी नए उपकरणों की आवश्यकता होगी। "
+                )
+                synergy_spoken = (
+                    odop_synergy.get("verdict_spoken")
+                    or (
+                        f"यह तालमेल आपके लिए बहुत ही फायदेमंद रहेगा क्योंकि आप अपने उत्पाद में स्थानीय {p_crop} का उपयोग करके "
+                        f"सीधे 35 प्रतिशत PMFME पूंजीगत सब्सिडी का पूरा लाभ उठा सकते हैं।"
+                        if is_good_synergy else
+                        f"मेरी दिल से सलाह है कि आप अपने मूल विचार के साथ ही आगे बढ़ें जहाँ आपको PMEGP और मुद्रा लोन का पूरा लाभ मिलेगा।"
+                    )
+                )
+                reply = (
+                    f"{owned_lead}"
+                    f"क्या आप जानते हैं? सरकार की ODOP योजना के तहत अगर आप अपने ज़िले के चयनित उत्पाद से जुड़ते हैं, "
+                    f"तो मशीनरी पर पूरे 35 प्रतिशत की भारी सरकारी सब्सिडी मिलती है! "
+                    f"आपके {district_name} ज़िले का आधिकारिक ODOP {p_crop} है और आपका व्यवसाय विचार {biz_desc} का है। "
+                    f"मैंने इन दोनों को मिलाकर आपके लिए रणनीतिक तालमेल तैयार किया है, और इसका अलाइनमेंट स्कोर 100 में से {score_val} आया है! "
+                    f"{synergy_spoken} "
+                    f"नीचे दिए गए कार्ड में मैंने आपका पूरा विश्लेषण तैयार किया है। तो अब आप मुझे बताइए, आप क्या चुनना चाहेंगे:\n"
+                    f"1. ODOP से जुड़ें\n"
+                    f"2. अपना मूल विचार रखें"
+                )
+            elif payload.language == "mr":
+                owned_lead_mr = (
+                    f"अतिशय छान {payload.user_name} जी! तुम्ही {mach_names_str} निवडले आहे (मूल्य ₹{int(total_owned_val):,}). "
+                    f"आम्ही हे तुमच्या आवश्यक बँक कर्जातून वजा केले आहे, ज्यामुळे दरमहा EMI मध्ये सुमारे ₹{int(emi_saved):,} ची बचत होईल! "
+                    if total_owned_val > 0 else
+                    f"खूप छान {payload.user_name} जी! मी नोंदवून घेतले आहे की तुम्हाला सर्व नवीन यंत्रसामग्रीची आवश्यकता असेल. "
+                )
+                synergy_spoken_mr = (
+                    odop_synergy.get("verdict_spoken")
+                    or (
+                        f"हा मेळ तुमच्यासाठी अत्यंत फायदेशीर ठरेल! कारण तुम्ही स्थानिक {p_crop} चा वापर करून थेट 35 टक्के सबसिडी मिळवू शकता."
+                        if is_good_synergy else
+                        f"तुम्ही तुमच्या मूळ कल्पनेसह पुढे जावे हा माझा सल्ला आहे."
+                    )
+                )
+                reply = (
+                    f"{owned_lead_mr}"
+                    f"शासनाच्या ODOP योजनेअंतर्गत स्थानिक उत्पादनाशी जोडल्यास यंत्रसामग्रीवर तब्बल 35 टक्के सबसिडी मिळते! "
+                    f"तुमच्या {district_name} जिल्ह्याचे मुख्य उत्पादन {p_crop} आहे आणि तुमची कल्पना {biz_desc} ची आहे. "
+                    f"मी या दोघांचा रणनीतिक मेळ घातला असून त्याचा स्कोअर 100 पैकी {score_val} आला आहे! "
+                    f"{synergy_spoken_mr} "
+                    f"आता मला सांगा, तुम्हाला कोणता पर्याय निवडायला आवडेल:\n"
+                    f"1. ODOP शी जोडा\n"
+                    f"2. माझी मूळ कल्पना ठेवा"
+                )
+            else:
+                owned_lead_en = (
+                    f"Excellent {payload.user_name} Ji! You have selected {mach_names_str} (valued at approximately ₹{int(total_owned_val):,}). "
+                    f"We have credited this as an in-kind promoter contribution, saving you approximately ₹{int(emi_saved):,} per month in EMI! "
+                    if total_owned_val > 0 else
+                    f"Got it {payload.user_name} Ji! I have noted that you will be acquiring all fresh equipment. "
+                )
+                synergy_spoken_en = (
+                    odop_synergy.get("verdict_spoken")
+                    or (
+                        f"This alignment is wonderfully beneficial for you! By integrating {district_name}'s local {p_crop}, you qualify for 35 percent PMFME grant."
+                        if is_good_synergy else
+                        f"My sincere recommendation is to proudly proceed with your original business model under PMEGP or Mudra."
+                    )
+                )
+                reply = (
+                    f"{owned_lead_en}"
+                    f"Under the government's One District One Product (ODOP) initiative, aligning with your district's designated product unlocks a 35 percent capital subsidy on machinery! "
+                    f"Your district {district_name} focuses on {p_crop}, and your enterprise is {biz_desc}. "
+                    f"I have benchmarked your alignment synergy at {score_val} out of 100! "
+                    f"{synergy_spoken_en} "
+                    f"I have presented your complete alignment match in the card below. Now please tell me what you would love to choose:\n"
+                    f"1. Align with ODOP\n"
+                    f"2. Keep my idea"
+                )
+
+            new_fields["odop_alignment_presented"] = True
+            new_fields["odop_product"] = p_crop
+            new_fields["odop_score"] = score_val
+            tts_clean = clean_for_bhashini_tts(reply, payload.language)
+            return OnboardingResponse(
+                reply=reply,
+                tts_text=tts_clean,
+                extracted_fields=new_fields,
+                next_step=payload.conversation_step + 1,
+                next_phase="odop_alignment",
+                all_fields_collected=False,
+                odop_alignment=odop_synergy,
+                odop_comparison=odop_synergy,
+                applicable_machinery=applicable_mach_payload,
+                machinery_analysis={
+                    "matched_profile": merged_fields.get("matched_machinery_profile"),
+                    "owned_machines": confirmed_owned,
+                    "owned_machinery_value": total_owned_val,
+                    "gross_project_cost": merged_fields.get("gross_project_cost"),
+                    "net_project_cost": merged_fields.get("project_cost"),
+                    "promoter_margin_pct": merged_fields.get("promoter_margin_pct"),
+                    "monthly_emi_saved": emi_saved,
+                },
+                banking_parameters={
+                    "tenure_years": merged_fields.get("tenure_years"),
+                    "moratorium_months": merged_fields.get("moratorium_months"),
+                    "infrastructure_score": merged_fields.get("infrastructure_score"),
+                    "expected_monthly_units": merged_fields.get("expected_monthly_units"),
+                    "capacity_unit_label": merged_fields.get("capacity_unit_label"),
+                    "tenure_reason": merged_fields.get("tenure_reason"),
+                    "moratorium_reason": merged_fields.get("moratorium_reason"),
+                },
+                message={"role": "assistant", "content": reply},
+            )
+
+        # ── Action / Turn: User made ODOP Alignment Decision ──────────────────
+        is_odop_action = action == "odop_decision" or payload.odop_decision is not None
+        odop_pending = (
+            existing_fields.get("odop_alignment_presented") is True
+            or (
+                existing_fields.get("odop_decision") is None
+                and ("promoter_equity" in existing_fields or "project_cost" in existing_fields)
+                and "sector" in existing_fields
+            )
+        )
+
+        user_text_clean = last_user_msg.strip().lower() if last_user_msg else ""
+        decision_choice = None
+
+        if payload.odop_decision in ("align", "keep_original"):
+            decision_choice = payload.odop_decision
+        elif is_odop_action:
+            decision_choice = "align" if (payload.odop_decision == "align" or "align" in user_text_clean) else "keep_original"
+        elif odop_pending and user_text_clean:
+            align_patterns = [
+                r'^\s*1\b', r'^\s*१\b', r'\bodop\b', r'\balign\b',
+                r'जुड़ें', r'जोड़ें', r'जोड़ा', r'पहला', r'सब्सिडी',
+                r'subsidy', r'option\s*1', r'choice\s*1', r'35\s*%',
+                r'हाँ', r'yes', r'होय', r'हॉ', r'स्वीकार'
+            ]
+            keep_patterns = [
+                r'^\s*2\b', r'^\s*२\b', r'\bkeep\b', r'\boriginal\b',
+                r'मूल\s*विचार', r'मेरा\s*विचार', r'दूसरा', r'option\s*2',
+                r'choice\s*2', r'नहीं', r'no', r'नाही', r'ना'
+            ]
+            if any(re.search(p, user_text_clean, re.IGNORECASE) for p in align_patterns):
+                decision_choice = "align"
+            elif any(re.search(p, user_text_clean, re.IGNORECASE) for p in keep_patterns):
+                decision_choice = "keep_original"
+
+        if decision_choice:
+            align_with_odop = (decision_choice == "align")
+            new_fields["odop_decision"] = decision_choice
+            new_fields["odop_synergy_aligned"] = align_with_odop
+            merged_fields["odop_decision"] = decision_choice
+            merged_fields["odop_synergy_aligned"] = align_with_odop
+
+            # Ensure all banking & outlay parameters are finalized and present
+            matched_mach = find_matching_machinery_profile(
+                merged_fields.get("additional_business_details") or merged_fields.get("enterprise_name", ""),
+                merged_fields.get("sector"),
+            )
+            bank_params = compute_statutory_banking_parameters(
+                sector=merged_fields.get("sector", "general"),
+                business_category=merged_fields.get("business_category", "manufacturing"),
+                project_cost=merged_fields.get("project_cost", 500000.0),
+                is_rural=bool(merged_fields.get("is_rural", True)),
+                matched_profile=matched_mach,
+            )
+            for k, v in bank_params.items():
+                if k not in existing_fields:
+                    new_fields[k] = v
+                    merged_fields[k] = v
+
+            odop_prod = (
+                existing_fields.get("odop_product")
+                or existing_fields.get("primary_odop_product")
+            )
+            if not odop_prod or odop_prod == "District Product":
+                odop_info = find_district_odop(state_name, district_name) or {}
+                odop_prod = odop_info.get("pmfme_odop_product") or odop_info.get("odop_product") or "ODOP Produce"
+                if "(" in odop_prod:
+                    odop_prod = odop_prod.split("(")[0].strip()
+
+            new_fields["odop_product"] = odop_prod
+            merged_fields["odop_product"] = odop_prod
+
+            if align_with_odop:
+                synergy_note = f"ODOP Cluster Synergy: Aligned with {odop_prod} under MoFPI PMFME 35% Scheme."
+                existing_notes = merged_fields.get("additional_business_details", "")
+                if synergy_note not in existing_notes:
+                    merged_fields["additional_business_details"] = f"{existing_notes} | {synergy_note}".strip(" |")
+                    new_fields["additional_business_details"] = merged_fields["additional_business_details"]
+
+            if payload.language == "hi":
+                if align_with_odop:
+                    reply = (
+                        f"बहुत ही शानदार और समझदारी भरा निर्णय {payload.user_name} जी! "
+                        f"हमने आपके व्यवसाय को {district_name} के आधिकारिक ODOP उत्पाद {odop_prod} के साथ रणनीतिक रूप से जोड़ दिया है। "
+                        f"इससे आपको मशीनरी पर पूरे 35 प्रतिशत की भारी PMFME सरकारी सब्सिडी और GeM पोर्टल पर सरकारी खरीद में प्राथमिकता मिलेगी। "
+                        f"आपकी सभी जानकारियाँ पूरी तरह से सुरक्षित कर ली गई हैं। अब मैं आपके लिए पूरी बैंक-स्तरीय व्यवहार्यता और वित्तीय मूल्यांकन रिपोर्ट तैयार कर रही हूँ!"
+                    )
+                else:
+                    reply = (
+                        f"बहुत बढ़िया {payload.user_name} जी! मुझे अपने मूल विचार पर आपका यह आत्मविश्वास और स्पष्टता बहुत पसंद आई। "
+                        f"हम आपके इसी मूल व्यवसाय मॉडल के साथ आगे बढ़ेंगे जहाँ आपको सरकार की PMEGP और मुद्रा ऋण योजनाओं का पूरा लाभ मिलेगा। "
+                        f"आपकी सभी जानकारियाँ पूरी तरह से सुरक्षित कर ली गई हैं। अब मैं आपके लिए पूरी बैंक-स्तरीय व्यवहार्यता और वित्तीय मूल्यांकन रिपोर्ट तैयार कर रही हूँ!"
+                    )
+            elif payload.language == "mr":
+                if align_with_odop:
+                    reply = (
+                        f"अतिशय हुशारीचा आणि उत्तम निर्णय {payload.user_name} जी! "
+                        f"आम्ही तुमचा व्यवसाय {district_name} च्या {odop_prod} शी रणनीतिकदृष्ट्या जोडला आहे. "
+                        f"यामुळे तुम्हाला यंत्रसामग्रीवर तब्बल 35 टक्के PMFME सरकारी सबसिडी आणि GeM पोर्टलवर प्राधान्य मिळेल. "
+                        f"तुमची संपूर्ण माहिती सुरक्षित झाली असून आता मी तुमचा सर्वसमावेशक प्रकल्प व्यवहार्यता अहवाल तयार करत आहे!"
+                    )
+                else:
+                    reply = (
+                        f"खूप छान {payload.user_name} जी! तुमच्या मूळ कल्पनेवरील तुमचा हा आत्मविश्वास मला मनापासून आवडला. "
+                        f"आपण तुमच्या याच मूळ व्यवसाय मॉडेलसह पुढे जाऊ जिथे तुम्हाला PMEGP आणि मुद्रा कर्ज योजनांचे सर्व लाभ मिळतील. "
+                        f"तुमची संपूर्ण माहिती सुरक्षित झाली असून आता मी तुमचा सर्वसमावेशक प्रकल्प व्यवहार्यता अहवाल तयार करत आहे!"
+                    )
+            else:
+                if align_with_odop:
+                    reply = (
+                        f"A truly brilliant and forward-thinking decision {payload.user_name} Ji! "
+                        f"We have strategically aligned your enterprise with {district_name}'s official ODOP focus product {odop_prod}. "
+                        f"This unlocks the 35 percent PMFME capital subsidy up to 10 lakh rupees on machinery and priority GeM onboarding. "
+                        f"All your business details are now locked in. I am compiling your bank-grade feasibility and financial appraisal report!"
+                    )
+                else:
+                    reply = (
+                        f"Wonderful {payload.user_name} Ji! I admire your conviction and clarity in staying true to your original business vision. "
+                        f"We will proudly proceed with your original model, fully backed by standard PMEGP and MUDRA credit schemes. "
+                        f"All your business details are now locked in. I am compiling your bank-grade feasibility and financial appraisal report!"
+                    )
+
+            tts_clean = clean_for_bhashini_tts(reply, payload.language)
+            return OnboardingResponse(
+                reply=reply,
+                tts_text=tts_clean,
+                extracted_fields=new_fields,
+                next_step=payload.conversation_step + 1,
+                next_phase="processing",
+                all_fields_collected=True,
+                odop_alignment=None,
+                odop_comparison=None,
+                machinery_analysis={
+                    "matched_profile": merged_fields.get("matched_machinery_profile"),
+                    "owned_machines": merged_fields.get("owned_machines", []),
+                    "owned_machinery_value": merged_fields.get("owned_machinery_value", 0.0),
+                    "gross_project_cost": merged_fields.get("gross_project_cost"),
+                    "net_project_cost": merged_fields.get("project_cost"),
+                    "promoter_margin_pct": merged_fields.get("promoter_margin_pct"),
+                    "monthly_emi_saved": merged_fields.get("estimated_monthly_emi_saved", 0.0),
+                },
+                banking_parameters={
+                    "tenure_years": merged_fields.get("tenure_years"),
+                    "moratorium_months": merged_fields.get("moratorium_months"),
+                    "infrastructure_score": merged_fields.get("infrastructure_score"),
+                    "expected_monthly_units": merged_fields.get("expected_monthly_units"),
+                    "capacity_unit_label": merged_fields.get("capacity_unit_label"),
+                    "tenure_reason": merged_fields.get("tenure_reason"),
+                    "moratorium_reason": merged_fields.get("moratorium_reason"),
+                },
+                message={"role": "assistant", "content": reply},
             )
 
         # Extract fields from text
@@ -788,22 +1466,97 @@ async def process_onboarding_message(payload: OnboardingRequest):
                     eq_val = converter(match)
                     new_fields["promoter_equity"] = eq_val
                     merged_fields["promoter_equity"] = eq_val
-                    # Derive project_cost assuming ~15% promoter margin in MSME lending
-                    if "project_cost" not in merged_fields:
-                        derived_cost = round(eq_val / 0.15, -2)
-                        new_fields["project_cost"] = derived_cost
-                        merged_fields["project_cost"] = derived_cost
                     break
 
-        # Auto-calculate annual_turnover_estimate
+        # ── Match MSME Machinery Profile & Detect Owned Equipment ───────────
+        matched_machinery = None
+        if "sector" in merged_fields:
+            biz_query = f"{merged_fields.get('enterprise_name', '')} {merged_fields.get('additional_business_details', '')} {last_user_msg}"
+            matched_machinery = find_matching_machinery_profile(biz_query, merged_fields["sector"])
+            if matched_machinery:
+                m_name = matched_machinery.get("business_name")
+                new_fields["matched_machinery_profile"] = m_name
+                merged_fields["matched_machinery_profile"] = m_name
+
+        # Detect owned machinery from user message
+        if last_user_msg:
+            detected_machines, detected_val = detect_owned_machinery(last_user_msg, matched_machinery)
+            if detected_machines:
+                existing_owned = list(merged_fields.get("owned_machines", []))
+                existing_names = {m["machine_name"] for m in existing_owned}
+                for dm in detected_machines:
+                    if dm["machine_name"] not in existing_names:
+                        existing_owned.append(dm)
+                        existing_names.add(dm["machine_name"])
+                total_val = sum(m.get("estimated_cost_inr", 0) for m in existing_owned)
+                new_fields["owned_machines"] = existing_owned
+                new_fields["owned_machinery_value"] = total_val
+                merged_fields["owned_machines"] = existing_owned
+                merged_fields["owned_machinery_value"] = total_val
+
+        # ── Tiered MSME Outlay Optimization from Promoter Equity ─────────────
+        if "promoter_equity" in merged_fields:
+            eq_val = float(merged_fields["promoter_equity"])
+            owned_val = float(merged_fields.get("owned_machinery_value", 0.0))
+            outlay_calc = calculate_tiered_capital_outlay(
+                promoter_equity=eq_val,
+                owned_machinery_value=owned_val,
+                explicit_project_cost=existing_fields.get("explicit_project_cost"),
+            )
+            new_fields["gross_project_cost"] = outlay_calc["gross_project_cost"]
+            new_fields["project_cost"] = outlay_calc["net_project_cost"]
+            new_fields["promoter_margin_pct"] = outlay_calc["promoter_margin_pct"]
+            new_fields["estimated_monthly_emi_saved"] = outlay_calc["estimated_monthly_emi_saved_inr"]
+            new_fields["estimated_interest_saved"] = outlay_calc["estimated_interest_saved_inr"]
+            new_fields["outlay_tier_name"] = outlay_calc["tier_name"]
+            merged_fields.update({
+                "gross_project_cost": outlay_calc["gross_project_cost"],
+                "project_cost": outlay_calc["net_project_cost"],
+                "promoter_margin_pct": outlay_calc["promoter_margin_pct"],
+                "estimated_monthly_emi_saved": outlay_calc["estimated_monthly_emi_saved_inr"],
+                "estimated_interest_saved": outlay_calc["estimated_interest_saved_inr"],
+                "outlay_tier_name": outlay_calc["tier_name"],
+            })
+
+        # ── Dynamic Statutory Banking Policies ───────────────────────────────
+        # Tenure, moratorium, infrastructure score, expected monthly units
+        if "sector" in merged_fields and "project_cost" in merged_fields:
+            bank_params = compute_statutory_banking_parameters(
+                sector=merged_fields["sector"],
+                business_category=merged_fields.get("business_category", "manufacturing"),
+                project_cost=merged_fields["project_cost"],
+                is_rural=bool(merged_fields.get("is_rural", True)),
+                matched_profile=matched_machinery,
+            )
+            for k, v in bank_params.items():
+                if k not in existing_fields:
+                    new_fields[k] = v
+                    merged_fields[k] = v
+
+        # Auto-calculate annual_turnover_estimate intelligently
         if "project_cost" in merged_fields and "annual_turnover_estimate" not in merged_fields:
             try:
                 cost = float(merged_fields["project_cost"])
-                multiplier = 2.2 if merged_fields.get("business_category") == "manufacturing" else 1.8
-                merged_fields["annual_turnover_estimate"] = round(cost * multiplier, -2)
+                sector = merged_fields.get("sector", "general")
+                cat = merged_fields.get("business_category", "manufacturing")
+                expected_units = merged_fields.get("expected_monthly_units")
+
+                turnover_res = calculate_intelligent_turnover(
+                    project_cost=cost,
+                    sector=sector,
+                    business_category=cat,
+                    expected_monthly_units=expected_units,
+                    matched_profile=matched_machinery,
+                )
+                merged_fields["annual_turnover_estimate"] = turnover_res["projected_turnover"]
                 new_fields["annual_turnover_estimate"] = merged_fields["annual_turnover_estimate"]
-            except (ValueError, TypeError):
-                pass
+                logger.info(
+                    "Intelligent Turnover Calculation: ₹%s | Basis: %s",
+                    turnover_res["projected_turnover"],
+                    turnover_res.get("derivation_basis", "Triangulated"),
+                )
+            except (ValueError, TypeError) as e:
+                logger.warning("Intelligent turnover calculation error: %s", e)
 
         # Determine missing fields
         missing = [f for f in REQUIRED_FIELDS if f not in merged_fields or not merged_fields[f]]
@@ -814,21 +1567,33 @@ async def process_onboarding_message(payload: OnboardingRequest):
             if payload.language == "hi":
                 reply = (
                     f"अरे वाह {payload.user_name} जी! मैंने नोट कर लिया है। सच में आपका यह व्यवसाय विचार बहुत ही सुंदर और दिलचस्प है! "
-                    f"कृपया मुझे बताइए कि इस उद्यम को शुरू करने के लिए आपके पास अपनी खुद की कितनी प्रमोटर इक्विटी यानी आपकी अपनी बचत या पूँजी तैयार है? "
-                    f"जैसे ₹50,000, ₹1 लाख या ₹2 लाख?"
+                    f"मैंने नीचे आपके व्यवसाय के लिए आवश्यक प्रमुख मानक मशीनों की सूची तैयार कर दी है। "
+                    f"यदि इनमें से कोई मशीन या औजार आपके पास पहले से उपलब्ध है, तो नीचे सूची या ड्रॉपडाउन से चुन लें—हम उसका मूल्य सीधे आपके कुल खर्च में से घटा देंगे जिससे आपका बैंक लोन और मासिक किस्त (EMI) बहुत कम हो जाएगी! "
+                    f"साथ ही कृपया मुझे बताइए कि इस उद्यम को शुरू करने के लिए आपके पास अपनी खुद की कितनी प्रमोटर इक्विटी यानी आपकी अपनी बचत या पूँजी तैयार है? जैसे ₹50,000, ₹1 लाख या ₹2 लाख?"
                 )
             elif payload.language == "mr":
                 reply = (
                     f"अरे वा {payload.user_name} जी! मी नोंदवून घेतले आहे. तुमची ही व्यवसाय कल्पना खूपच सुंदर आणि उत्तम आहे! "
-                    f"कृपया मला सांगा की हा व्यवसाय सुरू करण्यासाठी तुमच्याकडे स्वतःचे किती प्रमोटर इक्विटी भांडवल किंवा स्वतःची बचत तयार आहे? "
-                    f"जसे ₹50,000, ₹1 लाख किंवा ₹2 लाख?"
+                    f"मी खाली तुमच्या व्यवसायासाठी आवश्यक असणाऱ्या मुख्य यंत्रसामग्रीची यादी दिली आहे. "
+                    f"यापैकी कोणतीही यंत्रसामग्री तुमच्याकडे आधीपासून असल्यास, खालील यादीतून किंवा ड्रॉपडाउनमधून ती निवडा—आम्ही त्याचे मूल्य थेट तुमच्या खर्चातून वजा करू ज्यामुळे तुमचे बँक कर्ज आणि दरमहा EMI खूप कमी होईल! "
+                    f"तसेच कृपया मला सांगा की हा व्यवसाय सुरू करण्यासाठी तुमच्याकडे स्वतःचे किती प्रमोटर इक्विटी भांडवल किंवा स्वतःची बचत तयार आहे? जसे ₹50,000, ₹1 लाख किंवा ₹2 लाख?"
                 )
             else:
                 reply = (
                     f"Wonderful {payload.user_name} Ji! I have noted that down. What a promising and exciting business idea! "
-                    f"Could you please share how much promoter equity (your own personal capital or savings) you have ready to start? "
-                    f"For example, ₹50,000, ₹1 Lakh, or ₹2 Lakhs?"
+                    f"I have listed the standard plant & machinery required for your enterprise below. "
+                    f"If you already happen to own any of these machines, simply select them from the dropdown or checklist below—we will credit their valuation directly against your capital outlay, lowering your required bank loan and monthly EMI! "
+                    f"Also, could you please share how much promoter equity (your own personal savings or capital) you have ready to start? For example, ₹50,000, ₹1 Lakh, or ₹2 Lakhs?"
                 )
+
+            applicable_mach_payload = {
+                "business_name": matched_machinery.get("business_name") if matched_machinery else None,
+                "category": matched_machinery.get("category") if matched_machinery else None,
+                "industry_sector": matched_machinery.get("industry_sector") if matched_machinery else None,
+                "typical_capacity": matched_machinery.get("typical_capacity") if matched_machinery else None,
+                "total_machinery_cost_inr": matched_machinery.get("total_machinery_cost_inr") if matched_machinery else None,
+                "machinery_list": matched_machinery.get("machinery_list", []) if matched_machinery else [],
+            } if matched_machinery else None
 
             tts_clean = clean_for_bhashini_tts(reply, payload.language)
             return OnboardingResponse(
@@ -838,6 +1603,12 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 next_step=payload.conversation_step + 1,
                 next_phase="promoter_equity",
                 all_fields_collected=False,
+                applicable_machinery=applicable_mach_payload,
+                machinery_analysis={
+                    "matched_profile": merged_fields.get("matched_machinery_profile"),
+                    "typical_capacity": matched_machinery.get("typical_capacity") if matched_machinery else None,
+                    "benchmark_machinery_cost": matched_machinery.get("total_machinery_cost_inr") if matched_machinery else None,
+                },
                 message={"role": "assistant", "content": reply},
             )
 
@@ -853,6 +1624,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 sector=merged_fields["sector"],
                 state=s_name,
                 district=d_name,
+                language=payload.language,
             )
 
         # If promoter_equity was just collected, speak the ODOP intro & verdict
@@ -866,22 +1638,39 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 or f"{merged_fields.get('sector', 'MSME').replace('_', ' ').title()} Business"
             )
 
+            owned_val = float(merged_fields.get("owned_machinery_value", 0.0))
+            emi_saved = float(merged_fields.get("estimated_monthly_emi_saved", 0.0))
+            mach_list = merged_fields.get("owned_machines", [])
+            mach_names = ", ".join(m.get("machine_name", "") for m in mach_list) if mach_list else "आपकी मशीनें"
+
             if payload.language == "hi":
+                owned_speech = (
+                    f"साथ ही, मुझे यह जानकर बहुत खुशी हुई कि आपके पास पहले से {mach_names} उपलब्ध है जिसकी अनुमानित कीमत लगभग ₹{int(owned_val):,} है। "
+                    f"हमने इसे इन-काइंड एसेट के रूप में आपके आवश्यक बैंक लोन में से घटा दिया है, जिससे आपको बैंक से कम कर्ज लेना पड़ेगा और आपकी हर महीने की EMI में लगभग ₹{int(emi_saved):,} रुपये की भारी बचत होगी! "
+                    if owned_val > 0 else ""
+                )
                 if is_good_synergy:
                     synergy_spoken = (
-                        f"यह तालमेल आपके लिए बहुत ही फायदेमंद रहेगा क्योंकि आप अपने उत्पाद में स्थानीय {p_crop} का उपयोग करके "
-                        f"सीधे 35 प्रतिशत PMFME पूंजीगत सब्सिडी और स्थानीय किसान नेटवर्क का पूरा लाभ उठा सकते हैं।"
+                        odop_synergy.get("verdict_spoken")
+                        or (
+                            f"यह तालमेल आपके लिए बहुत ही फायदेमंद रहेगा क्योंकि आप अपने उत्पाद में स्थानीय {p_crop} का उपयोग करके "
+                            f"सीधे 35 प्रतिशत PMFME पूंजीगत सब्सिडी और स्थानीय किसान नेटवर्क का पूरा लाभ उठा सकते हैं।"
+                        )
                     )
                 else:
                     synergy_spoken = (
-                        f"मैं आपसे बिल्कुल सच कहूँगी, आपके इस व्यवसाय के साथ {district_name} के {p_crop} का कोई उचित तालमेल नहीं बैठ रहा है "
-                        f"और इसका अलाइनमेंट स्कोर केवल {score_val} आया है। इसलिए किसी जबरदस्ती के बिना, मेरी दिल से सलाह है कि आप अपने "
-                        f"मूल विचार के साथ ही आगे बढ़ें जहाँ आपको PMEGP और मुद्रा लोन का पूरा लाभ मिलेगा।"
+                        odop_synergy.get("verdict_spoken")
+                        or (
+                            f"मैं आपसे बिल्कुल सच कहूँगी, आपके इस व्यवसाय के साथ {district_name} के {p_crop} का कोई उचित तालमेल नहीं बैठ रहा है "
+                            f"और इसका अलाइनमेंट स्कोर केवल {score_val} आया है। इसलिए किसी जबरदस्ती के बिना, मेरी दिल से सलाह है कि आप अपने "
+                            f"मूल विचार के साथ ही आगे बढ़ें जहाँ आपको PMEGP और मुद्रा लोन का पूरा लाभ मिलेगा।"
+                        )
                     )
 
                 reply = (
                     f"अरे वाह {payload.user_name} जी! मैंने आपके व्यवसाय को बहुत ही गहराई और प्यार से समझ लिया है। "
                     f"आप {district_name} में {biz_desc} शुरू करना चाहते हैं और आपका यह अंदाज़ मुझे बहुत पसंद आया! "
+                    f"{owned_speech}"
                     f"क्या आप जानते हैं? सरकार की वन डिस्ट्रिक्ट वन प्रोडक्ट यानी ODOP योजना के तहत अगर आप अपने ज़िले के चयनित उत्पाद से जुड़ते हैं, "
                     f"तो मशीनरी और प्लांट पर पूरे 35 प्रतिशत की भारी सरकारी सब्सिडी मिलती है! "
                     f"और जहाँ तक मैंने आपके व्यवसाय को समझा है, आपके {district_name} ज़िले का आधिकारिक ODOP {p_crop} है और आपका व्यवसाय विचार {biz_desc} का है। "
@@ -892,20 +1681,32 @@ async def process_onboarding_message(payload: OnboardingRequest):
                     f"2. अपना मूल विचार रखें"
                 )
             elif payload.language == "mr":
+                owned_speech_mr = (
+                    f"तसेच, तुमच्याकडे आधीपासून {mach_names} उपलब्ध आहे ज्याचे मूल्य सुमारे ₹{int(owned_val):,} आहे हे पाहून मला खूप आनंद झाला! "
+                    f"आम्ही हे इन-काइंड ॲसेट म्हणून वजा केले आहे, ज्यामुळे तुमचे बँक कर्ज कमी होईल आणि दरमहा EMI मध्ये सुमारे ₹{int(emi_saved):,} ची बचत होईल! "
+                    if owned_val > 0 else ""
+                )
                 if is_good_synergy:
                     synergy_spoken_mr = (
-                        f"हा मेळ तुमच्यासाठी अत्यंत फायदेशीर ठरेल! कारण तुम्ही स्थानिक {p_crop} चा वापर करून थेट 35 टक्के सरकारी सबसिडी "
-                        f"आणि स्थानिक शेतकरी क्लस्टरचा पूर्ण लाभ घेऊ शकता."
+                        odop_synergy.get("verdict_spoken")
+                        or (
+                            f"हा मेळ तुमच्यासाठी अत्यंत फायदेशीर ठरेल! कारण तुम्ही स्थानिक {p_crop} चा वापर करून थेट 35 टक्के सरकारी सबसिडी "
+                            f"आणि स्थानिक शेतकरी क्लस्टरचा पूर्ण लाभ घेऊ शकता."
+                        )
                     )
                 else:
                     synergy_spoken_mr = (
-                        f"मी तुमच्याशी अगदी खरे बोलेन, तुमच्या या व्यवसायाचा {district_name} च्या {p_crop} सोबत कोणताही थेट मेळ बसत नाही "
-                        f"आणि याचा स्कोअर फक्त {score_val} आला आहे. म्हणूनच जबरदस्ती न करता, तुम्ही तुमच्या मूळ कल्पनेसह पुढे जावे हा माझा सल्ला आहे."
+                        odop_synergy.get("verdict_spoken")
+                        or (
+                            f"मी तुमच्याशी अगदी खरे बोलेन, तुमच्या या व्यवसायाचा {district_name} च्या {p_crop} सोबत कोणताही थेट मेळ बसत नाही "
+                            f"आणि याचा स्कोअर फक्त {score_val} आला आहे. म्हणूनच जबरदस्ती न करता, तुम्ही तुमच्या मूळ कल्पनेसह पुढे जावे हा माझा सल्ला आहे."
+                        )
                     )
 
                 reply = (
                     f"अरे वा {payload.user_name} जी! मी तुमचा व्यवसाय अतिशय प्रेमाने आणि काळजीपूर्वक समजून घेतला आहे. "
                     f"तुम्ही {district_name} मध्ये {biz_desc} सुरू करू इच्छिता आणि तुमची ही कल्पना मला मनापासून आवडली! "
+                    f"{owned_speech_mr}"
                     f"तुम्हाला माहिती आहे का? शासनाच्या एक जिल्हा एक उत्पादन म्हणजेच ODOP योजनेअंतर्गत स्थानिक उत्पादनाशी जोडल्यास यंत्रसामग्रीवर तब्बल 35 टक्के सबसिडी मिळते! "
                     f"मला समजले त्यानुसार तुमच्या {district_name} जिल्ह्याचे मुख्य उत्पादन {p_crop} आहे आणि तुमची कल्पना {biz_desc} ची आहे. "
                     f"मी या दोघांचा अतिशय सुंदर मेळ घातला असून त्याचा स्कोअर 100 पैकी {score_val} आला आहे! "
@@ -915,21 +1716,33 @@ async def process_onboarding_message(payload: OnboardingRequest):
                     f"2. माझी मूळ कल्पना ठेवा"
                 )
             else:
+                owned_speech_en = (
+                    f"Additionally, I am thrilled that you already own {mach_names} valued at approximately ₹{int(owned_val):,}! "
+                    f"We have credited this as an in-kind promoter asset contribution, deducting it from your fresh bank loan requirement and saving you approximately ₹{int(emi_saved):,} per month in EMI! "
+                    if owned_val > 0 else ""
+                )
                 if is_good_synergy:
                     synergy_spoken_en = (
-                        f"This alignment is wonderfully beneficial for you! By integrating {district_name}'s local {p_crop} into your venture, "
-                        f"you qualify for the 35 percent PMFME capital grant up to 10 lakh rupees and direct farmer sourcing."
+                        odop_synergy.get("verdict_spoken")
+                        or (
+                            f"This alignment is wonderfully beneficial for you! By integrating {district_name}'s local {p_crop} into your venture, "
+                            f"you qualify for the 35 percent PMFME capital grant up to 10 lakh rupees and direct farmer sourcing."
+                        )
                     )
                 else:
                     synergy_spoken_en = (
-                        f"I will be completely honest with you my dear friend. Forced alignment with {district_name}'s {p_crop} does not make practical sense "
-                        f"for your venture, and its alignment score is only {score_val} out of 100. My sincere recommendation is to proudly proceed with your "
-                        f"original business model under standard PMEGP and Mudra loan schemes."
+                        odop_synergy.get("verdict_spoken")
+                        or (
+                            f"I will be completely honest with you my dear friend. Forced alignment with {district_name}'s {p_crop} does not make practical sense "
+                            f"for your venture, and its alignment score is only {score_val} out of 100. My sincere recommendation is to proudly proceed with your "
+                            f"original business model under standard PMEGP and Mudra loan schemes."
+                        )
                     )
 
                 reply = (
                     f"Oh wonderful {payload.user_name} Ji! I have understood your business venture deeply and lovingly. "
                     f"You wish to establish {biz_desc} in {district_name}, and I truly admire your dedication! "
+                    f"{owned_speech_en}"
                     f"Did you know? Under the government's One District One Product ODOP initiative, enterprises aligned with their district's designated product get a massive 35 percent capital subsidy on machinery! "
                     f"From what I have understood, your district {district_name} has {p_crop} as its official ODOP, while your business idea is {biz_desc}. "
                     f"I tried aligning both for you, and here is your strategic match with an alignment score of {score_val} out of 100! "
@@ -939,6 +1752,9 @@ async def process_onboarding_message(payload: OnboardingRequest):
                     f"2. Keep my idea"
                 )
 
+            new_fields["odop_alignment_presented"] = True
+            new_fields["odop_product"] = p_crop
+            new_fields["odop_score"] = score_val
             tts_clean = clean_for_bhashini_tts(reply, payload.language)
             return OnboardingResponse(
                 reply=reply,
@@ -946,9 +1762,35 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 extracted_fields=new_fields,
                 next_step=payload.conversation_step + 1,
                 next_phase="odop_alignment",
-                all_fields_collected=len(missing) == 0,
+                all_fields_collected=False,
                 odop_alignment=odop_synergy,
                 odop_comparison=odop_synergy,
+                applicable_machinery={
+                    "business_name": matched_machinery.get("business_name") if matched_machinery else None,
+                    "category": matched_machinery.get("category") if matched_machinery else None,
+                    "industry_sector": matched_machinery.get("industry_sector") if matched_machinery else None,
+                    "typical_capacity": matched_machinery.get("typical_capacity") if matched_machinery else None,
+                    "total_machinery_cost_inr": matched_machinery.get("total_machinery_cost_inr") if matched_machinery else None,
+                    "machinery_list": matched_machinery.get("machinery_list", []) if matched_machinery else [],
+                } if matched_machinery else None,
+                machinery_analysis={
+                    "matched_profile": merged_fields.get("matched_machinery_profile"),
+                    "owned_machines": merged_fields.get("owned_machines", []),
+                    "owned_machinery_value": merged_fields.get("owned_machinery_value", 0.0),
+                    "gross_project_cost": merged_fields.get("gross_project_cost"),
+                    "net_project_cost": merged_fields.get("project_cost"),
+                    "promoter_margin_pct": merged_fields.get("promoter_margin_pct"),
+                    "monthly_emi_saved": merged_fields.get("estimated_monthly_emi_saved", 0.0),
+                },
+                banking_parameters={
+                    "tenure_years": merged_fields.get("tenure_years"),
+                    "moratorium_months": merged_fields.get("moratorium_months"),
+                    "infrastructure_score": merged_fields.get("infrastructure_score"),
+                    "expected_monthly_units": merged_fields.get("expected_monthly_units"),
+                    "capacity_unit_label": merged_fields.get("capacity_unit_label"),
+                    "tenure_reason": merged_fields.get("tenure_reason"),
+                    "moratorium_reason": merged_fields.get("moratorium_reason"),
+                },
                 message={"role": "assistant", "content": reply},
             )
 
@@ -978,6 +1820,32 @@ async def process_onboarding_message(payload: OnboardingRequest):
             all_fields_collected=all_collected,
             odop_alignment=odop_synergy,
             odop_comparison=odop_synergy,
+            applicable_machinery={
+                "business_name": matched_machinery.get("business_name") if matched_machinery else None,
+                "category": matched_machinery.get("category") if matched_machinery else None,
+                "industry_sector": matched_machinery.get("industry_sector") if matched_machinery else None,
+                "typical_capacity": matched_machinery.get("typical_capacity") if matched_machinery else None,
+                "total_machinery_cost_inr": matched_machinery.get("total_machinery_cost_inr") if matched_machinery else None,
+                "machinery_list": matched_machinery.get("machinery_list", []) if matched_machinery else [],
+            } if matched_machinery else None,
+            machinery_analysis={
+                "matched_profile": merged_fields.get("matched_machinery_profile"),
+                "owned_machines": merged_fields.get("owned_machines", []),
+                "owned_machinery_value": merged_fields.get("owned_machinery_value", 0.0),
+                "gross_project_cost": merged_fields.get("gross_project_cost"),
+                "net_project_cost": merged_fields.get("project_cost"),
+                "promoter_margin_pct": merged_fields.get("promoter_margin_pct"),
+                "monthly_emi_saved": merged_fields.get("estimated_monthly_emi_saved", 0.0),
+            },
+            banking_parameters={
+                "tenure_years": merged_fields.get("tenure_years"),
+                "moratorium_months": merged_fields.get("moratorium_months"),
+                "infrastructure_score": merged_fields.get("infrastructure_score"),
+                "expected_monthly_units": merged_fields.get("expected_monthly_units"),
+                "capacity_unit_label": merged_fields.get("capacity_unit_label"),
+                "tenure_reason": merged_fields.get("tenure_reason"),
+                "moratorium_reason": merged_fields.get("moratorium_reason"),
+            },
             message={"role": "assistant", "content": mira_reply},
         )
 

@@ -238,8 +238,8 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
           color: 'sovereign',
           iconBg: 'bg-sovereign-50 text-sovereign-800 border-sovereign-200 group-hover:bg-sovereign-800 group-hover:text-white',
           accentTop: 'border-t-2 border-sovereign-700',
-          primaryMetric: `DSCR ${dscr.toFixed(2)}`,
-          teaserText: `₹${Math.round(emi).toLocaleString('en-IN')}/mo EMI · 5-Yr Projections`,
+          primaryMetric: `BEP: ${fin.break_even_milestone || 'Year 2'}`,
+          teaserText: `DSCR ${dscr.toFixed(2)} · ₹${Math.round(emi).toLocaleString('en-IN')}/mo EMI · ${fin.payback_period_years ? `${fin.payback_period_years}Y` : '2.6Y'} Payback`,
           badge: '5-Yr Horiz.',
         },
         {

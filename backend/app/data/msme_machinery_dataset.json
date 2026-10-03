@@ -1,0 +1,2703 @@
+[
+  {
+    "business_name": "Spice Grinding, Pulverizing & Automatic Pouch Packaging",
+    "category": "agro_processing",
+    "business_sub_category": "Food & Beverage Processing",
+    "where_used_application": "Used by rural and semi-urban agro-enterprises to clean, pulverize, blend, and pouch-pack whole spices (turmeric, dry red chilli, coriander, cumin) into retail consumer packets for local markets and supermarkets.",
+    "search_keywords": [
+      "spice",
+      "masala",
+      "haldi",
+      "turmeric",
+      "mirchi",
+      "chilli",
+      "dhaniya",
+      "coriander",
+      "pulverizer",
+      "grinder",
+      "pouch packaging",
+      "agro processing"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "500 kg/day",
+    "total_machinery_cost_inr": 680000,
+    "machinery_list": [
+      {
+        "machine_name": "Heavy Duty Pin Mill Pulverizer with Cyclone",
+        "technical_specs": "10 HP 3-Phase motor, SS-304 contact parts, 80-100 mesh output",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 220000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "3-Deck Vibratory Grading Sieve",
+        "technical_specs": "1.5 HP motor, mesh sizes 40/60/100, SS-304 screens",
+        "quantity": 1,
+        "power_hp": 1.5,
+        "estimated_cost_inr": 85000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Spiral Ribbon Blender / Mass Mixer",
+        "technical_specs": "100 kg batch, 3 HP motor, dual spiral ribbons",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 125000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Automatic Form-Fill-Seal (FFS) Pouch Packing Machine",
+        "technical_specs": "Auger filler, 50g-500g pouches, 35-45 pouches/min",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 180000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Continuous Band Sealer with Nitrogen Gas Flushing",
+        "technical_specs": "Heavy duty conveyor, Teflon sealing belts",
+        "quantity": 1,
+        "power_hp": 0.5,
+        "estimated_cost_inr": 45000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Digital Platform Weighing Scale & Moisture Meter",
+        "technical_specs": "500 kg load cell + halogen moisture analyzer",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 25000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Cold-Pressed Edible Oil Extraction (Kachi Ghani / Wooden Chekku)",
+    "category": "agro_processing",
+    "business_sub_category": "Edible Oil Extraction",
+    "where_used_application": "Used by village oil units and health-food brands to clean and cold-press groundnut, sesame, mustard and coconut seeds into chemical-free edible oil, which is filtered and bottled for retail.",
+    "search_keywords": [
+      "kachi ghani",
+      "kolhu",
+      "wooden chekku",
+      "cold pressed oil",
+      "tel",
+      "groundnut oil",
+      "mustard oil",
+      "sarson",
+      "til",
+      "coconut oil",
+      "oil expeller",
+      "oil mill"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "200 kg seed/day",
+    "total_machinery_cost_inr": 657000,
+    "machinery_list": [
+      {
+        "machine_name": "Wooden Chekku / Rotary Cold Press Oil Expeller",
+        "technical_specs": "Neem/Babul wood mortar, 3 HP gear motor, 12-15 rpm, 40 kg/hr",
+        "quantity": 2,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 140000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Seed Cleaning & Destoning Machine",
+        "technical_specs": "1 HP motor, vibrating screen, 300 kg/hr",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 55000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Plate & Frame Oil Filter Press",
+        "technical_specs": "SS-304, 12 plates, 1 HP pump, food grade cloth",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 85000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Oil Settling & Storage Tanks",
+        "technical_specs": "SS-304, 500 L, with outlet valve and stand",
+        "quantity": 2,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Semi-Automatic Bottle Filling & Capping Machine",
+        "technical_specs": "Piston filler, 200 ml-5 L, 1 HP, 15 bottles/min",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Digital Weighing Scale & Density/Moisture Meter",
+        "technical_specs": "300 kg platform scale + hydrometer set",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 22000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Mini Modern Rice Mill (Paddy Dehusking, Polishing & Sorting)",
+    "category": "agro_processing",
+    "business_sub_category": "Grain & Cereal Milling",
+    "where_used_application": "Used by village entrepreneurs and farmer groups to dehusk, polish and sort paddy into packaged rice, offering custom milling to farmers and selling branded rice locally.",
+    "search_keywords": [
+      "rice mill",
+      "chawal",
+      "paddy",
+      "dhan",
+      "dehusker",
+      "polisher",
+      "rice huller",
+      "basmati",
+      "brown rice",
+      "sorter",
+      "anaj",
+      "mini mill"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "1 Ton/hour",
+    "total_machinery_cost_inr": 1145000,
+    "machinery_list": [
+      {
+        "machine_name": "Paddy Pre-Cleaner with Destoner",
+        "technical_specs": "3 HP motor, aspirator + sieve, 1.5 T/hr",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Rubber Roll Paddy Husker",
+        "technical_specs": "10 HP motor, 10-inch rolls, 1 T/hr",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 185000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Paddy Separator",
+        "technical_specs": "1 HP motor, 1 T/hr, MS body",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 120000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Rice Whitener / Polisher",
+        "technical_specs": "15 HP motor, emery cone, 1 T/hr",
+        "quantity": 1,
+        "power_hp": 15.0,
+        "estimated_cost_inr": 220000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Colour Sorter (Mini, 2-Channel)",
+        "technical_specs": "Optical CCD, 0.5-1 T/hr, 1 kW",
+        "quantity": 1,
+        "power_hp": 1.5,
+        "estimated_cost_inr": 350000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Bucket Elevators, Motors & Weighbridge Scale",
+        "technical_specs": "5 elevators, 3 HP total, 500 kg scale",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 120000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Automatic Dal / Pulse Splitting, Dehusking & Polishing Plant",
+    "category": "agro_processing",
+    "business_sub_category": "Pulses & Dal Processing",
+    "where_used_application": "Used by dal mill operators and FPOs to clean, dehusk, split and polish toor, chana, moong and urad into packaged dal for wholesale and retail markets.",
+    "search_keywords": [
+      "dal mill",
+      "daal",
+      "pulses",
+      "toor",
+      "arhar",
+      "chana",
+      "moong",
+      "urad",
+      "masoor",
+      "dehusker",
+      "splitter",
+      "dal polish"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "1 Ton/hour",
+    "total_machinery_cost_inr": 805000,
+    "machinery_list": [
+      {
+        "machine_name": "Pulse Cleaner & Grader",
+        "technical_specs": "2 HP, double sieve with aspirator",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Pulse Pitting / Oil Conditioning Roller",
+        "technical_specs": "3 HP, MS with SS drum, 1 T/hr",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 110000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Emery Roller Dehusker & Splitter",
+        "technical_specs": "10 HP, emery coated rolls, 1 T/hr",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 260000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Dal Polisher",
+        "technical_specs": "7.5 HP, MS drum with brush, 1 T/hr",
+        "quantity": 1,
+        "power_hp": 7.5,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Dal Grader / Gravity Separator",
+        "technical_specs": "2 HP, 3-grade separation",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 90000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Bucket Elevators, Platform Scale & Bagging Unit",
+        "technical_specs": "4 elevators 3 HP, 500 kg scale",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 100000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Commercial Semi-Automated Bakery & Biscuit Manufacturing Unit",
+    "category": "agro_processing",
+    "business_sub_category": "Food & Beverage Processing",
+    "where_used_application": "Used by small bakers and food entrepreneurs to mix dough, mould and bake biscuits, cookies, bread and rusk from maida, sugar and fat, then wrap them for local shops and distributors.",
+    "search_keywords": [
+      "bakery",
+      "biscuit",
+      "cookies",
+      "bread",
+      "pav",
+      "rusk",
+      "toast",
+      "maida",
+      "oven",
+      "dough mixer",
+      "namkeen",
+      "bekri"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "300 kg/day",
+    "total_machinery_cost_inr": 940000,
+    "machinery_list": [
+      {
+        "machine_name": "Spiral Dough Mixer",
+        "technical_specs": "40 kg flour, SS-304 bowl, 3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 125000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Deck Oven (Electric/Gas)",
+        "technical_specs": "3 deck 6 tray, 400x600 mm, 12 kW, SS body",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 260000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Biscuit Rotary Moulder / Dough Sheeter",
+        "technical_specs": "SS-304, 3 HP, 300 kg/day",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 190000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Planetary Mixer",
+        "technical_specs": "20 L, 1.5 HP, SS-304",
+        "quantity": 1,
+        "power_hp": 1.5,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Pouch Flow Wrap Packing Machine",
+        "technical_specs": "Horizontal, 40-60 packs/min, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 210000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Proofer, Cooling Rack & Weighing Scale",
+        "technical_specs": "16-tray proofer, SS racks, 30 kg scale",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": false
+      }
+    ]
+  },
+  {
+    "business_name": "Dairy Processing Unit (Milk Pasteurization, Paneer, Curd & Ghee)",
+    "category": "agro_processing",
+    "business_sub_category": "Dairy Processing",
+    "where_used_application": "Used by dairy cooperatives, milk entrepreneurs and women SHGs to pasteurize raw milk and convert it into packaged milk, paneer, dahi, curd and ghee for local retail.",
+    "search_keywords": [
+      "dairy",
+      "doodh",
+      "milk",
+      "paneer",
+      "dahi",
+      "curd",
+      "ghee",
+      "pasteurizer",
+      "cream separator",
+      "lassi",
+      "khoa",
+      "milk chilling"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "1,000 L milk/day",
+    "total_machinery_cost_inr": 1320000,
+    "machinery_list": [
+      {
+        "machine_name": "Batch Milk Pasteurizer",
+        "technical_specs": "SS-304 jacketed, 500 L, 3 HP agitator, steam/electric",
+        "quantity": 2,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 210000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Cream Separator",
+        "technical_specs": "1000 L/hr, SS-304, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Paneer Press & Cheese Vat",
+        "technical_specs": "SS-304, 200 L, hydraulic press",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 130000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Ghee Boiler / Kettle",
+        "technical_specs": "SS-304 steam jacketed, 100 L, tilting",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 125000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Cup/Pouch Filling & Sealing Machine",
+        "technical_specs": "Semi-auto, 200 ml-1 L, 1 HP, 1500 pcs/hr",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 175000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Chiller / Bulk Milk Cooler & Lactometer Set",
+        "technical_specs": "1000 L BMC, 5 HP compressor, lab test kit",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 320000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Fruit Juice, Pulp & Tomato Sauce/Ketchup Processing Plant",
+    "category": "agro_processing",
+    "business_sub_category": "Food & Beverage Processing",
+    "where_used_application": "Used by fruit processors and FPOs to wash, pulp, cook and bottle seasonal fruits and tomatoes into juice, pulp, sauce, ketchup and jam for retail and institutional sale.",
+    "search_keywords": [
+      "juice",
+      "pulp",
+      "ketchup",
+      "tomato sauce",
+      "fruit processing",
+      "mango pulp",
+      "jam",
+      "squash",
+      "sharbat",
+      "tamatar",
+      "pulper",
+      "bottling"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "500 kg fruit/day",
+    "total_machinery_cost_inr": 770000,
+    "machinery_list": [
+      {
+        "machine_name": "Fruit Washing & Sorting Conveyor",
+        "technical_specs": "SS-304, 1 HP, 500 kg/hr",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Pulper / Destoner & Juice Extractor",
+        "technical_specs": "SS-304, 3 HP, 300 kg/hr",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 140000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Steam Jacketed Cooking Kettle",
+        "technical_specs": "SS-304, 200 L, tilting, boiler fed",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 130000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Mini Steam Boiler",
+        "technical_specs": "Oil/wood fired, 100 kg/hr, IBR exempt",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 200000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Bottle Filling, Capping & Labelling Unit",
+        "technical_specs": "Semi-auto, 200 ml-1 L, 1.5 HP",
+        "quantity": 1,
+        "power_hp": 1.5,
+        "estimated_cost_inr": 180000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Brix Refractometer, pH Meter & Weighing Scale",
+        "technical_specs": "Digital refractometer, 100 kg scale",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 25000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Honey Processing, Heating & Micro-Filtration Plant",
+    "category": "agro_processing",
+    "business_sub_category": "Food & Beverage Processing",
+    "where_used_application": "Used by beekeepers, FPOs and honey brands to extract, heat, filter and bottle raw honey so it meets moisture and purity standards for retail and export.",
+    "search_keywords": [
+      "honey",
+      "shahad",
+      "madhu",
+      "bee keeping",
+      "honey extractor",
+      "honey filter",
+      "apiary",
+      "honey bottling",
+      "moisture",
+      "raw honey",
+      "mithai",
+      "beekeeper"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "500 kg/day",
+    "total_machinery_cost_inr": 455000,
+    "machinery_list": [
+      {
+        "machine_name": "Honey Extractor",
+        "technical_specs": "Radial, SS-304, 4-frame to 24-frame, motorized, 0.5 HP",
+        "quantity": 1,
+        "power_hp": 0.5,
+        "estimated_cost_inr": 65000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Honey Heating & Dehumidifying Tank",
+        "technical_specs": "SS-304, 300 kg, thermostat controlled 40-45 C",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Honey Micro-Filter Press",
+        "technical_specs": "SS-304, 5-20 micron, 1 HP pump",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 80000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Honey Storage Tanks",
+        "technical_specs": "SS-304 food grade, 300 L, tap",
+        "quantity": 2,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 45000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Semi-Automatic Honey Bottle Filling Machine",
+        "technical_specs": "Piston filler, 100 g-1 kg, 1 HP",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 110000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Honey Moisture Meter & Digital Scale",
+        "technical_specs": "Refractometer, 100 kg scale",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 15000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Soya Milk & Tofu (Soya Paneer) Making Unit",
+    "category": "agro_processing",
+    "business_sub_category": "Food & Beverage Processing",
+    "where_used_application": "Used by small food entrepreneurs to grind and boil soybeans into soya milk and press it into tofu (soya paneer) for local shops, hotels and health-food customers.",
+    "search_keywords": [
+      "soya milk",
+      "soy milk",
+      "tofu",
+      "soya paneer",
+      "soyabean",
+      "soya chunks",
+      "vegan",
+      "plant milk",
+      "protein",
+      "tofu press",
+      "soya",
+      "okara"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "200 kg soya/day",
+    "total_machinery_cost_inr": 440000,
+    "machinery_list": [
+      {
+        "machine_name": "Soya Bean Soaking & Grinding Machine",
+        "technical_specs": "SS-304, 3 HP, 100 kg/hr",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 80000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Steam Jacketed Soya Milk Boiler",
+        "technical_specs": "SS-304, 100 L, steam coil",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 90000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Soya Milk Filter / Okara Separator",
+        "technical_specs": "SS-304, 2 HP centrifuge, 150 L/hr",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 65000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Tofu Coagulation & Pressing Machine",
+        "technical_specs": "SS-304, hydraulic press, 50 kg/batch",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 90000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Pouch/Bottle Filling & Sealing Machine",
+        "technical_specs": "Semi-auto, 1 HP",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 75000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Cold Storage / Deep Freezer",
+        "technical_specs": "300 L commercial, 0.5 HP",
+        "quantity": 1,
+        "power_hp": 0.5,
+        "estimated_cost_inr": 40000,
+        "is_mandatory": false
+      }
+    ]
+  },
+  {
+    "business_name": "Solid Jaggery Block & Powder (Gur) Processing Unit",
+    "category": "agro_processing",
+    "business_sub_category": "Food & Beverage Processing",
+    "where_used_application": "Used by sugarcane growers and village entrepreneurs to crush cane, boil the juice and mould it into jaggery blocks or powder for sale as a natural sweetener.",
+    "search_keywords": [
+      "jaggery",
+      "gur",
+      "gud",
+      "sugarcane",
+      "ganna",
+      "gur powder",
+      "jaggery powder",
+      "cane crusher",
+      "khandsari",
+      "natural sweetener",
+      "kolhu",
+      "gur block"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "2 Ton cane/day",
+    "total_machinery_cost_inr": 535000,
+    "machinery_list": [
+      {
+        "machine_name": "Sugarcane Crusher (3-Roller)",
+        "technical_specs": "10 HP motor, MS rollers, 2 T/hr",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 180000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Open Pan Boiling Furnace (Triple Pan)",
+        "technical_specs": "MS/SS pans, bagasse fired, 300 L/batch",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 120000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Juice Filter & Settling Tank",
+        "technical_specs": "SS-304, 500 L",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 45000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Jaggery Moulding Table & Block Cutter",
+        "technical_specs": "SS-304, 1 kg-10 kg blocks",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 35000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Jaggery Powder Granulator / Pulverizer",
+        "technical_specs": "5 HP, SS-304, 100 kg/hr",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Packing Machine & Brix Meter",
+        "technical_specs": "Pouch sealer + hand refractometer",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Cattle Feed & Poultry Feed Pellet Making Plant",
+    "category": "agro_processing",
+    "business_sub_category": "Animal Feed Manufacturing",
+    "where_used_application": "Used by dairy and poultry farmers and feed entrepreneurs to grind and mix maize, soya meal, bran and minerals into pellets for cattle, goat and poultry feed.",
+    "search_keywords": [
+      "cattle feed",
+      "poultry feed",
+      "pellet",
+      "chara",
+      "pashu aahar",
+      "feed mill",
+      "pellet mill",
+      "hammer mill",
+      "maize",
+      "bran",
+      "dairy feed",
+      "murgi dana"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "1 Ton/hour",
+    "total_machinery_cost_inr": 680000,
+    "machinery_list": [
+      {
+        "machine_name": "Hammer Mill Grinder",
+        "technical_specs": "20 HP motor, MS, 1 T/hr",
+        "quantity": 1,
+        "power_hp": 20.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Horizontal Feed Mixer",
+        "technical_specs": "500 kg batch, 7.5 HP, ribbon type",
+        "quantity": 1,
+        "power_hp": 7.5,
+        "estimated_cost_inr": 115000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Flat Die Pellet Mill",
+        "technical_specs": "30 HP, 1 T/hr, die and roller alloy steel",
+        "quantity": 1,
+        "power_hp": 30.0,
+        "estimated_cost_inr": 260000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Pellet Cooler & Crumbler",
+        "technical_specs": "3 HP, counterflow cooler",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 120000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Bagging & Stitching Unit",
+        "technical_specs": "50 kg bag sewing + conveyor, 1 HP",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Platform Scale & Moisture Meter",
+        "technical_specs": "500 kg scale + grain moisture meter",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 30000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Cashew Nut Processing, Boiling, Deshelling & Grading Plant",
+    "category": "agro_processing",
+    "business_sub_category": "Dry Fruit & Nut Processing",
+    "where_used_application": "Used by cashew processors in coastal and tribal regions to steam, shell, peel and grade raw cashew nuts (kaju) into graded kernels for packaged retail and export.",
+    "search_keywords": [
+      "cashew",
+      "kaju",
+      "kaju processing",
+      "deshelling",
+      "cashew shelling",
+      "dry fruit",
+      "nuts",
+      "kernel",
+      "grading",
+      "borma",
+      "kaju barfi",
+      "raw cashew"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "500 kg raw nut/day",
+    "total_machinery_cost_inr": 810000,
+    "machinery_list": [
+      {
+        "machine_name": "Cashew Steam Boiling / Roasting Unit",
+        "technical_specs": "SS-304 steam cooker, 100 kg/batch",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Cashew Cutting / Shelling Machine",
+        "technical_specs": "Pedal/semi-auto, 40-60 kg/hr",
+        "quantity": 3,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 65000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Cashew Kernel Peeling Machine",
+        "technical_specs": "Pneumatic, 2 HP, air compressor driven",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 110000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Hot Air Borma Dryer",
+        "technical_specs": "Electric/biomass, 100 kg/batch",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 180000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Cashew Grading Machine",
+        "technical_specs": "Vibratory, SS-304, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 90000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Vacuum Packing Machine & Weighing Scale",
+        "technical_specs": "Double chamber, 1.5 HP, 30 kg scale",
+        "quantity": 1,
+        "power_hp": 1.5,
+        "estimated_cost_inr": 85000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Dehydrated Onion, Garlic & Vegetable Powder Plant",
+    "category": "agro_processing",
+    "business_sub_category": "Food & Beverage Processing",
+    "where_used_application": "Used by agro-processors and FPOs in onion belts to wash, slice, dehydrate and powder onion, garlic and vegetables for food industries, spice brands and export.",
+    "search_keywords": [
+      "dehydrated onion",
+      "pyaz",
+      "onion powder",
+      "garlic",
+      "lehsun",
+      "vegetable powder",
+      "dehydrator",
+      "dryer",
+      "tray dryer",
+      "flakes",
+      "masala base",
+      "onion flakes"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "500 kg raw/day",
+    "total_machinery_cost_inr": 850000,
+    "machinery_list": [
+      {
+        "machine_name": "Vegetable Washing & Peeling Machine",
+        "technical_specs": "SS-304, 2 HP, 300 kg/hr",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 110000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Slicer / Cutter",
+        "technical_specs": "SS-304, 2 HP, 1-10 mm thickness",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 85000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Tray Dryer / Hot Air Dehydrator",
+        "technical_specs": "48 tray, SS-304, 12 kW heating, 100 kg/batch",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 380000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Pulverizer for Powder",
+        "technical_specs": "10 HP, SS-304, 80 mesh",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 140000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Vacuum / Pouch Packing Machine",
+        "technical_specs": "Semi-auto, 1 HP",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Moisture Analyzer & Weighing Scale",
+        "technical_specs": "Halogen type + 300 kg scale",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 40000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Commercial Atta / Whole Wheat Flour Chakki Plant",
+    "category": "agro_processing",
+    "business_sub_category": "Grain & Cereal Milling",
+    "where_used_application": "Used by local flour mill owners and entrepreneurs to clean and grind wheat in stone chakkis into whole wheat atta, which is bagged and sold to households, shops and bakeries.",
+    "search_keywords": [
+      "atta",
+      "chakki",
+      "flour mill",
+      "wheat",
+      "gehu",
+      "atta chakki",
+      "whole wheat",
+      "maida",
+      "sooji",
+      "pisai",
+      "flour",
+      "aata"
+    ],
+    "industry_sector": "Agro & Food Processing",
+    "typical_capacity": "1 Ton/hour",
+    "total_machinery_cost_inr": 720000,
+    "machinery_list": [
+      {
+        "machine_name": "Wheat Cleaner & Destoner",
+        "technical_specs": "3 HP, aspirator, 1 T/hr",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 85000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Wheat Dampener / Conditioner",
+        "technical_specs": "1 HP, screw type",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 45000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Heavy Duty Flour Mill (Stone Chakki, 24-inch)",
+        "technical_specs": "15 HP, cast iron, 150 kg/hr",
+        "quantity": 3,
+        "power_hp": 15.0,
+        "estimated_cost_inr": 105000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Flour Sifter / Plansifter",
+        "technical_specs": "2 HP, 3 sieve",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 70000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Atta Pouch Packing Machine",
+        "technical_specs": "1-10 kg, 2 HP, weigh filler",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 170000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Platform Scale & Bucket Elevator",
+        "technical_specs": "500 kg scale, 1 HP elevator",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 35000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Ayurvedic & Herbal Tablet/Capsule/Syrup Formulation Unit",
+    "category": "agro_processing",
+    "business_sub_category": "Ayurvedic & Herbal Products",
+    "where_used_application": "Used by Ayush-licensed manufacturers and herbal startups to dry, grind, granulate and compress herbs into tablets, capsules and syrups sold under their own brand or on contract.",
+    "search_keywords": [
+      "ayurvedic",
+      "herbal",
+      "ayush",
+      "tablet",
+      "capsule",
+      "syrup",
+      "churna",
+      "vati",
+      "dawa",
+      "herbal medicine",
+      "neem",
+      "ashwagandha"
+    ],
+    "industry_sector": "Herbal & Organic",
+    "typical_capacity": "50,000 tablets/hour",
+    "total_machinery_cost_inr": 1400000,
+    "machinery_list": [
+      {
+        "machine_name": "Herbal Dryer & Pulverizer",
+        "technical_specs": "10 HP pulverizer, SS-304, tray dryer 24 trays",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 230000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Granulator & Octagonal Blender",
+        "technical_specs": "25 kg octagon blender, SS-304, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 200000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Tablet Compression Machine",
+        "technical_specs": "16-station, SS-304, 3 HP, 25000 tabs/hr",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 350000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Capsule Filling Machine (Semi-Auto)",
+        "technical_specs": "Size 00-4, 2 HP, 25000 caps/hr",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 180000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Syrup Manufacturing Vessel & Filling Machine",
+        "technical_specs": "SS-304 200 L jacketed, 2 HP, bottle filler",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 250000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Blister/Strip Packing Machine & Lab Equipment",
+        "technical_specs": "Semi-auto blister, hardness tester, disintegration apparatus",
+        "quantity": 1,
+        "power_hp": 1.5,
+        "estimated_cost_inr": 190000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Steam Distillation Essential Oil Extraction (Lemongrass, Eucalyptus)",
+    "category": "agro_processing",
+    "business_sub_category": "Ayurvedic & Herbal Products",
+    "where_used_application": "Used by farmers and aromatic-crop entrepreneurs to steam-distil lemongrass, eucalyptus, palmarosa and mint into essential oils for perfumery, cosmetics and pharma buyers.",
+    "search_keywords": [
+      "essential oil",
+      "lemongrass",
+      "nimbu ghas",
+      "eucalyptus",
+      "distillation",
+      "steam distillation",
+      "aromatic",
+      "mentha",
+      "menthol",
+      "citronella",
+      "atar",
+      "palmarosa"
+    ],
+    "industry_sector": "Herbal & Organic",
+    "typical_capacity": "500 kg herb/day",
+    "total_machinery_cost_inr": 825000,
+    "machinery_list": [
+      {
+        "machine_name": "Steam Distillation Unit",
+        "technical_specs": "SS-304, 500 kg biomass vessel, condenser, separator",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 350000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Steam Boiler",
+        "technical_specs": "Wood/biomass fired, 150 kg/hr, IBR exempt",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 220000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Herb Chopper / Shredder",
+        "technical_specs": "5 HP, MS, 500 kg/hr",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 75000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Oil Separator & Storage Tanks",
+        "technical_specs": "SS-304, 100 L",
+        "quantity": 2,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 45000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Cooling Tower & Water Pump",
+        "technical_specs": "1 HP centrifugal, 5 TR tower",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Refractometer, Density Meter & Weighing Scale",
+        "technical_specs": "Digital refractometer, 300 kg scale",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 30000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Organic Bio-Fertilizer & Vermicompost Sifting and Packing Unit",
+    "category": "agro_processing",
+    "business_sub_category": "Organic Inputs & Fertilizers",
+    "where_used_application": "Used by farmers, FPOs and women's groups to shred, compost, sift and bag cow dung, crop waste and vermicompost into organic fertilizer for farms and nurseries.",
+    "search_keywords": [
+      "vermicompost",
+      "organic fertilizer",
+      "khad",
+      "compost",
+      "gobar khad",
+      "bio fertilizer",
+      "kenchua khad",
+      "organic farming",
+      "manure",
+      "soil",
+      "sifter",
+      "jaivik"
+    ],
+    "industry_sector": "Herbal & Organic",
+    "typical_capacity": "10 Ton/day",
+    "total_machinery_cost_inr": 585000,
+    "machinery_list": [
+      {
+        "machine_name": "Vermicompost Rotary Screen / Sifter",
+        "technical_specs": "3 HP, MS, 1 T/hr",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 85000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Compost Shredder / Crusher",
+        "technical_specs": "10 HP, MS, 2 T/hr",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 155000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Mixer / Blender",
+        "technical_specs": "1 T batch, 5 HP",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 130000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Pouch/Bag Packing & Sealing Machine",
+        "technical_specs": "Auger filler, 1-50 kg, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 175000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Platform Weighing Scale",
+        "technical_specs": "500 kg, digital",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 18000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Moisture/pH Meter and Lab Kit",
+        "technical_specs": "Digital pH, moisture, EC meter",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 22000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Detergent Powder, Laundry Cake & Liquid Surface Cleaner Plant",
+    "category": "manufacturing",
+    "business_sub_category": "Chemicals & Cleaning Formulations",
+    "where_used_application": "Used by small chemical entrepreneurs to mix soda ash, LAB and additives into detergent powder, bars and liquid cleaners, which are packed and sold to local retail and bulk buyers.",
+    "search_keywords": [
+      "detergent",
+      "washing powder",
+      "surf",
+      "soap",
+      "kapda dhone ka sabun",
+      "phenyl",
+      "floor cleaner",
+      "dishwash",
+      "liquid cleaner",
+      "detergent cake",
+      "cleaning",
+      "chemical"
+    ],
+    "industry_sector": "Chemical & Polymers",
+    "typical_capacity": "1 Ton/day",
+    "total_machinery_cost_inr": 850000,
+    "machinery_list": [
+      {
+        "machine_name": "Ribbon Blender / Powder Mixer",
+        "technical_specs": "500 kg, SS-304, 7.5 HP",
+        "quantity": 1,
+        "power_hp": 7.5,
+        "estimated_cost_inr": 185000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Liquid Mixing Tank with Agitator",
+        "technical_specs": "SS-304, 1000 L, 3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 130000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Detergent Cake Plodder & Cutter",
+        "technical_specs": "5 HP, 150 kg/hr",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 200000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Powder Pouch Packing Machine",
+        "technical_specs": "VFFS, 100 g-1 kg, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 200000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Liquid Bottle Filling & Capping Machine",
+        "technical_specs": "Semi-auto, 100 ml-5 L, 1 HP",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 110000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Weighing Scale & pH Meter",
+        "technical_specs": "300 kg scale, digital pH meter",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 25000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Corrugated Packaging Box & 3-Ply/5-Ply Carton Manufacturing",
+    "category": "manufacturing",
+    "business_sub_category": "Paper & Packaging Products",
+    "where_used_application": "Used by packaging entrepreneurs to convert kraft paper rolls into corrugated sheets and 3-ply or 5-ply cartons, which they supply to FMCG, e-commerce and manufacturing units.",
+    "search_keywords": [
+      "corrugated box",
+      "carton",
+      "cardboard",
+      "dabba",
+      "packaging",
+      "3 ply",
+      "5 ply",
+      "kraft paper",
+      "box making",
+      "gatta",
+      "shipping box",
+      "e-commerce packaging"
+    ],
+    "industry_sector": "Chemical & Polymers",
+    "typical_capacity": "3,000 boxes/day",
+    "total_machinery_cost_inr": 1770000,
+    "machinery_list": [
+      {
+        "machine_name": "Semi-Automatic Corrugation Plant (Fluter, Pasting)",
+        "technical_specs": "1200 mm width, 15 HP, 3/5 ply",
+        "quantity": 1,
+        "power_hp": 15.0,
+        "estimated_cost_inr": 950000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Rotary Slotter & Creaser",
+        "technical_specs": "1000 mm, 5 HP",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 210000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Carton Flexo Printing Machine",
+        "technical_specs": "2 colour, 5 HP, 1000 mm",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 250000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Box Stitching Machine",
+        "technical_specs": "Heavy duty, 3 HP, up to 12 mm",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 120000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Paper Cutting / Reel Slitter Machine",
+        "technical_specs": "1200 mm, 3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Hydraulic Bale Press & Weighing Scale",
+        "technical_specs": "5-ton hydraulic, 500 kg scale",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 90000,
+        "is_mandatory": false
+      }
+    ]
+  },
+  {
+    "business_name": "Biodegradable Paper Bag & Twisted Rope Handle Manufacturing",
+    "category": "manufacturing",
+    "business_sub_category": "Paper & Packaging Products",
+    "where_used_application": "Used by eco-packaging entrepreneurs to print and form paper bags with twisted rope handles from kraft paper, replacing single-use plastic bags in shops and garment stores.",
+    "search_keywords": [
+      "paper bag",
+      "kagaz bag",
+      "carry bag",
+      "eco friendly",
+      "plastic ban",
+      "kraft bag",
+      "handle bag",
+      "shopping bag",
+      "biodegradable",
+      "thaila",
+      "paper carry bag",
+      "rope handle"
+    ],
+    "industry_sector": "Chemical & Polymers",
+    "typical_capacity": "20,000 bags/day",
+    "total_machinery_cost_inr": 1430000,
+    "machinery_list": [
+      {
+        "machine_name": "Fully Automatic Paper Bag Making Machine",
+        "technical_specs": "Roll fed, 5 HP, 80-120 bags/min",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 650000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Twisted Paper Rope Handle Making Machine",
+        "technical_specs": "3 HP, 20-30 m/min",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 160000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Handle Pasting Machine",
+        "technical_specs": "Semi-auto, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Flexo Printing Machine (2-Colour)",
+        "technical_specs": "Roll-to-roll, 3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 280000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Paper Reel Slitter / Rewinder",
+        "technical_specs": "1000 mm, 3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 130000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Hydraulic Press / Strapping & Scale",
+        "technical_specs": "3-ton press, scale, manual strapper",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": false
+      }
+    ]
+  },
+  {
+    "business_name": "Plastic Injection & Blow Moulding Unit (Bottles, Caps, Jars)",
+    "category": "manufacturing",
+    "business_sub_category": "Plastic & Polymer Products",
+    "where_used_application": "Used by plastic moulders to melt granules into bottles, caps, jars and containers for packaged food, pharma, cosmetic and household product companies.",
+    "search_keywords": [
+      "plastic",
+      "injection moulding",
+      "blow moulding",
+      "bottle",
+      "cap",
+      "jar",
+      "pet bottle",
+      "hdpe",
+      "container",
+      "plastic dabba",
+      "moulding",
+      "plastic granules"
+    ],
+    "industry_sector": "Chemical & Polymers",
+    "typical_capacity": "2,000 pieces/hour",
+    "total_machinery_cost_inr": 2510000,
+    "machinery_list": [
+      {
+        "machine_name": "Injection Moulding Machine",
+        "technical_specs": "90-ton, 15 HP, 100 g shot",
+        "quantity": 1,
+        "power_hp": 15.0,
+        "estimated_cost_inr": 1100000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Extrusion Blow Moulding Machine",
+        "technical_specs": "Single station, 10 HP, up to 1 L",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 550000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Mould / Die Set (Bottle, Cap, Jar)",
+        "technical_specs": "Hardened steel, 2-4 cavities",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 450000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Chilling Unit",
+        "technical_specs": "3 TR, 3 HP, water cooled",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 250000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Plastic Raw Material Hopper Dryer & Auto Loader",
+        "technical_specs": "50 kg, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 65000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Air Compressor & Weighing Scale",
+        "technical_specs": "5 HP, 7 bar, 300 L; 50 kg scale",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Non-Woven Fabric Carry Bag Making Unit",
+    "category": "manufacturing",
+    "business_sub_category": "Plastic & Polymer Products",
+    "where_used_application": "Used by eco-bag entrepreneurs to cut, seal and print non-woven fabric into carry bags for shops, malls, exhibitions and promotional use.",
+    "search_keywords": [
+      "non woven bag",
+      "carry bag",
+      "w cut",
+      "d cut",
+      "thaila",
+      "polypropylene",
+      "shopping bag",
+      "promotional bag",
+      "fabric bag",
+      "eco bag",
+      "bag making",
+      "bag"
+    ],
+    "industry_sector": "Chemical & Polymers",
+    "typical_capacity": "10,000 bags/day",
+    "total_machinery_cost_inr": 987000,
+    "machinery_list": [
+      {
+        "machine_name": "W-Cut / D-Cut Non-Woven Bag Making Machine",
+        "technical_specs": "Fully automatic, 5 HP, 50-70 bags/min",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 550000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Handle Sealing / Loop Attachment Machine",
+        "technical_specs": "Ultrasonic, 3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Fabric Roll Slitting Machine",
+        "technical_specs": "1600 mm, 3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 115000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Flexo Printing Machine",
+        "technical_specs": "1 colour, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 120000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Heat Sealer & Hand Press",
+        "technical_specs": "Semi-auto, 1 HP",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 40000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Digital Weighing Scale",
+        "technical_specs": "300 kg",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 12000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Automatic Paper Cup, Plate & Food Container Making Unit",
+    "category": "manufacturing",
+    "business_sub_category": "Paper & Packaging Products",
+    "where_used_application": "Used by disposable-tableware entrepreneurs to form paper cups, plates and food containers from coated paper rolls for tea stalls, caterers, restaurants and events.",
+    "search_keywords": [
+      "paper cup",
+      "paper plate",
+      "donna",
+      "pattal",
+      "chai cup",
+      "disposable",
+      "food container",
+      "catering",
+      "tea cup",
+      "dish making",
+      "plate making",
+      "disposable plate"
+    ],
+    "industry_sector": "Chemical & Polymers",
+    "typical_capacity": "30,000 cups/day",
+    "total_machinery_cost_inr": 1205000,
+    "machinery_list": [
+      {
+        "machine_name": "Fully Automatic Paper Cup Making Machine",
+        "technical_specs": "Ultrasonic sealing, 4 oz-12 oz, 70-90 cups/min, 6 HP",
+        "quantity": 1,
+        "power_hp": 6.0,
+        "estimated_cost_inr": 550000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Automatic Paper Plate Making Machine (Hydraulic)",
+        "technical_specs": "Double die, 4-14 inch, 5 HP, 3,000 plates/hr",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 280000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Paper Reel Cutting / Blanking Machine",
+        "technical_specs": "1000 mm, 3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 140000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Mould / Die Set",
+        "technical_specs": "Cup and plate dies, hardened steel",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 120000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Packing & Sealing Machine",
+        "technical_specs": "Semi-auto, 1 HP",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Air Compressor",
+        "technical_specs": "3 HP, 200 L",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 55000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Precision CNC Lathe & Sheet Metal Machining Job Shop",
+    "category": "manufacturing",
+    "business_sub_category": "Industrial Metalworking & Hardware",
+    "where_used_application": "Used by machining workshops to turn, mill and cut metal and sheet stock into precision components for auto, machine-building and ancillary industries on job-work orders.",
+    "search_keywords": [
+      "cnc",
+      "lathe",
+      "vmc",
+      "machining",
+      "job work",
+      "turning",
+      "milling",
+      "sheet metal",
+      "engineering",
+      "workshop",
+      "precision parts",
+      "auto parts"
+    ],
+    "industry_sector": "Engineering & Fabrication",
+    "typical_capacity": "500 components/day",
+    "total_machinery_cost_inr": 5030000,
+    "machinery_list": [
+      {
+        "machine_name": "CNC Turning Centre",
+        "technical_specs": "BT-40, Fanuc/Siemens controller, 7.5 HP, 250 mm chuck",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 1800000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Vertical Machining Centre (VMC)",
+        "technical_specs": "24x16x16, 10 HP spindle, 3 axis",
+        "quantity": 1,
+        "power_hp": 12.0,
+        "estimated_cost_inr": 2200000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Manual Lathe Machine",
+        "technical_specs": "6 ft bed, 3 HP, 330 mm swing",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 330000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Hydraulic Shearing Machine (Sheet Metal)",
+        "technical_specs": "6 mm x 2.5 m, 7.5 HP",
+        "quantity": 1,
+        "power_hp": 7.5,
+        "estimated_cost_inr": 550000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Bench Drilling & Pillar Grinding Machine",
+        "technical_specs": "2 HP + 1 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 90000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Measuring Instruments (Vernier, Micrometer, Height Gauge)",
+        "technical_specs": "Digital set, calibrated",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Structural Steel MS Fabrication Unit (Grills, Gates, Roof Trusses)",
+    "category": "manufacturing",
+    "business_sub_category": "Industrial Metalworking & Hardware",
+    "where_used_application": "Used by fabricators to cut, bend and weld MS angles, pipes and sheets into grills, gates, sheds and roof trusses for homes, factories and godowns.",
+    "search_keywords": [
+      "welding",
+      "fabrication",
+      "grill",
+      "gate",
+      "truss",
+      "shed",
+      "iron works",
+      "lohar",
+      "steel structure",
+      "mild steel",
+      "ms gate",
+      "roof truss"
+    ],
+    "industry_sector": "Engineering & Fabrication",
+    "typical_capacity": "50 Tons/month",
+    "total_machinery_cost_inr": 675000,
+    "machinery_list": [
+      {
+        "machine_name": "MIG/Arc Welding Machine",
+        "technical_specs": "400 A inverter, 3-phase, 12 kVA",
+        "quantity": 3,
+        "power_hp": 7.0,
+        "estimated_cost_inr": 65000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Angle & Cutting Machine (Cut-off, Chop Saw)",
+        "technical_specs": "4 HP, 14 inch",
+        "quantity": 2,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 35000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Hydraulic Pipe / Section Bending Machine",
+        "technical_specs": "10 HP, 40 mm section",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 190000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Pedestal Drilling Machine",
+        "technical_specs": "3 HP, 32 mm capacity",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 65000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Bench Grinder & Portable Tools Set",
+        "technical_specs": "Angle grinders, drills, 1 HP",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Air Compressor & Spray Painting Unit",
+        "technical_specs": "5 HP, 7 bar",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": false
+      }
+    ]
+  },
+  {
+    "business_name": "Automatic Wire Nail & Industrial Fasteners Manufacturing",
+    "category": "manufacturing",
+    "business_sub_category": "Industrial Metalworking & Hardware",
+    "where_used_application": "Used by hardware manufacturers to draw wire and form it into nails, screws and fasteners for construction, furniture and packaging.",
+    "search_keywords": [
+      "wire nail",
+      "keel",
+      "nail making",
+      "fasteners",
+      "hardware",
+      "wire drawing",
+      "bolt",
+      "nut",
+      "screw",
+      "kil",
+      "wire",
+      "nails"
+    ],
+    "industry_sector": "Engineering & Fabrication",
+    "typical_capacity": "1.5 Tons/day",
+    "total_machinery_cost_inr": 1375000,
+    "machinery_list": [
+      {
+        "machine_name": "Automatic Wire Nail Making Machine",
+        "technical_specs": "Up to 4 mm wire, 5 HP, 350 nails/min",
+        "quantity": 2,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 260000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Wire Drawing Machine",
+        "technical_specs": "7.5 HP, 8 mm to 2 mm",
+        "quantity": 1,
+        "power_hp": 7.5,
+        "estimated_cost_inr": 220000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Nail Polishing Drum",
+        "technical_specs": "3 HP, 50 kg/batch",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Bolt/Nut Thread Rolling Machine",
+        "technical_specs": "10 HP, M6-M16",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 350000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Heat Treatment Furnace",
+        "technical_specs": "Electric, 30 kW, 500 C",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 200000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Weighing Scale & Packing Bench",
+        "technical_specs": "200 kg scale",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 25000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Chain Link & Welded Wire Mesh Fencing Unit",
+    "category": "manufacturing",
+    "business_sub_category": "Industrial Metalworking & Hardware",
+    "where_used_application": "Used by wire product makers to weave and weld GI and MS wire into chain-link and welded mesh for farm fencing, boundaries, industrial sites and cages.",
+    "search_keywords": [
+      "chain link",
+      "jali",
+      "fencing",
+      "wire mesh",
+      "welded mesh",
+      "tar jali",
+      "boundary",
+      "farm fence",
+      "gi wire",
+      "net",
+      "cage",
+      "fence"
+    ],
+    "industry_sector": "Engineering & Fabrication",
+    "typical_capacity": "1 Ton/day",
+    "total_machinery_cost_inr": 1255000,
+    "machinery_list": [
+      {
+        "machine_name": "Automatic Chain Link Fencing Machine",
+        "technical_specs": "2.5 m width, 5 HP",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 350000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Welded Wire Mesh Machine",
+        "technical_specs": "Pneumatic, 2 m width, 15 HP",
+        "quantity": 1,
+        "power_hp": 15.0,
+        "estimated_cost_inr": 550000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Wire Straightening & Cutting Machine",
+        "technical_specs": "3 HP, up to 8 mm",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 110000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Wire Rolling / Bundling Machine",
+        "technical_specs": "2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Galvanizing / Dip Coating Unit",
+        "technical_specs": "MS tank, 500 L",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 160000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Weighing Scale & Measuring Tools",
+        "technical_specs": "500 kg scale",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 25000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Aluminum Section Fabrication (Doors, Windows & Partitions)",
+    "category": "manufacturing",
+    "business_sub_category": "Industrial Metalworking & Hardware",
+    "where_used_application": "Used by aluminium fabricators to cut, crimp and assemble extruded sections into sliding doors, windows and office partitions for homes and commercial buildings.",
+    "search_keywords": [
+      "aluminium",
+      "aluminum",
+      "window",
+      "door",
+      "partition",
+      "sliding window",
+      "glass",
+      "section",
+      "fabrication",
+      "interior",
+      "upvc",
+      "profile"
+    ],
+    "industry_sector": "Engineering & Fabrication",
+    "typical_capacity": "60 windows/day",
+    "total_machinery_cost_inr": 625000,
+    "machinery_list": [
+      {
+        "machine_name": "Aluminum Cutting Machine (Double Mitre Saw)",
+        "technical_specs": "14 inch blade, 3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Corner Crimping Machine",
+        "technical_specs": "Pneumatic, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 200000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "End Milling / Router Machine",
+        "technical_specs": "3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 80000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Profile Copy Router",
+        "technical_specs": "1.5 HP, 3000 rpm",
+        "quantity": 1,
+        "power_hp": 1.5,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Pneumatic Drill & Tools Set",
+        "technical_specs": "Compressor 2 HP + tools",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Measuring Tools and Work Benches",
+        "technical_specs": "Steel tape, squares, benches",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 40000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Automobile Workshop, Wheel Alignment & Hydraulic Ramp Station",
+    "category": "services",
+    "business_sub_category": "Automobile Repair & Maintenance",
+    "where_used_application": "Used by garage owners and mechanics to lift, align, balance and service cars and light vehicles, including tyre fitting and diagnostics for private owners and fleets.",
+    "search_keywords": [
+      "garage",
+      "car service",
+      "wheel alignment",
+      "wheel balancing",
+      "tyre",
+      "hydraulic lift",
+      "workshop",
+      "mechanic",
+      "auto service",
+      "car repair",
+      "puncture",
+      "denting painting"
+    ],
+    "industry_sector": "Engineering & Fabrication",
+    "typical_capacity": "15 vehicles/day",
+    "total_machinery_cost_inr": 1440000,
+    "machinery_list": [
+      {
+        "machine_name": "2-Post Hydraulic Car Lift (4-Ton)",
+        "technical_specs": "Hydraulic, 3 HP motor, 4000 kg",
+        "quantity": 2,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 250000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Computerized 3D Wheel Aligner",
+        "technical_specs": "Camera type, PC with software",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 550000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Wheel Balancer",
+        "technical_specs": "Automatic, 1 HP, rim 10-24 inch",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Tyre Changer",
+        "technical_specs": "Semi-auto, 1.5 HP",
+        "quantity": 1,
+        "power_hp": 1.5,
+        "estimated_cost_inr": 85000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Air Compressor & Pneumatic Tools",
+        "technical_specs": "5 HP, 300 L, impact wrench set",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "OBD Scanner & Battery/Multimeter Testing Kit",
+        "technical_specs": "Diagnostic scanner, digital multimeter",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": false
+      }
+    ]
+  },
+  {
+    "business_name": "Readymade Garment, School & Industrial Uniform Stitching Unit",
+    "category": "manufacturing",
+    "business_sub_category": "Textile & Apparel Manufacturing",
+    "where_used_application": "Used by tailoring and garment units to cut and stitch fabric into shirts, trousers, school and industrial uniforms for schools, factories and institutional orders.",
+    "search_keywords": [
+      "garment",
+      "uniform",
+      "silai",
+      "stitching",
+      "school dress",
+      "tailor",
+      "readymade",
+      "sewing machine",
+      "kapde",
+      "apparel",
+      "boutique",
+      "overlock"
+    ],
+    "industry_sector": "Textiles & Garments",
+    "typical_capacity": "300 garments/day",
+    "total_machinery_cost_inr": 799000,
+    "machinery_list": [
+      {
+        "machine_name": "Industrial Lockstitch Sewing Machine",
+        "technical_specs": "Direct drive, servo motor, 0.5 HP",
+        "quantity": 15,
+        "power_hp": 0.5,
+        "estimated_cost_inr": 28000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Overlock Machine (4-Thread)",
+        "technical_specs": "Industrial, servo motor",
+        "quantity": 3,
+        "power_hp": 0.5,
+        "estimated_cost_inr": 32000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Flatlock / Interlock Machine",
+        "technical_specs": "Industrial",
+        "quantity": 1,
+        "power_hp": 0.5,
+        "estimated_cost_inr": 48000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Fabric Cutting Table with Straight Knife Cutter",
+        "technical_specs": "8 inch blade, 1 HP, 12-ft table",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 90000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Button Hole / Button Attach Machine",
+        "technical_specs": "Electronic",
+        "quantity": 1,
+        "power_hp": 0.5,
+        "estimated_cost_inr": 85000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Steam Iron Table, Boiler & Thread Trimmer",
+        "technical_specs": "Vacuum table, 2 kW boiler",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Multi-Head Computerized Textile Embroidery Unit",
+    "category": "manufacturing",
+    "business_sub_category": "Textile & Apparel Manufacturing",
+    "where_used_application": "Used by embroidery job-work units to stitch computerized designs onto fabric, sarees, garments and home textiles for fashion brands, boutiques and exporters.",
+    "search_keywords": [
+      "embroidery",
+      "kadhai",
+      "zari",
+      "computerised embroidery",
+      "saree",
+      "embroidery machine",
+      "threadwork",
+      "design",
+      "fabric",
+      "kurti",
+      "applique",
+      "multi head"
+    ],
+    "industry_sector": "Textiles & Garments",
+    "typical_capacity": "1,500 designs/day",
+    "total_machinery_cost_inr": 1555000,
+    "machinery_list": [
+      {
+        "machine_name": "Computerized Embroidery Machine",
+        "technical_specs": "6-head, 15 needle, 1200 rpm",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 1200000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Embroidery Digitizing Software & PC",
+        "technical_specs": "Wilcom/Tajima, licensed",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Fabric Cutting & Trimming Machine",
+        "technical_specs": "Straight knife, 1 HP",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Steam Iron Press",
+        "technical_specs": "Vacuum, 2 kW",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 45000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "UPS / Stabilizer System",
+        "technical_specs": "5 kVA online",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Thread Winding & Bobbin Machine",
+        "technical_specs": "Semi-auto",
+        "quantity": 1,
+        "power_hp": 0.5,
+        "estimated_cost_inr": 40000,
+        "is_mandatory": false
+      }
+    ]
+  },
+  {
+    "business_name": "Sanitary Napkin & Hygiene Pad Manufacturing Unit",
+    "category": "manufacturing",
+    "business_sub_category": "Hygiene & Healthcare Products",
+    "where_used_application": "Used by women's SHGs and hygiene entrepreneurs to form, seal and sterilize sanitary pads from fluff pulp and non-woven layers, sold through govt schemes and retail.",
+    "search_keywords": [
+      "sanitary napkin",
+      "sanitary pad",
+      "pad",
+      "menstrual",
+      "hygiene",
+      "women",
+      "shg",
+      "mahila udyami",
+      "napkin",
+      "fluff pulp",
+      "periods",
+      "pad making"
+    ],
+    "industry_sector": "Textiles & Garments",
+    "typical_capacity": "3,000 pads/hour",
+    "total_machinery_cost_inr": 1120000,
+    "machinery_list": [
+      {
+        "machine_name": "Semi-Automatic Sanitary Napkin Machine",
+        "technical_specs": "Pad forming, 3 HP, 40-60 pads/min",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 550000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Pulp Defibrator / Fluff Pulp Grinder",
+        "technical_specs": "5 HP",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 120000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Pad Sealing / Folding Machine",
+        "technical_specs": "Semi-auto, 1.5 HP",
+        "quantity": 1,
+        "power_hp": 1.5,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "UV Sterilizer Tunnel",
+        "technical_specs": "1 HP, 20 W UV tubes",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 80000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Wrapping / Packing Machine",
+        "technical_specs": "Flow wrap, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 180000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Air Compressor & Weighing Scale",
+        "technical_specs": "2 HP, 100 L",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 40000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Hydraulic Fly Ash Brick & Interlocking Paver Block Unit",
+    "category": "manufacturing",
+    "business_sub_category": "Construction & Building Materials",
+    "where_used_application": "Used by brick and paver makers to press fly ash, cement and sand into bricks and interlocking pavers for housing, roads and landscaping.",
+    "search_keywords": [
+      "fly ash brick",
+      "paver block",
+      "interlocking",
+      "eent",
+      "brick making",
+      "tiles",
+      "cement brick",
+      "construction",
+      "bricks",
+      "flyash",
+      "paver",
+      "road"
+    ],
+    "industry_sector": "Construction Materials",
+    "typical_capacity": "15,000 bricks/day",
+    "total_machinery_cost_inr": 1080000,
+    "machinery_list": [
+      {
+        "machine_name": "Hydraulic Fly Ash Brick Making Machine",
+        "technical_specs": "60-ton, 7.5 HP",
+        "quantity": 1,
+        "power_hp": 7.5,
+        "estimated_cost_inr": 550000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Pan Mixer",
+        "technical_specs": "1 m3, 15 HP, MS",
+        "quantity": 1,
+        "power_hp": 15.0,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Interlocking Paver Mould Set",
+        "technical_specs": "Alloy steel, multiple designs",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 120000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Belt Conveyor & Hopper",
+        "technical_specs": "3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Curing Tank & Stacking Setup",
+        "technical_specs": "Concrete tank, trolleys",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 80000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Weighing Scale & Compression Tester",
+        "technical_specs": "500 kg scale, 100-ton tester",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 85000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Concrete Hollow Block & Precast Kerbstone Manufacturing",
+    "category": "manufacturing",
+    "business_sub_category": "Construction & Building Materials",
+    "where_used_application": "Used by block yards to cast concrete hollow blocks and kerbstones for wall construction, road edging and footpaths.",
+    "search_keywords": [
+      "hollow block",
+      "kerbstone",
+      "concrete block",
+      "cement block",
+      "precast",
+      "kerb",
+      "building block",
+      "brick",
+      "construction",
+      "block making",
+      "paver",
+      "cement"
+    ],
+    "industry_sector": "Construction Materials",
+    "typical_capacity": "2,000 blocks/day",
+    "total_machinery_cost_inr": 1175000,
+    "machinery_list": [
+      {
+        "machine_name": "Hydraulic Hollow Block Machine",
+        "technical_specs": "Automatic, 10 HP, 4x 6-inch blocks/cycle",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 650000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Concrete Mixer",
+        "technical_specs": "Pan type, 2 bag, 10 HP",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 140000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Vibrating Table & Kerbstone Mould Set",
+        "technical_specs": "Hardened steel moulds",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 120000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Belt Conveyor & Aggregate Hopper",
+        "technical_specs": "3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Curing Tank & Pallet Trolleys",
+        "technical_specs": "Concrete tank, 100 pallets",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 100000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Weighing Scale & Compression Test Gauge",
+        "technical_specs": "300 kg scale, 100-ton tester",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 70000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Plastic Waste Granulation & Pellet Recycling Plant",
+    "category": "manufacturing",
+    "business_sub_category": "Recycling & Waste Processing",
+    "where_used_application": "Used by recyclers to crush, wash and melt plastic scrap (HDPE, PP, PET) into granules and pellets for sale to plastic moulders.",
+    "search_keywords": [
+      "plastic recycling",
+      "plastic waste",
+      "granules",
+      "pellets",
+      "scrap",
+      "kabadi",
+      "recycle",
+      "granulator",
+      "extruder",
+      "waste to wealth",
+      "hdpe",
+      "dana"
+    ],
+    "industry_sector": "Construction Materials",
+    "typical_capacity": "500 kg/hour",
+    "total_machinery_cost_inr": 1285000,
+    "machinery_list": [
+      {
+        "machine_name": "Plastic Crusher / Granulator",
+        "technical_specs": "20 HP, SS blades",
+        "quantity": 1,
+        "power_hp": 20.0,
+        "estimated_cost_inr": 200000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Hot Wash & Friction Washer",
+        "technical_specs": "10 HP, SS-304",
+        "quantity": 1,
+        "power_hp": 10.0,
+        "estimated_cost_inr": 180000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Recycling Extruder with Pelletizer",
+        "technical_specs": "65 mm screw, 25 HP",
+        "quantity": 1,
+        "power_hp": 25.0,
+        "estimated_cost_inr": 600000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Hot Air Dryer / Centrifugal Dryer",
+        "technical_specs": "5 HP",
+        "quantity": 1,
+        "power_hp": 5.0,
+        "estimated_cost_inr": 120000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Water Cooling Bath & Cutter",
+        "technical_specs": "3 HP",
+        "quantity": 1,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 90000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Platform Weighing Scale & Control Panel",
+        "technical_specs": "500 kg scale, MCC panel",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 95000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Commercial Reverse Osmosis (RO) Water & 20-Litre Jar Bottling Plant",
+    "category": "services",
+    "business_sub_category": "Water Treatment & Supply",
+    "where_used_application": "Used by local water entrepreneurs to purify water by RO and UV and fill 20-litre jars for homes, offices, shops and events.",
+    "search_keywords": [
+      "ro plant",
+      "water jar",
+      "20 litre",
+      "pani",
+      "mineral water",
+      "water purifier",
+      "jar bottling",
+      "packaged water",
+      "drinking water",
+      "can water",
+      "ro water",
+      "uv"
+    ],
+    "industry_sector": "Utilities & Services",
+    "typical_capacity": "2,000 L/hour (100 jars/hr)",
+    "total_machinery_cost_inr": 1103000,
+    "machinery_list": [
+      {
+        "machine_name": "RO Plant Commercial",
+        "technical_specs": "1000 LPH, FRP vessels, membranes, 3 HP",
+        "quantity": 2,
+        "power_hp": 3.0,
+        "estimated_cost_inr": 220000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "UV Sterilizer & Ozone Generator",
+        "technical_specs": "1000 LPH UV, ozone dosing",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 45000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Automatic 20 L Jar Rinsing, Filling & Capping Machine",
+        "technical_specs": "3-in-1, 300 jars/hr, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 350000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Raw Water & Treated Water SS Tanks",
+        "technical_specs": "SS-304, 5,000 L",
+        "quantity": 2,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 80000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Water Chiller / Dispenser Unit",
+        "technical_specs": "2 TR, 2 HP",
+        "quantity": 1,
+        "power_hp": 2.0,
+        "estimated_cost_inr": 90000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "TDS Meter, pH Meter & Weighing Scale",
+        "technical_specs": "Digital, calibrated lab kit",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 18000,
+        "is_mandatory": true
+      }
+    ]
+  },
+  {
+    "business_name": "Mini Solar Agro-Cold Storage & Fruit Ripening Chamber",
+    "category": "services",
+    "business_sub_category": "Cold Chain & Storage",
+    "where_used_application": "Used by farmers, FPOs and fruit traders to store fruits and vegetables and ripen bananas and mangoes in controlled chambers, powered partly by solar.",
+    "search_keywords": [
+      "cold storage",
+      "ripening",
+      "solar",
+      "banana ripening",
+      "aam",
+      "fruit",
+      "kela",
+      "cold room",
+      "thanda godam",
+      "cold chain",
+      "vegetable storage",
+      "agri storage"
+    ],
+    "industry_sector": "Utilities & Services",
+    "typical_capacity": "10 MT capacity",
+    "total_machinery_cost_inr": 1350000,
+    "machinery_list": [
+      {
+        "machine_name": "Cold Room Panel (PUF Insulated)",
+        "technical_specs": "10 MT, 100 mm PUF, 20x12x10 ft",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 350000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Condensing Unit & Evaporator",
+        "technical_specs": "5 TR, 3 phase, 7.5 HP",
+        "quantity": 1,
+        "power_hp": 7.5,
+        "estimated_cost_inr": 300000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Solar PV System",
+        "technical_specs": "5 kWp, off-grid, with batteries",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 450000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Ethylene Ripening Chamber Controller",
+        "technical_specs": "Humidity and ethylene regulation",
+        "quantity": 1,
+        "power_hp": 1.0,
+        "estimated_cost_inr": 150000,
+        "is_mandatory": false
+      },
+      {
+        "machine_name": "Temperature & Humidity Monitoring System",
+        "technical_specs": "Digital sensors, alarm",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 40000,
+        "is_mandatory": true
+      },
+      {
+        "machine_name": "Handling Equipment (Pallet Jack, Crates)",
+        "technical_specs": "Pallet jack, 200 crates",
+        "quantity": 1,
+        "power_hp": 0.0,
+        "estimated_cost_inr": 60000,
+        "is_mandatory": false
+      }
+    ]
+  }
+]

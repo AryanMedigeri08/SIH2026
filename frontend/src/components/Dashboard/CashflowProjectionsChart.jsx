@@ -3,7 +3,7 @@ import {
   BarChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   Legend, ReferenceLine, CartesianGrid, ComposedChart 
 } from 'recharts';
-import { TrendingUp, Table as TableIcon, BarChart3, Activity, Layers } from 'lucide-react';
+import { TrendingUp, Table as TableIcon, BarChart3, Activity, Layers, Clock, Target, Calendar, CheckCircle2 } from 'lucide-react';
 import { TranslatedText } from '../TranslatedText';
 
 export function CashflowProjectionsChart({ inputData, financialData, pricingData }) {
@@ -38,8 +38,13 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
   });
 
   const avgDscr = (years.reduce((acc, y) => acc + y.dscr, 0) / years.length).toFixed(2);
-  const breakEvenPct = Number(financialData?.break_even_pct) || 68.0;
-  const bep = `${breakEvenPct.toFixed(1)}% Capacity`;
+  const breakEvenPct = Number(financialData?.break_even_pct) || 64.5;
+  const breakEvenMilestone = financialData?.break_even_milestone || 'Year 2 (Month 16)';
+  const breakEvenYear = Number(financialData?.break_even_year) || 2;
+  const paybackYears = Number(financialData?.payback_period_years) || 2.6;
+  const equityPaybackYears = Number(financialData?.equity_payback_years) || 1.8;
+  const bepRationale = financialData?.break_even_rationale || 
+    `Statutory MSME commercial break-even achieved in ${breakEvenMilestone} at ${breakEvenPct.toFixed(1)}% capacity. Year 1 operates at 60% capacity during plant erection, customer acquisition, and licensing.`;
 
   const VIEW_MODES = [
     { id: 'all', label: 'Combined', icon: Layers },
@@ -48,7 +53,7 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
   ];
 
   return (
-    <div className="glass-panel p-4 sm:p-6 space-y-5 sm:space-y-6 bg-white shadow-card border border-slate-200">
+    <div className="glass-panel p-4 sm:p-6 space-y-4 sm:space-y-5 bg-white shadow-card border border-slate-200">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
@@ -70,10 +75,35 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
             <span className="text-slate-500"><TranslatedText text="5-Yr Avg DSCR" />: </span>
             <strong className="text-sovereign-800 font-mono font-bold text-sm ml-1">{avgDscr}</strong>
           </div>
-          <div className="bg-slate-50 px-3 sm:px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs">
-            <span className="text-slate-500"><TranslatedText text="Break-Even" />: </span>
-            <strong className="text-emerald-700 font-mono font-bold text-sm ml-1">{bep}</strong>
+          <div className="bg-emerald-50 px-3 sm:px-3.5 py-1.5 rounded-xl border border-emerald-200 text-xs">
+            <span className="text-emerald-700 font-medium"><TranslatedText text="Break-Even Horizon" />: </span>
+            <strong className="text-emerald-900 font-mono font-bold text-sm ml-1">{breakEvenMilestone}</strong>
           </div>
+          <div className="bg-sky-50 px-3 sm:px-3.5 py-1.5 rounded-xl border border-sky-200 text-xs">
+            <span className="text-sky-700 font-medium"><TranslatedText text="Payback Period" />: </span>
+            <strong className="text-sky-900 font-mono font-bold text-sm ml-1">{paybackYears.toFixed(1)} Yrs</strong>
+          </div>
+        </div>
+      </div>
+
+      {/* Commercial Gestation & Break-Even Insight Banner */}
+      <div className="p-3 sm:p-3.5 rounded-xl bg-gradient-to-r from-amber-50/80 via-white to-amber-50/40 border border-amber-200/90 flex items-start gap-2.5 text-xs text-amber-950 shadow-subtle">
+        <Clock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <strong className="font-bold font-outfit text-amber-950 text-xs">
+              <TranslatedText text="Commercial Gestation & Break-Even Horizon:" />
+            </strong>
+            <span className="px-2 py-0.5 rounded-md bg-amber-200/90 text-amber-900 font-mono font-bold text-[10px]">
+              {breakEvenMilestone} ({breakEvenPct.toFixed(1)}% Capacity)
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 font-mono font-bold text-[10px]">
+              <TranslatedText text="Payback:" /> {paybackYears.toFixed(1)} Yrs · Equity: {equityPaybackYears.toFixed(1)} Yrs
+            </span>
+          </div>
+          <p className="text-[11px] sm:text-xs text-slate-700 leading-relaxed font-medium">
+            <TranslatedText text={bepRationale} />
+          </p>
         </div>
       </div>
 
@@ -166,8 +196,9 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
             const ebitda = y.rev - y.opex;
             const pat = Math.max(ebitda - y.depr - y.int, 0);
             const dscrOk = y.dscr >= 1.33;
+            const isBepYear = y.yrShort === `Y${breakEvenYear}`;
             return (
-              <div key={y.yr} className="glass-panel p-4 bg-white border border-slate-200 rounded-xl shadow-card space-y-2.5">
+              <div key={y.yr} className={`glass-panel p-4 bg-white border rounded-xl shadow-card space-y-2.5 ${isBepYear ? 'border-amber-400 ring-2 ring-amber-200/50' : 'border-slate-200'}`}>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-900">📅 {y.yr}</span>
                   <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
@@ -176,6 +207,12 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
                     DSCR: {y.dscr}x
                   </span>
                 </div>
+                {isBepYear && (
+                  <div className="text-[10px] font-bold bg-amber-100/80 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-md flex items-center gap-1 font-sans">
+                    <Target className="w-3 h-3 text-amber-700 shrink-0" />
+                    <span><TranslatedText text="Break-Even Achieved" /></span>
+                  </div>
+                )}
                 <div className="space-y-1.5 text-[11px] text-slate-700">
                   <div className="flex justify-between"><span>Gross Turnover</span><span className="font-mono font-bold text-blue-900">₹{Math.round(y.rev).toLocaleString('en-IN')}</span></div>
                   <div className="flex justify-between"><span>Operating Expenses</span><span className="font-mono text-slate-500">₹{Math.round(y.opex).toLocaleString('en-IN')}</span></div>
@@ -198,7 +235,14 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
               <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 font-bold uppercase text-[10px]">
                 <th className="py-2.5 px-3 sticky left-0 bg-slate-50 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]"><TranslatedText text="Line Item (₹)" /></th>
                 {years.map(y => (
-                  <th key={y.yr} className="py-2.5 px-3 text-right">{y.yrShort}</th>
+                  <th key={y.yr} className="py-2.5 px-3 text-right">
+                    <span>{y.yrShort}</span>
+                    {y.yrShort === `Y${breakEvenYear}` && (
+                      <span className="ml-1 text-[9px] font-bold text-amber-800 bg-amber-200/90 px-1 py-0.5 rounded font-sans tracking-wide">
+                        BEP
+                      </span>
+                    )}
+                  </th>
                 ))}
               </tr>
             </thead>
