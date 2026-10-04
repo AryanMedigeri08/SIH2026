@@ -13,7 +13,12 @@ export function FinancialsPage({ reportData }) {
   const pricing = reportData.pricing_recommendation || {};
 
   const projectCost = Number(p.project_cost) || 0;
-  const promoterMargin = fin.promoter_margin_amount || (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05));
+  const committedEquity = fin.committed_promoter_equity ?? p.promoter_equity ?? fin.promoter_equity ?? fin.promoter_margin_amount ?? (projectCost * 0.10);
+  const statutoryMargin = fin.minimum_statutory_margin_amount ?? fin.statutory_margin_amount ?? (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05));
+  const statutoryPct = fin.minimum_statutory_margin_pct ?? (p.promoter_category === 'general' ? 10 : 5);
+  const ownedMachinery = fin.owned_machinery_value ?? p.owned_machinery_value ?? 0;
+  const grossProjectCost = fin.gross_project_cost ?? p.gross_project_cost ?? (projectCost + ownedMachinery);
+  const promoterMargin = fin.promoter_margin_amount || committedEquity;
   const loanPrincipal = fin.loan_principal || 0;
   const monthlyEmi = fin.amortization?.monthly_emi || 0;
   const annualNetProfit = fin.annual_net_profit || 0;
@@ -46,23 +51,27 @@ export function FinancialsPage({ reportData }) {
         <div className="glass-panel p-3 bg-white border border-slate-200/90 rounded-xl shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
             <PieChart className="w-3 h-3 text-sovereign-700 shrink-0" />
-            <span className="truncate"><TranslatedText text="Outlay" /></span>
+            <span className="truncate"><TranslatedText text="Net Outlay" /></span>
           </div>
           <strong className="text-sm sm:text-base font-mono font-extrabold text-slate-900 block mt-1">
             ₹{(projectCost / 100000).toFixed(2)}L
           </strong>
-          <span className="text-[9px] text-slate-500 font-medium truncate block"><TranslatedText text="Project Cost" /></span>
+          <span className="text-[9px] text-slate-500 font-medium truncate block">
+            {ownedMachinery > 0 ? `Gross: ₹${(grossProjectCost / 100000).toFixed(2)}L` : <TranslatedText text="Project Cost" />}
+          </span>
         </div>
 
         <div className="glass-panel p-3 bg-white border border-slate-200/90 rounded-xl shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
             <IndianRupee className="w-3 h-3 text-sky-700 shrink-0" />
-            <span className="truncate"><TranslatedText text="Equity" /></span>
+            <span className="truncate"><TranslatedText text="Cash Equity" /></span>
           </div>
           <strong className="text-sm sm:text-base font-mono font-extrabold text-sky-900 block mt-1">
-            ₹{(promoterMargin / 100000).toFixed(2)}L
+            ₹{(committedEquity / 100000).toFixed(2)}L
           </strong>
-          <span className="text-[9px] text-sky-700 font-semibold truncate block">{projectCost > 0 ? ((promoterMargin / projectCost) * 100).toFixed(0) : '10'}% <TranslatedText text="Margin" /></span>
+          <span className="text-[9px] text-sky-700 font-semibold truncate block">
+            Min: ₹{(statutoryMargin / 100000).toFixed(2)}L ({statutoryPct}%)
+          </span>
         </div>
 
         <div className="glass-panel p-3 bg-white border border-slate-200/90 rounded-xl shadow-card hover:shadow-card-hover transition-all">

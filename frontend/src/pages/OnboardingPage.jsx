@@ -28,6 +28,8 @@ import {
   fetchBlocks,
   fetchVillages,
   chatApi,
+  reverseGeocodeCoords,
+  detectLocationFromIP,
 } from "../services/api";
 import {
   Mic,
@@ -48,7 +50,19 @@ import {
   Wrench,
   Zap,
   ChevronDown,
+  Edit3,
+  User,
 } from "lucide-react";
+
+// ─── Caste Category Options ──────────────────────────────────────────────
+const PROMOTER_CATEGORIES = [
+  { value: "general", label: "General", labelHi: "सामान्य" },
+  { value: "obc", label: "OBC", labelHi: "अन्य पिछड़ा वर्ग" },
+  { value: "sc", label: "SC (Scheduled Caste)", labelHi: "अनुसूचित जाति" },
+  { value: "st", label: "ST (Scheduled Tribe)", labelHi: "अनुसूचित जनजाति" },
+  { value: "women", label: "Women Entrepreneur", labelHi: "महिला उद्यमी" },
+  { value: "women_shg", label: "Women SHG", labelHi: "महिला स्वसहायता समूह" },
+];
 
 // ─── Language Cards Configuration ─────────────────────────────────────
 const ONBOARDING_LANGUAGES = [
@@ -110,13 +124,32 @@ const ONBOARDING_LANGUAGES = [
 
 // ─── Loving & Sweet Opening Greetings (Location Confirmation) ─────────
 const GREETINGS = {
-  hi: (name, loc) => `नमस्ते ${name} जी! आपसे मिलकर मुझे बहुत खुशी हुई। मैं Mira हूँ, आपकी प्यारी और मार्गदर्शक व्यवसाय साथी। मैं आपकी व्यवसाय यात्रा को सफल और 35% तक सरकारी सब्सिडी के साथ शुरू कराने में हर कदम पर आपके साथ हूँ।\n\nपंजीकरण के दौरान मुझे आपकी लोकेशन प्राप्त हुई है: **${loc || 'Thane, Maharashtra'}**। क्या आप इसी लोकेशन के साथ आगे बढ़ना चाहते हैं या आप इसे बदलना चाहते हैं?`,
-  en: (name, loc) => `Namaste ${name} Ji! I am so happy to meet you. I am Mira, your loving business guide. I am right here by your side to help you launch a successful, bank-backed venture with up to 35% government subsidies.\n\nFrom your registration, I received your location as: **${loc || 'Thane, Maharashtra'}**. Would you like to continue with this location, or would you like to choose a different one?`,
-  mr: (name, loc) => `नमस्कार ${name} जी! तुम्हाला भेटून मला मनापासून आनंद झाला. मी Mira आहे, तुमची व्यवसाय मार्गदर्शक. 35% पर्यंत सरकारी अनुदानासह तुमचा व्यवसाय यशस्वी करण्यासाठी मी तुमच्या सोबत आहे.\n\nनोंदणीदरम्यान मला तुमचे स्थान मिळाले आहे: **${loc || 'Thane, Maharashtra'}**. आपण याच स्थानासह पुढे जाऊ इच्छिता की तुम्हाला ते बदलायचे आहे?`,
-  te: (name, loc) => `నమస్తే ${name} జీ! మిమ్మల్ని కలవడం నాకు చాలా సంతోషంగా ఉంది. నేను Mira, మీ వ్యాపార సలహాదారుని. 35% వరకు ప్రభుత్వ సబ్సిడీలతో మీ వ్యాపారాన్ని విజయవంతం చేయడంలో నేను మీకు తోడుగా ఉంటాను.\n\nరిజిస్ట్రేషన్ సమయంలో నాకు మీ లొకేషన్ తెలిసింది: **${loc || 'Thane, Maharashtra'}**. మీరు ఇదే లొకేషన్‌తో కొనసాగాలనుకుంటున్నారా లేదా మార్చాలనుకుంటున్నారా?`,
-  ta: (name, loc) => `வணக்கம் ${name} ஜி! உங்களை சந்தித்ததில் எனக்கு மிக்க மகிழ்ச்சி. நான் Mira, உங்கள் வணிக ஆலோசகர். 35% வரை அரசு மானியங்களுடன் உங்கள் தொழிலைத் தொடங்க உங்களுக்கு உதவ நான் இங்கே இருக்கிறேன்.\n\nபதிவின் போது எனக்கு கிடைத்த உங்கள் இருப்பிடம்: **${loc || 'Thane, Maharashtra'}**. நீங்கள் இந்த இருப்பிடத்துடன் தொடர விரும்புகிறீர்களா அல்லது மாற்ற விரும்புகிறீர்களா?`,
-  kn: (name, loc) => `ನಮಸ್ಕಾರ ${name} ಜೀ! ನಿಮ್ಮನ್ನು ಭೇಟಿಯಾಗಲು ನನಗೆ ತುಂಬಾ ಸಂತೋಷವಾಗಿದೆ. ನಾನು Mira, ನಿಮ್ಮ ಪ್ರೀತಿಯ ವ್ಯಾಪಾರ ಮಾರ್ಗದರ್ಶಕಿ. 35% ವರೆಗೆ ಸರ್ಕಾರಿ ಸಬ್ಸಿಡಿಯೊಂದಿಗೆ ನಿಮ್ಮ ಉದ್ಯಮವನ್ನು ಪ್ರಾರಂಭಿಸಲು ನಾನು ನಿಮ್ಮೊಂದಿಗಿದ್ದೇನೆ.\n\nನೋಂದಣಿ ಸಮಯದಲ್ಲಿ ನಿಮ್ಮ ಸ್ಥಳ ನನಗೆ ಲಭ್ಯವಾಗಿದೆ: **${loc || 'Thane, Maharashtra'}**. ನೀವು ಇದೇ ಸ್ಥಳದೊಂದಿಗೆ ಮುಂದುವರಿಯಲು ಬಯಸುವಿರಾ ಅಥವಾ ಬೇರೆ ಸ್ಥಳವನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಬಯಸುವಿರಾ?`,
+  hi: (name, loc) => `नमस्ते ${name} जी! आपसे मिलकर मुझे बहुत खुशी हुई। मैं Mira हूँ, आपकी प्यारी और मार्गदर्शक व्यवसाय साथी। मैं आपकी व्यवसाय यात्रा को सफल और 35% तक सरकारी सब्सिडी के साथ शुरू कराने में हर कदम पर आपके साथ हूँ।\n\nपंजीकरण के दौरान मुझे आपकी लोकेशन प्राप्त हुई है: **${loc || 'Pune, Maharashtra'}**। क्या आप इसी लोकेशन के साथ आगे बढ़ना चाहते हैं या आप इसे बदलना चाहते हैं?`,
+  en: (name, loc) => `Namaste ${name} Ji! I am so happy to meet you. I am Mira, your loving business guide. I am right here by your side to help you launch a successful, bank-backed venture with up to 35% government subsidies.\n\nFrom your registration, I received your location as: **${loc || 'Pune, Maharashtra'}**. Would you like to continue with this location, or would you like to choose a different one?`,
+  mr: (name, loc) => `नमस्कार ${name} जी! तुम्हाला भेटून मला मनापासून आनंद झाला. मी Mira आहे, तुमची व्यवसाय मार्गदर्शक. 35% पर्यंत सरकारी अनुदानासह तुमचा व्यवसाय यशस्वी करण्यासाठी मी तुमच्या सोबत आहे.\n\nनोंदणीदरम्यान मला तुमचे स्थान मिळाले आहे: **${loc || 'Pune, Maharashtra'}**. आपण याच स्थानासह पुढे जाऊ इच्छिता की तुम्हाला ते बदलायचे आहे?`,
+  te: (name, loc) => `నమస్తే ${name} జీ! మిమ్మల్ని కలవడం నాకు చాలా సంతోషంగా ఉంది. నేను Mira, మీ వ్యాపార సలహాదారుని. 35% వరకు ప్రభుత్వ సಬ್సిడీలతో మీ వ్యాపారాన్ని విజయవంతం చేయడంలో నేను మీకు తోడుగా ఉంటాను.\n\nరిజిస్ట్రేషన్ సమయంలో నాకు మీ లొకేషన్ తెలిసింది: **${loc || 'Pune, Maharashtra'}**. మీరు ఇదే లొకేషన్‌తో కొనసాగాలనుకుంటున్నారా లేదా మార్చాలనుకుంటున్నారా?`,
+  ta: (name, loc) => `வணக்கம் ${name} ஜி! உங்களை சந்தித்ததில் எனக்கு மிக்க மகிழ்ச்சி. நான் Mira, உங்கள் வணிக ஆலோசகர். 35% வரை அரசு மானியங்களுடன் உங்கள் தொழிலைத் தொடங்க உங்களுக்கு உதவ நான் இங்கே இருக்கிறேன்.\n\nபதிவின் போது எனக்கு கிடைத்த உங்கள் இருப்பிடம்: **${loc || 'Pune, Maharashtra'}**. நீங்கள் இந்த இருப்பிடத்துடன் தொடர விரும்புகிறீர்களா அல்லது மாற்ற விரும்புகிறீர்களா?`,
+  kn: (name, loc) => `ನಮಸ್ಕಾರ ${name} ಜೀ! ನಿಮ್ಮನ್ನು ಭೇಟಿಯಾಗಲು ನನಗೆ ತುಂಬಾ ಸಂತೋಷವಾಗಿದೆ. ನಾನು Mira, ನಿಮ್ಮ ಪ್ರೀತಿಯ ವ್ಯಾಪಾರ ಮಾರ್ಗದರ್ಶಕಿ. 35% ವರೆಗೆ ಸರ್ಕಾರಿ ಸಬ್ಸಿಡಿಯೊಂದಿಗೆ ನಿಮ್ಮ ಉದ್ಯಮವನ್ನು ಪ್ರಾರಂಭಿಸಲು ನಾನು ನಿಮ್ಮೊಂದಿಗಿದ್ದೇನೆ.\n\nನೋಂದಣಿ ಸಮಯದಲ್ಲಿ ನಿಮ್ಮ ಸ್ಥಳ ನನಗೆ ಲಭ್ಯವಾಗಿದೆ: **${loc || 'Pune, Maharashtra'}**. ನೀವು ಇದೇ ಸ್ಥಳದೊಂದಿಗೆ ಮುಂದುವರಿಯಲು ಬಯಸುವಿರಾ ಅಥವಾ ಬೇರೆ ಸ್ಥಳವನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಬಯಸುವಿರಾ?`,
 };
+
+// ─── Mira Avatar Component ──────────────────────────────────────────────
+export function MiraAvatar({ size = "w-8 h-8", rounded = "rounded-xl", className = "" }) {
+  return (
+    <div className={`${size} ${rounded} overflow-hidden shrink-0 border border-rose-300/40 shadow-sm bg-rose-50 flex items-center justify-center ${className}`}>
+      <img
+        src="/mira-avatar.png"
+        alt="Mira"
+        className="w-full h-full object-cover"
+        onError={(e) => {
+          e.currentTarget.style.display = "none";
+          if (e.currentTarget.parentElement) {
+            e.currentTarget.parentElement.innerText = "M";
+          }
+        }}
+      />
+    </div>
+  );
+}
 
 export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const navigate = useNavigate();
@@ -125,7 +158,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const { createAndSaveBusiness } = useBusiness();
 
   // ─── State Management ──────────────────────────────────────────────────
-  const [phase, setPhase] = useState("lang_select"); // lang_select | chatting | processing
+  const [phase, setPhase] = useState("lang_select"); // lang_select | chatting | split_screen | processing
   const [selectedLang, setSelectedLang] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
@@ -134,12 +167,21 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   // Chat conversational state
-  const [chatStep, setChatStep] = useState("location_confirm"); // location_confirm | location_menu | business_idea | promoter_equity | odop_alignment | completed
+  const [chatStep, setChatStep] = useState("location_confirm"); // location_confirm | location_menu | business_idea | odop_check_prompt | odop_alignment | enterprise_info | promoter_equity | machinery_selection | split_screen | completed
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
   const [collectedFields, setCollectedFields] = useState({});
+  const [odopIntroData, setOdopIntroData] = useState(null);
+  const [showOdopIntroCard, setShowOdopIntroCard] = useState(false);
   const [odopData, setOdopData] = useState(null);
+  const [showOdopAlignmentCard, setShowOdopAlignmentCard] = useState(false);
   const [applicableMachinery, setApplicableMachinery] = useState(null);
   const [selectedOwnedMachines, setSelectedOwnedMachines] = useState([]);
   const [machineryConfirmed, setMachineryConfirmed] = useState(false);
+
+  // Enterprise Info Card state
+  const [showEnterpriseCard, setShowEnterpriseCard] = useState(false);
+  const [enterpriseNameInput, setEnterpriseNameInput] = useState("");
+  const [promoterCategoryInput, setPromoterCategoryInput] = useState("general");
 
   // Location selector menu state
   const [showLocationMenu, setShowLocationMenu] = useState(false);
@@ -155,18 +197,52 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const [areaClassification, setAreaClassification] = useState("rural"); // rural | semi-urban | urban
   const [isLocLoading, setIsLocLoading] = useState(false);
 
+  // ─── Active Geolocation & Resolved District State ───────────────────────
+  const [detectedLocationData, setDetectedLocationData] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("user_detected_location") || "{}");
+      if (saved.district_name && saved.district_name.toLowerCase() !== "thane") {
+        return saved;
+      }
+    } catch (_) {}
+    return {
+      latitude: 18.5204,
+      longitude: 73.8567,
+      district_name: "Pune",
+      state_name: "Maharashtra",
+      locality_name: "",
+    };
+  });
+
+  const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const splitMessagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const currentAudioRef = useRef(null);
 
+  const [splitInputText, setSplitInputText] = useState("");
+
   const userName = userProfile?.name || "Entrepreneur";
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll logic: Only scroll down if 2+ messages exist or an action card opened; keep first greeting at top
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, showLocationMenu, odopData, applicableMachinery]);
+    if (messages.length > 1 || showLocationMenu || showOdopIntroCard || showOdopAlignmentCard || showEnterpriseCard || applicableMachinery) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else if (messages.length <= 1) {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = 0;
+      }
+    }
+  }, [messages, showLocationMenu, showOdopIntroCard, showOdopAlignmentCard, showEnterpriseCard, applicableMachinery]);
+
+  // Auto-scroll split-screen chat history
+  useEffect(() => {
+    if (phase === "split_screen" || phase === "processing") {
+      splitMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, phase]);
 
   // Audio cleanup on unmount
   useEffect(() => {
@@ -183,10 +259,131 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     };
   }, []);
 
+  // ─── Active Geolocation Resolution Hook ────────────────────────────────
+  useEffect(() => {
+    let isMounted = true;
+    const detectLocation = async () => {
+      // 1. If userProfile has coordinates
+      if (userProfile?.latitude && userProfile?.longitude) {
+        const geo = await reverseGeocodeCoords(userProfile.latitude, userProfile.longitude);
+        if (!isMounted) return;
+        if (geo?.district_name) {
+          const locObj = {
+            latitude: userProfile.latitude,
+            longitude: userProfile.longitude,
+            district_name: geo.district_name,
+            state_name: geo.state_name || "Maharashtra",
+            locality_name: geo.locality_name || "",
+          };
+          setDetectedLocationData(locObj);
+          try {
+            localStorage.setItem("user_detected_location", JSON.stringify(locObj));
+          } catch (_) {}
+          return;
+        }
+      }
+
+      // 2. High accuracy browser GPS
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            if (!isMounted) return;
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            const geo = await reverseGeocodeCoords(lat, lon);
+            if (!isMounted) return;
+            const locObj = {
+              latitude: lat,
+              longitude: lon,
+              district_name: geo?.district_name || "Pune",
+              state_name: geo?.state_name || "Maharashtra",
+              locality_name: geo?.locality_name || "",
+            };
+            setDetectedLocationData(locObj);
+            try {
+              localStorage.setItem("user_detected_location", JSON.stringify(locObj));
+            } catch (_) {}
+          },
+          async (err) => {
+            console.warn("GPS lookup note:", err.message);
+            // 3. Fallback to IP geolocation
+            const ipLoc = await detectLocationFromIP();
+            if (!isMounted) return;
+            if (ipLoc && ipLoc.district_name) {
+              const locObj = {
+                latitude: ipLoc.latitude,
+                longitude: ipLoc.longitude,
+                district_name: ipLoc.district_name,
+                state_name: ipLoc.state_name || "Maharashtra",
+                locality_name: "",
+              };
+              setDetectedLocationData(locObj);
+              try {
+                localStorage.setItem("user_detected_location", JSON.stringify(locObj));
+              } catch (_) {}
+            }
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+        );
+      } else {
+        const ipLoc = await detectLocationFromIP();
+        if (!isMounted) return;
+        if (ipLoc && ipLoc.district_name) {
+          const locObj = {
+            latitude: ipLoc.latitude,
+            longitude: ipLoc.longitude,
+            district_name: ipLoc.district_name,
+            state_name: ipLoc.state_name || "Maharashtra",
+            locality_name: "",
+          };
+          setDetectedLocationData(locObj);
+          try {
+            localStorage.setItem("user_detected_location", JSON.stringify(locObj));
+          } catch (_) {}
+        }
+      }
+    };
+
+    detectLocation();
+    return () => { isMounted = false; };
+  }, [userProfile]);
+
+  // Dynamically update greeting text when GPS / IP location resolves if still on location confirmation step
+  useEffect(() => {
+    if (chatStep === "location_confirm" && !locationConfirmed && detectedLocationData?.district_name) {
+      const locLabel = `${detectedLocationData.district_name}, ${detectedLocationData.state_name || "Maharashtra"}`;
+      setCollectedFields(prev => ({
+        ...prev,
+        state_name: detectedLocationData.state_name || "Maharashtra",
+        district_name: detectedLocationData.district_name,
+      }));
+      setMessages(prev => {
+        if (!prev || prev.length === 0) return prev;
+        const first = prev[0];
+        if (first?.isLocationConfirmation) {
+          const greetFn = GREETINGS[selectedLang] || GREETINGS.hi;
+          const updatedGreeting = greetFn(userName, locLabel);
+          return [
+            {
+              ...first,
+              content: updatedGreeting,
+              locationLabel: locLabel,
+            },
+            ...prev.slice(1),
+          ];
+        }
+        return prev;
+      });
+    }
+  }, [detectedLocationData, chatStep, locationConfirmed, selectedLang, userName]);
+
   // ─── Get Registration Geolocation Coords ────────────────────────────────
   const getAutoDetectedLocation = useCallback(() => {
     if (userProfile?.latitude && userProfile?.longitude) {
       return { latitude: userProfile.latitude, longitude: userProfile.longitude };
+    }
+    if (detectedLocationData?.latitude && detectedLocationData?.longitude) {
+      return { latitude: detectedLocationData.latitude, longitude: detectedLocationData.longitude };
     }
     try {
       const saved = JSON.parse(localStorage.getItem("user_detected_location") || "{}");
@@ -194,8 +391,8 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         return { latitude: saved.latitude, longitude: saved.longitude };
       }
     } catch (_) {}
-    return { latitude: 19.2183, longitude: 72.9781 }; // Default fallback: Thane, Maharashtra
-  }, [userProfile]);
+    return { latitude: 18.5204, longitude: 73.8567 }; // Default fallback: Pune, Maharashtra
+  }, [userProfile, detectedLocationData]);
 
   // ─── Speech Sanitizer: Strips awkward symbols for Bhashini ──────────────
   const cleanSpeechText = useCallback((text, lang = "hi") => {
@@ -366,7 +563,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     // Initial greeting from Mira
     setTimeout(() => {
       const greetFn = GREETINGS[langCode] || GREETINGS.hi;
-      const initialLocLabel = "Thane, Maharashtra"; // Default verified registration location
+      const initialLocLabel = `${detectedLocationData?.district_name || "Pune"}, ${detectedLocationData?.state_name || "Maharashtra"}`;
       const greetingText = greetFn(userName, initialLocLabel);
 
       setMessages([
@@ -386,18 +583,25 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       setCollectedFields(prev => ({
         ...prev,
         state_name: "Maharashtra",
-        district_name: "Thane",
+        district_name: detectedLocationData?.district_name || "Pune",
         is_rural: true,
       }));
 
       playTTS(greetingText, langCode);
+
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = 0;
+        }
+      }, 60);
     }, 350);
   }, [userName, token, updateProfile, setLanguage, getAutoDetectedLocation, playTTS]);
 
-  // ─── Step 2a: User clicks "Yes, continue with this location" ─────────────
+  // ─── Step 1a: User clicks "Yes, continue with this location" ─────────────
   const handleConfirmLocation = useCallback(async () => {
     if (isSending) return;
     setIsSending(true);
+    setLocationConfirmed(true);
 
     const userMsg = {
       id: `user-${Date.now()}`,
@@ -409,6 +613,13 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
     try {
       const locCoords = getAutoDetectedLocation();
+      const confirmedDistrict = collectedFields.district_name || detectedLocationData?.district_name || "Pune";
+      const confirmedState = collectedFields.state_name || detectedLocationData?.state_name || "Maharashtra";
+      const userLocPayload = {
+        ...locCoords,
+        district_name: confirmedDistrict,
+        state_name: confirmedState,
+      };
       const res = await fetch("/api/v2/chat/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -416,10 +627,14 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
           language: selectedLang || "hi",
           user_name: userName,
-          collected_fields: collectedFields,
+          collected_fields: {
+            ...collectedFields,
+            district_name: confirmedDistrict,
+            state_name: confirmedState,
+          },
           conversation_step: 1,
           current_action: "confirm_location",
-          user_location: locCoords,
+          user_location: userLocPayload,
         }),
       });
 
@@ -444,10 +659,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     }
   }, [isSending, selectedLang, messages, getAutoDetectedLocation, token, userName, collectedFields, playTTS]);
 
-  // ─── Step 2b: User clicks "No, I want to change location" ───────────────
+  // ─── Step 1b: User clicks "No, I want to change location" ───────────────
   const handleRequestChangeLocation = useCallback(async () => {
     if (isSending) return;
     setIsSending(true);
+    setLocationConfirmed(true);
 
     const userMsg = {
       id: `user-${Date.now()}`,
@@ -545,7 +761,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     } catch (_) {}
   };
 
-  // ─── Step 2c: User submits updated location menu ─────────────────────────
+  // ─── Step 1c: User submits updated location menu ─────────────────────────
   const handleSubmitNewLocation = async () => {
     if (!selectedState || !selectedDistrict) {
       alert(selectedLang === "en" ? "Please select both State and District." : "कृपया राज्य और ज़िला दोनों चुनें।");
@@ -553,6 +769,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     }
 
     setShowLocationMenu(false);
+    setLocationConfirmed(true);
     setIsSending(true);
 
     const updatedLoc = {
@@ -611,7 +828,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     }
   };
 
-  // ─── Step 3 & 4: Natural Conversational Chat Turns (Business & Capital) ──
+  // ─── Conversational Chat Turns (Business Idea, Promoter Equity, Q&A) ───
   const handleSendMessage = useCallback(async (overrideText = null) => {
     const text = overrideText || inputText.trim();
     if (!text || isSending) return;
@@ -670,9 +887,47 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           setSelectedOwnedMachines(data.extracted_fields.owned_machines.map(m => m.machine_name || m));
         }
 
-        if (data.odop_alignment) {
+        // Step 3: ODOP Intro & Check Prompt
+        if (data.odop_intro || data.next_phase === "odop_check_prompt") {
+          setOdopIntroData(data.odop_intro);
+          setShowOdopIntroCard(true);
+          setChatStep("odop_check_prompt");
+        }
+
+        // Step 4: ODOP Alignment Evaluation
+        if (data.odop_alignment || data.next_phase === "odop_alignment") {
           setOdopData(data.odop_alignment);
+          setShowOdopAlignmentCard(true);
           setChatStep("odop_alignment");
+        }
+
+        // Step 5: Enterprise Info Card
+        if (data.next_phase === "enterprise_info") {
+          setShowEnterpriseCard(true);
+          setChatStep("enterprise_info");
+          if (data.extracted_fields?.enterprise_name) {
+            setEnterpriseNameInput(data.extracted_fields.enterprise_name);
+          }
+        }
+
+        // Step 6: Promoter Equity
+        if (data.next_phase === "promoter_equity") {
+          setChatStep("promoter_equity");
+        }
+
+        // Step 7: Machinery Selection Card
+        if (data.next_phase === "machinery_selection") {
+          setChatStep("machinery_selection");
+          if (data.applicable_machinery) {
+            setApplicableMachinery(data.applicable_machinery);
+            setMachineryConfirmed(false);
+          }
+        }
+
+        // Step 8: 50/50 Split Screen Form
+        if (data.next_phase === "split_screen" || (data.all_fields_collected && chatStep === "machinery_selection")) {
+          setPhase("split_screen");
+          setChatStep("split_screen");
         }
 
         const assistantMsg = {
@@ -682,14 +937,12 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           timestamp: new Date().toISOString(),
         };
         setMessages(prev => [...prev, assistantMsg]);
-
-        // Clean speech text for Bhashini
         playTTS(data.tts_text || data.reply, selectedLang || "hi");
 
-        if (data.all_fields_collected && !data.odop_alignment) {
+        if (data.next_phase === "split_screen") {
           setTimeout(() => {
-            setPhase("processing");
-          }, 2600);
+            setPhase("split_screen");
+          }, 1500);
         }
       }
     } catch (err) {
@@ -697,9 +950,132 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     } finally {
       setIsSending(false);
     }
-  }, [inputText, isSending, messages, selectedLang, userName, collectedFields, token, getAutoDetectedLocation, playTTS]);
+  }, [inputText, isSending, messages, selectedLang, userName, collectedFields, token, getAutoDetectedLocation, playTTS, chatStep]);
 
-  // ─── Step 4b: Owned Machinery Selection (Interactive Dropdown / Checklist) ─
+  // ─── Step 3a: Check ODOP Alignment ("Let's Check") ─────────────────────
+  const handleCheckOdopAlignment = useCallback(async () => {
+    if (isSending) return;
+    setIsSending(true);
+    setShowOdopIntroCard(false);
+
+    const userMsg = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: selectedLang === "en" ? "Let's Check" : "तालमेल जाँचें",
+      timestamp: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, userMsg]);
+
+    try {
+      const locCoords = getAutoDetectedLocation();
+      const res = await fetch("/api/v2/chat/onboarding", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
+          language: selectedLang || "hi",
+          user_name: userName,
+          collected_fields: collectedFields,
+          conversation_step: messages.length + 1,
+          current_action: "check_odop_alignment",
+          user_location: locCoords,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.extracted_fields) {
+          setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
+        }
+        if (data.odop_alignment) {
+          setOdopData(data.odop_alignment);
+          setShowOdopAlignmentCard(true);
+          setChatStep("odop_alignment");
+        }
+
+        const assistantMsg = {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: data.reply,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+        playTTS(data.tts_text || data.reply, selectedLang || "hi");
+      }
+    } catch (err) {
+      console.error("Check ODOP alignment error:", err);
+    } finally {
+      setIsSending(false);
+    }
+  }, [isSending, selectedLang, messages, token, userName, collectedFields, getAutoDetectedLocation, playTTS]);
+
+  // ─── Step 3b: Skip ODOP Alignment ("Will go with my idea") ─────────────
+  const handleSkipOdopAlignment = useCallback(async () => {
+    if (isSending) return;
+    setIsSending(true);
+    setShowOdopIntroCard(false);
+
+    const userMsg = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: selectedLang === "en" ? "Will go with my idea" : "मूल विचार से चलें",
+      timestamp: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, userMsg]);
+
+    try {
+      const locCoords = getAutoDetectedLocation();
+      const res = await fetch("/api/v2/chat/onboarding", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
+          language: selectedLang || "hi",
+          user_name: userName,
+          collected_fields: collectedFields,
+          conversation_step: messages.length + 1,
+          current_action: "skip_odop_alignment",
+          user_location: locCoords,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.extracted_fields) {
+          setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
+        }
+
+        const assistantMsg = {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: data.reply,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+        playTTS(data.tts_text || data.reply, selectedLang || "hi");
+
+        if (data.next_phase === "enterprise_info") {
+          setShowEnterpriseCard(true);
+          setChatStep("enterprise_info");
+          if (data.extracted_fields?.enterprise_name) {
+            setEnterpriseNameInput(data.extracted_fields.enterprise_name);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Skip ODOP alignment error:", err);
+    } finally {
+      setIsSending(false);
+    }
+  }, [isSending, selectedLang, messages, token, userName, collectedFields, getAutoDetectedLocation, playTTS]);
+
+  // ─── Step 7: Owned Machinery Selection ──────────────────────────────────
   const handleConfirmMachinery = useCallback(async (machinesToConfirm) => {
     if (isSending) return;
     setIsSending(true);
@@ -770,11 +1146,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           setApplicableMachinery(data.applicable_machinery);
         }
 
-        if (data.odop_alignment) {
-          setOdopData(data.odop_alignment);
-          setChatStep("odop_alignment");
-        }
-
         const assistantMsg = {
           id: `assistant-${Date.now()}`,
           role: "assistant",
@@ -784,10 +1155,10 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         setMessages(prev => [...prev, assistantMsg]);
         playTTS(data.tts_text || data.reply, selectedLang || "hi");
 
-        if (data.all_fields_collected && !data.odop_alignment) {
+        if (data.next_phase === "split_screen" || data.all_fields_collected) {
           setTimeout(() => {
-            setPhase("processing");
-          }, 2600);
+            setPhase("split_screen");
+          }, 1500);
         }
       }
     } catch (err) {
@@ -797,14 +1168,15 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     }
   }, [isSending, selectedLang, messages, token, userName, collectedFields, applicableMachinery, getAutoDetectedLocation, playTTS]);
 
-  // ─── Step 5: ODOP Decision (Align vs Keep Original Idea) ────────────────
+  // ─── Step 4: ODOP Decision (Align vs Keep Original Idea) ────────────────
   const handleOdopDecision = useCallback(async (alignWithOdop) => {
     if (isSending) return;
     setIsSending(true);
+    setShowOdopAlignmentCard(false);
 
     const decision = alignWithOdop ? "align" : "keep_original";
     const decisionLabel = alignWithOdop
-      ? (selectedLang === "en" ? "1. Align with ODOP (Unlock 35% Subsidy)" : "1. ODOP से जुड़ें")
+      ? (selectedLang === "en" ? "1. Align with ODOP (Unlock 35% Subsidy)" : "1. ODOP से जुड़ें (35% सब्सिडी)")
       : (selectedLang === "en" ? "2. Keep my original idea" : "2. अपना मूल विचार रखें");
 
     const userMsg = {
@@ -850,10 +1222,16 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         setMessages(prev => [...prev, assistantMsg]);
         playTTS(data.tts_text || data.reply, selectedLang || "hi");
 
-        // Transition to final processing after audio plays
-        setTimeout(() => {
-          setPhase("processing");
-        }, 2800);
+        // After ODOP decision → Step 5: Show Enterprise Info card
+        if (data.next_phase === "enterprise_info") {
+          setShowEnterpriseCard(true);
+          setChatStep("enterprise_info");
+          if (data.extracted_fields?.enterprise_name) {
+            setEnterpriseNameInput(data.extracted_fields.enterprise_name);
+          } else if (collectedFields.enterprise_name) {
+            setEnterpriseNameInput(collectedFields.enterprise_name);
+          }
+        }
       }
     } catch (err) {
       console.error("ODOP decision error:", err);
@@ -861,6 +1239,76 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       setIsSending(false);
     }
   }, [isSending, selectedLang, messages, token, userName, collectedFields, getAutoDetectedLocation, playTTS]);
+
+  // ─── Step 5: Enterprise Name + Caste Category Submission ────────────────
+  const handleSubmitEnterpriseInfo = useCallback(async () => {
+    if (isSending) return;
+    const entName = enterpriseNameInput.trim() || `${userName}'s Enterprise`;
+    const promCat = promoterCategoryInput || "general";
+
+    setIsSending(true);
+    setShowEnterpriseCard(false);
+
+    const catLabel = PROMOTER_CATEGORIES.find(c => c.value === promCat)?.label || promCat;
+    const userMsg = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: selectedLang === "en"
+        ? `Enterprise: ${entName} | Category: ${catLabel}`
+        : `उद्यम: ${entName} | श्रेणी: ${catLabel}`,
+      timestamp: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, userMsg]);
+
+    // Update collected fields locally
+    const updatedFields = { ...collectedFields, enterprise_name: entName, promoter_category: promCat };
+    setCollectedFields(updatedFields);
+
+    try {
+      const locCoords = getAutoDetectedLocation();
+      const res = await fetch("/api/v2/chat/onboarding", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
+          language: selectedLang || "hi",
+          user_name: userName,
+          collected_fields: updatedFields,
+          conversation_step: messages.length + 1,
+          current_action: "submit_enterprise_info",
+          user_location: locCoords,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.extracted_fields) {
+          setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
+        }
+
+        const assistantMsg = {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: data.reply,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+        setChatStep("promoter_equity");
+        playTTS(data.tts_text || data.reply, selectedLang || "hi");
+
+        if (data.all_fields_collected) {
+          setTimeout(() => { setPhase("processing"); }, 2600);
+        }
+      }
+    } catch (err) {
+      console.error("Enterprise info submission error:", err);
+    } finally {
+      setIsSending(false);
+    }
+  }, [isSending, enterpriseNameInput, promoterCategoryInput, userName, selectedLang, messages, collectedFields, token, getAutoDetectedLocation, playTTS]);
 
   // ─── Step 6: Final Feasibility Appraisal Report Generation ─────────────
   const handleFinalSubmit = useCallback(async () => {
@@ -953,9 +1401,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
         <div className="max-w-2xl w-full relative z-10">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-rose-500 via-pink-600 to-indigo-700 text-white flex items-center justify-center text-2xl font-black mx-auto mb-4 shadow-xl shadow-pink-500/20 border border-white/40">
-              M
-            </div>
+            <MiraAvatar size="w-20 h-20" rounded="rounded-3xl" className="mx-auto mb-4 shadow-xl shadow-pink-500/20" />
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display mb-2">
               Namaste {userName} Ji! 🙏
             </h1>
@@ -1009,15 +1455,20 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
   // ─── Render: Chat Phase with Mira ───────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-pink-50/20 flex flex-col relative overflow-hidden">
+    <div
+      className="min-h-screen flex flex-col relative overflow-hidden"
+      style={{
+        background: 'linear-gradient(-45deg, #fef2f2 0%, #fff7ed 16%, #fdf4ff 33%, #eff6ff 50%, #f0fdf4 67%, #fefce8 84%, #faf5ff 100%)',
+        backgroundSize: '350% 350%',
+        animation: 'dynamicPastel 14s ease-in-out infinite',
+      }}
+    >
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] bg-rose-100/25 blur-[160px] rounded-full pointer-events-none" />
 
       {/* Header Bar */}
       <header className="sticky top-0 z-30 bg-gradient-to-r from-slate-950 via-sovereign-900 to-indigo-950 text-white px-4 py-3 shadow-lg">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-indigo-600 flex items-center justify-center text-lg font-black border border-white/20 shadow-md">
-            M
-          </div>
+          <MiraAvatar size="w-10 h-10" rounded="rounded-xl" />
           <div className="flex-1 min-w-0">
             <h1 className="text-sm font-bold truncate flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-rose-300" />
@@ -1058,7 +1509,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       </header>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-3 sm:px-4 pt-6 sm:pt-8 pb-6 scroll-smooth">
         <div className="max-w-3xl mx-auto space-y-4">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-2.5">
@@ -1068,9 +1519,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 }`}
               >
                 {msg.role === "assistant" && (
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-500 to-indigo-600 flex items-center justify-center text-white text-xs font-black shrink-0 mt-0.5 shadow-md">
-                    M
-                  </div>
+                  <MiraAvatar size="w-8 h-8" rounded="rounded-xl" className="mt-0.5" />
                 )}
 
                 <div
@@ -1110,8 +1559,8 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 )}
               </div>
 
-              {/* ─── Step 1 Action Buttons: Location Confirmation ─────────── */}
-              {msg.isLocationConfirmation && chatStep === "location_confirm" && (
+              {/* ─── Step 1 Action Buttons: Location Confirmation (Auto-closes on click) ─── */}
+              {msg.isLocationConfirmation && chatStep === "location_confirm" && !locationConfirmed && (
                 <div className="flex flex-col sm:flex-row gap-2.5 max-w-[85%] sm:max-w-[75%] ml-10 animate-[fadeIn_0.3s_ease-out]">
                   <button
                     type="button"
@@ -1252,8 +1701,318 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             </div>
           )}
 
-          {/* ─── Step 4b: Interactive Machinery Dropdown & Checklist Card ───── */}
-          {applicableMachinery && applicableMachinery.machinery_list && applicableMachinery.machinery_list.length > 0 && (
+          {/* ─── Step 3: ODOP Introduction & Check Prompt Card (auto-closes on click) ─── */}
+          {showOdopIntroCard && odopIntroData && (
+            <div className="animate-[fadeIn_0.4s_ease-out] max-w-xl mx-auto my-3">
+              <div className="bg-white rounded-3xl border-2 border-amber-400/80 shadow-2xl overflow-hidden">
+                {/* Header Banner */}
+                <div className="bg-gradient-to-r from-amber-950 via-orange-950 to-slate-950 text-white p-4 sm:p-5 relative">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-400/40">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      {selectedLang === "en" ? "ODOP Scheme Opportunity" : "ODOP योजना अवसर"}
+                    </span>
+                    <span className="text-xs text-amber-200 font-semibold flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> {odopIntroData.subsidy_summary || "25%–35%"} Capital Subsidy
+                    </span>
+                  </div>
+
+                  <h3 className="text-base sm:text-lg font-bold font-display text-white">
+                    {selectedLang === "en"
+                      ? `Align with District ODOP for ${odopIntroData.subsidy_summary || "25%–35%"} Subsidy?`
+                      : `क्या आप ${odopIntroData.subsidy_summary || "25%–35%"} सब्सिडी के लिए ज़िला ODOP से तालमेल जाँचना चाहते हैं?`}
+                  </h3>
+                  <p className="text-xs text-amber-200/90 mt-1 leading-relaxed">
+                    {selectedLang === "en"
+                      ? `Your district (${odopIntroData.district || collectedFields.district_name || 'Pune'}) is designated for "${odopIntroData.odop_product}". Enterprises aligned with their district ODOP can secure ${odopIntroData.subsidy_summary || "25%–35%"} capital subsidy under ${odopIntroData.scheme || "ODOP Cluster Scheme"}!`
+                      : `आपके ज़िले (${odopIntroData.district || (selectedLang === 'hi' ? 'पुणे' : 'Pune')}) का आधिकारिक ODOP उत्पाद "${odopIntroData.odop_product}" है। ज़िला ODOP से तालमेल बिठाने पर ${odopIntroData.scheme || "ODOP योजना"} से ${odopIntroData.subsidy_summary || "25%–35%"} पूँजीगत अनुदान मिलता है!`}
+                  </p>
+                </div>
+
+                <div className="p-4 sm:p-5 space-y-4">
+                  {/* District & Scheme Badge */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800 mb-0.5">
+                        {selectedLang === "en" ? "District ODOP Produce" : "ज़िला ODOP उत्पाद"}
+                      </div>
+                      <div className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                        <span>🌾</span>
+                        <span className="truncate">{odopIntroData.odop_product}</span>
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mb-0.5">
+                        {selectedLang === "en" ? "Government Scheme" : "पात्र सरकारी योजना"}
+                      </div>
+                      <div className="font-bold text-sm text-emerald-950 flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="truncate">{odopIntroData.scheme || "PMEGP / ODOP Scheme"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="pt-1 flex flex-col sm:flex-row gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleCheckOdopAlignment}
+                      disabled={isSending}
+                      className="flex-1 py-3 px-4 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <Sparkles className="w-4 h-4 text-emerald-200" />
+                      <span>
+                        {selectedLang === "en" ? "Let's Check (Evaluate Synergy)" : "तालमेल जाँचें (Let's Check)"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSkipOdopAlignment}
+                      disabled={isSending}
+                      className="sm:w-auto py-3 px-4 rounded-xl font-semibold text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {selectedLang === "en" ? "Will go with my idea" : "मूल विचार से चलें"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Step 4: 0-100 Benchmarked ODOP Alignment Synergy Card (auto-closes on decision) ─── */}
+          {showOdopAlignmentCard && odopData && !collectedFields.odop_decision && (
+            <div className="animate-[fadeIn_0.4s_ease-out] max-w-xl mx-auto my-3">
+              <div className="bg-white rounded-3xl border-2 border-emerald-400/80 shadow-2xl overflow-hidden">
+                {/* Header Banner */}
+                <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-950 text-white p-4 sm:p-5 relative">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      ODOP Synergy Benchmarking
+                    </span>
+                    <span className="text-xs text-emerald-200 font-semibold flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5" /> {odopData.subsidy_summary || "25%–35%"} {odopData.scheme_name || "Subsidy"} Ready
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 mt-2">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-bold font-display text-white">
+                        {selectedLang === "en"
+                          ? "One District One Product Synergy Match"
+                          : "एक जिला एक उत्पाद (ODOP) तालमेल स्कोर"}
+                      </h3>
+                      <p className="text-xs text-emerald-200/90 mt-0.5">
+                        {odopData.mira_recommendation || "Mira's Strategic Evaluation"}
+                      </p>
+                    </div>
+
+                    {/* 0-100 Score Gauge Badge */}
+                    <div className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/30 shadow-inner">
+                      <span className="text-xl font-black text-emerald-300 leading-none">
+                        {odopData.alignment_score || 85}
+                      </span>
+                      <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
+                        / 100
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-6 space-y-4 text-slate-800">
+                  {/* Explainer Box: What is ODOP? */}
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-xs leading-relaxed text-emerald-950">
+                    <p className="font-bold text-emerald-900 mb-1 flex items-center gap-1.5">
+                      <Info className="w-4 h-4 text-emerald-700 shrink-0" />
+                      {selectedLang === "en" ? "What is the ODOP Scheme?" : "ODOP योजना क्या है?"}
+                    </p>
+                    <p className="text-emerald-900/90">
+                      {odopData.what_is_odop || "The One District One Product (ODOP) initiative by the central government focuses on each district's designated indigenous product to provide capital subsidies, priority procurement on GeM, and cluster common facility centers."}
+                    </p>
+                  </div>
+
+                  {/* Current Business & District ODOP Badges */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        {selectedLang === "en" ? "Your Current Business" : "आपका वर्तमान व्यवसाय"}
+                      </div>
+                      <div className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                        <span>🏪</span>
+                        <span className="truncate">{odopData.user_business || "Your Venture"}</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-teal-50 border border-teal-200">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-teal-700 mb-1">
+                        {selectedLang === "en" ? "The District's ODOP" : "जिले का आधिकारिक ODOP"}
+                      </div>
+                      <div className="font-bold text-sm text-teal-950 flex items-center gap-1.5">
+                        <span>🌾</span>
+                        <span className="truncate">{odopData.district_odop || odopData.odop_product}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* How We Aligned Both (3 Structured Pillars) */}
+                  <div className="space-y-2.5 pt-1">
+                    <div className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span>
+                        {selectedLang === "en"
+                          ? "How We Aligned Both (Strategic Synergy):"
+                          : "हमने दोनों को कैसे जोड़ा (रणनीतिक तालमेल):"}
+                      </span>
+                    </div>
+
+                    {/* Pillar 1: Product Innovation */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1">
+                      <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-[11px] font-black shrink-0">1</span>
+                        <span>{odopData.synergy_pillars?.product_innovation?.title || "Product Innovation"}</span>
+                      </div>
+                      <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                        {odopData.synergy_pillars?.product_innovation?.description}
+                      </p>
+                    </div>
+
+                    {/* Pillar 2: Local Sourcing Advantage */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1">
+                      <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-[11px] font-black shrink-0">2</span>
+                        <span>{odopData.synergy_pillars?.local_sourcing?.title || "Local Sourcing Advantage"}</span>
+                      </div>
+                      <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                        {odopData.synergy_pillars?.local_sourcing?.description}
+                      </p>
+                    </div>
+
+                    {/* Pillar 3: Financial Incentives */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1">
+                      <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-[11px] font-black shrink-0">3</span>
+                        <span>{odopData.synergy_pillars?.financial_incentives?.title || "Financial & Scheme Incentives"}</span>
+                      </div>
+                      <p className="text-xs text-slate-600 pl-7 leading-relaxed">
+                        {odopData.synergy_pillars?.financial_incentives?.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Decision Buttons */}
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleOdopDecision(true)}
+                      disabled={isSending}
+                      className="flex-1 py-3 px-4 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <Sparkles className="w-4 h-4 text-emerald-200" />
+                      <span>
+                        {selectedLang === "en"
+                          ? `Align with ODOP (Unlock ${odopData.subsidy_summary || "25%–35%"} Subsidy) ✨`
+                          : `ODOP से जोड़ें (${odopData.subsidy_summary || "25%–35%"} सब्सिडी अनलॉक करें) ✨`}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOdopDecision(false)}
+                      disabled={isSending}
+                      className="sm:w-auto py-3 px-4 rounded-xl font-semibold text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {selectedLang === "en" ? "Keep My Idea" : "मेरा विचार रखें"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Step 5: Enterprise Name + Caste Category Card (auto-closes on submit) ─── */}
+          {showEnterpriseCard && (
+            <div className="animate-[fadeIn_0.4s_ease-out] max-w-lg mx-auto my-3">
+              <div className="bg-white rounded-3xl border-2 border-violet-400/80 shadow-2xl overflow-hidden">
+                <div className="bg-gradient-to-r from-violet-950 via-indigo-900 to-slate-950 text-white p-4 sm:p-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-violet-500/20 text-violet-300 border border-violet-400/40">
+                      <User className="w-3.5 h-3.5" />
+                      {selectedLang === "en" ? "Enterprise Details" : "उद्यम विवरण"}
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold font-display text-white">
+                    {selectedLang === "en"
+                      ? "Your Enterprise Name & Category"
+                      : "आपके उद्यम का नाम और जाति श्रेणी"}
+                  </h3>
+                  <p className="text-xs text-violet-200/90 mt-1">
+                    {selectedLang === "en"
+                      ? "Please share your enterprise name and caste category for government scheme eligibility."
+                      : "कृपया अपने उद्यम का नाम और सरकारी योजना पात्रता के लिए जाति श्रेणी बताएं।"}
+                  </p>
+                </div>
+
+                <div className="p-4 sm:p-6 space-y-4">
+                  {/* Enterprise Name Input */}
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
+                      <Edit3 className="w-3.5 h-3.5 text-violet-600" />
+                      {selectedLang === "en" ? "Enterprise Name" : "उद्यम का नाम"}
+                    </label>
+                    <input
+                      type="text"
+                      value={enterpriseNameInput}
+                      onChange={(e) => setEnterpriseNameInput(e.target.value)}
+                      placeholder={selectedLang === "en" ? `${userName}'s Enterprise` : `${userName} का उद्यम`}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500 transition-all"
+                    />
+                  </div>
+
+                  {/* Caste Category Dropdown */}
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      {selectedLang === "en" ? "Caste Category (for Subsidy Eligibility)" : "जाति श्रेणी (सब्सिडी पात्रता हेतु)"}
+                    </label>
+                    <select
+                      value={promoterCategoryInput}
+                      onChange={(e) => setPromoterCategoryInput(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-violet-500/40 cursor-pointer"
+                    >
+                      {PROMOTER_CATEGORIES.map(cat => (
+                        <option key={cat.value} value={cat.value}>
+                          {selectedLang === "en" ? cat.label : cat.labelHi} ({cat.value.toUpperCase()})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1.5 text-[10px] text-slate-500">
+                      {selectedLang === "en"
+                        ? "SC/ST/OBC categories may qualify for higher PMEGP subsidy (25-35% vs 15-25%)."
+                        : "SC/ST/OBC श्रेणियों को PMEGP में अधिक सब्सिडी (25-35% बनाम 15-25%) मिल सकती है।"}
+                    </p>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="button"
+                    onClick={handleSubmitEnterpriseInfo}
+                    disabled={isSending}
+                    className="w-full py-3.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-700 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>
+                      {selectedLang === "en"
+                        ? "Save & Continue"
+                        : "सुरक्षित करें और आगे बढ़ें"}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Step 7: Interactive Machinery Dropdown & Checklist Card (auto-closes on confirm) ───── */}
+          {applicableMachinery && applicableMachinery.machinery_list && applicableMachinery.machinery_list.length > 0 && !machineryConfirmed && (
             <div className="animate-[fadeIn_0.4s_ease-out] max-w-xl mx-auto my-3">
               <div className="bg-white rounded-3xl border-2 border-indigo-400/80 shadow-2xl overflow-hidden">
                 {/* Header Banner */}
@@ -1410,240 +2169,48 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     </div>
                   )}
 
-                  {/* Action Buttons or Confirmed State */}
-                  {machineryConfirmed ? (
-                    <div className="pt-2 flex items-center justify-between gap-3">
-                      <div className="flex-1 p-3 rounded-2xl bg-emerald-50 border border-emerald-300 font-bold text-xs text-emerald-900 flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>
-                          {selectedOwnedMachines.length > 0
-                            ? (selectedLang === "en"
-                                ? `Equipment Locked: ${selectedOwnedMachines.length} machine(s) credited`
-                                : `मशीनरी सुरक्षित: ${selectedOwnedMachines.length} उपकरण का मूल्य घटाया गया`)
-                            : (selectedLang === "en"
-                                ? "100% Fresh Machinery Mode Confirmed"
-                                : "सभी नए उपकरणों का विकल्प सुरक्षित किया गया")}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setMachineryConfirmed(false)}
-                        disabled={isSending}
-                        className="px-3 py-3 rounded-xl border border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100 text-xs font-semibold cursor-pointer shrink-0 transition-colors"
-                      >
-                        {selectedLang === "en" ? "Change" : "बदलें"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
-                      {selectedOwnedMachines.length > 0 ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleConfirmMachinery(selectedOwnedMachines)}
-                            disabled={isSending}
-                            className="flex-1 py-3 px-4 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                          >
-                            <Check className="w-4 h-4" />
-                            <span>
-                              {selectedLang === "en"
-                                ? `Confirm ${selectedOwnedMachines.length} Machine(s) Owned`
-                                : `मेरे पास उपलब्ध ${selectedOwnedMachines.length} मशीनें सुरक्षित करें`}
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedOwnedMachines([])}
-                            disabled={isSending}
-                            className="sm:w-auto py-3 px-3 rounded-xl font-semibold text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer"
-                          >
-                            {selectedLang === "en" ? "Clear" : "हटाएं"}
-                          </button>
-                        </>
-                      ) : (
+                  {/* Action Buttons */}
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+                    {selectedOwnedMachines.length > 0 ? (
+                      <>
                         <button
                           type="button"
-                          onClick={() => handleConfirmMachinery([])}
+                          onClick={() => handleConfirmMachinery(selectedOwnedMachines)}
                           disabled={isSending}
-                          className="w-full py-3 px-4 rounded-xl font-bold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-300 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                          className="flex-1 py-3 px-4 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                         >
+                          <Check className="w-4 h-4" />
                           <span>
                             {selectedLang === "en"
-                              ? "I don't own any of these (I need all fresh machines)"
-                              : "मेरे पास इनमें से कोई मशीन नहीं है (मुझे सभी नई मशीनें चाहिए)"}
+                              ? `Confirm ${selectedOwnedMachines.length} Machine(s) Owned`
+                              : `मेरे पास उपलब्ध ${selectedOwnedMachines.length} मशीनें सुरक्षित करें`}
                           </span>
-                          <ArrowRight className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ─── Step 5: 0-100 Benchmarked ODOP Alignment Synergy Card ─────── */}
-          {odopData && (
-            <div className="animate-[fadeIn_0.4s_ease-out] max-w-xl mx-auto my-3">
-              <div className="bg-white rounded-3xl border-2 border-emerald-400/80 shadow-2xl overflow-hidden">
-                {/* Header Banner */}
-                <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-950 text-white p-4 sm:p-5 relative">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      ODOP Synergy Benchmarking
-                    </span>
-                    <span className="text-xs text-emerald-200 font-semibold flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" /> 35% PMFME Subsidy Ready
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4 mt-2">
-                    <div>
-                      <h3 className="text-base sm:text-lg font-bold font-display text-white">
-                        {selectedLang === "en"
-                          ? "One District One Product Synergy Match"
-                          : "एक जिला एक उत्पाद (ODOP) तालमेल स्कोर"}
-                      </h3>
-                      <p className="text-xs text-emerald-200/90 mt-0.5">
-                        {odopData.mira_recommendation || "Mira's Strategic Evaluation"}
-                      </p>
-                    </div>
-
-                    {/* 0-100 Score Gauge Badge */}
-                    <div className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/30 shadow-inner">
-                      <span className="text-xl font-black text-emerald-300 leading-none">
-                        {odopData.alignment_score || 85}
-                      </span>
-                      <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
-                        / 100
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 sm:p-6 space-y-4 text-slate-800">
-                  {/* Explainer Box: What is ODOP? */}
-                  <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-xs leading-relaxed text-emerald-950">
-                    <p className="font-bold text-emerald-900 mb-1 flex items-center gap-1.5">
-                      <Info className="w-4 h-4 text-emerald-700 shrink-0" />
-                      {selectedLang === "en" ? "What is the ODOP Scheme?" : "ODOP योजना क्या है?"}
-                    </p>
-                    <p className="text-emerald-900/90">
-                      {odopData.what_is_odop || "The One District One Product (ODOP) initiative by the central government focuses on each district's designated indigenous product to provide 35% PMFME capital subsidies, priority procurement on GeM, and cluster common facility centers."}
-                    </p>
-                  </div>
-
-                  {/* Current Business & District ODOP Badges */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                        {selectedLang === "en" ? "Your Current Business" : "आपका वर्तमान व्यवसाय"}
-                      </div>
-                      <div className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
-                        <span>🏪</span>
-                        <span className="truncate">{odopData.user_business || "Your Venture"}</span>
-                      </div>
-                    </div>
-
-                    <div className="p-3 rounded-2xl bg-teal-50 border border-teal-200">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-teal-700 mb-1">
-                        {selectedLang === "en" ? "The District's ODOP" : "जिले का आधिकारिक ODOP"}
-                      </div>
-                      <div className="font-bold text-sm text-teal-950 flex items-center gap-1.5">
-                        <span>🌾</span>
-                        <span className="truncate">{odopData.district_odop || odopData.odop_product}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* How We Aligned Both (3 Structured Pillars) */}
-                  <div className="space-y-2.5 pt-1">
-                    <div className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-amber-500" />
-                      <span>
-                        {selectedLang === "en"
-                          ? "How We Aligned Both (Strategic Synergy):"
-                          : "हमने दोनों को कैसे जोड़ा (रणनीतिक तालमेल):"}
-                      </span>
-                    </div>
-
-                    {/* Pillar 1: Product Innovation */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1">
-                      <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-[11px] font-black shrink-0">1</span>
-                        <span>{odopData.synergy_pillars?.product_innovation?.title || "Product Innovation"}</span>
-                      </div>
-                      <p className="text-xs text-slate-600 pl-7 leading-relaxed">
-                        {odopData.synergy_pillars?.product_innovation?.description}
-                      </p>
-                    </div>
-
-                    {/* Pillar 2: Local Sourcing Advantage */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1">
-                      <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-[11px] font-black shrink-0">2</span>
-                        <span>{odopData.synergy_pillars?.local_sourcing?.title || "Local Sourcing Advantage"}</span>
-                      </div>
-                      <p className="text-xs text-slate-600 pl-7 leading-relaxed">
-                        {odopData.synergy_pillars?.local_sourcing?.description}
-                      </p>
-                    </div>
-
-                    {/* Pillar 3: Financial Incentives */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1">
-                      <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-[11px] font-black shrink-0">3</span>
-                        <span>{odopData.synergy_pillars?.financial_incentives?.title || "Financial & Scheme Incentives"}</span>
-                      </div>
-                      <p className="text-xs text-slate-600 pl-7 leading-relaxed">
-                        {odopData.synergy_pillars?.financial_incentives?.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Decision Buttons or Confirmed State */}
-                  {collectedFields.odop_decision ? (
-                    <div className="pt-2">
-                      <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-center font-bold text-xs text-emerald-950 flex items-center justify-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>
-                          {collectedFields.odop_decision === "align"
-                            ? (selectedLang === "en"
-                                ? "Confirmed: Aligned with ODOP (35% PMFME Subsidy Unlocked) ✨"
-                                : "स्वीकृत: ODOP से जोड़ा गया (35% PMFME सरकारी सब्सिडी सुरक्षित) ✨")
-                            : (selectedLang === "en"
-                                ? "Confirmed: Proceeding with Original Business Model (PMEGP/MUDRA)"
-                                : "स्वीकृत: मूल व्यवसाय मॉडल के साथ आगे बढ़ रहे हैं (PMEGP/मुद्रा)")}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedOwnedMachines([])}
+                          disabled={isSending}
+                          className="sm:w-auto py-3 px-3 rounded-xl font-semibold text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer"
+                        >
+                          {selectedLang === "en" ? "Clear" : "हटाएं"}
+                        </button>
+                      </>
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => handleOdopDecision(true)}
+                        onClick={() => handleConfirmMachinery([])}
                         disabled={isSending}
-                        className="flex-1 py-3 px-4 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                        className="w-full py-3 px-4 rounded-xl font-bold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-300 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                       >
-                        <Sparkles className="w-4 h-4 text-emerald-200" />
                         <span>
                           {selectedLang === "en"
-                            ? "Align with ODOP (Unlock 35% Subsidy) ✨"
-                            : "ODOP से जोड़ें (35% सब्सिडी अनलॉक करें) ✨"}
+                            ? "I don't own any of these (I need all fresh machines)"
+                            : "मेरे पास इनमें से कोई मशीन नहीं है (मुझे सभी नई मशीनें चाहिए)"}
                         </span>
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleOdopDecision(false)}
-                        disabled={isSending}
-                        className="sm:w-auto py-3 px-4 rounded-xl font-semibold text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        {selectedLang === "en" ? "Keep My Idea" : "मेरा विचार रखें"}
-                      </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1652,9 +2219,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           {/* Typing Indicator */}
           {isSending && (
             <div className="flex gap-2.5 animate-[fadeIn_0.2s_ease-out]">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-500 to-indigo-600 flex items-center justify-center text-white text-xs font-black shrink-0">
-                M
-              </div>
+              <MiraAvatar size="w-8 h-8" rounded="rounded-xl" />
               <div className="bg-white rounded-2xl rounded-bl-md px-4 py-3 border border-slate-200/80 shadow-sm">
                 <div className="flex items-center gap-1.5">
                   <div className="flex gap-1">
@@ -1730,39 +2295,161 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             <span className="truncate max-w-[220px]">
               {collectedFields.district_name 
                 ? `📍 ${collectedFields.district_name}, ${collectedFields.state_name || ''}` 
-                : "📍 Thane, Maharashtra"}
+                : `📍 ${collectedFields.district_name || detectedLocationData?.district_name || "Pune"}, ${collectedFields.state_name || "Maharashtra"}`}
             </span>
           </div>
         </div>
       </div>
 
-      {/* ─── Processing Phase Overlay Modal ──────────────────────────────── */}
-      {phase === "processing" && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center animate-[fadeIn_0.3s_ease-out]">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <CheckCircle2 className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="text-xl font-extrabold text-slate-900 font-display mb-2">
-              {selectedLang === "en" ? "All Information Collected! 🎉" : "सभी जानकारी एकत्र हो गई! 🎉"}
-            </h2>
-            <p className="text-sm text-slate-600 mb-6">
-              {selectedLang === "en"
-                ? "Mira has gathered your enterprise details and finalized your ODOP alignment. Click below to generate your complete bank-ready feasibility appraisal."
-                : "Mira ने आपके उद्यम की सभी आवश्यक जानकारी एकत्र कर ली है और ODOP तालमेल तैयार कर लिया है। अपनी पूरी व्यवहार्यता रिपोर्ट और बैंक डीपीआर बनाने के लिए नीचे क्लिक करें।"}
-            </p>
+      {/* ─── Step 8: 50/50 Split-Screen (Left=Chat, Right=Editable Form) ── */}
+      {(phase === "split_screen" || phase === "processing") && (
+        <div className="fixed inset-0 z-50 bg-white/98 backdrop-blur-xl flex flex-col lg:flex-row animate-[fadeIn_0.3s_ease-out]">
+          {/* Left Panel: Chat History + Active Input (scrollable) */}
+          <div className="w-full lg:w-1/2 h-1/2 lg:h-full border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col bg-white">
+            <div className="bg-gradient-to-r from-slate-950 via-sovereign-900 to-indigo-950 text-white px-5 py-3.5 flex items-center justify-between shrink-0 shadow-sm">
+              <div className="flex items-center gap-3">
+                <MiraAvatar size="w-9 h-9" rounded="rounded-xl" />
+                <div>
+                  <h2 className="text-sm font-bold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-rose-300" />
+                    {selectedLang === "en" ? "Chat with Mira" : "Mira से बातचीत"}
+                  </h2>
+                  <p className="text-[10px] text-emerald-300 font-semibold">✓ {selectedLang === "en" ? "Live MSME Advisor Active" : "लाइव एमएसएमई सलाहकार सक्रिय"}</p>
+                </div>
+              </div>
 
-            {/* Collected Details Summary */}
-            <div className="bg-slate-50 rounded-2xl border border-slate-200/90 p-4 mb-6 text-left space-y-3.5 max-h-72 overflow-y-auto">
-              <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              {isPlayingAudio && (
+                <button
+                  type="button"
+                  onClick={stopAudio}
+                  className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-400/30 text-[10px] font-bold hover:bg-rose-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Stop speech"
+                >
+                  <VolumeX className="w-3 h-3" /> Stop
+                </button>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              {messages.map(msg => (
+                <div key={msg.id} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  {msg.role === "assistant" && (
+                    <MiraAvatar size="w-7 h-7" rounded="rounded-lg" />
+                  )}
+                  <div className={`max-w-[80%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-gradient-to-r from-sovereign-900 to-indigo-900 text-white rounded-br-sm shadow-sm"
+                      : "bg-slate-50 text-slate-700 border border-slate-200 rounded-bl-sm"
+                  }`}>
+                    <div className="whitespace-pre-wrap">
+                      {msg.content.split("\n").map((line, i) => {
+                        const parsed = line.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                        return <p key={i} className={i > 0 ? "mt-1" : ""} dangerouslySetInnerHTML={{ __html: parsed }} />;
+                      })}
+                    </div>
+                  </div>
+                  {msg.role === "user" && (
+                    <div className="w-7 h-7 rounded-lg bg-slate-200 flex items-center justify-center text-slate-700 text-[10px] font-bold shrink-0 mt-0.5">
+                      {userName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {isSending && (
+                <div className="flex gap-2 items-center text-xs text-slate-500 pt-1">
+                  <MiraAvatar size="w-6 h-6" rounded="rounded-lg" />
+                  <span className="italic flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-500" />
+                    Mira is thinking...
+                  </span>
+                </div>
+              )}
+              <div ref={splitMessagesEndRef} />
+            </div>
+
+            {/* Active Live Chat Bar inside Split-Screen */}
+            <div className="shrink-0 p-3 border-t border-slate-200 bg-white/95 backdrop-blur-md">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onMouseDown={startRecording}
+                  onMouseUp={stopRecording}
+                  onTouchStart={startRecording}
+                  onTouchEnd={stopRecording}
+                  disabled={isSending}
+                  className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                    isRecording
+                      ? "bg-rose-500 text-white shadow-md shadow-rose-500/30 scale-105 animate-pulse"
+                      : "bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-700 border border-slate-200"
+                  }`}
+                  title={isRecording ? "Recording... Release to stop" : "Hold to record voice"}
+                >
+                  {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                </button>
+                <input
+                  type="text"
+                  value={splitInputText}
+                  onChange={(e) => setSplitInputText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && splitInputText.trim() && !isSending) {
+                      e.preventDefault();
+                      const t = splitInputText.trim();
+                      setSplitInputText("");
+                      handleSendMessage(t);
+                    }
+                  }}
+                  placeholder={
+                    selectedLang === "en"
+                      ? "Ask Mira anything or give instructions..."
+                      : "मीरा से कुछ भी पूछें या निर्देश दें..."
+                  }
+                  disabled={isSending}
+                  className="flex-1 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (splitInputText.trim() && !isSending) {
+                      const t = splitInputText.trim();
+                      setSplitInputText("");
+                      handleSendMessage(t);
+                    }
+                  }}
+                  disabled={!splitInputText.trim() || isSending}
+                  className="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-r from-rose-600 to-indigo-800 text-white flex items-center justify-center shadow-sm disabled:opacity-40 transition-all cursor-pointer hover:shadow-md"
+                >
+                  {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel: Editable Summary Form */}
+          <div className="w-full lg:w-1/2 h-1/2 lg:h-full flex flex-col bg-slate-50/50">
+            <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-950 text-white px-5 py-3.5 flex items-center justify-between shrink-0 shadow-sm">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <h2 className="text-sm font-bold">{selectedLang === "en" ? "Enterprise Summary" : "उद्यम सारांश"}</h2>
+              </div>
+              <span className="text-[10px] text-emerald-300 font-semibold bg-emerald-500/20 px-2.5 py-1 rounded-full border border-emerald-400/40">🎉 {selectedLang === "en" ? "Ready for Report" : "रिपोर्ट तैयार"}</span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+              {/* Enterprise & Location Section */}
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-4 space-y-3 shadow-xs">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Building2 className="w-3.5 h-3.5 text-indigo-500" />
                   Enterprise & Location
                 </div>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Enterprise Name</span>
-                    <span className="font-bold text-slate-900 truncate max-w-[55%] text-right">{collectedFields.enterprise_name || `${userName}'s Venture`}</span>
+                    <input
+                      type="text"
+                      value={collectedFields.enterprise_name || `${userName}'s Venture`}
+                      onChange={(e) => setCollectedFields(prev => ({ ...prev, enterprise_name: e.target.value }))}
+                      className="text-right font-bold text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 max-w-[55%] text-xs"
+                    />
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500 font-medium">Sector & Category</span>
@@ -1770,82 +2457,104 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                       {(collectedFields.sector || "MSME").replace(/_/g, " ")} • {collectedFields.business_category || "Manufacturing"}
                     </span>
                   </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">Promoter Category</span>
+                    <select
+                      value={collectedFields.promoter_category || "general"}
+                      onChange={(e) => setCollectedFields(prev => ({ ...prev, promoter_category: e.target.value }))}
+                      className="text-right font-semibold text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 text-xs cursor-pointer"
+                    >
+                      {PROMOTER_CATEGORIES.map(c => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500 font-medium">Target Location</span>
                     <span className="font-semibold text-slate-900 text-right">
-                      {collectedFields.district_name || "Thane"}, {collectedFields.state_name || "Maharashtra"} ({collectedFields.is_rural ? "Rural" : "Urban"})
+                      {collectedFields.district_name || detectedLocationData?.district_name || "Pune"}, {collectedFields.state_name || "Maharashtra"} ({collectedFields.is_rural ? "Rural" : "Urban"})
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="border-t border-slate-200/70 pt-2.5">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              {/* Financial Section */}
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-4 space-y-3 shadow-xs">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   Financial Outlay & Promoter Equity
                 </div>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Promoter Equity</span>
-                    <span className="font-bold text-emerald-700">
-                      ₹{Number(collectedFields.promoter_equity || 100000).toLocaleString('en-IN')}
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold text-emerald-700 text-xs">₹</span>
+                      <input
+                        type="number"
+                        value={collectedFields.promoter_equity || 100000}
+                        onChange={(e) => setCollectedFields(prev => ({ ...prev, promoter_equity: Number(e.target.value) }))}
+                        className="text-right font-bold text-emerald-700 bg-transparent border-b border-dashed border-slate-300 focus:border-emerald-500 focus:outline-none px-1 py-0.5 w-28 text-xs"
+                      />
                       {collectedFields.promoter_margin_pct && (
-                        <span className="ml-1 text-[10px] text-slate-500 font-normal">({collectedFields.promoter_margin_pct}% Margin)</span>
+                        <span className="text-[10px] text-slate-500 font-normal">({collectedFields.promoter_margin_pct}% Margin)</span>
                       )}
-                    </span>
-                  </div>
-                  {collectedFields.gross_project_cost && Number(collectedFields.gross_project_cost) !== Number(collectedFields.project_cost) && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500 font-medium">Gross Project Outlay</span>
-                      <span className="font-semibold text-slate-700">₹{Number(collectedFields.gross_project_cost).toLocaleString('en-IN')}</span>
                     </div>
-                  )}
+                  </div>
                   {Number(collectedFields.owned_machinery_value || 0) > 0 && (
-                    <div className="text-emerald-800 bg-emerald-50/80 px-2 py-1.5 rounded-md space-y-0.5">
+                    <div className="text-emerald-800 bg-emerald-50/80 px-2.5 py-1.5 rounded-xl border border-emerald-200 space-y-0.5">
                       <div className="flex justify-between">
                         <span className="font-medium text-[11px]">Owned Machinery Credit</span>
                         <span className="font-bold text-[11px]">-₹{Number(collectedFields.owned_machinery_value).toLocaleString('en-IN')}</span>
                       </div>
                       {collectedFields.owned_machines && Array.isArray(collectedFields.owned_machines) && collectedFields.owned_machines.length > 0 && (
                         <div className="text-[10px] text-emerald-700/80 truncate">
-                          Credited: {collectedFields.owned_machines.map(m => m.machine_name || m).join(", ")}
+                          {collectedFields.owned_machines.map(m => m.machine_name || m).join(", ")}
                         </div>
                       )}
                     </div>
                   )}
-                  <div className="flex justify-between bg-white px-2 py-1 rounded-md border border-slate-200">
-                    <span className="text-slate-900 font-bold text-xs">Net Fresh Bank Loan Base</span>
-                    <span className="font-extrabold text-indigo-950 text-xs">₹{Number(collectedFields.project_cost || 500000).toLocaleString('en-IN')}</span>
+                  <div className="flex justify-between bg-slate-50 px-2.5 py-2 rounded-xl border border-slate-200">
+                    <span className="text-slate-900 font-bold">Net Bank Loan Base</span>
+                    <span className="font-extrabold text-indigo-950">₹{Number(collectedFields.project_cost || 500000).toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="border-t border-slate-200/70 pt-2.5">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              {/* Banking Policy Section */}
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-4 space-y-3 shadow-xs">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  Statutory MSME Banking Policy
+                  MSME Banking Policy
                 </div>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Loan Repayment Period</span>
-                    <span className="font-semibold text-slate-800">{collectedFields.tenure_years || 7.0} Years (RBI Norms)</span>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">Loan Tenure</span>
+                    <select
+                      value={collectedFields.tenure_years || 7}
+                      onChange={(e) => setCollectedFields(prev => ({ ...prev, tenure_years: Number(e.target.value) }))}
+                      className="text-right font-semibold text-slate-800 bg-transparent border-b border-dashed border-slate-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 text-xs cursor-pointer"
+                    >
+                      {[3, 5, 7, 8, 10].map(y => (
+                        <option key={y} value={y}>{y} Years</option>
+                      ))}
+                    </select>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Moratorium Grace Period</span>
-                    <span className="font-semibold text-slate-800">{collectedFields.moratorium_months || 6} Months (Setup & Trial)</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">Moratorium</span>
+                    <select
+                      value={collectedFields.moratorium_months || 6}
+                      onChange={(e) => setCollectedFields(prev => ({ ...prev, moratorium_months: Number(e.target.value) }))}
+                      className="text-right font-semibold text-slate-800 bg-transparent border-b border-dashed border-slate-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 text-xs cursor-pointer"
+                    >
+                      {[0, 3, 6, 9, 12].map(m => (
+                        <option key={m} value={m}>{m} Months</option>
+                      ))}
+                    </select>
                   </div>
-                  {collectedFields.expected_monthly_units && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500 font-medium">Production Capacity</span>
-                      <span className="font-semibold text-slate-800">
-                        {Number(collectedFields.expected_monthly_units).toLocaleString('en-IN')} {collectedFields.capacity_unit_label || "units"}/mo
-                      </span>
-                    </div>
-                  )}
                   {collectedFields.odop_product && (
                     <div className="flex justify-between">
                       <span className="text-slate-500 font-medium">ODOP Status</span>
-                      <span className="font-semibold text-indigo-600 truncate max-w-[55%] text-right">
+                      <span className="font-semibold text-indigo-600">
                         {collectedFields.odop_synergy_aligned ? `Aligned (${collectedFields.odop_product})` : "Standard Model"}
                       </span>
                     </div>
@@ -1854,23 +2563,26 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
               </div>
             </div>
 
-            <button
-              onClick={handleFinalSubmit}
-              disabled={parentLoading}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-sovereign-900 via-sovereign-800 to-indigo-900 text-white font-bold text-sm shadow-lg shadow-sovereign-950/20 hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-50 cursor-pointer"
-            >
-              {parentLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>{selectedLang === "en" ? "Generating Report..." : "रिपोर्ट बना रहे हैं..."}</span>
-                </>
-              ) : (
-                <>
-                  <span>{selectedLang === "en" ? "Generate Feasibility Report" : "व्यवहार्यता रिपोर्ट बनाएँ"}</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </>
-              )}
-            </button>
+            {/* Submit Button — pinned at bottom */}
+            <div className="shrink-0 px-5 py-4 border-t border-slate-200 bg-white">
+              <button
+                onClick={handleFinalSubmit}
+                disabled={parentLoading}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-sovereign-900 via-sovereign-800 to-indigo-900 text-white font-bold text-sm shadow-xl shadow-sovereign-950/20 hover:shadow-2xl hover:scale-[1.01] transition-all duration-200 flex items-center justify-center gap-2.5 group disabled:opacity-50 cursor-pointer"
+              >
+                {parentLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>{selectedLang === "en" ? "Generating Report..." : "रिपोर्ट बना रहे हैं..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-base">{selectedLang === "en" ? "Generate Feasibility Report" : "व्यवहार्यता रिपोर्ट बनाएँ"}</span>
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1879,6 +2591,20 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes dynamicPastel {
+          0% { background-position: 0% 50%; }
+          25% { background-position: 100% 25%; }
+          50% { background-position: 100% 50%; }
+          75% { background-position: 0% 75%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          25% { background-position: 100% 25%; }
+          50% { background-position: 100% 50%; }
+          75% { background-position: 0% 75%; }
+          100% { background-position: 0% 50%; }
         }
       `}</style>
     </div>

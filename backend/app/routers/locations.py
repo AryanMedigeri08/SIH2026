@@ -59,6 +59,32 @@ async def list_villages(
     return [VillageInfo(**v) for v in villages_data]
 
 
+@router.get("/reverse-geocode")
+async def reverse_geocode(
+    latitude: float = Query(..., description="GPS Latitude"),
+    longitude: float = Query(..., description="GPS Longitude"),
+):
+    """
+    Reverse geocodes GPS coordinates to Indian State, District, and Locality.
+    Uses SQLite Locality Master with 150,000+ Indian pincodes/villages.
+    """
+    from app.routers.onboarding import reverse_geocode_coords
+    geo = reverse_geocode_coords(latitude, longitude)
+    if geo:
+        return {
+            "success": True,
+            "state_name": geo["state_name"],
+            "district_name": geo["district_name"],
+            "locality_name": geo.get("locality_name"),
+        }
+    return {
+        "success": False,
+        "state_name": None,
+        "district_name": None,
+        "locality_name": None,
+    }
+
+
 @router.get("/odop", response_model=ODOPLookupResponse)
 async def get_district_odop(
     state_name: str = Query(..., description="Indian State Name (e.g. West Bengal, Uttar Pradesh)"),

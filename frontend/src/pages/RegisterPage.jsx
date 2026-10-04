@@ -24,6 +24,7 @@ import {
   MapPin,
   CheckCircle2,
 } from "lucide-react";
+import { reverseGeocodeCoords, detectLocationFromIP } from "../services/api";
 
 export const RegisterPage = () => {
   const [email, setEmail] = useState("");
@@ -47,18 +48,43 @@ export const RegisterPage = () => {
   // Auto-detect geolocation on page load
   const detectLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setLocationStatus("error");
+      // Try IP detection fallback immediately
+      (async () => {
+        const ipLoc = await detectLocationFromIP();
+        if (ipLoc) {
+          const loc = {
+            latitude: ipLoc.latitude,
+            longitude: ipLoc.longitude,
+            district_name: ipLoc.district_name || "Pune",
+            state_name: ipLoc.state_name || "Maharashtra",
+            accuracy: 5000,
+          };
+          setDetectedLocation(loc);
+          try {
+            localStorage.setItem("user_detected_location", JSON.stringify(loc));
+          } catch (_) {}
+          setLocationStatus("success");
+        } else {
+          setLocationStatus("error");
+        }
+      })();
       return;
     }
     setIsDetectingLocation(true);
     setLocationStatus("detecting");
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        const geo = await reverseGeocodeCoords(lat, lon);
         const loc = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
+          latitude: lat,
+          longitude: lon,
           accuracy: position.coords.accuracy,
+          district_name: geo?.district_name || "Pune",
+          state_name: geo?.state_name || "Maharashtra",
+          locality_name: geo?.locality_name || "",
         };
         setDetectedLocation(loc);
         try {
@@ -67,12 +93,40 @@ export const RegisterPage = () => {
         setIsDetectingLocation(false);
         setLocationStatus("success");
       },
-      (err) => {
-        console.warn("Geolocation detection failed:", err.message);
+      async (err) => {
+        console.warn("Geolocation detection failed, trying IP fallback:", err.message);
+        const ipLoc = await detectLocationFromIP();
+        if (ipLoc) {
+          const loc = {
+            latitude: ipLoc.latitude,
+            longitude: ipLoc.longitude,
+            district_name: ipLoc.district_name || "Pune",
+            state_name: ipLoc.state_name || "Maharashtra",
+            accuracy: 5000,
+          };
+          setDetectedLocation(loc);
+          try {
+            localStorage.setItem("user_detected_location", JSON.stringify(loc));
+          } catch (_) {}
+          setLocationStatus("success");
+        } else {
+          // Default fallback to Pune
+          const loc = {
+            latitude: 18.5204,
+            longitude: 73.8567,
+            district_name: "Pune",
+            state_name: "Maharashtra",
+            accuracy: 10000,
+          };
+          setDetectedLocation(loc);
+          try {
+            localStorage.setItem("user_detected_location", JSON.stringify(loc));
+          } catch (_) {}
+          setLocationStatus("success");
+        }
         setIsDetectingLocation(false);
-        setLocationStatus("error");
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
     );
   }, []);
 

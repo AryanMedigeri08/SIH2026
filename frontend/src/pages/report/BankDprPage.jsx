@@ -22,8 +22,11 @@ export function BankDprPage({ reportData }) {
 
   const projectCost = Number(p.project_cost) || 0;
   const subsidyAmount = topScheme.subsidy_grant_amount || 0;
-  const promoterMargin = fin.promoter_margin_amount || (projectCost * 0.10);
-  const termLoan = fin.loan_principal || Math.max(projectCost - subsidyAmount - promoterMargin, 0);
+  const committedEquity = fin.committed_promoter_equity ?? p.promoter_equity ?? fin.promoter_equity ?? fin.promoter_margin_amount ?? (projectCost * 0.10);
+  const statutoryMargin = fin.minimum_statutory_margin_amount ?? fin.statutory_margin_amount ?? (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05));
+  const statutoryPct = fin.minimum_statutory_margin_pct ?? (p.promoter_category === 'general' ? 10 : 5);
+  const promoterMargin = fin.promoter_margin_amount || committedEquity;
+  const termLoan = fin.loan_principal !== undefined ? fin.loan_principal : Math.max(projectCost - subsidyAmount - promoterMargin, 0);
   const monthlyEmi = fin.amortization?.monthly_emi || 0;
   const dscr = fin.dscr?.dscr ?? 1.33;
 
@@ -174,16 +177,29 @@ export function BankDprPage({ reportData }) {
       </div>
 
       {/* Credit Appraisal Summary Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
         <div className="glass-panel p-3 sm:p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
             <PieChart className="w-3.5 h-3.5 text-sovereign-700" />
-            <span><TranslatedText text="Total Outlay" /></span>
+            <span><TranslatedText text="Fresh Outlay" /></span>
           </div>
           <strong className="text-base font-mono font-extrabold text-slate-900 block mt-1">
             ₹{(projectCost / 100000).toFixed(2)}L
           </strong>
           <span className="text-[10px] text-slate-500 font-medium">100% Sourced</span>
+        </div>
+
+        <div className="glass-panel p-3 sm:p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
+          <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
+            <IndianRupee className="w-3.5 h-3.5 text-sky-700" />
+            <span><TranslatedText text="Cash Equity" /></span>
+          </div>
+          <strong className="text-base font-mono font-extrabold text-sky-900 block mt-1">
+            ₹{(committedEquity / 100000).toFixed(2)}L
+          </strong>
+          <span className="text-[10px] text-sky-700 font-semibold truncate block">
+            Min: ₹{(statutoryMargin / 100000).toFixed(2)}L ({statutoryPct}%)
+          </span>
         </div>
 
         <div className="glass-panel p-3 sm:p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
@@ -219,7 +235,7 @@ export function BankDprPage({ reportData }) {
           <span className="text-[10px] text-slate-500 font-medium">60 Mo Amortized</span>
         </div>
 
-        <div className="glass-panel p-3 sm:p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all col-span-2 sm:col-span-1">
+        <div className="glass-panel p-3 sm:p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-sovereign-700" />
             <span><TranslatedText text="DSCR Solvency" /></span>

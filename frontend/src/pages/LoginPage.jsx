@@ -260,6 +260,17 @@ export const LoginPage = () => {
                 </svg>
                 <span>Google Enterprise SSO</span>
               </button>
+
+              <button
+                type="button"
+                id="demo-login-btn"
+                onClick={handleDemoLogin}
+                disabled={isSubmitting}
+                className="w-full mt-3 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-800 text-sm font-bold shadow-subtle transition-all disabled:opacity-50"
+              >
+                <Zap className="w-4 h-4 text-amber-600 fill-amber-500" />
+                <span>Instant Demo Login (Guest Evaluator)</span>
+              </button>
             </div>
           </div>
         </div>

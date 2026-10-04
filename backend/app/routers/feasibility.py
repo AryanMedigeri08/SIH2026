@@ -127,10 +127,28 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     )
     top_scheme = next((r for r in schemes if r.eligible), schemes[0])
 
-    promoter_pct = 0.05 if input_data.promoter_category.lower() != "general" else 0.10
-    promoter_margin_val = input_data.project_cost * promoter_pct
-    loan_principal = max(input_data.project_cost - top_scheme.subsidy_grant_amount - promoter_margin_val, 1.0)
-    amort = emi_with_moratorium(loan_principal, top_scheme.effective_interest_rate_pct, input_data.tenure_years, input_data.moratorium_months)
+    min_statutory_pct = 0.05 if input_data.promoter_category.lower() != "general" else 0.10
+    min_statutory_margin_val = round(input_data.project_cost * min_statutory_pct, 2)
+
+    # Committed liquid promoter cash equity (from user onboarding/persistence)
+    if input_data.promoter_equity is not None and float(input_data.promoter_equity) > 0:
+        committed_cash_equity = float(input_data.promoter_equity)
+    else:
+        committed_cash_equity = min_statutory_margin_val
+
+    # Promoter cash applied to net fresh borrowing outlay (ensuring statutory minimum is met)
+    promoter_cash_applied = max(
+        min_statutory_margin_val,
+        min(committed_cash_equity, max(input_data.project_cost - top_scheme.subsidy_grant_amount, min_statutory_margin_val))
+    )
+    loan_principal = max(input_data.project_cost - top_scheme.subsidy_grant_amount - promoter_cash_applied, 0.0)
+    effective_loan_for_amort = max(loan_principal, 1.0)
+    amort = emi_with_moratorium(effective_loan_for_amort, top_scheme.effective_interest_rate_pct, input_data.tenure_years, input_data.moratorium_months)
+    if loan_principal <= 0.0:
+        amort.monthly_emi = 0.0
+        amort.total_interest = 0.0
+        amort.total_repayment = 0.0
+    promoter_margin_val = promoter_cash_applied
 
     # Intelligently ground annual turnover with physical machine capacity, Census TAM, and RBI debt solvency
     turnover_audit = calculate_intelligent_turnover(
@@ -234,7 +252,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         "sector": input_data.sector,
         "location_str": f"{input_data.village_name}, {input_data.block_name}, {input_data.district_name}, {input_data.state_name}",
         "project_cost": input_data.project_cost,
-        "promoter_margin_amount": promoter_margin_val,
+        "promoter_margin_amount": committed_cash_equity,
         "top_scheme_name": f"{top_scheme.scheme_id} ({top_scheme.full_name})",
         "subsidy_amount": top_scheme.subsidy_grant_amount,
         "subsidy_pct": subsidy_coverage_ratio * 100,
@@ -312,6 +330,10 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         ml_prediction=ml_pred,
         ai_synthesis=synthesis,
         odop_info=odop_alignment,
+        promoter_equity=committed_cash_equity,
+        gross_project_cost=input_data.gross_project_cost,
+        owned_machinery_value=input_data.owned_machinery_value,
+        loan_principal=loan_principal,
     )
 
     report_id = f"REP-{uuid.uuid4().hex[:10].upper()}"
@@ -408,7 +430,15 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
             "amortization": amort.to_dict(),
             "dscr": dscr_res.to_dict(),
             "loan_principal": loan_principal,
-            "promoter_margin_amount": promoter_margin_val,
+            "promoter_margin_amount": promoter_cash_applied,
+            "committed_promoter_equity": committed_cash_equity,
+            "promoter_equity": committed_cash_equity,
+            "minimum_statutory_margin_amount": min_statutory_margin_val,
+            "minimum_statutory_margin_pct": round(min_statutory_pct * 100, 1),
+            "statutory_margin_amount": min_statutory_margin_val,
+            "gross_project_cost": input_data.gross_project_cost or input_data.project_cost,
+            "owned_machinery_value": input_data.owned_machinery_value or 0.0,
+            "net_project_cost": input_data.project_cost,
             "monthly_net_profit": round(monthly_net_profit, 2),
             "annual_net_profit": round(annual_net_profit, 2),
             "roi_pct": roi_pct,
@@ -461,10 +491,11 @@ async def generate_feasibility(input_data: UserInput, current_user: Authenticate
     try:
         report, dpr = await _run_pipeline(input_data)
         # Store in db / memory cache for instant retrieval
+        user_id = getattr(current_user, "uid", "system_anonymous") if current_user else "system_anonymous"
         await db_manager.save_feasibility_report(report.report_id, {
             "report": report.model_dump(mode="json"),
             "dpr": dpr.to_dict(),
-        }, current_user.uid)
+        }, user_id)
         return report
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Feasibility pipeline error: {str(e)}")

@@ -69,6 +69,9 @@ class CapitalOutlayTable(BaseModel):
     initial_working_capital_reserve: CapitalOutlayItem
     contingency_and_pre_operative: CapitalOutlayItem
     total_capital_outlay: float
+    gross_project_cost: Optional[float] = None
+    owned_machinery_value: Optional[float] = 0.0
+    net_fresh_outlay: Optional[float] = None
 
 
 class MeansOfFinanceTable(BaseModel):
@@ -81,6 +84,12 @@ class MeansOfFinanceTable(BaseModel):
     bank_term_loan_pct: float
     total_means_of_finance: float
     reconciliation_balanced: bool = True
+    committed_promoter_equity: Optional[float] = None
+    minimum_statutory_margin_amount: Optional[float] = None
+    minimum_statutory_margin_pct: Optional[float] = None
+    owned_machinery_value: Optional[float] = 0.0
+    gross_project_cost: Optional[float] = None
+    net_project_cost: Optional[float] = None
 
 
 class FinancialProjectionYear(BaseModel):
@@ -503,6 +512,10 @@ def build_bank_dpr(
     ai_synthesis: Any,
     constitution: str = "Sole Proprietorship",
     odop_info: Optional[dict[str, Any]] = None,
+    promoter_equity: Optional[float] = None,
+    gross_project_cost: Optional[float] = None,
+    owned_machinery_value: Optional[float] = None,
+    loan_principal: Optional[float] = None,
 ) -> BankDPRDocument:
     """
     Compiles the complete 7-Section Bank DPR appraisal document.
@@ -541,6 +554,9 @@ def build_bank_dpr(
     cost_wc = project_cost * 0.20
     cost_contingency = project_cost * 0.10
 
+    gross_val = float(gross_project_cost) if gross_project_cost and float(gross_project_cost) > 0 else project_cost
+    owned_val = float(owned_machinery_value or 0.0)
+
     outlay_table = CapitalOutlayTable(
         plant_and_machinery=CapitalOutlayItem(
             item_name="Plant, Machinery & Core Equipment",
@@ -567,6 +583,9 @@ def build_bank_dpr(
             description="Trial run expenses, licensing, logistics contingency, and buffer",
         ),
         total_capital_outlay=round(project_cost, 2),
+        gross_project_cost=round(gross_val, 2),
+        owned_machinery_value=round(owned_val, 2),
+        net_fresh_outlay=round(project_cost, 2),
     )
 
     # Means of Finance (Promoter Margin + Subsidy Grant + Bank Loan == Outlay)
@@ -574,10 +593,23 @@ def build_bank_dpr(
     subsidy_amt = top_scheme.subsidy_grant_amount
     subsidy_pct = (subsidy_amt / project_cost * 100) if project_cost > 0 else 0.0
 
-    promoter_pct = 5.0 if promoter_category.lower() != "general" else 10.0
-    promoter_margin_amt = project_cost * (promoter_pct / 100.0)
+    min_statutory_pct = 5.0 if promoter_category.lower() != "general" else 10.0
+    min_statutory_margin_amt = round(project_cost * (min_statutory_pct / 100.0), 2)
 
-    bank_loan_amt = max(project_cost - subsidy_amt - promoter_margin_amt, 0.0)
+    committed_cash_equity = float(promoter_equity) if promoter_equity and float(promoter_equity) > 0 else min_statutory_margin_amt
+    promoter_cash_applied = max(
+        min_statutory_margin_amt,
+        min(committed_cash_equity, max(project_cost - subsidy_amt, min_statutory_margin_amt))
+    )
+
+    if loan_principal is not None:
+        bank_loan_amt = max(float(loan_principal), 0.0)
+    else:
+        bank_loan_amt = max(project_cost - subsidy_amt - promoter_cash_applied, 0.0)
+
+    # Balanced promoter equity share for the borrowing base
+    promoter_margin_amt = max(project_cost - subsidy_amt - bank_loan_amt, min_statutory_margin_amt)
+    promoter_pct = (promoter_margin_amt / project_cost * 100) if project_cost > 0 else min_statutory_pct
     bank_loan_pct = (bank_loan_amt / project_cost * 100) if project_cost > 0 else 0.0
 
     means_of_finance = MeansOfFinanceTable(
@@ -590,6 +622,12 @@ def build_bank_dpr(
         bank_term_loan_pct=round(bank_loan_pct, 1),
         total_means_of_finance=round(promoter_margin_amt + subsidy_amt + bank_loan_amt, 2),
         reconciliation_balanced=abs((promoter_margin_amt + subsidy_amt + bank_loan_amt) - project_cost) < 1.0,
+        committed_promoter_equity=round(committed_cash_equity, 2),
+        minimum_statutory_margin_amount=round(min_statutory_margin_amt, 2),
+        minimum_statutory_margin_pct=round(min_statutory_pct, 1),
+        owned_machinery_value=round(owned_val, 2),
+        gross_project_cost=round(gross_val, 2),
+        net_project_cost=round(project_cost, 2),
     )
 
     # 3. 5-Year Cash Flow Projections
@@ -743,7 +781,18 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
         f"> {ai.get('bank_appraisal_notes', '')}\n",
         f"\n---\n",
         f"## SECTION 2: CAPITAL OUTLAY & MEANS OF FINANCE",
-        f"\n### Capital Outlay Breakdown:",
+    ])
+
+    if outlay.get("owned_machinery_value") and outlay["owned_machinery_value"] > 0:
+        lines.extend([
+            f"\n### Enterprise Capital Valuation Bridge:",
+            f"- **Gross Enterprise Valuation / Outlay**: ₹{outlay.get('gross_project_cost', outlay['total_capital_outlay']):,.2f}",
+            f"- **Less: In-Kind Asset Contribution (Owned Machinery Credited)**: -₹{outlay.get('owned_machinery_value', 0):,.2f}",
+            f"- **Net Fresh Bank Project Cost (Borrowing Base)**: **₹{outlay['total_capital_outlay']:,.2f}**\n",
+        ])
+
+    lines.extend([
+        f"\n### Net Fresh Capital Outlay Breakdown:",
         f"| Component | % Outlay | Amount (₹) | Description |",
         f"| :--- | :---: | :---: | :--- |",
         f"| **Plant & Machinery** | {outlay['plant_and_machinery']['percentage_of_outlay']:.1f}% | ₹{outlay['plant_and_machinery']['amount_inr']:,.2f} | {outlay['plant_and_machinery']['description']} |",
@@ -754,7 +803,7 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
         f"\n### Means of Finance Reconciliation:",
         f"| Financing Source | % Share | Amount (₹) | Scheme / Terms |",
         f"| :--- | :---: | :---: | :--- |",
-        f"| **Promoter Margin Contribution** | {finance['promoter_margin_pct']:.1f}% | ₹{finance['promoter_margin_amount']:,.2f} | Own equity funds |",
+        f"| **Promoter Cash Equity Committed** | {finance['promoter_margin_pct']:.1f}% | ₹{finance.get('committed_promoter_equity', finance['promoter_margin_amount']):,.2f} | Liquid cash equity (Min statutory bank margin: ₹{finance.get('minimum_statutory_margin_amount', finance['promoter_margin_amount']):,.2f} / {finance.get('minimum_statutory_margin_pct', 10)}%) |",
         f"| **Government Capital Subsidy Grant** | {finance['capital_subsidy_pct']:.1f}% | ₹{finance['capital_subsidy_amount']:,.2f} | {finance['subsidy_scheme_name']} |",
         f"| **Bank Term Loan / Debt** | {finance['bank_term_loan_pct']:.1f}% | ₹{finance['bank_term_loan_amount']:,.2f} | Scheduled Commercial Bank Loan |",
         f"| **TOTAL MEANS OF FINANCE** | **100.0%** | **₹{finance['total_means_of_finance']:,.2f}** | **Balanced: {finance['reconciliation_balanced']}** |",
@@ -1036,6 +1085,16 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
     verdict_badge_class = "suitable" if s5.verdict == "SUITABLE" else "caution" if s5.verdict == "CAUTION" else "reconsider"
     reconciled_status = "100% Reconciled" if finance['reconciliation_balanced'] else "Discrepancy Detected"
 
+    owned_machinery_credit = outlay.get('owned_machinery_value') or 0.0
+    gross_enterprise_val = outlay.get('gross_project_cost') or outlay['total_capital_outlay']
+    bridge_banner_html = ""
+    if owned_machinery_credit > 0:
+        bridge_banner_html = f"""
+        <div class="callout" style="background:#f0f9ff; border-left:3px solid #0284c7; margin-bottom:12px; font-size:11px;">
+            <strong>Enterprise Capital Valuation Bridge:</strong> Gross Capital Outlay: <strong>₹{gross_enterprise_val:,.2f}</strong> &middot; Less Owned Machinery Credited: <strong style="color:#0369a1;">-₹{owned_machinery_credit:,.2f}</strong> &middot; Net Fresh Bank Outlay: <strong>₹{outlay['total_capital_outlay']:,.2f}</strong>
+        </div>
+        """
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1254,6 +1313,7 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
 
 <!-- SECTION 2 -->
 <h2>SECTION 2: CAPITAL OUTLAY & MEANS OF FINANCE RECONCILIATION</h2>
+{bridge_banner_html}
 <h3>A. Capital Expenditure Breakdown:</h3>
 <table>
     <tr><th>Capital Component</th><th class="num">% Outlay</th><th class="num">Amount (₹)</th><th>Item Description</th></tr>
@@ -1261,13 +1321,13 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
     <tr><td>Electrification, Site Works & Fixtures</td><td class="num">{outlay['electrification_and_site_works']['percentage_of_outlay']:.1f}%</td><td class="num">₹{outlay['electrification_and_site_works']['amount_inr']:,.2f}</td><td>{outlay['electrification_and_site_works']['description']}</td></tr>
     <tr><td>Initial Working Capital Reserve</td><td class="num">{outlay['initial_working_capital_reserve']['percentage_of_outlay']:.1f}%</td><td class="num">₹{outlay['initial_working_capital_reserve']['amount_inr']:,.2f}</td><td>{outlay['initial_working_capital_reserve']['description']}</td></tr>
     <tr><td>Contingency & Pre-Operative Outlay</td><td class="num">{outlay['contingency_and_pre_operative']['percentage_of_outlay']:.1f}%</td><td class="num">₹{outlay['contingency_and_pre_operative']['amount_inr']:,.2f}</td><td>{outlay['contingency_and_pre_operative']['description']}</td></tr>
-    <tr style="font-weight:bold; background:#f8fafc;"><td>TOTAL CAPITAL OUTLAY</td><td class="num">100.0%</td><td class="num">₹{outlay['total_capital_outlay']:,.2f}</td><td><strong>100% Total Project Outlay Sized</strong></td></tr>
+    <tr style="font-weight:bold; background:#f8fafc;"><td>TOTAL CAPITAL OUTLAY</td><td class="num">100.0%</td><td class="num">₹{outlay['total_capital_outlay']:,.2f}</td><td><strong>100% Net Fresh Project Outlay Sized</strong></td></tr>
 </table>
 
 <h3>B. Means of Finance (Sources of Funds):</h3>
 <table>
     <tr><th>Financing Means</th><th class="num">% Share</th><th class="num">Amount (₹)</th><th>Terms / Funding Source</th></tr>
-    <tr><td>Promoter Margin Contribution</td><td class="num">{finance['promoter_margin_pct']:.1f}%</td><td class="num">₹{finance['promoter_margin_amount']:,.2f}</td><td>Promoter equity cash deposit</td></tr>
+    <tr><td><strong>Promoter Cash Equity Committed</strong><br/><span style="font-size:10px; color:#64748b;">Min statutory bank margin: ₹{finance.get('minimum_statutory_margin_amount', finance['promoter_margin_amount']):,.2f} ({finance.get('minimum_statutory_margin_pct', 10):.1f}%)</span></td><td class="num">{finance['promoter_margin_pct']:.1f}%</td><td class="num" style="font-weight:bold; color:#0369a1;">₹{finance.get('committed_promoter_equity', finance['promoter_margin_amount']):,.2f}</td><td>Liquid equity funds committed (₹{finance['promoter_margin_amount']:,.2f} applied to borrowing base)</td></tr>
     <tr><td>Government Capital Subsidy Grant</td><td class="num">{finance['capital_subsidy_pct']:.1f}%</td><td class="num">₹{finance['capital_subsidy_amount']:,.2f}</td><td>{finance['subsidy_scheme_name']}</td></tr>
     <tr><td>Bank Term Loan / Debt Facility</td><td class="num">{finance['bank_term_loan_pct']:.1f}%</td><td class="num">₹{finance['bank_term_loan_amount']:,.2f}</td><td>Scheduled Commercial Bank Term Loan</td></tr>
     <tr style="font-weight:bold; background:#f8fafc;"><td>TOTAL MEANS OF FINANCE</td><td class="num">100.0%</td><td class="num">₹{finance['total_means_of_finance']:,.2f}</td><td><strong>Reconciliation Status: Balanced ({reconciled_status})</strong></td></tr>

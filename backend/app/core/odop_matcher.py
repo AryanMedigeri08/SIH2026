@@ -12,10 +12,16 @@ import logging
 from pathlib import Path
 from typing import Optional, Any
 
+import re
+
 logger = logging.getLogger(__name__)
 
 _REGISTRY_PATH = Path(__file__).resolve().parent.parent / "data" / "odop_registry.json"
 _CACHED_REGISTRY: Optional[dict[str, Any]] = None
+
+
+def _normalize_name(name: str) -> str:
+    return name.strip().lower().replace(" ", "").replace("-", "").replace("_", "")
 
 
 def _load_odop_registry() -> dict[str, Any]:
@@ -27,7 +33,7 @@ def _load_odop_registry() -> dict[str, Any]:
         _REGISTRY_PATH,
         Path(__file__).parent / "odop_registry.json",
         Path.cwd() / "backend" / "app" / "data" / "odop_registry.json",
-        Path.cwd() / "data" / "odop_registry.json",
+        Path.cwd() / "data" / "od op_registry.json",
     ]
 
     for p in candidates:
@@ -44,34 +50,165 @@ def _load_odop_registry() -> dict[str, Any]:
     return _CACHED_REGISTRY
 
 
-def _normalize_name(name: str) -> str:
-    return name.strip().lower().replace(" ", "").replace("-", "").replace("_", "")
+STATE_ALIASES: dict[str, str] = {
+    "up": "Uttar Pradesh", "uttar pradesh": "Uttar Pradesh", "u.p.": "Uttar Pradesh",
+    "mp": "Madhya Pradesh", "madhya pradesh": "Madhya Pradesh", "m.p.": "Madhya Pradesh",
+    "wb": "West Bengal", "west bengal": "West Bengal", "w.b.": "West Bengal", "paschim banga": "West Bengal",
+    "mh": "Maharashtra", "maharashtra": "Maharashtra",
+    "gj": "Gujarat", "gujarat": "Gujarat",
+    "rj": "Rajasthan", "rajasthan": "Rajasthan",
+    "tn": "Tamil Nadu", "tamil nadu": "Tamil Nadu", "t.n.": "Tamil Nadu",
+    "ka": "Karnataka", "karnataka": "Karnataka",
+    "kl": "Kerala", "kerala": "Kerala",
+    "ts": "Telangana", "tg": "Telangana", "telangana": "Telangana",
+    "pb": "Punjab", "punjab": "Punjab",
+    "hr": "Haryana", "haryana": "Haryana",
+    "br": "Bihar", "bihar": "Bihar",
+    "jh": "Jharkhand", "jharkhand": "Jharkhand",
+    "od": "Odisha", "or": "Odisha", "odisha": "Odisha", "orissa": "Odisha",
+    "as": "Assam", "assam": "Assam",
+    "uk": "Uttarakhand", "ua": "Uttarakhand", "uttarakhand": "Uttarakhand", "uttaranchal": "Uttarakhand",
+    "hp": "Himachal Pradesh", "himachal pradesh": "Himachal Pradesh", "h.p.": "Himachal Pradesh",
+    "cg": "Chhattisgarh", "chhattisgarh": "Chhattisgarh", "chattisgarh": "Chhattisgarh",
+    "ga": "Goa", "goa": "Goa",
+    "tr": "Tripura", "tripura": "Tripura",
+    "ml": "Meghalaya", "meghalaya": "Meghalaya",
+    "mn": "Manipur", "manipur": "Manipur",
+    "nl": "Nagaland", "nagaland": "Nagaland",
+    "mz": "Mizoram", "mizoram": "Mizoram",
+    "sk": "Sikkim", "sikkim": "Sikkim",
+    "ar": "Arunachal Pradesh", "arunachal pradesh": "Arunachal Pradesh",
+    "jk": "Jammu and Kashmir", "jammu and kashmir": "Jammu and Kashmir", "j&k": "Jammu and Kashmir",
+    "la": "Ladakh", "ladakh": "Ladakh",
+    "dl": "Delhi", "nct of delhi": "Delhi", "delhi": "Delhi",
+    "py": "Puducherry", "puducherry": "Puducherry", "pondicherry": "Puducherry",
+    "ch": "Chandigarh", "chandigarh": "Chandigarh",
+    "an": "Andaman & Nicobar Islands", "andaman and nicobar": "Andaman & Nicobar Islands",
+    "dn": "Dadra and Nagar Haveli and Daman and Diu",
+    "ld": "Lakshadweep", "lakshadweep": "Lakshadweep",
+}
+
+
+def _clean_district_query(dist: str) -> str:
+    """Strips common administrative noise words from district query."""
+    d = dist.strip().lower()
+    for noise in ["district", "dist.", "dist", "zila", "jilha", "division", "city"]:
+        d = re.sub(rf'\b{noise}\b', '', d).strip()
+    return _normalize_name(d)
+
+
+def _resolve_statutory_scheme_for_odop(data: dict[str, Any]) -> tuple[str, str, int, str]:
+    """
+    Deterministically determines the grounded government scheme and subsidy for an ODOP record
+    directly from odop_registry.json without any LLM hallucination.
+    Returns: (scheme_name, subsidy_summary, subsidy_pct, scheme_type)
+    """
+    prod = (data.get("odop_product") or "").lower()
+    cat = (data.get("category") or "").lower()
+    pmfme_eligible = bool(data.get("pmfme_eligible"))
+
+    # 1. Marine & Fisheries (PMMSY Blue Economy + PMEGP)
+    if any(k in prod for k in ["fisheries", "marine", "fish", "aquaculture", "seafood", "prawn"]):
+        return (
+            "PMMSY (Pradhan Mantri Matsya Sampada Yojana - 40% to 60% Subsidy) & PMEGP",
+            "40%–60% Capital Subsidy",
+            40,
+            "PMMSY",
+        )
+
+    # 2. Food Processing & Agro Produce with PMFME eligibility
+    if pmfme_eligible and any(k in cat for k in ["food", "agro", "dairy", "crop", "spices", "agriculture", "horticulture"]):
+        return (
+            "PMFME (35% Credit-Linked Capital Subsidy up to ₹10 Lakhs)",
+            "35% (up to ₹10 Lakhs)",
+            35,
+            "PMFME",
+        )
+
+    # 3. Traditional Artisans, Handicrafts, Handloom, Textiles, Pottery, Metalware, Leather, Woodwork
+    if any(k in cat or k in prod for k in ["handicraft", "handloom", "textile", "artisan", "pottery", "wood", "metal", "brass", "leather", "carpet", "silk", "glass", "embroidery", "craft", "chappal", "zari"]):
+        return (
+            "PMEGP (25% to 35% Capital Subsidy up to ₹17.5 Lakhs) & State ODOP Scheme",
+            "25%–35% (up to ₹17.5 Lakhs)",
+            35,
+            "PMEGP_ARTISAN",
+        )
+
+    # 4. Secondary PMFME eligibility fallback
+    if pmfme_eligible:
+        return (
+            "PMFME (35% Credit-Linked Capital Subsidy up to ₹10 Lakhs)",
+            "35% (up to ₹10 Lakhs)",
+            35,
+            "PMFME",
+        )
+
+    # 5. General MSME / Manufacturing
+    return (
+        "PMEGP (25% to 35% Capital Subsidy up to ₹17.5 Lakhs) & Priority MSME Credit",
+        "25%–35% (up to ₹17.5 Lakhs)",
+        35,
+        "PMEGP",
+    )
 
 
 def find_district_odop(state_name: str, district_name: str) -> Optional[dict[str, Any]]:
+    """
+    Directly fetches verified ODOP registry record from odop_registry.json.
+    Supports state abbreviations, case-insensitive fuzzy matches, and cross-state fallback.
+    """
     registry = _load_odop_registry()
     states_dict = registry.get("states", {})
 
-    target_state_norm = _normalize_name(state_name)
-    target_dist_norm = _normalize_name(district_name)
-
-    matched_state_key = None
-    for s_key in states_dict.keys():
-        if _normalize_name(s_key) == target_state_norm or target_state_norm in _normalize_name(s_key):
-            matched_state_key = s_key
-            break
-
-    if not matched_state_key:
+    target_dist_clean = _clean_district_query(district_name or "")
+    if not target_dist_clean:
         return None
 
-    district_map = states_dict[matched_state_key]
-    for d_key, data in district_map.items():
-        d_norm = _normalize_name(d_key)
-        if d_norm == target_dist_norm or target_dist_norm in d_norm or d_norm in target_dist_norm:
-            res = dict(data)
-            res["matched_district_name"] = d_key
-            res["matched_state_name"] = matched_state_key
-            return res
+    # Resolve state name with alias dictionary
+    target_state_clean = (state_name or "").strip().lower()
+    canonical_state = STATE_ALIASES.get(target_state_clean) or state_name
+    target_state_norm = _normalize_name(canonical_state or "")
+
+    matched_state_key = None
+    if target_state_norm:
+        for s_key in states_dict.keys():
+            s_norm = _normalize_name(s_key)
+            if s_norm == target_state_norm or target_state_norm in s_norm or s_norm in target_state_norm:
+                matched_state_key = s_key
+                break
+
+    # 1. Search within the matched state first
+    if matched_state_key:
+        district_map = states_dict[matched_state_key]
+        for d_key, data in district_map.items():
+            d_norm = _clean_district_query(d_key)
+            if d_norm == target_dist_clean or target_dist_clean in d_norm or d_norm in target_dist_clean:
+                res = dict(data)
+                res["matched_district_name"] = d_key
+                res["matched_state_name"] = matched_state_key
+                scheme, sub_summary, sub_pct, s_type = _resolve_statutory_scheme_for_odop(res)
+                res["scheme_name"] = scheme
+                res["subsidy_summary"] = sub_summary
+                res["subsidy_pct"] = sub_pct
+                res["scheme_type"] = s_type
+                res["official_odop_product"] = res.get("odop_product") or (res.get("dpiit_odop_products") and res["dpiit_odop_products"][0]) or res.get("pmfme_odop_product") or "District MSME Specialty"
+                return res
+
+    # 2. Cross-state fallback: Search across ALL states if state is missing or mismatched
+    for s_key, district_map in states_dict.items():
+        for d_key, data in district_map.items():
+            d_norm = _clean_district_query(d_key)
+            if d_norm == target_dist_clean or target_dist_clean in d_norm or d_norm in target_dist_clean:
+                res = dict(data)
+                res["matched_district_name"] = d_key
+                res["matched_state_name"] = s_key
+                scheme, sub_summary, sub_pct, s_type = _resolve_statutory_scheme_for_odop(res)
+                res["scheme_name"] = scheme
+                res["subsidy_summary"] = sub_summary
+                res["subsidy_pct"] = sub_pct
+                res["scheme_type"] = s_type
+                res["official_odop_product"] = res.get("odop_product") or (res.get("dpiit_odop_products") and res["dpiit_odop_products"][0]) or res.get("pmfme_odop_product") or "District MSME Specialty"
+                return res
 
     return None
 

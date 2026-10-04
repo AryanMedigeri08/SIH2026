@@ -224,6 +224,68 @@ export async function fetchVillages(districtName, blockName, districtCode, block
   ];
 }
 
+export async function reverseGeocodeCoords(latitude, longitude) {
+  try {
+    const res = await fetch(`${API_BASE}/locations/reverse-geocode?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.success && data?.district_name) {
+        return {
+          state_name: data.state_name,
+          district_name: data.district_name,
+          locality_name: data.locality_name || '',
+          latitude,
+          longitude,
+        };
+      }
+    }
+  } catch (e) {
+    console.warn("Backend reverse-geocode failed, falling back to OSM Nominatim:", e);
+  }
+
+  // Fallback to OpenStreetMap Nominatim
+  try {
+    const osmRes = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
+      { headers: { Accept: 'application/json' } }
+    );
+    if (osmRes.ok) {
+      const osmData = await osmRes.json();
+      const addr = osmData.address || {};
+      const state = addr.state || 'Maharashtra';
+      const rawDist = addr.state_district || addr.district || addr.county || addr.city || 'Pune';
+      const district = rawDist.replace(/ district/i, '').trim();
+      return {
+        state_name: state,
+        district_name: district,
+        locality_name: addr.suburb || addr.neighbourhood || addr.village || addr.town || addr.city || '',
+        latitude,
+        longitude,
+      };
+    }
+  } catch (_) {}
+
+  return null;
+}
+
+export async function detectLocationFromIP() {
+  try {
+    const res = await fetch('https://ipapi.co/json/');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && (data.city || data.region)) {
+        return {
+          latitude: data.latitude || 18.5204,
+          longitude: data.longitude || 73.8567,
+          district_name: data.city || 'Pune',
+          state_name: data.region || 'Maharashtra',
+        };
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
 export async function fetchOdopProduct(stateName, districtName) {
   try {
     const params = new URLSearchParams();
@@ -290,6 +352,26 @@ export async function fetchOdopProduct(stateName, districtName) {
         'Mrignayani MP Government Emporium marketing corridor',
         'Common dying & wastewater treatment facility access',
         'GeM ODOP textile listing'
+      ]
+    };
+  }
+  if (d.includes('pune')) {
+    return {
+      has_odop_record: true,
+      district_name: 'Pune',
+      state_name: 'Maharashtra',
+      odop_product: 'Processed Agro Foods & Tomato Processing',
+      secondary_product: 'Engineering Goods & Auto Components',
+      category: 'Horticulture & Food Processing',
+      matching_sectors: ['food_processing', 'dairy', 'agriculture'],
+      pmfme_eligible: true,
+      gem_category: 'Processed Agro Foods & Purees',
+      cfc_available: true,
+      key_benefits: [
+        'PMFME 35% credit-linked capital subsidy up to ₹10 Lakhs',
+        'Narayangaon tomato processing cluster facilitation',
+        'GeM ODOP National Portal priority onboarding',
+        'Maharashtra State Agricultural Marketing Board (MSAMB) corridor'
       ]
     };
   }

@@ -420,7 +420,7 @@ class ChatService:
         self,
         messages: List[Dict[str, Any]],
         tools: Optional[List[Dict[str, Any]]] = None,
-        temperature: float = 0.4,
+        temperature: float = 0.7,
         max_tokens: int = 512,
         timeout_s: float = 25.0,
     ) -> tuple[str, Optional[Dict[str, Any]], str]:
@@ -743,7 +743,7 @@ class ChatService:
             assistant_reply, tool_call_result, used_model = self._call_llm_chat_completion(
                 messages=groq_messages,
                 tools=ACTION_REGISTRY_SCHEMA,
-                temperature=0.2,
+                temperature=0.7,
                 max_tokens=1024,
             )
 
@@ -896,7 +896,7 @@ class ChatService:
             call_kwargs = {
                 "messages": groq_messages,
                 "model": model_name,
-                "temperature": 0.2,
+                "temperature": 0.7,
                 "max_tokens": 1024,
             }
             if tools:
@@ -1117,7 +1117,7 @@ class ChatService:
             assistant_reply, tool_call_result, used_model = self._call_llm_chat_completion(
                 messages=groq_messages,
                 tools=tools,
-                temperature=0.4,
+                temperature=0.7,
                 max_tokens=512,
             )
 
