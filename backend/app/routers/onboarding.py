@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 try:
     from app.core.chat_service import chat_service
     from app.core.odop_matcher import match_odop, find_district_odop
+    from app.core.business_interpreter import interpret_business_idea
     from app.core.machinery_matcher import (
         find_matching_machinery_profile,
         detect_owned_machinery,
@@ -33,6 +34,7 @@ try:
 except ImportError:
     from backend.app.core.chat_service import chat_service
     from backend.app.core.odop_matcher import match_odop, find_district_odop
+    from backend.app.core.business_interpreter import interpret_business_idea
     from backend.app.core.machinery_matcher import (
         find_matching_machinery_profile,
         detect_owned_machinery,
@@ -268,6 +270,23 @@ class OnboardingResponse(BaseModel):
     applicable_machinery: Optional[Dict[str, Any]] = None
     odop_intro: Optional[Dict[str, Any]] = None
     message: Optional[Dict[str, str]] = None
+
+
+def _machinery_profile_for_fields(fields: dict) -> Optional[dict]:
+    """Reuse the business idea's vetted plan through all later onboarding steps."""
+    plan = fields.get("machinery_plan")
+    if isinstance(plan, dict):
+        profile_name = plan.get("business_name")
+        if not profile_name:
+            return None  # Retail or an idea absent from the plant catalogue.
+        base = next((item for item in load_machinery_dataset() if item["business_name"] == profile_name), None)
+        if base:
+            allowed = {machine["machine_name"] for machine in plan.get("machinery_list", [])}
+            return {**base, "machinery_list": [machine for machine in base["machinery_list"] if machine["machine_name"] in allowed]}
+    return find_matching_machinery_profile(
+        fields.get("business_idea") or fields.get("additional_business_details") or fields.get("enterprise_name", ""),
+        fields.get("sector"),
+    )
 
 
 # ── Field Extraction System Prompt ───────────────────────────────────────────
@@ -1121,6 +1140,32 @@ async def process_onboarding_message(payload: OnboardingRequest):
 
         merged_fields = {**existing_fields, **new_fields}
 
+        if action == "chat_only":
+            missing = [field for field in REQUIRED_FIELDS if not merged_fields.get(field)]
+            reply = _generate_mira_response(
+                [{"role": message.role, "content": message.content} for message in payload.messages],
+                payload.user_name, payload.language, merged_fields, missing,
+            )
+            return OnboardingResponse(
+                reply=reply,
+                tts_text=clean_for_bhashini_tts(reply, payload.language),
+                extracted_fields=new_fields,
+                next_step=payload.conversation_step + 1,
+                next_phase="split_screen",
+                all_fields_collected=True,
+                message={"role": "assistant", "content": reply},
+            )
+
+        # A business idea is interpreted once, immediately after location. The
+        # selected catalogue equipment stays private until the investment turn.
+        if action == "business_idea":
+            interpretation = interpret_business_idea(
+                last_user_msg, chat_service._call_llm_chat_completion,
+            )
+            new_fields.update(interpretation)
+            new_fields["additional_business_details"] = last_user_msg
+            merged_fields.update(new_fields)
+
         # ── Action: Check ODOP Alignment (User clicked "Let's Check") ─────────
         if action == "check_odop_alignment":
             new_fields["odop_checked"] = True
@@ -1146,7 +1191,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                     f"अरे वाह {payload.user_name} जी! मैंने आपके व्यवसाय का {district_name} ज़िले के आधिकारिक उत्पाद {p_crop} के साथ पूरा मूल्यांकन कर लिया है। "
                     f"आपका रणनीतिक तालमेल स्कोर 100 में से **{score_val}** आया है! {mira_verdict}\n\n"
                     f"नीचे दिए गए कार्ड में आप पूरा विश्लेषण देख सकते हैं। अब आप क्या चुनना चाहेंगे:\n"
-                    f"1. ODOP से जुड़ें ({sub_sum} सरकारी सब्सिडी अनलॉक करें)\n"
+                    f"1. ODOP तालमेल दर्ज करें (योजना पात्रता अलग से जाँची जाएगी)\n"
                     f"2. अपना मूल विचार रखें"
                 )
             elif payload.language == "mr":
@@ -1162,7 +1207,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                     f"Wonderful {payload.user_name} Ji! I have analyzed the strategic synergy between your enterprise and {district_name}'s designated ODOP produce {p_crop}. "
                     f"Your alignment synergy score is **{score_val} out of 100**! {mira_verdict}\n\n"
                     f"You can review the strategic evaluation in the card below. Please select how you would like to proceed:\n"
-                    f"1. Align with ODOP (Unlock {sub_sum} Capital Subsidy under {sch_title})\n"
+                    f"1. Align with ODOP strategy (scheme eligibility requires review)\n"
                     f"2. Keep my original idea"
                 )
 
@@ -1259,15 +1304,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
 
         # ── Action: Owned Machinery Selection from Interactive Dropdown / Checklist ──
         if action in ("select_owned_machinery", "confirm_machinery"):
-            biz_query = (
-                merged_fields.get("additional_business_details")
-                or merged_fields.get("enterprise_name")
-                or last_user_msg
-            )
-            matched_mach = find_matching_machinery_profile(
-                biz_query,
-                merged_fields.get("sector"),
-            )
+            matched_mach = _machinery_profile_for_fields(merged_fields)
             if matched_mach:
                 m_name = matched_mach.get("business_name")
                 new_fields["matched_machinery_profile"] = m_name
@@ -1278,34 +1315,13 @@ async def process_onboarding_message(payload: OnboardingRequest):
 
             if chosen_items:
                 profile_machines = matched_mach.get("machinery_list", []) if matched_mach else []
+                selected_names = set()
                 for item in chosen_items:
-                    if isinstance(item, dict):
-                        m_name = item.get("machine_name", "")
-                        m_cost = float(item.get("estimated_cost_inr", 0))
-                        m_specs = item.get("technical_specs", "")
-                        m_hp = float(item.get("power_hp", 0))
-                    else:
-                        m_name = str(item)
-                        m_cost = 0.0
-                        m_specs = ""
-                        m_hp = 0.0
-
-                    for pm in profile_machines:
-                        if pm.get("machine_name", "").lower() == m_name.lower():
-                            if m_cost == 0:
-                                m_cost = float(pm.get("estimated_cost_inr", 0))
-                            if not m_specs:
-                                m_specs = pm.get("technical_specs", "")
-                            if m_hp == 0:
-                                m_hp = float(pm.get("power_hp", 0))
-                            break
-
-                    confirmed_owned.append({
-                        "machine_name": m_name,
-                        "estimated_cost_inr": m_cost,
-                        "technical_specs": m_specs,
-                        "power_hp": m_hp,
-                    })
+                    name = item.get("machine_name", "") if isinstance(item, dict) else str(item)
+                    machine = next((pm for pm in profile_machines if pm.get("machine_name", "").lower() == name.lower()), None)
+                    if machine and machine["machine_name"] not in selected_names:
+                        confirmed_owned.append(dict(machine))
+                        selected_names.add(machine["machine_name"])
 
             total_owned_val = sum(m.get("estimated_cost_inr", 0) for m in confirmed_owned)
             new_fields["owned_machines"] = confirmed_owned
@@ -1375,7 +1391,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 "typical_capacity": matched_mach.get("typical_capacity") if matched_mach else None,
                 "total_machinery_cost_inr": matched_mach.get("total_machinery_cost_inr") if matched_mach else None,
                 "machinery_list": matched_mach.get("machinery_list", []) if matched_mach else [],
-            } if matched_mach else None
+            } if matched_mach else (merged_fields.get("machinery_plan") or {"business_name": None, "machinery_list": [], "total_machinery_cost_inr": 0})
 
             if total_owned_val > 0:
                 owned_lead_hi = f"बहुत खूब {payload.user_name} जी! आपने {mach_names_str} चुना है (मूल्य ₹{int(total_owned_val):,})। हमने इसे आपके आवश्यक बैंक लोन में से घटा दिया है, जिससे आपकी मासिक EMI में लगभग ₹{int(emi_saved):,} रुपये की बचत होगी! "
@@ -1481,10 +1497,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
             merged_fields["odop_synergy_aligned"] = align_with_odop
 
             # Ensure all banking & outlay parameters are finalized and present
-            matched_mach = find_matching_machinery_profile(
-                merged_fields.get("additional_business_details") or merged_fields.get("enterprise_name", ""),
-                merged_fields.get("sector"),
-            )
+            matched_mach = _machinery_profile_for_fields(merged_fields)
             bank_params = compute_statutory_banking_parameters(
                 sector=merged_fields.get("sector", "general"),
                 business_category=merged_fields.get("business_category", "manufacturing"),
@@ -1527,7 +1540,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                     lead = (
                         f"बहुत ही शानदार और समझदारी भरा निर्णय {payload.user_name} जी! "
                         f"हमने आपके व्यवसाय को {district_name} के ODOP उत्पाद {odop_prod} के साथ जोड़ दिया है, "
-                        f"जिससे आपको {sub_summary} सरकारी सब्सिडी का लाभ मिलेगा! "
+                        f"जिससे {scheme_title} की पात्रता जाँचने का अवसर मिल सकता है; सब्सिडी की गारंटी नहीं है। "
                     )
                 else:
                     lead = (
@@ -1544,7 +1557,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                     lead = (
                         f"अतिशय हुशारीचा निर्णय {payload.user_name} जी! "
                         f"आम्ही तुमचा व्यवसाय {district_name} च्या {odop_prod} शी जोडला आहे, "
-                        f"ज्यामुळे {sub_summary} सबसिडी मिळेल! "
+                        f"त्यामुळे {scheme_title} योजनेची पात्रता तपासता येईल; अनुदानाची हमी नाही. "
                     )
                 else:
                     lead = (
@@ -1561,7 +1574,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                     lead = (
                         f"A brilliant decision {payload.user_name} Ji! "
                         f"We have aligned your enterprise with {district_name}'s ODOP product {odop_prod}, "
-                        f"unlocking {sub_summary} capital subsidy under {scheme_title}! "
+                        f"so we can check eligibility for {scheme_title}; any subsidy remains subject to scheme rules. "
                     )
                 else:
                     lead = (
@@ -1588,11 +1601,11 @@ async def process_onboarding_message(payload: OnboardingRequest):
             )
 
         # Extract fields from text
-        keyword_fields = _extract_fields_from_text(last_user_msg, existing_fields)
-        llm_fields = _llm_extract_fields(last_user_msg)
+        keyword_fields = {} if action == "business_idea" else _extract_fields_from_text(last_user_msg, existing_fields)
+        llm_fields = {} if action == "business_idea" else _llm_extract_fields(last_user_msg)
 
         for key in set(list(keyword_fields.keys()) + list(llm_fields.keys())):
-            if key not in existing_fields:
+            if key not in existing_fields and key not in new_fields:
                 val = keyword_fields.get(key) or llm_fields.get(key)
                 if val is not None:
                     new_fields[key] = val
@@ -1667,7 +1680,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
         matched_machinery = None
         if "sector" in merged_fields:
             biz_query = f"{merged_fields.get('enterprise_name', '')} {merged_fields.get('additional_business_details', '')} {last_user_msg}"
-            matched_machinery = find_matching_machinery_profile(biz_query, merged_fields["sector"])
+            matched_machinery = _machinery_profile_for_fields(merged_fields)
             if matched_machinery:
                 m_name = matched_machinery.get("business_name")
                 new_fields["matched_machinery_profile"] = m_name
@@ -1772,7 +1785,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 reply = (
                     f"अरे वाह {payload.user_name} जी! आपका **{biz_desc}** का विचार बहुत ही शानदार और प्रगतिशील है!\n\n"
                     f"आगे बढ़ने से पहले एक बहुत महत्वपूर्ण जानकारी: भारत सरकार की **ODOP (एक ज़िला एक उत्पाद)** पहल के तहत "
-                    f"यदि आपका उद्यम ज़िले के विशेष उत्पाद से जुड़ता है, तो आपको **{scheme_title}** के तहत मशीनरी व प्लांट पर **पूरे {sub_summary} की सीधी पूँजीगत सब्सिडी** मिलती है!\n\n"
+                    f"ज़िले के विशेष उत्पाद से जुड़ने पर स्थानीय आपूर्ति, साझा सुविधाओं और **{scheme_title}** जैसी योजनाओं की पात्रता की जाँच की जा सकती है। {sub_summary} एक योजना सीमा है, स्वचालित लाभ नहीं।\n\n"
                     f"आपके ज़िले **{district_name}** का आधिकारिक ODOP उत्पाद **{odop_prod}** है।\n\n"
                     f"क्या आप चाहते हैं कि मैं आपके व्यवसाय विचार और आपके ज़िले के ODOP उत्पाद के बीच तालमेल और {sub_summary} सब्सिडी की संभावना की जाँच करूँ?"
                 )
@@ -1780,7 +1793,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 reply = (
                     f"अरे वा {payload.user_name} जी! तुमची **{biz_desc}** ची कल्पना अतिशय सुंदर आणि कौतुकास्पद आहे!\n\n"
                     f"पुढे जाण्यापूर्वी एक अत्यंत महत्त्वाची माहिती: केंद्र शासनाच्या **ODOP (एक जिल्हा एक उत्पादन)** उपक्रमांतर्गत "
-                    f"जर तुमचा व्यवसाय जिल्ह्याच्या विशेष उत्पादनाशी जोडला गेला, तर **{scheme_title}** अंतर्गत यंत्रसामग्रीवर **थेट {sub_summary} भांडवली सबसिडी** मिळते!\n\n"
+                    f"जिल्ह्याच्या विशेष उत्पादनाशी संबंध असल्यास स्थानिक पुरवठा, सामायिक सुविधा आणि **{scheme_title}** योजनेची पात्रता तपासता येते. {sub_summary} ही योजनेची मर्यादा आहे, हमखास लाभ नाही.\n\n"
                     f"तुमच्या **{district_name}** जिल्ह्याचे अधिकृत उत्पादन **{odop_prod}** हे आहे.\n\n"
                     f"तुमच्या व्यवसाय कल्पनेचा आणि जिल्ह्याच्या ODOP उत्पादनाचा ताळमेळ तपासून {sub_summary} सबसिडीची शक्यता मी तपासावी का?"
                 )
@@ -1788,9 +1801,9 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 reply = (
                     f"Wonderful {payload.user_name} Ji! Your business idea for **{biz_desc}** is promising and full of potential!\n\n"
                     f"Before we proceed, here is a strategic opportunity: Under the Government's **One District One Product (ODOP)** initiative, "
-                    f"enterprises aligned with their district's designated produce qualify for **{sub_summary} capital subsidy** on plant & machinery under **{scheme_title}**!\n\n"
+                    f"a genuine link to the district product may improve local sourcing and allow an eligibility check for **{scheme_title}**. Its {sub_summary} subsidy is conditional, not automatic.\n\n"
                     f"Your district **{district_name}** has **{odop_prod}** as its official ODOP produce.\n\n"
-                    f"Would you like me to check if it's suitable to align your business idea with your district's ODOP and unlock this {sub_summary} subsidy?"
+                    f"Would you like me to check whether your **{biz_desc}** idea is a suitable fit for the district ODOP?"
                 )
 
             new_fields["odop_intro_presented"] = True
@@ -1967,23 +1980,20 @@ async def process_onboarding_message(payload: OnboardingRequest):
             if payload.language == "hi":
                 reply = (
                     f"बहुत सुंदर {payload.user_name} जी! आपकी ₹{int(eq_val):,} की बचत पूँजी बिल्कुल सही है—यह आपके उद्यम की नींव मजबूत करेगी।\n\n"
-                    f"अब मैंने आपके **{biz_name}** के लिए आवश्यक मानक मशीनों की सूची तैयार कर ली है। "
-                    f"यदि इनमें से कोई भी मशीन आपके पास पहले से है, तो नीचे कार्ड में चुन लीजिए—उसका मूल्य आपके बैंक लोन में से घट जाएगा और आपकी हर महीने की किस्त (EMI) बहुत कम हो जाएगी!\n\n"
-                    f"यदि आपके पास अभी कोई मशीन नहीं है, तो बेझिझक 'सभी नए उपकरण चाहिए' चुन लें।"
+                    + (f"अब मैंने आपके **{biz_name}** के लिए उपकरणों की सूची निकाली है। इनमें से जो पहले से आपके पास हैं उन्हें चुनें; अनुमानित मूल्य परियोजना लागत में गिना जाएगा।"
+                       if matched_machinery else "यह खुदरा या ऐसा व्यवसाय लगता है जिसके लिए हमारे मशीनरी कैटलॉग में उत्पादन उपकरण नहीं हैं। कृपया इसकी पुष्टि करें।")
                 )
             elif payload.language == "mr":
                 reply = (
                     f"खूप छान {payload.user_name} जी! तुमचे ₹{int(eq_val):,} चे प्रमोटर इक्विटी भांडवल सुरक्षित नोंदवले गेले आहे.\n\n"
-                    f"आता मी तुमच्या **{biz_name}** साठी लागणाऱ्या मुख्य यंत्रसामग्रीची यादी तयार केली आहे. "
-                    f"यापैकी कोणतीही यंत्रसामग्री तुमच्याकडे आधीपासून असल्यास, खालील कार्डमधून निवडा—त्याचे मूल्य तुमच्या बँक कर्जातून वजा होऊन दरमहा EMI खूप कमी होईल!\n\n"
-                    f"कोणतीही यंत्रसामग्री नसल्यास काळजी करू नका, 'सर्व नवीन उपकरणे हवी आहेत' वर क्लिक करा."
+                    + (f"आता तुमच्या **{biz_name}** साठी संबंधित यंत्रांची यादी पाहा. तुमच्याकडे आधीपासून असलेली यंत्रे निवडा."
+                       if matched_machinery else "हा किरकोळ व्यवसाय किंवा आमच्या यंत्रसामग्री सूचीबाहेरचा व्यवसाय दिसतो. उत्पादन यंत्रे नसल्यास पुढे जा.")
                 )
             else:
                 reply = (
                     f"Wonderful {payload.user_name} Ji! Your ₹{int(eq_val):,} investment equity is noted—it sets a solid financial foundation for your venture!\n\n"
-                    f"I have now pulled up the standard plant & machinery list required for your **{biz_name}** enterprise. "
-                    f"If you already own any of these equipments, please select them below—we will credit their valuation directly against your bank loan, significantly lowering your monthly EMI!\n\n"
-                    f"If you don't own any yet, simply tap 'Need all fresh equipment'."
+                    + (f"I found the catalogue equipment relevant to **{biz_name}**. Select any items you already own so their estimated value can be considered in the project outlay."
+                       if matched_machinery else "This appears to be retail or an idea with no production machinery in our catalogue. Please confirm that before reviewing the form.")
                 )
 
             applicable_mach_payload = {
@@ -1993,7 +2003,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 "typical_capacity": matched_machinery.get("typical_capacity") if matched_machinery else None,
                 "total_machinery_cost_inr": matched_machinery.get("total_machinery_cost_inr") if matched_machinery else None,
                 "machinery_list": matched_machinery.get("machinery_list", []) if matched_machinery else [],
-            } if matched_machinery else None
+            } if matched_machinery else (merged_fields.get("machinery_plan") or {"business_name": None, "machinery_list": [], "total_machinery_cost_inr": 0})
 
             tts_clean = clean_for_bhashini_tts(reply, payload.language)
             return OnboardingResponse(

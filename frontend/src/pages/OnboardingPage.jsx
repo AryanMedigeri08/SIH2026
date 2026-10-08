@@ -31,6 +31,7 @@ import {
   reverseGeocodeCoords,
   detectLocationFromIP,
 } from "../services/api";
+import { chooseRecordingFormat, transcribeOnboardingAudio } from "../services/onboardingAudio";
 import {
   Mic,
   MicOff,
@@ -122,6 +123,12 @@ const ONBOARDING_LANGUAGES = [
   },
 ];
 
+const STEP_NUMBER = {
+  location_confirm: 1, location_menu: 1, business_idea: 2,
+  odop_check_prompt: 3, odop_alignment: 3, enterprise_info: 4,
+  promoter_equity: 5, machinery_selection: 6, split_screen: 7,
+};
+
 // ─── Loving & Sweet Opening Greetings (Location Confirmation) ─────────
 const GREETINGS = {
   hi: (name, loc) => `नमस्ते ${name} जी! आपसे मिलकर मुझे बहुत खुशी हुई। मैं Mira हूँ, आपकी प्यारी और मार्गदर्शक व्यवसाय साथी। मैं आपकी व्यवसाय यात्रा को सफल और 35% तक सरकारी सब्सिडी के साथ शुरू कराने में हर कदम पर आपके साथ हूँ।\n\nपंजीकरण के दौरान मुझे आपकी लोकेशन प्राप्त हुई है: **${loc || 'Pune, Maharashtra'}**। क्या आप इसी लोकेशन के साथ आगे बढ़ना चाहते हैं या आप इसे बदलना चाहते हैं?`,
@@ -151,6 +158,18 @@ export function MiraAvatar({ size = "w-8 h-8", rounded = "rounded-xl", className
   );
 }
 
+function FormattedMessage({ content }) {
+  return String(content || "").split("\n").map((line, index) => (
+    <p key={index} className={index ? "mt-2" : ""}>
+      {line.split(/(\*\*[^*]+\*\*)/g).map((part, partIndex) =>
+        part.startsWith("**") && part.endsWith("**")
+          ? <strong key={partIndex}>{part.slice(2, -2)}</strong>
+          : <React.Fragment key={partIndex}>{part}</React.Fragment>
+      )}
+    </p>
+  ));
+}
+
 export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const navigate = useNavigate();
   const { userProfile, token, updateProfile } = useAuth();
@@ -163,12 +182,17 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [chatError, setChatError] = useState("");
+  const [submitError, setSubmitError] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [isStartingRecording, setIsStartingRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   // Chat conversational state
   const [chatStep, setChatStep] = useState("location_confirm"); // location_confirm | location_menu | business_idea | odop_check_prompt | odop_alignment | enterprise_info | promoter_equity | machinery_selection | split_screen | completed
   const [locationConfirmed, setLocationConfirmed] = useState(false);
+  const [locationWasChanged, setLocationWasChanged] = useState(false);
   const [collectedFields, setCollectedFields] = useState({});
   const [odopIntroData, setOdopIntroData] = useState(null);
   const [showOdopIntroCard, setShowOdopIntroCard] = useState(false);
@@ -219,6 +243,9 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const splitMessagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const mediaRecorderRef = useRef(null);
+  const recordingStreamRef = useRef(null);
+  const recordingStartingRef = useRef(false);
+  const recordingStartedAtRef = useRef(0);
   const audioChunksRef = useRef([]);
   const currentAudioRef = useRef(null);
 
@@ -244,9 +271,34 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     }
   }, [messages, phase]);
 
+  useEffect(() => {
+    if (phase !== "split_screen") return;
+    let active = true;
+    Promise.all([
+      fetchStates(),
+      collectedFields.state_name ? fetchDistricts(collectedFields.state_name) : Promise.resolve([]),
+      collectedFields.district_name ? fetchBlocks(collectedFields.district_name) : Promise.resolve([]),
+      collectedFields.district_name && collectedFields.block_name
+        ? fetchVillages(collectedFields.district_name, collectedFields.block_name)
+        : Promise.resolve([]),
+    ]).then(([stateOptions, districtOptions, blockOptions, villageOptions]) => {
+      if (!active) return;
+      setStatesList(stateOptions || []);
+      setDistrictsList(districtOptions || []);
+      setBlocksList(blockOptions || []);
+      setVillagesList(villageOptions || []);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [phase]);
+
   // Audio cleanup on unmount
   useEffect(() => {
     return () => {
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.onstop = null;
+        if (mediaRecorderRef.current.state !== "inactive") mediaRecorderRef.current.stop();
+      }
+      recordingStreamRef.current?.getTracks().forEach(track => track.stop());
       if (currentAudioRef.current) {
         try {
           currentAudioRef.current.pause();
@@ -553,12 +605,10 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     }
 
     if (token && updateProfile) {
-      try {
-        await updateProfile({ preferred_language: langCode });
-      } catch (_) {}
+      updateProfile({ preferred_language: langCode }).catch((error) => {
+        console.warn("Could not save onboarding language preference:", error);
+      });
     }
-
-    const locCoords = getAutoDetectedLocation();
 
     // Initial greeting from Mira
     setTimeout(() => {
@@ -582,7 +632,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       // Auto-set baseline location
       setCollectedFields(prev => ({
         ...prev,
-        state_name: "Maharashtra",
+        state_name: detectedLocationData?.state_name || "Maharashtra",
         district_name: detectedLocationData?.district_name || "Pune",
         is_rural: true,
       }));
@@ -595,13 +645,12 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         }
       }, 60);
     }, 350);
-  }, [userName, token, updateProfile, setLanguage, getAutoDetectedLocation, playTTS]);
+  }, [userName, token, updateProfile, setLanguage, dismissTransition, detectedLocationData, playTTS]);
 
   // ─── Step 1a: User clicks "Yes, continue with this location" ─────────────
   const handleConfirmLocation = useCallback(async () => {
     if (isSending) return;
     setIsSending(true);
-    setLocationConfirmed(true);
 
     const userMsg = {
       id: `user-${Date.now()}`,
@@ -640,6 +689,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
       if (res.ok) {
         const data = await res.json();
+        setLocationConfirmed(true);
         setChatStep("business_idea");
         if (data.extracted_fields) setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
 
@@ -663,7 +713,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const handleRequestChangeLocation = useCallback(async () => {
     if (isSending) return;
     setIsSending(true);
-    setLocationConfirmed(true);
 
     const userMsg = {
       id: `user-${Date.now()}`,
@@ -689,6 +738,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
       if (res.ok) {
         const data = await res.json();
+        setLocationConfirmed(true);
         setChatStep("location_menu");
         setShowLocationMenu(true);
 
@@ -761,6 +811,53 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     } catch (_) {}
   };
 
+  const handleReviewLocationChange = async (field, value) => {
+    if (field === "state_name") {
+      setCollectedFields(prev => ({ ...prev, state_name: value, district_name: "", block_name: "", village_name: "" }));
+      setDistrictsList(value ? (await fetchDistricts(value) || []) : []);
+      setBlocksList([]);
+      setVillagesList([]);
+    } else if (field === "district_name") {
+      setCollectedFields(prev => ({ ...prev, district_name: value, block_name: "", village_name: "" }));
+      setBlocksList(value ? (await fetchBlocks(value) || []) : []);
+      setVillagesList([]);
+    } else if (field === "block_name") {
+      setCollectedFields(prev => ({ ...prev, block_name: value, village_name: "" }));
+      setVillagesList(value ? (await fetchVillages(collectedFields.district_name, value) || []) : []);
+    } else {
+      setCollectedFields(prev => ({ ...prev, village_name: value }));
+    }
+    setLocationWasChanged(true);
+  };
+
+  const handleReviseBusinessIdea = () => {
+    setCollectedFields(prev => ({
+      state_name: prev.state_name,
+      district_name: prev.district_name,
+      block_name: prev.block_name,
+      village_name: prev.village_name,
+      is_rural: prev.is_rural,
+    }));
+    setApplicableMachinery(null);
+    setSelectedOwnedMachines([]);
+    setMachineryConfirmed(false);
+    setOdopData(null);
+    setOdopIntroData(null);
+    setShowOdopAlignmentCard(false);
+    setShowOdopIntroCard(false);
+    setShowEnterpriseCard(false);
+    setChatStep("business_idea");
+    setPhase("chatting");
+    setMessages(prev => [...prev, {
+      id: `assistant-revise-${Date.now()}`,
+      role: "assistant",
+      content: selectedLang === "en"
+        ? "Let's revise your business idea. Tell me what you want to make, sell, or provide, and I will reassess the sector, equipment, and ODOP fit."
+        : "आइए व्यवसाय विचार फिर से देखें। बताइए आप क्या बनाएँगे, बेचेंगे या सेवा देंगे; मैं क्षेत्र, उपकरण और ODOP तालमेल फिर जाँचूँगी।",
+      timestamp: new Date().toISOString(),
+    }]);
+  };
+
   // ─── Step 1c: User submits updated location menu ─────────────────────────
   const handleSubmitNewLocation = async () => {
     if (!selectedState || !selectedDistrict) {
@@ -768,8 +865,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       return;
     }
 
-    setShowLocationMenu(false);
-    setLocationConfirmed(true);
     setIsSending(true);
 
     const updatedLoc = {
@@ -809,6 +904,9 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
       if (res.ok) {
         const data = await res.json();
+        setShowLocationMenu(false);
+        setLocationConfirmed(true);
+        setLocationWasChanged(true);
         setChatStep("business_idea");
         if (data.extracted_fields) setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
 
@@ -831,7 +929,8 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   // ─── Conversational Chat Turns (Business Idea, Promoter Equity, Q&A) ───
   const handleSendMessage = useCallback(async (overrideText = null) => {
     const text = overrideText || inputText.trim();
-    if (!text || isSending) return;
+    if (!text || isSending || !["business_idea", "promoter_equity", "split_screen"].includes(chatStep)) return;
+    setChatError("");
 
     const userMsg = {
       id: `user-${Date.now()}`,
@@ -852,6 +951,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
       const locCoords = getAutoDetectedLocation();
 
+      const action = chatStep === "business_idea" ? "business_idea" : chatStep === "promoter_equity" ? "promoter_equity" : chatStep === "split_screen" ? "chat_only" : null;
       const response = await fetch("/api/v2/chat/onboarding", {
         method: "POST",
         headers: {
@@ -864,9 +964,12 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           user_name: userName,
           collected_fields: collectedFields,
           conversation_step: messages.length,
+          current_action: action,
           user_location: locCoords,
         }),
       });
+
+      if (!response.ok) throw new Error(`Mira could not process this answer (${response.status}). Please try again.`);
 
       if (response.ok) {
         const data = await response.json();
@@ -903,6 +1006,8 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
         // Step 5: Enterprise Info Card
         if (data.next_phase === "enterprise_info") {
+          setShowOdopIntroCard(false);
+          setShowOdopAlignmentCard(false);
           setShowEnterpriseCard(true);
           setChatStep("enterprise_info");
           if (data.extracted_fields?.enterprise_name) {
@@ -917,6 +1022,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
         // Step 7: Machinery Selection Card
         if (data.next_phase === "machinery_selection") {
+          setShowEnterpriseCard(false);
           setChatStep("machinery_selection");
           if (data.applicable_machinery) {
             setApplicableMachinery(data.applicable_machinery);
@@ -947,6 +1053,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       }
     } catch (err) {
       console.error("Mira chat turn error:", err);
+      setChatError(err.message || "Mira could not respond. Please try again.");
     } finally {
       setIsSending(false);
     }
@@ -956,7 +1063,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const handleCheckOdopAlignment = useCallback(async () => {
     if (isSending) return;
     setIsSending(true);
-    setShowOdopIntroCard(false);
 
     const userMsg = {
       id: `user-${Date.now()}`,
@@ -987,6 +1093,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
       if (res.ok) {
         const data = await res.json();
+        setShowOdopIntroCard(false);
         if (data.extracted_fields) {
           setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
         }
@@ -1016,7 +1123,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const handleSkipOdopAlignment = useCallback(async () => {
     if (isSending) return;
     setIsSending(true);
-    setShowOdopIntroCard(false);
 
     const userMsg = {
       id: `user-${Date.now()}`,
@@ -1047,6 +1153,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
       if (res.ok) {
         const data = await res.json();
+        setShowOdopIntroCard(false);
         if (data.extracted_fields) {
           setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
         }
@@ -1172,7 +1279,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const handleOdopDecision = useCallback(async (alignWithOdop) => {
     if (isSending) return;
     setIsSending(true);
-    setShowOdopAlignmentCard(false);
 
     const decision = alignWithOdop ? "align" : "keep_original";
     const decisionLabel = alignWithOdop
@@ -1209,6 +1315,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
       if (res.ok) {
         const data = await res.json();
+        setShowOdopAlignmentCard(false);
         if (data.extracted_fields) {
           setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
         }
@@ -1247,7 +1354,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     const promCat = promoterCategoryInput || "general";
 
     setIsSending(true);
-    setShowEnterpriseCard(false);
 
     const catLabel = PROMOTER_CATEGORIES.find(c => c.value === promCat)?.label || promCat;
     const userMsg = {
@@ -1285,6 +1391,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
       if (res.ok) {
         const data = await res.json();
+        setShowEnterpriseCard(false);
         if (data.extracted_fields) {
           setCollectedFields(prev => ({ ...prev, ...data.extracted_fields }));
         }
@@ -1314,69 +1421,87 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const handleFinalSubmit = useCallback(async () => {
     const submitFn = onWizardSubmit || createAndSaveBusiness;
     if (!submitFn) return;
+    if (!collectedFields.enterprise_name?.trim() || !collectedFields.state_name || !collectedFields.district_name || Number(collectedFields.project_cost) <= 0) {
+      setSubmitError("Please provide an enterprise name, state, district, and a valid project cost.");
+      return;
+    }
+    setSubmitError("");
     try {
       const locCoords = getAutoDetectedLocation();
       await submitFn({
         ...collectedFields,
         language: selectedLang || "en",
-        latitude: locCoords?.latitude || null,
-        longitude: locCoords?.longitude || null,
+        latitude: locationWasChanged ? null : locCoords?.latitude || null,
+        longitude: locationWasChanged ? null : locCoords?.longitude || null,
       });
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error("Final appraisal generation failed:", err);
+      setSubmitError(err.message || "The report could not be generated. Please review the form and try again.");
     }
-  }, [collectedFields, selectedLang, onWizardSubmit, createAndSaveBusiness, getAutoDetectedLocation, navigate]);
+  }, [collectedFields, selectedLang, onWizardSubmit, createAndSaveBusiness, getAutoDetectedLocation, locationWasChanged, navigate]);
 
-  // Audio Recording (Microphone)
+  // Tap once to record, then tap again to transcribe and send the answer.
   const startRecording = useCallback(async () => {
+    if (recordingStartingRef.current || mediaRecorderRef.current || isSending || isTranscribing) return;
+    recordingStartingRef.current = true;
+    setIsStartingRecording(true);
+    let stream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      stopAudio();
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access is unavailable. Please use a secure browser connection.");
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const format = chooseRecordingFormat();
+      const mediaRecorder = new MediaRecorder(stream, format.mimeType ? { mimeType: format.mimeType } : undefined);
+      recordingStreamRef.current = stream;
       audioChunksRef.current = [];
       mediaRecorderRef.current = mediaRecorder;
+      setChatError("");
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
+      mediaRecorder.onerror = () => setChatError("Recording stopped unexpectedly. Please try again.");
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-
-        setIsSending(true);
+        recordingStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        setIsRecording(false);
+        const audioBlob = new Blob(audioChunksRef.current, { type: format.mimeType || mediaRecorder.mimeType || "audio/webm" });
+        if (Date.now() - recordingStartedAtRef.current < 500 || !audioBlob.size) {
+          setChatError("Recording was too short. Tap the microphone, speak, then tap again to send.");
+          return;
+        }
+        setIsTranscribing(true);
         try {
-          const formData = new FormData();
-          formData.append("audio", audioBlob, "recording.webm");
-          formData.append("language", selectedLang || "hi");
-          formData.append("context", JSON.stringify({ onboarding: true, collected_fields: collectedFields }));
-
-          const res = await fetch("/api/v2/chat/audio", {
-            method: "POST",
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-            body: formData,
+          const transcript = await transcribeOnboardingAudio(audioBlob, {
+            language: selectedLang || "hi", token, extension: format.extension,
           });
-
-          if (res.ok) {
-            const data = await res.json();
-            const transcript = data.user_transcript || data.transcript || "";
-            if (transcript.trim()) {
-              handleSendMessage(transcript.trim());
-            }
-          }
+          setIsTranscribing(false);
+          await handleSendMessage(transcript);
         } catch (e) {
           console.error("Voice recording processing error:", e);
+          setChatError(e.message || "Voice input failed. Please try again or type your answer.");
         } finally {
-          setIsSending(false);
+          setIsTranscribing(false);
         }
       };
 
       mediaRecorder.start();
+      recordingStartedAtRef.current = Date.now();
       setIsRecording(true);
     } catch (err) {
       console.error("Microphone access error:", err);
+      stream?.getTracks().forEach(track => track.stop());
+      recordingStreamRef.current = null;
+      mediaRecorderRef.current = null;
+      setChatError(err.name === "NotAllowedError" ? "Microphone permission was denied. Allow access in your browser and try again." : err.message || "Could not start the microphone.");
+    } finally {
+      recordingStartingRef.current = false;
+      setIsStartingRecording(false);
     }
-  }, [selectedLang, collectedFields, token, handleSendMessage]);
+  }, [selectedLang, token, handleSendMessage, isSending, isTranscribing, stopAudio]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
@@ -1384,6 +1509,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       setIsRecording(false);
     }
   }, []);
+
+  const toggleRecording = useCallback(() => {
+    if (mediaRecorderRef.current?.state === "recording") stopRecording();
+    else startRecording();
+  }, [startRecording, stopRecording]);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1395,40 +1525,53 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   // ─── Render: Language Selection Phase ───────────────────────────────────
   if (phase === "lang_select") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/30 flex items-center justify-center px-4 py-8 relative overflow-hidden">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40rem] h-[40rem] bg-sovereign-100/40 blur-[180px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/3 w-80 h-80 bg-sky-100/40 blur-[140px] rounded-full pointer-events-none" />
+      <div className="min-h-screen flex items-center px-4 py-10 sm:py-16 relative overflow-hidden" style={{ background: "linear-gradient(125deg, #fff1f2, #eff6ff, #f0fdf4, #fff7ed)", backgroundSize: "300% 300%", animation: "dynamicPastel 18s ease-in-out infinite" }}>
+        <div className="absolute -top-24 -left-20 w-80 h-80 rounded-full bg-rose-200/45 blur-[100px] pointer-events-none" />
+        <div className="absolute -bottom-24 right-0 w-96 h-96 rounded-full bg-sky-200/50 blur-[110px] pointer-events-none" />
 
-        <div className="max-w-2xl w-full relative z-10">
-          <div className="text-center mb-8">
-            <MiraAvatar size="w-20 h-20" rounded="rounded-3xl" className="mx-auto mb-4 shadow-xl shadow-pink-500/20" />
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display mb-2">
-              Namaste {userName} Ji! 🙏
+        <div className="max-w-5xl w-full mx-auto relative z-10 grid lg:grid-cols-[0.9fr_1.1fr] gap-8 lg:gap-12 items-center">
+          <div className="text-center lg:text-left">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/90 bg-white/75 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-indigo-700 shadow-sm mb-6"><Sparkles className="w-3.5 h-3.5 text-rose-500" /> Your journey starts here</span>
+            <MiraAvatar size="w-24 h-24" rounded="rounded-[2rem]" className="mx-auto lg:mx-0 mb-6 shadow-xl shadow-pink-500/20 ring-4 ring-white" />
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 font-display tracking-tight leading-tight mb-4">
+              Namaste, {userName} Ji<span className="text-rose-500">.</span>
             </h1>
-            <p className="text-sm text-slate-600 max-w-md mx-auto">
-              Please choose your language to talk with <b>Mira</b>, your personal MSME guide.
+            <p className="text-base text-slate-600 max-w-lg mx-auto lg:mx-0 leading-relaxed">
+              Meet Mira, your guide from the first idea to a bank-ready enterprise plan. Choose the language you feel most comfortable speaking.
             </p>
+            <div className="mt-7 flex flex-wrap justify-center lg:justify-start gap-2 text-xs font-semibold text-slate-600">
+              <span className="rounded-full bg-white/80 border border-white px-3 py-2">01 · Choose language</span>
+              <span className="rounded-full bg-white/60 border border-white px-3 py-2">02 · Tell Mira your idea</span>
+              <span className="rounded-full bg-white/60 border border-white px-3 py-2">03 · Review your plan</span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 sm:gap-4">
+          <div className="rounded-[2rem] border border-white/90 bg-white/80 backdrop-blur-xl shadow-2xl shadow-indigo-950/10 p-5 sm:p-7">
+            <div className="mb-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-600">Speak naturally</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">Choose your language</h2>
+              <p className="text-sm text-slate-500 mt-1">You can change it later from the dashboard.</p>
+            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {ONBOARDING_LANGUAGES.map((lang) => {
               const isSelected = selectedLang === lang.code;
               return (
                 <button
                   key={lang.code}
                   onClick={() => handleLanguageSelect(lang.code)}
-                  className={`group relative rounded-2xl p-4 sm:p-5 text-center transition-all duration-300 ease-out cursor-pointer border-2 ${
+                  aria-label={`Continue in ${lang.label}`}
+                  className={`group relative rounded-2xl p-5 text-left transition-all duration-300 ease-out cursor-pointer border-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-300 ${
                     isSelected
                       ? `${lang.gradientBorder} ring-4 ${lang.selectedGlow} shadow-xl scale-[1.02]`
-                      : `border-slate-200/80 hover:${lang.gradientBorder} hover:shadow-lg hover:scale-[1.01] shadow-sm`
+                      : `border-slate-200/80 hover:border-indigo-300 hover:shadow-lg hover:-translate-y-0.5 shadow-sm`
                   } bg-white`}
                 >
-                  <div className={`absolute top-0 left-3 right-3 h-1 rounded-b-full bg-gradient-to-r ${lang.gradient} opacity-${isSelected ? '100' : '0'} group-hover:opacity-100 transition-opacity duration-300`} />
-                  <div className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5 group-hover:text-indigo-950 transition-colors">
+                  <div className={`absolute top-0 left-3 right-3 h-1 rounded-b-full bg-gradient-to-r ${lang.gradient} ${isSelected ? 'opacity-100' : 'opacity-0'} group-hover:opacity-100 transition-opacity duration-300`} />
+                  <div className="text-xl sm:text-2xl font-black text-slate-900 mb-2 group-hover:text-indigo-950 transition-colors">
                     {lang.native}
                   </div>
-                  <div className="text-xs text-slate-500 font-semibold tracking-wide">
-                    {lang.label}
+                  <div className="flex items-center justify-between gap-2 text-xs text-slate-500 font-semibold tracking-wide">
+                    <span>{lang.label}</span><ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
                   </div>
                   {isSelected && (
                     <div className="absolute -top-1.5 -right-1.5">
@@ -1441,12 +1584,18 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
               );
             })}
           </div>
+          <p className="text-[11px] text-slate-500 mt-5 text-center">Your selection is saved to your account.</p>
+          </div>
         </div>
 
         <style>{`
           @keyframes fadeIn {
             from { opacity: 0; transform: translateY(12px); }
             to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes dynamicPastel {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
           }
         `}</style>
       </div>
@@ -1466,15 +1615,15 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] bg-rose-100/25 blur-[160px] rounded-full pointer-events-none" />
 
       {/* Header Bar */}
-      <header className="sticky top-0 z-30 bg-gradient-to-r from-slate-950 via-sovereign-900 to-indigo-950 text-white px-4 py-3 shadow-lg">
-        <div className="max-w-3xl mx-auto flex items-center gap-3">
-          <MiraAvatar size="w-10 h-10" rounded="rounded-xl" />
+      <header className="sticky top-0 z-30 bg-white/85 backdrop-blur-2xl text-slate-900 px-4 py-3 border-b border-white/90 shadow-[0_8px_30px_rgba(30,41,59,0.05)]">
+        <div className="max-w-4xl mx-auto flex items-center gap-3">
+          <MiraAvatar size="w-11 h-11" rounded="rounded-2xl" className="ring-2 ring-rose-100" />
           <div className="flex-1 min-w-0">
             <h1 className="text-sm font-bold truncate flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-rose-300" />
-              Mira — Business Advisor
+              <Sparkles className="w-4 h-4 text-rose-500" />
+              Mira <span className="font-medium text-slate-400">/</span> Your business guide
             </h1>
-            <p className="text-[11px] text-rose-200/90 truncate flex items-center gap-1.5">
+            <p className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
               <span>{selectedLang && ONBOARDING_LANGUAGES.find(l => l.code === selectedLang)?.native}</span>
               <span>•</span>
               {isPlayingAudio ? (
@@ -1482,7 +1631,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   <Volume2 className="w-3 h-3" /> Speaking...
                 </span>
               ) : (
-                <span className="text-rose-200">Online & Listening</span>
+                <span className="text-emerald-700">Here to help you plan</span>
               )}
             </p>
           </div>
@@ -1492,7 +1641,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
               <button
                 type="button"
                 onClick={stopAudio}
-                className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-400/30 text-[10px] font-bold hover:bg-rose-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold hover:bg-rose-100 transition-colors flex items-center gap-1 cursor-pointer"
                 title="Stop speech"
               >
                 <VolumeX className="w-3 h-3" /> Stop
@@ -1500,7 +1649,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             )}
 
             {Object.keys(collectedFields).length > 0 && (
-              <div className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-lg border border-emerald-400/30 font-bold">
+              <div className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold">
                 {Object.keys(collectedFields).filter(k => !["latitude", "longitude"].includes(k)).length} Details Filled
               </div>
             )}
@@ -1508,9 +1657,26 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         </div>
       </header>
 
+      <div className="max-w-4xl w-full mx-auto px-4 pt-5">
+        <div className="rounded-2xl bg-white/85 backdrop-blur border border-white/90 shadow-[0_12px_35px_rgba(30,41,59,0.06)] px-4 sm:px-5 py-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-rose-600">Your venture, step by step</p>
+            <p className="text-sm font-semibold text-slate-800">
+              {{ location_confirm: "Confirm your location", location_menu: "Choose your location", business_idea: "Describe your idea", odop_check_prompt: "Explore district ODOP", odop_alignment: "Choose your ODOP path", enterprise_info: "Name your enterprise", promoter_equity: "Plan your investment", machinery_selection: "Review equipment" }[chatStep] || "Review your plan"}
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-rose-50 border border-rose-200 text-rose-700 px-3 py-1 text-xs font-bold">
+            {STEP_NUMBER[chatStep] || 7} / 7
+          </span>
+        </div>
+        <div className="mt-2 h-1.5 rounded-full bg-white/70 overflow-hidden" aria-label={`Onboarding step ${STEP_NUMBER[chatStep] || 7} of 7`}>
+          <div className="h-full rounded-full bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-400 transition-all duration-500" style={{ width: `${((STEP_NUMBER[chatStep] || 7) / 7) * 100}%` }} />
+        </div>
+      </div>
+
       {/* Messages Area */}
       <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-3 sm:px-4 pt-6 sm:pt-8 pb-6 scroll-smooth">
-        <div className="max-w-3xl mx-auto space-y-4">
+        <div className="max-w-4xl mx-auto space-y-4">
           {messages.map((msg) => (
             <div key={msg.id} className="space-y-2.5">
               <div
@@ -1523,20 +1689,13 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 )}
 
                 <div
-                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+                  className={`max-w-[85%] sm:max-w-[75%] rounded-[1.4rem] px-4 sm:px-5 py-3.5 text-sm leading-7 shadow-[0_8px_24px_rgba(30,41,59,0.07)] ${
                     msg.role === "user"
                       ? "bg-gradient-to-r from-sovereign-900 via-sovereign-800 to-indigo-900 text-white rounded-br-md"
-                      : "bg-white text-slate-800 border border-slate-200/80 rounded-bl-md"
+                      : "bg-white/95 text-slate-800 border border-white rounded-bl-md"
                   }`}
                 >
-                  <div className="whitespace-pre-wrap">
-                    {msg.content.split("\n").map((line, i) => {
-                      const boldParsed = line.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-                      return (
-                        <p key={i} className={i > 0 ? "mt-1.5" : ""} dangerouslySetInnerHTML={{ __html: boldParsed }} />
-                      );
-                    })}
-                  </div>
+                  <div className="whitespace-pre-wrap"><FormattedMessage content={msg.content} /></div>
 
                   {msg.role === "assistant" && (
                     <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-end">
@@ -1706,26 +1865,26 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             <div className="animate-[fadeIn_0.4s_ease-out] max-w-xl mx-auto my-3">
               <div className="bg-white rounded-3xl border-2 border-amber-400/80 shadow-2xl overflow-hidden">
                 {/* Header Banner */}
-                <div className="bg-gradient-to-r from-amber-950 via-orange-950 to-slate-950 text-white p-4 sm:p-5 relative">
+                <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 text-slate-900 p-4 sm:p-5 relative border-b border-amber-200">
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-400/40">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-amber-800 border border-amber-300">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                       {selectedLang === "en" ? "ODOP Scheme Opportunity" : "ODOP योजना अवसर"}
                     </span>
-                    <span className="text-xs text-amber-200 font-semibold flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> {odopIntroData.subsidy_summary || "25%–35%"} Capital Subsidy
+                    <span className="text-xs text-amber-800 font-semibold flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> {selectedLang === "en" ? "Eligibility check" : "पात्रता जाँच"}
                     </span>
                   </div>
 
-                  <h3 className="text-base sm:text-lg font-bold font-display text-white">
+                  <h3 className="text-base sm:text-lg font-bold font-display text-slate-900">
                     {selectedLang === "en"
-                      ? `Align with District ODOP for ${odopIntroData.subsidy_summary || "25%–35%"} Subsidy?`
-                      : `क्या आप ${odopIntroData.subsidy_summary || "25%–35%"} सब्सिडी के लिए ज़िला ODOP से तालमेल जाँचना चाहते हैं?`}
+                      ? `Could ${collectedFields.business_idea || "your idea"} fit the district ODOP?`
+                      : `क्या ${collectedFields.business_idea || "आपका विचार"} ज़िला ODOP से जुड़ सकता है?`}
                   </h3>
-                  <p className="text-xs text-amber-200/90 mt-1 leading-relaxed">
+                  <p className="text-xs text-slate-700 mt-1 leading-relaxed">
                     {selectedLang === "en"
-                      ? `Your district (${odopIntroData.district || collectedFields.district_name || 'Pune'}) is designated for "${odopIntroData.odop_product}". Enterprises aligned with their district ODOP can secure ${odopIntroData.subsidy_summary || "25%–35%"} capital subsidy under ${odopIntroData.scheme || "ODOP Cluster Scheme"}!`
-                      : `आपके ज़िले (${odopIntroData.district || (selectedLang === 'hi' ? 'पुणे' : 'Pune')}) का आधिकारिक ODOP उत्पाद "${odopIntroData.odop_product}" है। ज़िला ODOP से तालमेल बिठाने पर ${odopIntroData.scheme || "ODOP योजना"} से ${odopIntroData.subsidy_summary || "25%–35%"} पूँजीगत अनुदान मिलता है!`}
+                      ? `ODOP means One District One Product. ${odopIntroData.district} identifies ${odopIntroData.odop_product} as its product. A real link may help local sourcing and eligibility for ${odopIntroData.scheme}; benefits depend on scheme rules. Shall I assess your idea?`
+                      : `ODOP यानी एक ज़िला एक उत्पाद। ${odopIntroData.district} का उत्पाद ${odopIntroData.odop_product} है। वास्तविक तालमेल से स्थानीय आपूर्ति और ${odopIntroData.scheme} की पात्रता जाँची जा सकती है; लाभ नियमों पर निर्भर हैं। क्या मैं आपके विचार की जाँच करूँ?`}
                   </p>
                 </div>
 
@@ -1784,35 +1943,35 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             <div className="animate-[fadeIn_0.4s_ease-out] max-w-xl mx-auto my-3">
               <div className="bg-white rounded-3xl border-2 border-emerald-400/80 shadow-2xl overflow-hidden">
                 {/* Header Banner */}
-                <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-950 text-white p-4 sm:p-5 relative">
+                <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 text-slate-900 p-4 sm:p-5 relative border-b border-emerald-200">
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-emerald-800 border border-emerald-300">
                       <Sparkles className="w-3.5 h-3.5" />
                       ODOP Synergy Benchmarking
                     </span>
-                    <span className="text-xs text-emerald-200 font-semibold flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" /> {odopData.subsidy_summary || "25%–35%"} {odopData.scheme_name || "Subsidy"} Ready
+                    <span className="text-xs text-emerald-800 font-semibold flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5" /> {selectedLang === "en" ? "Assessment complete" : "मूल्यांकन पूरा"}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between gap-4 mt-2">
                     <div>
-                      <h3 className="text-base sm:text-lg font-bold font-display text-white">
+                      <h3 className="text-base sm:text-lg font-bold font-display text-slate-900">
                         {selectedLang === "en"
                           ? "One District One Product Synergy Match"
                           : "एक जिला एक उत्पाद (ODOP) तालमेल स्कोर"}
                       </h3>
-                      <p className="text-xs text-emerald-200/90 mt-0.5">
+                      <p className="text-xs text-emerald-900 mt-0.5">
                         {odopData.mira_recommendation || "Mira's Strategic Evaluation"}
                       </p>
                     </div>
 
                     {/* 0-100 Score Gauge Badge */}
-                    <div className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/30 shadow-inner">
-                      <span className="text-xl font-black text-emerald-300 leading-none">
-                        {odopData.alignment_score || 85}
+                    <div className="shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-2xl bg-white border border-emerald-200 shadow-sm">
+                      <span className="text-xl font-black text-emerald-700 leading-none">
+                        {odopData.alignment_score ?? 0}
                       </span>
-                      <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">
                         / 100
                       </span>
                     </div>
@@ -1910,8 +2069,8 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                       <Sparkles className="w-4 h-4 text-emerald-200" />
                       <span>
                         {selectedLang === "en"
-                          ? `Align with ODOP (Unlock ${odopData.subsidy_summary || "25%–35%"} Subsidy) ✨`
-                          : `ODOP से जोड़ें (${odopData.subsidy_summary || "25%–35%"} सब्सिडी अनलॉक करें) ✨`}
+                          ? "Align with ODOP strategy"
+                          : "ODOP रणनीति से जोड़ें"}
                       </span>
                     </button>
 
@@ -1933,19 +2092,19 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           {showEnterpriseCard && (
             <div className="animate-[fadeIn_0.4s_ease-out] max-w-lg mx-auto my-3">
               <div className="bg-white rounded-3xl border-2 border-violet-400/80 shadow-2xl overflow-hidden">
-                <div className="bg-gradient-to-r from-violet-950 via-indigo-900 to-slate-950 text-white p-4 sm:p-5">
+                <div className="bg-gradient-to-r from-violet-50 via-indigo-50 to-sky-50 text-slate-900 p-4 sm:p-5 border-b border-violet-200">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-violet-500/20 text-violet-300 border border-violet-400/40">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-violet-800 border border-violet-200">
                       <User className="w-3.5 h-3.5" />
                       {selectedLang === "en" ? "Enterprise Details" : "उद्यम विवरण"}
                     </span>
                   </div>
-                  <h3 className="text-base sm:text-lg font-bold font-display text-white">
+                  <h3 className="text-base sm:text-lg font-bold font-display text-slate-900">
                     {selectedLang === "en"
                       ? "Your Enterprise Name & Category"
                       : "आपके उद्यम का नाम और जाति श्रेणी"}
                   </h3>
-                  <p className="text-xs text-violet-200/90 mt-1">
+                  <p className="text-xs text-slate-600 mt-1">
                     {selectedLang === "en"
                       ? "Please share your enterprise name and caste category for government scheme eligibility."
                       : "कृपया अपने उद्यम का नाम और सरकारी योजना पात्रता के लिए जाति श्रेणी बताएं।"}
@@ -2012,39 +2171,46 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           )}
 
           {/* ─── Step 7: Interactive Machinery Dropdown & Checklist Card (auto-closes on confirm) ───── */}
-          {applicableMachinery && applicableMachinery.machinery_list && applicableMachinery.machinery_list.length > 0 && !machineryConfirmed && (
+          {chatStep === "machinery_selection" && applicableMachinery && !machineryConfirmed && (
             <div className="animate-[fadeIn_0.4s_ease-out] max-w-xl mx-auto my-3">
               <div className="bg-white rounded-3xl border-2 border-indigo-400/80 shadow-2xl overflow-hidden">
                 {/* Header Banner */}
-                <div className="bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 text-white p-4 sm:p-5 relative">
+                <div className="bg-gradient-to-r from-sky-50 via-indigo-50 to-violet-50 text-slate-900 p-4 sm:p-5 relative border-b border-indigo-200">
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-indigo-800 border border-indigo-200">
                       <Wrench className="w-3.5 h-3.5" />
                       {selectedLang === "en" ? "Standard MSME Plant & Machinery" : "मानक प्लांट एवं मशीनरी"}
                     </span>
-                    <span className="text-xs text-indigo-200 font-semibold flex items-center gap-1">
+                    <span className="text-xs text-indigo-700 font-semibold flex items-center gap-1">
                       <Zap className="w-3.5 h-3.5 text-amber-400" />
-                      {applicableMachinery.typical_capacity || "Commercial Scale"}
+                      {applicableMachinery.typical_capacity || (selectedLang === "en" ? "Idea-specific plan" : "आपके विचार के अनुसार")}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between gap-4 mt-2">
                     <div>
-                      <h3 className="text-base sm:text-lg font-bold font-display text-white">
-                        {applicableMachinery.business_name}
+                      <h3 className="text-base sm:text-lg font-bold font-display text-slate-900">
+                        {applicableMachinery.business_name || collectedFields.business_idea || "Your business"}
                       </h3>
-                      <p className="text-xs text-indigo-200/90 mt-0.5">
+                      <p className="text-xs text-slate-600 mt-0.5">
                         {selectedLang === "en"
-                          ? "Select any machines you already own from the dropdown or checklist below to credit their valuation against your bank loan & lower your EMI:"
-                          : "क्या आपके पास इनमें से कोई मशीन पहले से है? नीचे ड्रॉपडाउन या सूची से चुनें—हम उसकी कीमत सीधे आपके लोन में से घटा देंगे:"}
+                          ? "Here is the catalogue-backed equipment for your idea. Select what you already own so its verified estimate can be considered in the project outlay."
+                          : "यह आपके विचार के लिए सूचीबद्ध उपकरण हैं। जो पहले से आपके पास हैं उन्हें चुनें, ताकि उनकी सत्यापित अनुमानित लागत परियोजना में गिनी जा सके।"}
                       </p>
                     </div>
                   </div>
                 </div>
 
                 <div className="p-4 sm:p-6 space-y-4 text-slate-800">
+                  {applicableMachinery.machinery_list.length === 0 && (
+                    <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-950">
+                      {selectedLang === "en"
+                        ? "The machinery catalogue has no production equipment for this idea. If you plan to manufacture rather than sell finished goods, describe that in the review form."
+                        : "इस विचार के लिए उत्पादन मशीनें सूची में नहीं हैं। यदि आप तैयार सामान बेचने के बजाय बनाना चाहते हैं, तो समीक्षा फॉर्म में यह स्पष्ट करें।"}
+                    </div>
+                  )}
                   {/* Quick-Pick Dropdown */}
-                  <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200">
+                  {applicableMachinery.machinery_list.length > 0 && <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200">
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-indigo-950 mb-1.5 flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
                         <ChevronDown className="w-3.5 h-3.5 text-indigo-700" />
@@ -2076,10 +2242,10 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                         );
                       })}
                     </select>
-                  </div>
+                  </div>}
 
                   {/* Visual Checklist Cards */}
-                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {applicableMachinery.machinery_list.length > 0 && <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                     <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-1">
                       {selectedLang === "en" ? "Or Tap Applicable Equipment Below:" : "या नीचे दिए गए उपकरणों पर टैप करें:"}
                     </div>
@@ -2143,7 +2309,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                         </div>
                       );
                     })}
-                  </div>
+                  </div>}
 
                   {/* Live Calculation / Benefit Banner */}
                   {selectedOwnedMachines.length > 0 && (
@@ -2204,8 +2370,8 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                       >
                         <span>
                           {selectedLang === "en"
-                            ? "I don't own any of these (I need all fresh machines)"
-                            : "मेरे पास इनमें से कोई मशीन नहीं है (मुझे सभी नई मशीनें चाहिए)"}
+                            ? (applicableMachinery.machinery_list.length ? "I don't own any of these" : "Continue with this idea")
+                            : (applicableMachinery.machinery_list.length ? "मेरे पास इनमें से कोई मशीन नहीं है" : "इस विचार के साथ आगे बढ़ें")}
                         </span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
@@ -2217,6 +2383,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           )}
 
           {/* Typing Indicator */}
+          {chatError && (
+            <div role="alert" className="max-w-xl mx-auto rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+              {chatError}
+            </div>
+          )}
           {isSending && (
             <div className="flex gap-2.5 animate-[fadeIn_0.2s_ease-out]">
               <MiraAvatar size="w-8 h-8" rounded="rounded-xl" />
@@ -2238,24 +2409,23 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       </div>
 
       {/* Input Bar — Sticky at Bottom */}
-      <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 px-3 sm:px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
+      <div className="sticky bottom-0 z-20 bg-white/90 backdrop-blur-xl border-t border-white px-3 sm:px-4 py-3 shadow-[0_-12px_35px_rgba(30,41,59,0.07)]">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-end gap-2">
             <button
               type="button"
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-              onTouchStart={startRecording}
-              onTouchEnd={stopRecording}
-              disabled={isSending}
+              onClick={toggleRecording}
+              disabled={isSending || isTranscribing || isStartingRecording || !["business_idea", "promoter_equity"].includes(chatStep)}
+              aria-label={isRecording ? "Stop recording and transcribe" : "Start voice recording"}
+              aria-pressed={isRecording}
               className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 cursor-pointer ${
                 isRecording
                   ? "bg-rose-500 text-white shadow-lg shadow-rose-500/30 scale-110 animate-pulse"
                   : "bg-slate-100 text-slate-600 hover:bg-rose-100 hover:text-rose-800 border border-slate-200"
               }`}
-              title={isRecording ? "Recording... Release to stop" : "Hold to record voice"}
+              title={isRecording ? "Tap to stop and send" : "Tap to start recording"}
             >
-              {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              {isStartingRecording || isTranscribing ? <Loader2 className="w-5 h-5 animate-spin" /> : isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
             </button>
 
             <div className="flex-1 relative">
@@ -2266,11 +2436,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 onKeyDown={handleKeyDown}
                 placeholder={
                   selectedLang === "en"
-                    ? "Type your message or hold mic to speak..."
-                    : "अपना संदेश लिखें या बोलने के लिए माइक दबाएँ..."
+                    ? "Type your answer or tap the mic to speak..."
+                    : "जवाब लिखें या बोलने के लिए माइक दबाएँ..."
                 }
                 rows={1}
-                disabled={isSending}
+                disabled={isSending || !["business_idea", "promoter_equity"].includes(chatStep)}
                 className="w-full resize-none rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 transition-all max-h-32 overflow-y-auto"
                 style={{ minHeight: "44px" }}
               />
@@ -2279,7 +2449,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             <button
               type="button"
               onClick={() => handleSendMessage()}
-              disabled={!inputText.trim() || isSending}
+              disabled={!inputText.trim() || isSending || !["business_idea", "promoter_equity"].includes(chatStep)}
               className="shrink-0 w-11 h-11 rounded-xl bg-gradient-to-r from-rose-600 via-pink-600 to-indigo-800 text-white flex items-center justify-center shadow-md shadow-pink-950/20 hover:shadow-lg disabled:opacity-40 transition-all duration-200 cursor-pointer"
             >
               {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
@@ -2288,9 +2458,10 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
           <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400 px-1">
             <span>
-              {isRecording 
-                ? "🎙️ Recording... Release button to send" 
-                : (selectedLang === "en" ? "Press Enter to send" : "भेजने के लिए Enter दबाएँ")}
+              {isRecording
+                ? "🎙️ Recording · tap the mic again to send"
+                : isTranscribing ? "Transcribing your voice..." : isStartingRecording ? "Opening microphone..."
+                : (selectedLang === "en" ? "Enter to send · tap mic to record" : "भेजने के लिए Enter दबाएँ · रिकॉर्ड करने के लिए माइक दबाएँ")}
             </span>
             <span className="truncate max-w-[220px]">
               {collectedFields.district_name 
@@ -2303,18 +2474,18 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
       {/* ─── Step 8: 50/50 Split-Screen (Left=Chat, Right=Editable Form) ── */}
       {(phase === "split_screen" || phase === "processing") && (
-        <div className="fixed inset-0 z-50 bg-white/98 backdrop-blur-xl flex flex-col lg:flex-row animate-[fadeIn_0.3s_ease-out]">
+          <div className="fixed inset-0 z-50 backdrop-blur-xl flex flex-col lg:flex-row animate-[fadeIn_0.3s_ease-out]" style={{ background: "linear-gradient(-45deg, #fff1f2, #fff7ed, #eff6ff, #ecfdf5, #faf5ff)", backgroundSize: "350% 350%", animation: "dynamicPastel 16s ease-in-out infinite" }}>
           {/* Left Panel: Chat History + Active Input (scrollable) */}
-          <div className="w-full lg:w-1/2 h-1/2 lg:h-full border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col bg-white">
-            <div className="bg-gradient-to-r from-slate-950 via-sovereign-900 to-indigo-950 text-white px-5 py-3.5 flex items-center justify-between shrink-0 shadow-sm">
+          <div className="w-full lg:w-1/2 h-[44%] lg:h-full border-b lg:border-b-0 lg:border-r border-white/90 flex flex-col bg-gradient-to-br from-rose-50/60 via-white to-indigo-50/60">
+            <div className="bg-white/85 backdrop-blur text-slate-900 px-5 py-4 flex items-center justify-between shrink-0 border-b border-white shadow-sm">
               <div className="flex items-center gap-3">
-                <MiraAvatar size="w-9 h-9" rounded="rounded-xl" />
+                <MiraAvatar size="w-11 h-11" rounded="rounded-2xl" className="ring-2 ring-rose-100" />
                 <div>
-                  <h2 className="text-sm font-bold flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-rose-300" />
+                  <h2 className="text-sm sm:text-base font-bold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-rose-500" />
                     {selectedLang === "en" ? "Chat with Mira" : "Mira से बातचीत"}
                   </h2>
-                  <p className="text-[10px] text-emerald-300 font-semibold">✓ {selectedLang === "en" ? "Live MSME Advisor Active" : "लाइव एमएसएमई सलाहकार सक्रिय"}</p>
+                  <p className="text-[11px] text-slate-500">{selectedLang === "en" ? "Your plan is ready to review together" : "आपकी योजना समीक्षा के लिए तैयार है"}</p>
                 </div>
               </div>
 
@@ -2322,7 +2493,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 <button
                   type="button"
                   onClick={stopAudio}
-                  className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-400/30 text-[10px] font-bold hover:bg-rose-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold hover:bg-rose-100 transition-colors flex items-center gap-1 cursor-pointer"
                   title="Stop speech"
                 >
                   <VolumeX className="w-3 h-3" /> Stop
@@ -2330,23 +2501,18 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-4">
               {messages.map(msg => (
                 <div key={msg.id} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   {msg.role === "assistant" && (
                     <MiraAvatar size="w-7 h-7" rounded="rounded-lg" />
                   )}
-                  <div className={`max-w-[80%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                  <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs sm:text-sm leading-relaxed shadow-sm ${
                     msg.role === "user"
                       ? "bg-gradient-to-r from-sovereign-900 to-indigo-900 text-white rounded-br-sm shadow-sm"
-                      : "bg-slate-50 text-slate-700 border border-slate-200 rounded-bl-sm"
+                      : "bg-white text-slate-700 border border-white rounded-bl-sm"
                   }`}>
-                    <div className="whitespace-pre-wrap">
-                      {msg.content.split("\n").map((line, i) => {
-                        const parsed = line.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-                        return <p key={i} className={i > 0 ? "mt-1" : ""} dangerouslySetInnerHTML={{ __html: parsed }} />;
-                      })}
-                    </div>
+                    <div className="whitespace-pre-wrap"><FormattedMessage content={msg.content} /></div>
                   </div>
                   {msg.role === "user" && (
                     <div className="w-7 h-7 rounded-lg bg-slate-200 flex items-center justify-center text-slate-700 text-[10px] font-bold shrink-0 mt-0.5">
@@ -2368,23 +2534,23 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             </div>
 
             {/* Active Live Chat Bar inside Split-Screen */}
-            <div className="shrink-0 p-3 border-t border-slate-200 bg-white/95 backdrop-blur-md">
+            <div className="shrink-0 p-3 sm:p-4 border-t border-white bg-white/90 backdrop-blur-md shadow-[0_-8px_25px_rgba(30,41,59,0.05)]">
+              {chatError && <p role="alert" className="mb-2 text-xs text-rose-700">{chatError}</p>}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onMouseDown={startRecording}
-                  onMouseUp={stopRecording}
-                  onTouchStart={startRecording}
-                  onTouchEnd={stopRecording}
-                  disabled={isSending}
+                  onClick={toggleRecording}
+                  disabled={isSending || isTranscribing || isStartingRecording}
+                  aria-label={isRecording ? "Stop recording and transcribe" : "Start voice recording"}
+                  aria-pressed={isRecording}
                   className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                     isRecording
                       ? "bg-rose-500 text-white shadow-md shadow-rose-500/30 scale-105 animate-pulse"
                       : "bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-700 border border-slate-200"
                   }`}
-                  title={isRecording ? "Recording... Release to stop" : "Hold to record voice"}
+                  title={isRecording ? "Tap to stop and send" : "Tap to start recording"}
                 >
-                  {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  {isStartingRecording || isTranscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 </button>
                 <input
                   type="text"
@@ -2421,20 +2587,23 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </div>
+              <p className="text-[10px] text-slate-500 mt-2 px-1">{isRecording ? "Recording · tap again to send" : isTranscribing ? "Transcribing your voice..." : "Ask for a change before generating your report"}</p>
             </div>
           </div>
 
           {/* Right Panel: Editable Summary Form */}
-          <div className="w-full lg:w-1/2 h-1/2 lg:h-full flex flex-col bg-slate-50/50">
-            <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-950 text-white px-5 py-3.5 flex items-center justify-between shrink-0 shadow-sm">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                <h2 className="text-sm font-bold">{selectedLang === "en" ? "Enterprise Summary" : "उद्यम सारांश"}</h2>
+          <div className="w-full lg:w-1/2 h-[56%] lg:h-full flex flex-col bg-gradient-to-br from-emerald-50/60 via-white to-sky-50/70">
+            <div className="bg-white/90 backdrop-blur text-slate-900 px-5 sm:px-7 py-4 flex items-center justify-between shrink-0 border-b border-white shadow-sm gap-2">
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center border border-emerald-100"><CheckCircle2 className="w-5 h-5 text-emerald-600" /></span>
+                <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Final step · 07 / 07</p>
+                <h2 className="text-sm sm:text-base font-bold">{selectedLang === "en" ? "Review your enterprise plan" : "अपनी उद्यम योजना जाँचें"}</h2></div>
               </div>
-              <span className="text-[10px] text-emerald-300 font-semibold bg-emerald-500/20 px-2.5 py-1 rounded-full border border-emerald-400/40">🎉 {selectedLang === "en" ? "Ready for Report" : "रिपोर्ट तैयार"}</span>
+              <span className="hidden sm:inline text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">✓ {selectedLang === "en" ? "Editable before submitting" : "भेजने से पहले बदल सकते हैं"}</span>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-7 py-5 space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed rounded-2xl border border-sky-100 bg-sky-50/80 px-4 py-3">{selectedLang === "en" ? "Mira filled this from your conversation. Review and edit any field, then generate your feasibility report." : "Mira ने बातचीत के आधार पर यह फ़ॉर्म भरा है। किसी भी जानकारी को बदलें, फिर रिपोर्ट बनाएँ।"}</p>
               {/* Enterprise & Location Section */}
               <div className="bg-white rounded-2xl border border-slate-200/90 p-4 space-y-3 shadow-xs">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -2451,11 +2620,32 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                       className="text-right font-bold text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 max-w-[55%] text-xs"
                     />
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Sector & Category</span>
-                    <span className="font-semibold text-slate-900 capitalize text-right">
-                      {(collectedFields.sector || "MSME").replace(/_/g, " ")} • {collectedFields.business_category || "Manufacturing"}
-                    </span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">Promoter name</span>
+                    <input type="text" value={collectedFields.promoter_name || userName} onChange={(e) => setCollectedFields(prev => ({ ...prev, promoter_name: e.target.value }))}
+                      className="text-right font-semibold text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 max-w-[55%] text-xs" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-500 font-medium" htmlFor="review-business-idea">Business idea</label>
+                    <textarea id="review-business-idea" rows={2} readOnly value={collectedFields.business_idea || collectedFields.additional_business_details || ""}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-slate-900" />
+                    <button type="button" onClick={handleReviseBusinessIdea} className="text-indigo-700 font-semibold hover:underline">
+                      {selectedLang === "en" ? "Change idea and reassess equipment" : "विचार बदलें और उपकरण फिर जाँचें"}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1 text-slate-500 font-medium">Industry sector
+                      <select value={collectedFields.sector || "general"} onChange={(e) => setCollectedFields(prev => ({ ...prev, sector: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
+                        {["dairy", "food_processing", "apparel", "repair", "fabrication", "artisan_trades", "general"].map(sector => <option key={sector} value={sector}>{sector.replace(/_/g, " ")}</option>)}
+                      </select>
+                    </label>
+                    <label className="space-y-1 text-slate-500 font-medium">Business type
+                      <select value={collectedFields.business_category || "service"} onChange={(e) => setCollectedFields(prev => ({ ...prev, business_category: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
+                        <option value="manufacturing">Manufacturing</option><option value="service">Service / retail</option>
+                      </select>
+                    </label>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Promoter Category</span>
@@ -2469,12 +2659,39 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                       ))}
                     </select>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Target Location</span>
-                    <span className="font-semibold text-slate-900 text-right">
-                      {collectedFields.district_name || detectedLocationData?.district_name || "Pune"}, {collectedFields.state_name || "Maharashtra"} ({collectedFields.is_rural ? "Rural" : "Urban"})
-                    </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1 text-slate-500 font-medium">State
+                      <select value={collectedFields.state_name || ""} onChange={(e) => handleReviewLocationChange("state_name", e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
+                        {!statesList.some(s => s.state_name === collectedFields.state_name) && <option value={collectedFields.state_name || ""}>{collectedFields.state_name || "Select state"}</option>}
+                        {statesList.map(s => <option key={s.state_code || s.state_name} value={s.state_name}>{s.state_name}</option>)}
+                      </select>
+                    </label>
+                    <label className="space-y-1 text-slate-500 font-medium">District
+                      <select value={collectedFields.district_name || ""} onChange={(e) => handleReviewLocationChange("district_name", e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
+                        {!districtsList.some(d => d.district_name === collectedFields.district_name) && <option value={collectedFields.district_name || ""}>{collectedFields.district_name || "Select district"}</option>}
+                        {districtsList.map(d => <option key={d.district_code || d.district_name} value={d.district_name}>{d.district_name}</option>)}
+                      </select>
+                    </label>
+                    <label className="space-y-1 text-slate-500 font-medium">Block
+                      <select value={collectedFields.block_name || ""} onChange={(e) => handleReviewLocationChange("block_name", e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
+                        <option value="">Select block</option>
+                        {collectedFields.block_name && !blocksList.some(b => b.development_block_name === collectedFields.block_name) && <option value={collectedFields.block_name}>{collectedFields.block_name}</option>}
+                        {blocksList.map(b => <option key={b.development_block_code || b.development_block_name} value={b.development_block_name}>{b.development_block_name}</option>)}
+                      </select>
+                    </label>
+                    <label className="space-y-1 text-slate-500 font-medium">Village / locality
+                      <select value={collectedFields.village_name || ""} onChange={(e) => handleReviewLocationChange("village_name", e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
+                        <option value="">Select village</option>
+                        {collectedFields.village_name && !villagesList.some(v => v.village_name === collectedFields.village_name) && <option value={collectedFields.village_name}>{collectedFields.village_name}</option>}
+                        {villagesList.map(v => <option key={v.village_code || v.village_name} value={v.village_name}>{v.village_name}</option>)}
+                      </select>
+                    </label>
                   </div>
+                  <label className="flex items-center justify-between text-slate-500 font-medium">Area type
+                    <select value={collectedFields.is_rural ? "rural" : "urban"} onChange={(e) => setCollectedFields(prev => ({ ...prev, is_rural: e.target.value === "rural" }))} className="rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
+                      <option value="rural">Rural</option><option value="urban">Urban / semi-urban</option>
+                    </select>
+                  </label>
                 </div>
               </div>
 
@@ -2491,7 +2708,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                       <span className="font-bold text-emerald-700 text-xs">₹</span>
                       <input
                         type="number"
-                        value={collectedFields.promoter_equity || 100000}
+                        value={collectedFields.promoter_equity ?? ""}
                         onChange={(e) => setCollectedFields(prev => ({ ...prev, promoter_equity: Number(e.target.value) }))}
                         className="text-right font-bold text-emerald-700 bg-transparent border-b border-dashed border-slate-300 focus:border-emerald-500 focus:outline-none px-1 py-0.5 w-28 text-xs"
                       />
@@ -2514,9 +2731,13 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     </div>
                   )}
                   <div className="flex justify-between bg-slate-50 px-2.5 py-2 rounded-xl border border-slate-200">
-                    <span className="text-slate-900 font-bold">Net Bank Loan Base</span>
-                    <span className="font-extrabold text-indigo-950">₹{Number(collectedFields.project_cost || 500000).toLocaleString('en-IN')}</span>
+                    <label htmlFor="review-project-cost" className="text-slate-900 font-bold">Project cost (₹)</label>
+                    <input id="review-project-cost" type="number" min="1" value={collectedFields.project_cost ?? ""}
+                      onChange={(e) => setCollectedFields(prev => ({ ...prev, project_cost: Number(e.target.value), explicit_project_cost: Number(e.target.value) }))}
+                      className="w-32 text-right font-extrabold text-indigo-950 bg-white rounded-md border border-slate-200 px-2 py-1" />
                   </div>
+                  <p className="text-[11px] text-slate-500">This is Mira's estimate. If you edit your investment or project cost, the entered values will be used for the final appraisal.</p>
+                  {collectedFields.annual_turnover_estimate > 0 && <div className="flex justify-between text-slate-600"><span>Estimated annual sales</span><span>₹{Number(collectedFields.annual_turnover_estimate).toLocaleString("en-IN")}</span></div>}
                 </div>
               </div>
 
@@ -2542,7 +2763,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Moratorium</span>
                     <select
-                      value={collectedFields.moratorium_months || 6}
+                      value={collectedFields.moratorium_months ?? 6}
                       onChange={(e) => setCollectedFields(prev => ({ ...prev, moratorium_months: Number(e.target.value) }))}
                       className="text-right font-semibold text-slate-800 bg-transparent border-b border-dashed border-slate-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 text-xs cursor-pointer"
                     >
@@ -2564,7 +2785,8 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             </div>
 
             {/* Submit Button — pinned at bottom */}
-            <div className="shrink-0 px-5 py-4 border-t border-slate-200 bg-white">
+            <div className="shrink-0 px-5 sm:px-7 py-4 border-t border-white bg-white/95 backdrop-blur shadow-[0_-10px_30px_rgba(30,41,59,0.06)]">
+              {submitError && <p role="alert" className="mb-3 text-sm text-rose-700">{submitError}</p>}
               <button
                 onClick={handleFinalSubmit}
                 disabled={parentLoading}

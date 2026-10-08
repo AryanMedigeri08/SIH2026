@@ -1,7 +1,7 @@
 import React from 'react';
 import { CapitalReconciliationCard } from '../../components/Dashboard/CapitalReconciliationCard';
 import { CashflowProjectionsChart } from '../../components/Dashboard/CashflowProjectionsChart';
-import { TrendingUp, Landmark, ShieldCheck, IndianRupee, PieChart, Percent, CheckCircle2, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, Landmark, ShieldCheck, IndianRupee, PieChart, Percent, Target, Clock } from 'lucide-react';
 import { TranslatedText } from '../../components/TranslatedText';
 
 export function FinancialsPage({ reportData }) {

@@ -22,6 +22,13 @@ from backend.app.core.machinery_matcher import calculate_intelligent_turnover
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def offline_llm_for_onboarding_tests():
+    """Keep API flow tests deterministic; LLM failure uses the production fallback."""
+    with patch("backend.app.routers.onboarding.chat_service._call_llm_chat_completion", side_effect=RuntimeError("offline test")):
+        yield
+
+
 def test_bhashini_cleaner_removes_punctuation_and_symbols():
     """Ensure clean_for_bhashini_tts converts symbols and strips awkward punctuation."""
     raw_hi = "क्या आप जानते हैं? आपको ₹10 लाख पर 35% सब्सिडी मिलेगी: 1. ODOP से जुड़ें / 2. मूल विचार!"
@@ -117,11 +124,11 @@ def test_odop_decision_action_align():
     resp = client.post("/api/v2/chat/onboarding", json=payload)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["all_fields_collected"] is True
-    assert data["next_phase"] == "processing"
+    assert data["all_fields_collected"] is False
+    assert data["next_phase"] == "enterprise_info"
     assert data["extracted_fields"]["odop_decision"] == "align"
     assert data["extracted_fields"]["odop_synergy_aligned"] is True
-    assert "35 प्रतिशत" in data["reply"] or "35%" in data["reply"] or "PMFME" in data["reply"]
+    assert "पात्रता" in data["reply"] or "PMFME" in data["reply"]
     # Verify Bhashini text is clean
     assert "₹" not in data["tts_text"]
     assert "%" not in data["tts_text"]
@@ -154,8 +161,8 @@ def test_odop_decision_action_keep_original():
     resp = client.post("/api/v2/chat/onboarding", json=payload)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["all_fields_collected"] is True
-    assert data["next_phase"] == "processing"
+    assert data["all_fields_collected"] is False
+    assert data["next_phase"] == "enterprise_info"
     assert data["extracted_fields"]["odop_decision"] == "keep_original"
     assert data["extracted_fields"]["odop_synergy_aligned"] is False
     assert "मूल विचार" in data["reply"] or "PMEGP" in data["reply"]
@@ -185,8 +192,8 @@ def test_odop_decision_chat_text_number_1():
     resp = client.post("/api/v2/chat/onboarding", json=payload)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["all_fields_collected"] is True
-    assert data["next_phase"] == "processing"
+    assert data["all_fields_collected"] is False
+    assert data["next_phase"] == "enterprise_info"
     assert data["extracted_fields"]["odop_decision"] == "align"
     assert data["extracted_fields"]["odop_synergy_aligned"] is True
 
@@ -215,8 +222,8 @@ def test_odop_decision_chat_text_keep_original():
     resp = client.post("/api/v2/chat/onboarding", json=payload)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["all_fields_collected"] is True
-    assert data["next_phase"] == "processing"
+    assert data["all_fields_collected"] is False
+    assert data["next_phase"] == "enterprise_info"
     assert data["extracted_fields"]["odop_decision"] == "keep_original"
     assert data["extracted_fields"]["odop_synergy_aligned"] is False
 
@@ -304,8 +311,8 @@ def test_statutory_banking_parameters_allocation():
     assert params["capacity_unit_label"] == "litres"
 
 
-def test_conversational_onboarding_machinery_deduction_and_banking_fields():
-    """Test full conversational onboarding message providing equity and existing machine."""
+def test_equity_turn_keeps_machinery_private_until_ownership_choice():
+    """The investment answer reveals the equipment card before owned assets are credited."""
     payload = {
         "messages": [
             {"role": "assistant", "content": "कृपया मुझे बताइए कि आपके पास कितनी प्रमोटर इक्विटी है?"},
@@ -316,9 +323,13 @@ def test_conversational_onboarding_machinery_deduction_and_banking_fields():
         "collected_fields": {
             "enterprise_name": "Radha Spices",
             "sector": "food_processing",
+            "business_category": "manufacturing",
             "state_name": "Maharashtra",
             "district_name": "Pune",
+            "odop_intro_presented": True,
+            "odop_decision": "keep_original",
         },
+        "current_action": "promoter_equity",
         "conversation_step": 3,
     }
     resp = client.post("/api/v2/chat/onboarding", json=payload)
@@ -333,14 +344,14 @@ def test_conversational_onboarding_machinery_deduction_and_banking_fields():
     assert fields["moratorium_months"] == 6
     assert fields["infrastructure_score"] > 0
 
-    # Check that Mira spoke about the owned machinery and its EMI savings
-    assert "रुपये" in data["reply"] or "मशीन" in data["reply"]
-    assert data["banking_parameters"] is not None
+    assert data["next_phase"] == "machinery_selection"
+    assert "उपकरण" in data["reply"] or "मशीन" in data["reply"]
     assert data["machinery_analysis"] is not None
+    assert data["applicable_machinery"] is not None
 
 
-def test_applicable_machinery_returned_on_business_idea():
-    """Verify that when a user gives their business idea, applicable_machinery dropdown data is returned."""
+def test_machinery_is_planned_but_not_shown_on_business_idea():
+    """The catalogue is consulted on the idea turn; the equipment card waits until investment."""
     payload = {
         "messages": [
             {"role": "assistant", "content": "आप क्या व्यवसाय शुरू करना चाहते हैं?"},
@@ -353,13 +364,15 @@ def test_applicable_machinery_returned_on_business_idea():
             "district_name": "Jodhpur",
         },
         "conversation_step": 2,
+        "current_action": "business_idea",
     }
     resp = client.post("/api/v2/chat/onboarding", json=payload)
     assert resp.status_code == 200
     data = resp.json()
 
-    assert data["applicable_machinery"] is not None
-    app_mach = data["applicable_machinery"]
+    assert data["next_phase"] == "odop_check_prompt"
+    assert data["applicable_machinery"] is None
+    app_mach = data["extracted_fields"]["machinery_plan"]
     assert "Spice" in app_mach["business_name"]
     assert len(app_mach["machinery_list"]) >= 4
     # Check that each machine has name, cost, specs
@@ -397,15 +410,14 @@ def test_select_owned_machinery_action_confirms_and_credits_outlay():
 
     fields = data["extracted_fields"]
     assert fields["machinery_selection_confirmed"] is True
-    assert fields["owned_machinery_value"] == 140000.0
+    assert fields["owned_machinery_value"] == 280000.0  # Verified JSON catalogue costs, not client supplied figures.
     assert len(fields["owned_machines"]) == 2
     # Gross cost minus owned value equals net cost
-    assert fields["project_cost"] == fields["gross_project_cost"] - 140000.0
+    assert fields["project_cost"] == fields["gross_project_cost"] - 280000.0
     assert fields["estimated_monthly_emi_saved"] > 0
 
-    # Since equity was already present, it should advance to ODOP alignment
-    assert data["next_phase"] == "odop_alignment"
-    assert data["odop_alignment"] is not None
+    assert data["next_phase"] == "split_screen"
+    assert data["all_fields_collected"] is True
 
 
 def test_calculate_intelligent_turnover_triangulation():

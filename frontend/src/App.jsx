@@ -115,8 +115,21 @@ function AppraisalSectionWrapper({
   isLoading,
   onOpenWizard
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const requestedReportId = location.pathname.match(/^\/reports\/([^/]+)\//)?.[1];
   if (isLoading) {
     return <SkeletonComponent />;
+  }
+
+  if (requestedReportId && requestedReportId !== reportData?.report_id) {
+    return (
+      <div role="alert" className="max-w-xl mx-auto my-12 rounded-3xl border border-amber-200 bg-white p-8 text-center shadow-card">
+        <h2 className="text-xl font-bold text-slate-900">Report unavailable</h2>
+        <p className="mt-2 text-sm text-slate-600">This report could not be loaded for your account. It may have been removed, or you may not have access to it.</p>
+        <button type="button" onClick={() => navigate('/dashboard')} className="mt-5 rounded-xl bg-sovereign-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sovereign-800">Go to dashboard</button>
+      </div>
+    );
   }
 
   if (!reportData) {
@@ -172,37 +185,43 @@ export function AppContent() {
     init();
   }, []);
 
-  const lastLoadedReportUrlRef = useRef(null);
+  const loadingReportIdRef = useRef(null);
+  const activeReportRequestRef = useRef({ path: location.pathname, token });
+  activeReportRequestRef.current = { path: location.pathname, token };
   const isSelectingCaseRef = useRef(false);
 
   // URL reportId synchronization: If route is /reports/:reportId/..., auto-load that specific report from API
   useEffect(() => {
     if (isSelectingCaseRef.current) return;
 
-    const match = location.pathname.match(/\/reports\/([^\/]+)/);
-    if (match && match[1]) {
+    const match = location.pathname.match(/^\/reports\/([^/]+)\//);
+    if (match?.[1]) {
       const urlReportId = match[1];
-      if (urlReportId !== 'full' && lastLoadedReportUrlRef.current !== urlReportId && token) {
-        lastLoadedReportUrlRef.current = urlReportId;
+      if (urlReportId !== 'full' && !loadingBusinesses && reportData?.report_id !== urlReportId && loadingReportIdRef.current !== urlReportId && token) {
+        loadingReportIdRef.current = urlReportId;
         async function loadReportFromUrl() {
           try {
             setIsLoadingInitial(true);
             const rep = await fetchFeasibilityReport(urlReportId, token);
-            if (rep && rep.report_id) {
+            if (activeReportRequestRef.current.path === location.pathname && activeReportRequestRef.current.token === token && rep?.report_id === urlReportId) {
               setReportData(rep);
             }
           } catch (e) {
             console.warn(`Could not load report ${urlReportId} from URL:`, e);
           } finally {
-            setIsLoadingInitial(false);
+            if (loadingReportIdRef.current === urlReportId) {
+              loadingReportIdRef.current = null;
+              setIsLoadingInitial(false);
+            }
           }
         }
         loadReportFromUrl();
       }
-    } else {
-      lastLoadedReportUrlRef.current = null;
+    } else if (loadingReportIdRef.current) {
+      loadingReportIdRef.current = null;
+      setIsLoadingInitial(false);
     }
-  }, [location.pathname, token, setReportData]);
+  }, [location.pathname, token, loadingBusinesses, reportData?.report_id, setReportData]);
 
   // Listen for voice-triggered global UI events (DPR export & analysis re-run)
   useEffect(() => {
