@@ -13,6 +13,11 @@ import {
   onAuthStateChanged,
   getIdToken,
   updateProfile as updateFirebaseProfile,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  signInWithCustomToken,
+  signInAnonymously,
+  linkWithPhoneNumber,
 } from "firebase/auth";
 
 const firebaseConfig = {
@@ -43,4 +48,9 @@ export {
   onAuthStateChanged,
   getIdToken,
   updateFirebaseProfile,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  signInWithCustomToken,
+  signInAnonymously,
+  linkWithPhoneNumber,
 };

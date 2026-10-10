@@ -17,6 +17,7 @@ python-multipart>=0.0.9
 firebase-admin>=6.5.0
 pyjwt>=2.8.0
 cryptography>=42.0.0
+webauthn>=3.0.1,<4
 
 # Machine Learning & Scientific Computing
 numpy>=1.26.0

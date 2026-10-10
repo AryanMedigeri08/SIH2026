@@ -5,6 +5,7 @@ auth_dependency.py — FastAPI Authentication Dependency for Firebase ID Token V
 from __future__ import annotations
 import logging
 import hashlib
+import os
 from typing import Optional, Any
 from dataclasses import dataclass, field
 from fastapi import Header, HTTPException, status
@@ -13,9 +14,11 @@ from pydantic import BaseModel
 try:
     from app.core.firebase_admin_client import firebase_auth
     from app.database import db_manager
+    from app.config import settings
 except ImportError:
     from backend.app.core.firebase_admin_client import firebase_auth
     from backend.app.database import db_manager
+    from backend.app.config import settings
 
 logger = logging.getLogger("udyam_saathi.auth.dependency")
 
@@ -32,6 +35,7 @@ class AuthenticatedUser(BaseModel):
     email_verified: bool = False
     auth_provider: str = "email"  # 'email' | 'google.com' | 'custom'
     picture: Optional[str] = None
+    phone_number: Optional[str] = None
     claims: dict[str, Any] = {}
 
 
@@ -59,6 +63,12 @@ def _verify_token_claims(token: str) -> dict[str, Any]:
     """
     # 1. Test Harness Token Format: test-token-<uid>:<email>
     if token.startswith("test-token-") or token.startswith("mock-token-"):
+        # Synthetic tokens have no signature. Never accept them in a running app.
+        test_harness = bool(os.getenv("PYTEST_CURRENT_TEST")) or (
+            settings.DEBUG and os.getenv("ALLOW_TEST_TOKENS") == "1"
+        )
+        if not test_harness:
+            raise HTTPException(status_code=401, detail="Synthetic test tokens are disabled.")
         token_body = token.replace("test-token-", "").replace("mock-token-", "")
         uid = token_body.split(":")[0] if ":" in token_body else token_body
         email = token_body.split(":")[1] if ":" in token_body else f"{uid}@example.com"
@@ -130,6 +140,7 @@ async def get_current_user(
         email_verified=email_verified,
         auth_provider=sign_in_provider,
         picture=picture,
+        phone_number=claims.get("phone_number"),
         claims=claims,
     )
 

@@ -102,6 +102,7 @@ from app.routers import (
     market_intelligence_router,
     onboarding_router,
 )
+from app.routers.passkeys import router as passkeys_router
 from app.core.telemetry import TelemetryMiddleware
 from inference import ViabilityModelLoader
 
@@ -212,6 +213,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Mount API v2 Routers
 app.include_router(auth_router, prefix=settings.API_V2_STR)
+app.include_router(passkeys_router, prefix=settings.API_V2_STR)
 app.include_router(locations_router, prefix=settings.API_V2_STR)
 app.include_router(financial_router, prefix=settings.API_V2_STR)
 app.include_router(feasibility_router, prefix=settings.API_V2_STR)

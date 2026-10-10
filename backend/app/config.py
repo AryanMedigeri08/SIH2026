@@ -54,11 +54,14 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+    SQLITE_DATABASE_PATH: Optional[str] = os.getenv("SQLITE_DATABASE_PATH", None)
 
     # Firebase Admin Configuration (Server-Side Auth)
     FIREBASE_SERVICE_ACCOUNT_JSON: Optional[str] = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", None)
     FIREBASE_SERVICE_ACCOUNT_PATH: Optional[str] = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", None)
     FIREBASE_PROJECT_ID: Optional[str] = os.getenv("FIREBASE_PROJECT_ID", None)
+    PASSKEY_RP_ID: str = os.getenv("PASSKEY_RP_ID", "localhost")
+    PASSKEY_ORIGIN: str = os.getenv("PASSKEY_ORIGIN", "http://localhost:3000")
 
     # Groq AI Model & Dedicated Chatbot Configuration
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")

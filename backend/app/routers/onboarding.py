@@ -251,6 +251,7 @@ class OnboardingRequest(BaseModel):
     collected_fields: Dict[str, Any] = Field(default_factory=dict, description="Already collected wizard fields")
     conversation_step: int = Field(0, description="Current conversation step index")
     current_action: Optional[str] = Field(None, description="UI action trigger (confirm_loc, change_loc, submit_loc, odop_decision, select_owned_machinery)")
+    input_source: str = Field("text", description="text, voice, or confirmed business idea")
     odop_decision: Optional[str] = Field(None, description="User's ODOP decision: 'align' or 'keep_original'")
     user_location: Optional[Dict[str, Any]] = Field(None, description="GPS coordinates or hierarchy")
     selected_machines: Optional[List[Any]] = Field(None, description="List of owned machine items or names selected from dropdown/checklist")
@@ -348,13 +349,13 @@ You speak {language_name} naturally, affectionately, and respectfully (always us
 
 PERSONA & INTERACTION GUIDELINES:
 1. TALK LIKE A REAL CARING HUMAN: Talk like an experienced, supportive elder sister or mentor (दीदी / मार्गदर्शक) sitting with the entrepreneur having tea. Never sound like a robot, generic AI, or clerk.
-2. VIBRANT & ENCOURAGING TONE: Celebrate their entrepreneurial ambition (e.g. 'अरे वाह! यह तो बहुत ही शानदार विचार है!', 'वाह, आपके इलाके में तो इसकी बहुत मांग है!'). Never use stiff clichés like 'As an AI language model...'.
+2. GROUNDED ENCOURAGEMENT: Acknowledge the specific product or service the user actually described. Never claim demand, profitability, subsidy eligibility, or that an unclear idea is excellent without evidence. If speech may have been mistranscribed or the activity is unclear, ask one precise confirmation question before proceeding.
 3. NO REPETITION: Never repeat the same greeting or phrase every turn. Adapt directly to what the user just said.
 4. DO NOT ASK FOR CONFIRMED LOCATION: Location is already confirmed as {location_info}. Never ask state or district!
 5. DO NOT ASK FOR ANNUAL SALES / TURNOVER: Never ask for annual turnover or sales projections. That is calculated by the backend feasibility engine.
 6. HANDLE USER QUESTIONS EMPATHETICALLY:
-   - If the user asks about subsidy, bank loan, or ODOP, briefly answer warmly with reassurance (e.g., government schemes provide 25%–35% capital subsidy, and banks provide priority collateral-free loans under CGTMSE/PMEGP/PMFME).
-   - If the user expresses anxiety ("mere paas paise kam hai"), encourage them that government schemes are specifically designed to fund small entrepreneurs.
+    - If the user asks about subsidy, bank loan, or ODOP, answer with conditions and uncertainty; never promise a grant or loan before eligibility and bank review.
+    - If the user expresses anxiety ("mere paas paise kam hai"), explain the relevant financing options without guaranteeing approval.
 7. ONE CLEAR QUESTION AT A TIME: After warm acknowledgement, ask for the single next missing piece of information.
 8. CONCISE & LIVELY: Keep your response within 2-3 sweet, clear sentences.
 
@@ -374,6 +375,66 @@ LANGUAGE_NAMES = {
     "en": "English", "hi": "Hindi", "mr": "Marathi",
     "te": "Telugu", "ta": "Tamil", "kn": "Kannada",
 }
+
+
+def _business_idea_clarification(idea: str, language: str, interpretation: dict, from_voice: bool) -> str:
+    """Ask about the user's actual idea before a guessed transcript becomes business data."""
+    language_name = LANGUAGE_NAMES.get(language, "English")
+    sector = interpretation.get("sector")
+    category = interpretation.get("business_category")
+    unclear_activity = sector == "general"
+    tailoring_terms = ("tailor", "alteration", "सिलाई", "दर्जी", "शिवण")
+    explicit_garment_production = ("garment", "uniform", "factory", "manufactur", "production", "उत्पादन")
+    tailoring_service = sector == "apparel" and any(term in idea.lower() for term in tailoring_terms) and not any(term in idea.lower() for term in explicit_garment_production)
+    goods_activity = sector in {"dairy", "food_processing", "apparel", "fabrication", "artisan_trades"} and not tailoring_service
+    try:
+        content, _, _ = chat_service._call_llm_chat_completion(
+            messages=[
+                {"role": "system", "content": (
+                    f"You are Mira. Reply only in {language_name}. The user described a business idea, "
+                    "but its transcription or meaning needs confirmation. Paraphrase only what was actually "
+                    "heard; do not invent a product, praise an unverified idea, assert market demand, "
+                    "or proceed to ODOP. Ask ONE short question based on the actual ambiguity. "
+                    "If speech recognition may be wrong, quote what was heard and invite correction. "
+                    "If the activity is unclear, ask what product or service they mean. "
+                    "Only ask make-versus-sell if this is a physical product and that distinction is missing; "
+                    "do not ask a tailoring or repair service whether they will manufacture the service. "
+                    "Do not follow a fixed script or ask multiple unrelated questions."
+                )},
+                {"role": "user", "content": json.dumps({
+                    "heard": idea,
+                    "source": "speech recognition" if from_voice else "typed answer",
+                    "tentative_sector": sector,
+                    "tentative_activity": category,
+                    "unclear_activity": unclear_activity,
+                    "physical_goods": goods_activity,
+                }, ensure_ascii=False)},
+            ],
+            temperature=0.2,
+            max_tokens=130,
+            timeout_s=8.0,
+        )
+        if content and content.strip() and not re.search(r"\b(great idea|wonderful idea|excellent idea|strong market demand)\b|बहुत अच्छा विचार|खूप छान कल्पना", content, re.I):
+            return content.strip()[:600]
+    except Exception:
+        pass
+    if unclear_activity:
+        if language == "hi":
+            return f"मैंने ‘{idea}’ सुना। क्या आप अपना उत्पाद या सेवा थोड़ा स्पष्ट करेंगे? अगर मैंने गलत सुना है तो सही शब्द बता दें।"
+        if language == "mr":
+            return f"मला ‘{idea}’ असे ऐकू आले. तुम्ही कोणते उत्पादन किंवा सेवा देणार आहात ते स्पष्ट कराल का? चुकले असल्यास दुरुस्त करा."
+        return f"I heard ‘{idea}’. What product or service did you mean? Please correct the wording if I misheard you."
+    if not goods_activity or category == "service":
+        if language == "hi":
+            return f"मैंने ‘{idea}’ सुना। क्या मैंने आपका व्यवसाय सही समझा? गलत हो तो कृपया सुधार दें।"
+        if language == "mr":
+            return f"मला ‘{idea}’ असे ऐकू आले. मी तुमचा व्यवसाय बरोबर समजले का? चुकले असल्यास दुरुस्त करा."
+        return f"I heard ‘{idea}’. Is that the business you mean? Please correct me if I misheard it."
+    if language == "hi":
+        return f"मैंने ‘{idea}’ सुना। क्या यही आपका विचार है, और आप इसे बनाएँगे या तैयार माल बेचेंगे? गलत सुना हो तो सुधार दें।"
+    if language == "mr":
+        return f"मी तुमची कल्पना ‘{idea}’ अशी ऐकली. हे बरोबर आहे का? तुम्ही ते तयार करणार की तयार माल विकणार? चूक असल्यास कृपया दुरुस्त करा."
+    return f"I heard ‘{idea}’. Is that the business you mean, and will you make the product or sell finished goods? Please correct me if I heard it wrong."
 
 
 # ── Core Processing Logic ────────────────────────────────────────────────────
@@ -640,10 +701,12 @@ def _generate_mira_response(
     except Exception as e:
         logger.error("Mira response generation failed: %s", e)
 
-    # Fallback sweet responses
+    # A failed LLM call must not pretend to understand an unclear answer.
     if language == "hi":
-        return f"नमस्ते {user_name} जी! मैं आपकी बात बहुत अच्छे से समझ रही हूँ। कृपया मुझे अपने व्यवसाय के बारे में थोड़ा और बताइए ना। 🙏"
-    return f"Namaste {user_name} Ji! I understand completely. Please tell me a bit more about your business idea. 🙏"
+        return f"{user_name} जी, मैं आपकी बात सही समझना चाहती हूँ। कृपया अपने उत्पाद या सेवा के बारे में थोड़ा और बताइए।"
+    if language == "mr":
+        return f"{user_name} जी, मला तुमची कल्पना नीट समजून घ्यायची आहे. कृपया तुमच्या उत्पादन किंवा सेवेबद्दल थोडे अधिक सांगा."
+    return f"{user_name} Ji, I want to be sure I understand. Could you tell me a little more about the product or service you have in mind?"
 
 
 # ── ODOP 100-Point Fixed Benchmarking System Prompt ───────────────────────────
@@ -1156,14 +1219,39 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 message={"role": "assistant", "content": reply},
             )
 
+        # Never promote a possibly misheard business into the enterprise record.
+        # The confirmation turn uses the pending transcript, not a generic "yes".
+        confirmed_idea = action == "confirm_business_idea"
+        if confirmed_idea:
+            pending_idea = str(existing_fields.get("pending_business_idea") or "").strip()
+            if not pending_idea:
+                raise HTTPException(status_code=400, detail="No business idea is awaiting confirmation")
+            last_user_msg = pending_idea
+            action = "business_idea"
+
         # A business idea is interpreted once, immediately after location. The
         # selected catalogue equipment stays private until the investment turn.
         if action == "business_idea":
             interpretation = interpret_business_idea(
                 last_user_msg, chat_service._call_llm_chat_completion,
             )
+            uncertain_idea = interpretation["sector"] == "general" and not interpretation["matched_machinery_profile"]
+            if not confirmed_idea and (payload.input_source == "voice" or uncertain_idea):
+                reply = _business_idea_clarification(
+                    last_user_msg, payload.language, interpretation, payload.input_source == "voice"
+                )
+                return OnboardingResponse(
+                    reply=reply,
+                    tts_text=clean_for_bhashini_tts(reply, payload.language),
+                    extracted_fields={"pending_business_idea": last_user_msg},
+                    next_step=payload.conversation_step + 1,
+                    next_phase="business_idea_confirmation",
+                    all_fields_collected=False,
+                    message={"role": "assistant", "content": reply},
+                )
             new_fields.update(interpretation)
             new_fields["additional_business_details"] = last_user_msg
+            new_fields["pending_business_idea"] = None
             merged_fields.update(new_fields)
 
         # ── Action: Check ODOP Alignment (User clicked "Let's Check") ─────────
@@ -1780,10 +1868,18 @@ async def process_onboarding_message(payload: OnboardingRequest):
             sub_summary = odop_info.get("subsidy_summary", "25% से 35%")
 
             biz_desc = merged_fields.get("additional_business_details") or merged_fields.get("enterprise_name") or f"{merged_fields['sector'].replace('_', ' ').title()}"
+            if merged_fields.get("business_category") == "service":
+                retail_terms = ("shop", "store", "retail", "sell", "dukan", "dukkan", "dukaan", "दुकान", "बेचना", "बिक्री")
+                is_retail = any(term in biz_desc.lower() for term in retail_terms)
+                activity_hi = "तैयार माल बेचने" if is_retail else "सेवा देने"
+                activity_en = "selling finished goods" if is_retail else "providing a service"
+            else:
+                activity_hi = "उत्पादन करने"
+                activity_en = "making the product"
 
             if payload.language == "hi":
                 reply = (
-                    f"अरे वाह {payload.user_name} जी! आपका **{biz_desc}** का विचार बहुत ही शानदार और प्रगतिशील है!\n\n"
+                    f"{payload.user_name} जी, मैंने आपकी बात **{biz_desc}** के रूप में समझी है और योजना में **{activity_hi}** का मॉडल रखा है। अगर यह अलग है, तो कृपया मुझे सुधार दें।\n\n"
                     f"आगे बढ़ने से पहले एक बहुत महत्वपूर्ण जानकारी: भारत सरकार की **ODOP (एक ज़िला एक उत्पाद)** पहल के तहत "
                     f"ज़िले के विशेष उत्पाद से जुड़ने पर स्थानीय आपूर्ति, साझा सुविधाओं और **{scheme_title}** जैसी योजनाओं की पात्रता की जाँच की जा सकती है। {sub_summary} एक योजना सीमा है, स्वचालित लाभ नहीं।\n\n"
                     f"आपके ज़िले **{district_name}** का आधिकारिक ODOP उत्पाद **{odop_prod}** है।\n\n"
@@ -1791,7 +1887,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 )
             elif payload.language == "mr":
                 reply = (
-                    f"अरे वा {payload.user_name} जी! तुमची **{biz_desc}** ची कल्पना अतिशय सुंदर आणि कौतुकास्पद आहे!\n\n"
+                    f"{payload.user_name} जी, मी तुमचा व्यवसाय **{biz_desc}** असा समजले आहे. हा अर्थ चुकीचा असल्यास कृपया मला दुरुस्त करा.\n\n"
                     f"पुढे जाण्यापूर्वी एक अत्यंत महत्त्वाची माहिती: केंद्र शासनाच्या **ODOP (एक जिल्हा एक उत्पादन)** उपक्रमांतर्गत "
                     f"जिल्ह्याच्या विशेष उत्पादनाशी संबंध असल्यास स्थानिक पुरवठा, सामायिक सुविधा आणि **{scheme_title}** योजनेची पात्रता तपासता येते. {sub_summary} ही योजनेची मर्यादा आहे, हमखास लाभ नाही.\n\n"
                     f"तुमच्या **{district_name}** जिल्ह्याचे अधिकृत उत्पादन **{odop_prod}** हे आहे.\n\n"
@@ -1799,7 +1895,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 )
             else:
                 reply = (
-                    f"Wonderful {payload.user_name} Ji! Your business idea for **{biz_desc}** is promising and full of potential!\n\n"
+                    f"{payload.user_name} Ji, I understood your idea as **{biz_desc}**, with a focus on **{activity_en}**. Please correct me if that is not what you intend.\n\n"
                     f"Before we proceed, here is a strategic opportunity: Under the Government's **One District One Product (ODOP)** initiative, "
                     f"a genuine link to the district product may improve local sourcing and allow an eligibility check for **{scheme_title}**. Its {sub_summary} subsidy is conditional, not automatic.\n\n"
                     f"Your district **{district_name}** has **{odop_prod}** as its official ODOP produce.\n\n"
@@ -1862,15 +1958,12 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 p_crop = odop_synergy.get("primary_odop_product", "District Product") if odop_synergy else "District Product"
                 score_val = odop_synergy.get("alignment_score", 50) if odop_synergy else 50
                 mira_verdict = odop_synergy.get("verdict_spoken") or ""
-                sub_sum = odop_synergy.get("subsidy_summary", "25%–35%") if odop_synergy else "25%–35%"
-                sch_title = odop_synergy.get("scheme_name", "Government Subsidy") if odop_synergy else "Government Subsidy"
-
                 if payload.language == "hi":
                     reply = (
                         f"अरे वाह {payload.user_name} जी! मैंने आपके व्यवसाय का {district_name} ज़िले के आधिकारिक उत्पाद {p_crop} के साथ पूरा मूल्यांकन कर लिया है। "
                         f"आपका रणनीतिक तालमेल स्कोर 100 में से **{score_val}** आया है! {mira_verdict}\n\n"
                         f"नीचे दिए गए कार्ड में आप पूरा विश्लेषण देख सकते हैं। अब आप क्या चुनना चाहेंगे:\n"
-                        f"1. ODOP से जुड़ें ({sub_sum} सरकारी सब्सिडी अनलॉक करें)\n"
+                        f"1. ODOP से जुड़ें (योजना पात्रता अलग से जाँची जाएगी)\n"
                         f"2. अपना मूल विचार रखें"
                     )
                 elif payload.language == "mr":
@@ -1878,7 +1971,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                         f"अरे वा {payload.user_name} जी! मी तुमच्या व्यवसायाचे {district_name} जिल्ह्याच्या मुख्य उत्पादन {p_crop} सोबत सखोल मूल्यांकन केले आहे. "
                         f"तुमचा रणनीतिक तालमेल स्कोअर 100 पैकी **{score_val}** आला आहे! {mira_verdict}\n\n"
                         f"खालील कार्डमध्ये संपूर्ण विश्लेषण दिले आहे. आता मला सांगा आपण काय निवडू इच्छिता:\n"
-                        f"1. ODOP शी जोडा ({sub_sum} सबसिडी)\n"
+                        f"1. ODOP शी जोडा (योजनेची पात्रता स्वतंत्रपणे तपासावी लागेल)\n"
                         f"2. माझी मूळ कल्पना ठेवा"
                     )
                 else:
@@ -1886,7 +1979,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                         f"Wonderful {payload.user_name} Ji! I have analyzed the strategic synergy between your enterprise and {district_name}'s designated ODOP produce {p_crop}. "
                         f"Your alignment synergy score is **{score_val} out of 100**! {mira_verdict}\n\n"
                         f"You can review the strategic evaluation in the card below. Please select how you would like to proceed:\n"
-                        f"1. Align with ODOP (Unlock {sub_sum} Capital Subsidy under {sch_title})\n"
+                        f"1. Align with ODOP (scheme eligibility requires a separate review)\n"
                         f"2. Keep my original idea"
                     )
 

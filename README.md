@@ -274,6 +274,9 @@ Copy `.env.example` for a full template. Key variables:
 |---|---|
 | `DATABASE_URL` | Neon PostgreSQL connection string |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase Admin SDK credentials (JSON string) |
+| `PASSKEY_RP_ID` / `PASSKEY_ORIGIN` | Exact WebAuthn relying-party domain and frontend origin (HTTPS outside localhost) |
+
+Authentication setup: enable Firebase Phone (SMS/reCAPTCHA), Google, and Anonymous providers. Manual signup requires an SMS-verified Indian mobile number; email is an optional contact field, not an unverified login credential. Existing email/Google users should sign in with their existing method, then verify/link their phone from the dashboard so their Firebase UID—and all existing enterprise data—stay unchanged. They can enroll a passkey there as well. Passkey sign-in requires a device/browser with WebAuthn support; on Windows this can be Windows Hello (PIN, fingerprint, or face). Production must use HTTPS and set `PASSKEY_RP_ID`/`PASSKEY_ORIGIN` to the deployed domain. Evaluator access uses an isolated Firebase anonymous account and requires the Anonymous provider to be enabled.
 | `GROQ_API_KEY` | Groq Cloud API key for LLM & Whisper |
 | `DATA_GOV_IN_API_KEY` | Open Government Data API key |
 | `GOOGLE_TRANSLATE_API_KEY` | Google Cloud Translation API key |

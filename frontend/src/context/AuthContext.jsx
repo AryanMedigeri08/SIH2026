@@ -1,10 +1,10 @@
 /**
  * AuthContext.jsx — Unified Authentication & User Profile Context.
  * Bridges Firebase Client Auth SDK with Udyam Saathi REST API Backend.
- * Features automatic Sovereign Token fallback if Firebase Web API Key is unconfigured.
+ * Firebase is the sole session issuer; business profiles persist in the backend.
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import {
   auth,
   googleProvider,
@@ -15,11 +15,16 @@ import {
   onAuthStateChanged,
   getIdToken,
   updateFirebaseProfile,
+  signInWithPhoneNumber,
+  signInWithCustomToken,
+  signInAnonymously,
+  linkWithPhoneNumber,
 } from "../services/firebaseClient";
 import { authApi } from "../services/api";
+import { authenticateWithPasskey, enrollPasskey } from "../services/passkeys";
 
 const AuthContext = createContext(null);
-const LOCAL_SESSION_KEY = "udyam_saathi_auth_session";
+const LEGACY_SESSION_KEY = 'udyam_saathi_auth_session';
 
 export const AuthProvider = ({ children }) => {
   const [firebaseUser, setFirebaseUser] = useState(null);
@@ -28,81 +33,43 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
-
-  // Helper to create sovereign mock user
-  const createSovereignUser = (uid, email, name, sessionToken = null) => ({
-    uid,
-    email,
-    displayName: name || email?.split("@")[0] || "Entrepreneur",
-    getIdToken: async () => sessionToken || `test-token-${uid}:${email}`,
-  });
+  const sessionEpoch = useRef(0);
 
   // Sync session with backend
   const handleAuthChange = useCallback(async (user) => {
+    const epoch = ++sessionEpoch.current;
     if (user) {
       try {
         const idToken = await getIdToken(user, false);
+        if (epoch !== sessionEpoch.current) return;
         setFirebaseUser(user);
         setToken(idToken);
-        setIsDemoMode(false);
-
-        try {
-          const profile = await authApi.syncSession(idToken);
-          setUserProfile(profile);
-        } catch (backendErr) {
-          console.warn("Backend session sync fallback:", backendErr);
-          setUserProfile({
-            firebase_uid: user.uid,
-            name: user.displayName || user.email?.split("@")[0] || "Entrepreneur",
-            email: user.email,
-            gender: "Unspecified",
-            auth_provider: user.providerData?.[0]?.providerId || "email",
-            projects_count: 0,
-          });
-        }
+        setIsDemoMode(Boolean(user.isAnonymous));
+        const profile = await authApi.syncSession(idToken);
+        if (epoch !== sessionEpoch.current) return;
+        setUserProfile(profile);
       } catch (err) {
+        if (epoch !== sessionEpoch.current) return;
         console.error("Auth state synchronization error:", err);
         setAuthError(err.message);
+        setFirebaseUser(null);
+        setUserProfile(null);
+        setToken(null);
       } finally {
         setLoading(false);
       }
     } else {
-      // Check local storage for persistent sovereign session
-      const saved = localStorage.getItem(LOCAL_SESSION_KEY);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          const devUser = createSovereignUser(parsed.uid, parsed.email, parsed.name, parsed.token);
-          setFirebaseUser(devUser);
-          setToken(parsed.token);
-          setIsDemoMode(Boolean(parsed.isDemoMode));
-          try {
-            const profile = await authApi.syncSession(parsed.token);
-            setUserProfile(profile);
-          } catch (e) {
-            setUserProfile({
-              firebase_uid: parsed.uid,
-              name: parsed.name,
-              email: parsed.email,
-              gender: "Unspecified",
-              auth_provider: parsed.isDemoMode ? "demo" : "sovereign",
-              projects_count: 0,
-            });
-          }
-        } catch (e) {
-          localStorage.removeItem(LOCAL_SESSION_KEY);
-        }
-      } else {
-        setFirebaseUser(null);
-        setUserProfile(null);
-        setToken(null);
-        setIsDemoMode(false);
-      }
+      setFirebaseUser(null);
+      setUserProfile(null);
+      setToken(null);
+      setIsDemoMode(false);
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    // Older builds persisted unsigned synthetic sessions; never restore them.
+    localStorage.removeItem(LEGACY_SESSION_KEY);
     const unsubscribe = onAuthStateChanged(auth, handleAuthChange);
     return () => unsubscribe();
   }, [handleAuthChange]);
@@ -110,13 +77,15 @@ export const AuthProvider = ({ children }) => {
   // Handle global auth-revoked event triggered by 401 API responses
   useEffect(() => {
     const handleAuthRevoked = async () => {
+      const epoch = sessionEpoch.current;
       console.warn("[AuthContext] 401 token revoked/expired event received. Attempting refresh...");
       if (firebaseUser?.getIdToken) {
         try {
           const fresh = await firebaseUser.getIdToken(true);
           if (fresh) {
-            setToken(fresh);
             const profile = await authApi.syncSession(fresh);
+            if (epoch !== sessionEpoch.current) return;
+            setToken(fresh);
             setUserProfile(profile);
             console.info("[AuthContext] Token refreshed and session re-synchronized successfully.");
             return;
@@ -126,7 +95,8 @@ export const AuthProvider = ({ children }) => {
         }
       }
       // If refresh fails or user has no refresh capability, clear local state cleanly
-      localStorage.removeItem(LOCAL_SESSION_KEY);
+      if (epoch !== sessionEpoch.current) return;
+      sessionEpoch.current += 1;
       setFirebaseUser(null);
       setUserProfile(null);
       setToken(null);
@@ -136,52 +106,6 @@ export const AuthProvider = ({ children }) => {
     window.addEventListener("udyam:auth-revoked", handleAuthRevoked);
     return () => window.removeEventListener("udyam:auth-revoked", handleAuthRevoked);
   }, [firebaseUser]);
-
-  // Sovereign Fallback Login Helper
-  const sovereignFallbackLogin = async (email, name = null, profileData = {}, isDemo = false) => {
-    const cleanEmail = email.trim().toLowerCase();
-    // Deterministic slug UID from email
-    const safeSlug = cleanEmail.replace(/[^a-z0-9]/g, "_").slice(0, 24);
-    const uid = `usr_${safeSlug}`;
-    // A fresh opaque suffix makes a new local sign-in distinguishable from a
-    // previously logged-out session. It is authentication state, not business
-    // data, and is revoked by the backend on logout.
-    const devToken = `test-token-${uid}:${cleanEmail}:${crypto.randomUUID()}`;
-    const displayName = name || profileData.name || cleanEmail.split("@")[0] || "Entrepreneur";
-
-    const devUser = createSovereignUser(uid, cleanEmail, displayName, devToken);
-    setFirebaseUser(devUser);
-    setToken(devToken);
-    setIsDemoMode(isDemo);
-
-    localStorage.setItem(
-      LOCAL_SESSION_KEY,
-      JSON.stringify({
-        uid,
-        email: cleanEmail,
-        name: displayName,
-        token: devToken,
-        isDemoMode: isDemo,
-      })
-    );
-
-    // Sync or Register profile with backend
-    try {
-      const profile = await authApi.registerProfile(devToken, {
-        name: displayName,
-        gender: profileData.gender || "Unspecified",
-        phone: profileData.phone || null,
-        additional_business_details: profileData.additional_business_details || null,
-      });
-      setUserProfile(profile);
-      return { user: devUser, profile, token: devToken };
-    } catch (e) {
-      // If already registered, call syncSession
-      const profile = await authApi.syncSession(devToken);
-      setUserProfile(profile);
-      return { user: devUser, profile, token: devToken };
-    }
-  };
 
   // Email & Password Registration Flow
   const registerWithEmail = async (email, password, profileData = {}) => {
@@ -206,18 +130,6 @@ export const AuthProvider = ({ children }) => {
       setUserProfile(profile);
       return { user: cred.user, profile, token: idToken };
     } catch (err) {
-      // If API key is not valid or network/quota error, automatically use sovereign token auth
-      const isApiKeyError =
-        err.code === "auth/api-key-not-valid" ||
-        err.code === "auth/invalid-api-key" ||
-        err.message?.includes("api-key-not-valid") ||
-        err.message?.includes("invalid-api-key");
-
-      if (isApiKeyError) {
-        console.warn("Firebase Web API key not configured or invalid. Operating in Sovereign Token Auth mode.");
-        return await sovereignFallbackLogin(email, profileData.name, profileData, false);
-      }
-
       setAuthError(err.message);
       throw err;
     } finally {
@@ -240,17 +152,6 @@ export const AuthProvider = ({ children }) => {
       setUserProfile(profile);
       return { user: cred.user, profile, token: idToken };
     } catch (err) {
-      const isApiKeyError =
-        err.code === "auth/api-key-not-valid" ||
-        err.code === "auth/invalid-api-key" ||
-        err.message?.includes("api-key-not-valid") ||
-        err.message?.includes("invalid-api-key");
-
-      if (isApiKeyError) {
-        console.warn("Firebase Web API key not configured or invalid. Operating in Sovereign Token Auth mode.");
-        return await sovereignFallbackLogin(email, null, {}, false);
-      }
-
       setAuthError(err.message);
       throw err;
     } finally {
@@ -271,19 +172,8 @@ export const AuthProvider = ({ children }) => {
 
       const profile = await authApi.syncSession(idToken);
       setUserProfile(profile);
-      return { user: cred.user, profile };
+      return { user: cred.user, profile, token: idToken };
     } catch (err) {
-      const isApiKeyError =
-        err.code === "auth/api-key-not-valid" ||
-        err.code === "auth/invalid-api-key" ||
-        err.message?.includes("api-key-not-valid") ||
-        err.message?.includes("invalid-api-key");
-
-      if (isApiKeyError) {
-        console.warn("Firebase Web API key unconfigured for Google Popup. Operating in Sovereign Google Mode.");
-        return await sovereignFallbackLogin("google.entrepreneur@udyam.gov.in", "Google Enterprise User", {}, false);
-      }
-
       setAuthError(err.message);
       throw err;
     } finally {
@@ -291,12 +181,93 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Dedicated Demo One-Click Quick Login
-  const loginAsDemo = async (email = "guest@udyam.gov.in", name = "Guest Entrepreneur") => {
+  const sendPhoneCode = async (phoneE164, verifier) => {
+    setAuthError(null);
+    auth.languageCode = document.documentElement.lang || 'en';
+    return signInWithPhoneNumber(auth, phoneE164, verifier);
+  };
+
+  const completePhoneSignIn = async (confirmation, code, profileData = null) => {
     setLoading(true);
     setAuthError(null);
     try {
-      return await sovereignFallbackLogin(email, name, {}, true);
+      const cred = await confirmation.confirm(code);
+      if (profileData?.name) await updateFirebaseProfile(cred.user, { displayName: profileData.name });
+      const idToken = await getIdToken(cred.user, true);
+      const profile = profileData
+        ? await authApi.registerProfile(idToken, { ...profileData, phone: cred.user.phoneNumber })
+        : await authApi.syncSession(idToken);
+      setFirebaseUser(cred.user);
+      setToken(idToken);
+      setUserProfile(profile);
+      setIsDemoMode(false);
+      return { user: cred.user, profile, token: idToken };
+    } catch (err) {
+      setAuthError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendPhoneLinkCode = async (phoneE164, verifier) => {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) throw new Error('Sign in to your existing account first.');
+    auth.languageCode = document.documentElement.lang || 'en';
+    return linkWithPhoneNumber(auth.currentUser, phoneE164, verifier);
+  };
+
+  const completePhoneLink = async (confirmation, code) => {
+    const linked = await confirmation.confirm(code);
+    const idToken = await getIdToken(linked.user, true);
+    const profile = await authApi.syncSession(idToken);
+    setFirebaseUser(linked.user);
+    setToken(idToken);
+    setUserProfile(profile);
+    return { user: linked.user, profile, token: idToken };
+  };
+
+  const loginWithPasskey = async () => {
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const { custom_token } = await authenticateWithPasskey();
+      const cred = await signInWithCustomToken(auth, custom_token);
+      const idToken = await getIdToken(cred.user, true);
+      const profile = await authApi.syncSession(idToken);
+      setFirebaseUser(cred.user);
+      setToken(idToken);
+      setUserProfile(profile);
+      setIsDemoMode(false);
+      return { user: cred.user, profile, token: idToken };
+    } catch (err) {
+      setAuthError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addPasskey = async () => {
+    if (!firebaseUser) throw new Error('Sign in before adding a passkey.');
+    return enrollPasskey(await firebaseUser.getIdToken());
+  };
+
+  // Evaluators get isolated, Firebase-issued anonymous sessions.
+  const loginAsDemo = async () => {
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const cred = await signInAnonymously(auth);
+      const idToken = await getIdToken(cred.user, true);
+      const profile = await authApi.syncSession(idToken);
+      setFirebaseUser(cred.user);
+      setToken(idToken);
+      setUserProfile(profile);
+      setIsDemoMode(true);
+      return { user: cred.user, profile, token: idToken };
+    } catch (err) {
+      setAuthError(err.message);
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -304,11 +275,12 @@ export const AuthProvider = ({ children }) => {
 
   // Sign Out Flow
   const logout = async () => {
+    sessionEpoch.current += 1;
+    localStorage.removeItem(LEGACY_SESSION_KEY);
     const sessionToken = token;
     // Clear client authentication first.  The server call below is important
     // for token revocation, but a slow or unavailable network must never keep
     // protected enterprise state on screen.
-    localStorage.removeItem(LOCAL_SESSION_KEY);
     setFirebaseUser(null);
     setUserProfile(null);
     setToken(null);
@@ -361,11 +333,17 @@ export const AuthProvider = ({ children }) => {
     loading,
     authError,
     isDemoMode,
-    isAuthenticated: !!firebaseUser,
+    isAuthenticated: !!firebaseUser && !!token && !!userProfile,
     registerWithEmail,
     loginWithEmail,
     loginWithGoogle,
     loginAsDemo,
+    sendPhoneCode,
+    completePhoneSignIn,
+    sendPhoneLinkCode,
+    completePhoneLink,
+    loginWithPasskey,
+    addPasskey,
     logout,
     refreshProfile,
     updateProfile,

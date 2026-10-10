@@ -151,7 +151,7 @@ class DatabaseManager:
             self._initialize_sqlite()
 
     def _initialize_sqlite(self):
-        db_path = Path(__file__).resolve().parent / "data" / "udyam_saathi.sqlite3"
+        db_path = Path(settings.SQLITE_DATABASE_PATH) if settings.SQLITE_DATABASE_PATH else Path(__file__).resolve().parent / "data" / "udyam_saathi.sqlite3"
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self.sqlite = sqlite3.connect(str(db_path), check_same_thread=False)
         self.sqlite.row_factory = sqlite3.Row
@@ -162,6 +162,9 @@ class DatabaseManager:
             CREATE INDEX IF NOT EXISTS idx_projects_user_id_sqlite ON projects(user_id);
             CREATE TABLE IF NOT EXISTS feasibility_reports (report_id TEXT PRIMARY KEY, user_id TEXT, payload TEXT NOT NULL, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS revoked_sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, revoked_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS passkey_credentials (credential_id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE, public_key TEXT NOT NULL, sign_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS idx_passkey_credentials_user ON passkey_credentials(user_id);
+            CREATE TABLE IF NOT EXISTS passkey_challenges (challenge_id TEXT PRIMARY KEY, purpose TEXT NOT NULL, user_id TEXT, challenge TEXT NOT NULL, expires_at REAL NOT NULL);
         """)
         existing_columns = {row[1] for row in self.sqlite.execute("PRAGMA table_info(users)")}
         if "language" not in existing_columns:
@@ -243,6 +246,23 @@ class DatabaseManager:
                         revoked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     );
                 """)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS passkey_credentials (
+                        credential_id TEXT PRIMARY KEY,
+                        user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+                        public_key TEXT NOT NULL,
+                        sign_count BIGINT NOT NULL DEFAULT 0,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_passkey_credentials_user ON passkey_credentials(user_id);
+                    CREATE TABLE IF NOT EXISTS passkey_challenges (
+                        challenge_id TEXT PRIMARY KEY,
+                        purpose TEXT NOT NULL,
+                        user_id TEXT,
+                        challenge TEXT NOT NULL,
+                        expires_at DOUBLE PRECISION NOT NULL
+                    );
+                """)
                 logger.info("PostgreSQL schema & tables (users, projects, reports) verified/initialized successfully.")
         except Exception as e:
             logger.warning(f"Could not auto-create tables: {e}")
@@ -254,6 +274,60 @@ class DatabaseManager:
         if self.sqlite:
             self.sqlite.close()
             self.sqlite = None
+
+    async def save_passkey_challenge(self, challenge_id: str, purpose: str, user_id: Optional[str], challenge: str, expires_at: float) -> None:
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                await conn.execute("DELETE FROM passkey_challenges WHERE expires_at < $1", time.time())
+                await conn.execute("INSERT INTO passkey_challenges (challenge_id, purpose, user_id, challenge, expires_at) VALUES ($1,$2,$3,$4,$5)", challenge_id, purpose, user_id, challenge, expires_at)
+        elif self.sqlite:
+            self.sqlite.execute("DELETE FROM passkey_challenges WHERE expires_at < ?", (time.time(),))
+            self.sqlite.execute("INSERT INTO passkey_challenges VALUES (?,?,?,?,?)", (challenge_id, purpose, user_id, challenge, expires_at))
+            self.sqlite.commit()
+        else:
+            raise RuntimeError("Persistent database is unavailable")
+
+    async def consume_passkey_challenge(self, challenge_id: str, purpose: str) -> Optional[dict[str, Any]]:
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                row = await conn.fetchrow("DELETE FROM passkey_challenges WHERE challenge_id=$1 AND purpose=$2 RETURNING user_id, challenge, expires_at", challenge_id, purpose)
+                return dict(row) if row else None
+        if self.sqlite:
+            row = self.sqlite.execute("DELETE FROM passkey_challenges WHERE challenge_id=? AND purpose=? RETURNING user_id, challenge, expires_at", (challenge_id, purpose)).fetchone()
+            self.sqlite.commit()
+            return dict(row) if row else None
+        raise RuntimeError("Persistent database is unavailable")
+
+    async def get_passkey_credential(self, credential_id: str) -> Optional[dict[str, Any]]:
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT credential_id, user_id, public_key, sign_count FROM passkey_credentials WHERE credential_id=$1", credential_id)
+                return dict(row) if row else None
+        if self.sqlite:
+            row = self.sqlite.execute("SELECT credential_id, user_id, public_key, sign_count FROM passkey_credentials WHERE credential_id=?", (credential_id,)).fetchone()
+            return dict(row) if row else None
+        raise RuntimeError("Persistent database is unavailable")
+
+    async def save_passkey_credential(self, credential_id: str, user_id: str, public_key: str, sign_count: int) -> None:
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                await conn.execute("INSERT INTO passkey_credentials (credential_id, user_id, public_key, sign_count) VALUES ($1,$2,$3,$4)", credential_id, user_id, public_key, sign_count)
+        elif self.sqlite:
+            self.sqlite.execute("INSERT INTO passkey_credentials VALUES (?,?,?,?,?)", (credential_id, user_id, public_key, sign_count, datetime.now(timezone.utc).isoformat()))
+            self.sqlite.commit()
+        else:
+            raise RuntimeError("Persistent database is unavailable")
+
+    async def update_passkey_counter(self, credential_id: str, old_count: int, new_count: int) -> bool:
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                result = await conn.execute("UPDATE passkey_credentials SET sign_count=$1 WHERE credential_id=$2 AND sign_count=$3", new_count, credential_id, old_count)
+                return result == "UPDATE 1"
+        if self.sqlite:
+            cursor = self.sqlite.execute("UPDATE passkey_credentials SET sign_count=? WHERE credential_id=? AND sign_count=?", (new_count, credential_id, old_count))
+            self.sqlite.commit()
+            return cursor.rowcount == 1
+        raise RuntimeError("Persistent database is unavailable")
 
     async def revoke_session(self, token_hash: str, user_id: str) -> None:
         now = datetime.now(timezone.utc).isoformat()

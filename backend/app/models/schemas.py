@@ -25,6 +25,7 @@ class HealthStatus(BaseModel):
 # ---------------------------------------------------------------------------
 class UserRegisterRequest(BaseModel):
     name: str = Field(..., min_length=1, description="Full Name of Entrepreneur")
+    email: Optional[str] = Field(None, description="Optional, unverified contact email for phone registrations")
     gender: Optional[str] = Field("Unspecified", description="Male | Female | Other | Unspecified")
     phone: Optional[str] = Field(None, description="Mobile / Contact number")
     additional_business_details: Optional[str] = Field(None, max_length=1000, description="Optional free-text context for AI narrative")

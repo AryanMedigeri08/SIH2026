@@ -95,6 +95,13 @@ export const authApi = {
   },
 };
 
+export const passkeyApi = {
+  registerOptions: (token) => authFetch(`${API_BASE}/auth/passkeys/register/options`, token, { method: 'POST' }),
+  registerVerify: (token, body) => authFetch(`${API_BASE}/auth/passkeys/register/verify`, token, { method: 'POST', body: JSON.stringify(body) }),
+  authenticateOptions: () => authFetch(`${API_BASE}/auth/passkeys/authenticate/options`, null, { method: 'POST' }),
+  authenticateVerify: (body) => authFetch(`${API_BASE}/auth/passkeys/authenticate/verify`, null, { method: 'POST', body: JSON.stringify(body) }),
+};
+
 // --- Projects State Persistence API (Owner-Grounded) ---
 export const projectsApi = {
   async createProject(token, projectData) {

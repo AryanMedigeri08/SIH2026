@@ -9,7 +9,7 @@
  *    and Area Classification (Rural/Semi-Urban/Urban). Submitting sends to backend and triggers Mira.
  * 4. Step 3: Mira confirms location and asks for business idea with practical examples.
  *    LLM automatically detects business type, industry sector, and category.
- * 5. Step 4: Mira sweetly praises the business idea and asks for promoter's equity (capital).
+ * 5. Step 4: Mira confirms uncertain voice transcription before classifying a business idea.
  * 6. Step 5: ODOP Benchmarking Engine (0-100 Score):
  *    - Benchmarked score out of 100 based on sector overlap, sourcing, and PMFME 35% subsidy.
  *    - Mira explains ODOP catchily and speaks out her verdict (whether to align or keep idea).
@@ -31,7 +31,7 @@ import {
   reverseGeocodeCoords,
   detectLocationFromIP,
 } from "../services/api";
-import { chooseRecordingFormat, transcribeOnboardingAudio } from "../services/onboardingAudio";
+import { chooseRecordingFormat, classifyVoiceChoice, transcribeOnboardingAudio } from "../services/onboardingAudio";
 import {
   Mic,
   MicOff,
@@ -124,9 +124,18 @@ const ONBOARDING_LANGUAGES = [
 ];
 
 const STEP_NUMBER = {
-  location_confirm: 1, location_menu: 1, business_idea: 2,
+  location_confirm: 1, location_menu: 1, business_idea: 2, business_idea_confirmation: 2,
   odop_check_prompt: 3, odop_alignment: 3, enterprise_info: 4,
   promoter_equity: 5, machinery_selection: 6, split_screen: 7,
+};
+
+const IDEA_CONFIRM_LABELS = {
+  en: ["I heard this idea", "Yes, that's right", "Correct what Mira heard"],
+  hi: ["मैंने यह विचार सुना", "हाँ, सही है", "सुनी हुई बात सुधारें"],
+  mr: ["मी ही कल्पना ऐकली", "हो, बरोबर आहे", "ऐकलेली गोष्ट दुरुस्त करा"],
+  te: ["నేను ఈ ఆలోచన విన్నాను", "అవును, సరైనది", "విన్న మాటను సరిచేయండి"],
+  ta: ["நான் கேட்ட தொழில் யோசனை", "ஆம், சரிதான்", "கேட்டதைத் திருத்தவும்"],
+  kn: ["ನಾನು ಕೇಳಿದ ವ್ಯವಹಾರ ಕಲ್ಪನೆ", "ಹೌದು, ಸರಿಯಾಗಿದೆ", "ಕೇಳಿದ್ದನ್ನು ಸರಿಪಡಿಸಿ"],
 };
 
 // ─── Loving & Sweet Opening Greetings (Location Confirmation) ─────────
@@ -246,10 +255,30 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   const recordingStreamRef = useRef(null);
   const recordingStartingRef = useRef(false);
   const recordingStartedAtRef = useRef(0);
+  const recordingGenerationRef = useRef(0);
   const audioChunksRef = useRef([]);
   const currentAudioRef = useRef(null);
+  const onVoiceTranscriptRef = useRef(null);
+  const ttsRequestRef = useRef(0);
 
   const [splitInputText, setSplitInputText] = useState("");
+
+  const cancelRecording = useCallback(() => {
+    recordingGenerationRef.current += 1;
+    const recorder = mediaRecorderRef.current;
+    if (recorder) {
+      recorder.onstop = null;
+      if (recorder.state === "recording") recorder.stop();
+      mediaRecorderRef.current = null;
+    }
+    recordingStreamRef.current?.getTracks().forEach(track => track.stop());
+    recordingStreamRef.current = null;
+    setIsRecording(false);
+  }, []);
+
+  useEffect(() => {
+    if (isSending) cancelRecording();
+  }, [isSending, cancelRecording]);
 
   const userName = userProfile?.name || "Entrepreneur";
 
@@ -294,6 +323,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   // Audio cleanup on unmount
   useEffect(() => {
     return () => {
+      recordingGenerationRef.current += 1;
       if (mediaRecorderRef.current) {
         mediaRecorderRef.current.onstop = null;
         if (mediaRecorderRef.current.state !== "inactive") mediaRecorderRef.current.stop();
@@ -500,8 +530,9 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   }, []);
 
   // ─── Browser Web Speech API Guaranteed Fallback ─────────────────────────
-  const speakWithWebSpeech = useCallback((text, lang) => {
+  const speakWithWebSpeech = useCallback((text, lang, requestId) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      if (requestId !== ttsRequestRef.current) return;
       setIsPlayingAudio(false);
       return;
     }
@@ -519,18 +550,27 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       };
       utterance.lang = langMap[lang] || "hi-IN";
       utterance.rate = 0.95;
-      utterance.onend = () => setIsPlayingAudio(false);
-      utterance.onerror = () => setIsPlayingAudio(false);
+      utterance.onend = () => {
+        if (requestId !== ttsRequestRef.current) return;
+        setIsPlayingAudio(false);
+      };
+      utterance.onerror = () => {
+        if (requestId !== ttsRequestRef.current) return;
+        setIsPlayingAudio(false);
+      };
       setIsPlayingAudio(true);
       window.speechSynthesis.speak(utterance);
     } catch (_) {
+      if (requestId !== ttsRequestRef.current) return;
       setIsPlayingAudio(false);
     }
   }, [cleanSpeechText]);
 
   // ─── Robust Multi-Tier TTS Playback (Bhashini + gTTS + Web Speech) ─────
   const playTTS = useCallback(async (text, lang) => {
+    const requestId = ++ttsRequestRef.current;
     try {
+      cancelRecording();
       setIsPlayingAudio(true);
       const clean = cleanSpeechText(text, lang);
 
@@ -551,8 +591,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         body: JSON.stringify({ text: clean, language: lang }),
       });
 
+      if (requestId !== ttsRequestRef.current) return;
+
       if (res.ok) {
         const data = await res.json();
+        if (requestId !== ttsRequestRef.current) return;
         if (data.audio_base64 && data.audio_base64.length > 20) {
           // Normalize audio source — avoids double data: prefix bug
           const audioSrc = data.audio_base64.startsWith("data:")
@@ -562,16 +605,20 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           const audio = new Audio(audioSrc);
           currentAudioRef.current = audio;
 
-          audio.onended = () => setIsPlayingAudio(false);
+          audio.onended = () => {
+            if (requestId !== ttsRequestRef.current) return;
+            currentAudioRef.current = null;
+            setIsPlayingAudio(false);
+          };
           audio.onerror = () => {
-            speakWithWebSpeech(clean, lang);
+            if (requestId === ttsRequestRef.current) speakWithWebSpeech(clean, lang, requestId);
           };
 
           try {
             await audio.play();
             return;
           } catch (playErr) {
-            speakWithWebSpeech(clean, lang);
+            if (requestId === ttsRequestRef.current) speakWithWebSpeech(clean, lang, requestId);
             return;
           }
         }
@@ -580,10 +627,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       console.warn("TTS server call error, using browser fallback:", e);
     }
 
-    speakWithWebSpeech(text, lang);
-  }, [cleanSpeechText, speakWithWebSpeech]);
+    if (requestId === ttsRequestRef.current) speakWithWebSpeech(text, lang, requestId);
+  }, [cancelRecording, cleanSpeechText, speakWithWebSpeech]);
 
   const stopAudio = useCallback(() => {
+    ttsRequestRef.current += 1;
     if (currentAudioRef.current) {
       try {
         currentAudioRef.current.pause();
@@ -927,9 +975,9 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   };
 
   // ─── Conversational Chat Turns (Business Idea, Promoter Equity, Q&A) ───
-  const handleSendMessage = useCallback(async (overrideText = null) => {
+  const handleSendMessage = useCallback(async (overrideText = null, options = {}) => {
     const text = overrideText || inputText.trim();
-    if (!text || isSending || !["business_idea", "promoter_equity", "split_screen"].includes(chatStep)) return;
+    if (!text || isSending || !["business_idea", "business_idea_confirmation", "promoter_equity", "split_screen"].includes(chatStep)) return;
     setChatError("");
 
     const userMsg = {
@@ -951,7 +999,9 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
       const locCoords = getAutoDetectedLocation();
 
-      const action = chatStep === "business_idea" ? "business_idea" : chatStep === "promoter_equity" ? "promoter_equity" : chatStep === "split_screen" ? "chat_only" : null;
+      const action = options.confirmBusinessIdea ? "confirm_business_idea"
+        : ["business_idea", "business_idea_confirmation"].includes(chatStep) ? "business_idea"
+        : chatStep === "promoter_equity" ? "promoter_equity" : "chat_only";
       const response = await fetch("/api/v2/chat/onboarding", {
         method: "POST",
         headers: {
@@ -965,6 +1015,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           collected_fields: collectedFields,
           conversation_step: messages.length,
           current_action: action,
+          input_source: options.inputSource || "text",
           user_location: locCoords,
         }),
       });
@@ -988,6 +1039,10 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
         if (data.extracted_fields?.owned_machines && Array.isArray(data.extracted_fields.owned_machines)) {
           setSelectedOwnedMachines(data.extracted_fields.owned_machines.map(m => m.machine_name || m));
+        }
+
+        if (data.next_phase === "business_idea_confirmation") {
+          setChatStep("business_idea_confirmation");
         }
 
         // Step 3: ODOP Intro & Check Prompt
@@ -1441,16 +1496,72 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     }
   }, [collectedFields, selectedLang, onWizardSubmit, createAndSaveBusiness, getAutoDetectedLocation, locationWasChanged, navigate]);
 
-  // Tap once to record, then tap again to transcribe and send the answer.
+  const handleVoiceTranscript = useCallback(async (transcript) => {
+    const heard = transcript.trim();
+    const lower = heard.toLowerCase();
+    const choice = classifyVoiceChoice(heard);
+    const affirmative = choice === "affirmative";
+    const negative = choice === "negative";
+    if (chatStep === "location_confirm") {
+      if (negative) return handleRequestChangeLocation();
+      if (affirmative) return handleConfirmLocation();
+    } else if (chatStep === "business_idea_confirmation") {
+      if (!negative && /^(yes|correct|right|yes that is right|हाँ|हां|होय|बरोबर|ಹೌದು|ಸರಿ|ஆம்|ஆமாம்|అవును|సరే)[\s.!।]*$/i.test(heard)) {
+        return handleSendMessage(heard, { confirmBusinessIdea: true, inputSource: "voice" });
+      }
+      const correction = heard.replace(/^(no|nope|नहीं|नाही)[,\s]*/i, "").trim();
+      if (correction && !/^(no|nope|नहीं|नाही)[\s.!।]*$/i.test(heard)) {
+        return handleSendMessage(correction || heard, { inputSource: "voice" });
+      }
+      setChatError("Please say the corrected business idea or type it below.");
+      return;
+    } else if (chatStep === "odop_check_prompt") {
+      if (negative) return handleSkipOdopAlignment();
+      if (affirmative || /जाँच|तपासा/.test(heard)) return handleCheckOdopAlignment();
+    } else if (chatStep === "odop_alignment") {
+      if (negative || /मूल/.test(heard)) return handleOdopDecision(false);
+      if (affirmative || /जोड़|जुळवा/.test(heard)) return handleOdopDecision(true);
+    } else if (chatStep === "enterprise_info") {
+      const category = PROMOTER_CATEGORIES.find(({ value }) => new RegExp(`\\b${value}\\b`, "i").test(heard));
+      const name = heard.match(/(?:name is|called|named|नाम|नाव)\s+(.+?)(?:,|\band\b|और|आणि|$)/i)?.[1]?.trim();
+      if (category) setPromoterCategoryInput(category.value);
+      if (name) setEnterpriseNameInput(name);
+      setChatError("I filled what I could hear. Please review the enterprise details card and submit it.");
+      return;
+    } else if (chatStep === "machinery_selection") {
+      if (/\b(none|no machine|don't own|do not own)\b|कोई नहीं|नाही/.test(lower)) return handleConfirmMachinery([]);
+      const matching = applicableMachinery?.machinery_list?.filter(machine =>
+        lower.includes(machine.machine_name.toLowerCase())) || [];
+      if (matching.length) {
+        setSelectedOwnedMachines(matching.map(machine => machine.machine_name));
+        setChatError("Please review the selected equipment and confirm it in the card.");
+        return;
+      }
+    } else if (["business_idea", "promoter_equity", "split_screen"].includes(chatStep)) {
+      return handleSendMessage(heard, { inputSource: "voice" });
+    }
+    setChatError(`I heard “${heard}”. Please use the choices shown or say your answer more clearly.`);
+  }, [chatStep, handleRequestChangeLocation, handleConfirmLocation, handleSendMessage,
+    handleSkipOdopAlignment, handleCheckOdopAlignment, handleOdopDecision,
+    handleConfirmMachinery, applicableMachinery]);
+
+  onVoiceTranscriptRef.current = handleVoiceTranscript;
+
+  // Recording starts only on a user tap and stops only on the next tap.
   const startRecording = useCallback(async () => {
     if (recordingStartingRef.current || mediaRecorderRef.current || isSending || isTranscribing) return;
     recordingStartingRef.current = true;
     setIsStartingRecording(true);
+    const generation = ++recordingGenerationRef.current;
     let stream;
     try {
       stopAudio();
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access is unavailable. Please use a secure browser connection.");
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      if (generation !== recordingGenerationRef.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
       const format = chooseRecordingFormat();
       const mediaRecorder = new MediaRecorder(stream, format.mimeType ? { mimeType: format.mimeType } : undefined);
       recordingStreamRef.current = stream;
@@ -1479,7 +1590,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             language: selectedLang || "hi", token, extension: format.extension,
           });
           setIsTranscribing(false);
-          await handleSendMessage(transcript);
+          await onVoiceTranscriptRef.current?.(transcript);
         } catch (e) {
           console.error("Voice recording processing error:", e);
           setChatError(e.message || "Voice input failed. Please try again or type your answer.");
@@ -1501,7 +1612,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       recordingStartingRef.current = false;
       setIsStartingRecording(false);
     }
-  }, [selectedLang, token, handleSendMessage, isSending, isTranscribing, stopAudio]);
+  }, [selectedLang, token, isSending, isTranscribing, stopAudio]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
@@ -1855,6 +1966,27 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 >
                   <Check className="w-4 h-4" />
                   <span>{selectedLang === "en" ? "Submit Location" : "स्थान सुरक्षित करें"}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {chatStep === "business_idea_confirmation" && collectedFields.pending_business_idea && (
+            <div className="max-w-xl mx-auto my-3 rounded-2xl border border-indigo-200 bg-white p-4 shadow-lg">
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                {(IDEA_CONFIRM_LABELS[selectedLang] || IDEA_CONFIRM_LABELS.en)[0]}
+              </p>
+              <p className="mt-2 rounded-xl bg-indigo-50 px-3 py-2 text-sm text-slate-800">
+                {collectedFields.pending_business_idea}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" disabled={isSending} onClick={() => handleSendMessage("Yes, that is my business idea", { confirmBusinessIdea: true })}
+                  className="rounded-xl bg-indigo-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                  {(IDEA_CONFIRM_LABELS[selectedLang] || IDEA_CONFIRM_LABELS.en)[1]}
+                </button>
+                <button type="button" onClick={() => textareaRef.current?.focus()}
+                  className="rounded-xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-800">
+                  {(IDEA_CONFIRM_LABELS[selectedLang] || IDEA_CONFIRM_LABELS.en)[2]}
                 </button>
               </div>
             </div>
@@ -2415,7 +2547,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             <button
               type="button"
               onClick={toggleRecording}
-              disabled={isSending || isTranscribing || isStartingRecording || !["business_idea", "promoter_equity"].includes(chatStep)}
+               disabled={isSending || isTranscribing || isStartingRecording}
               aria-label={isRecording ? "Stop recording and transcribe" : "Start voice recording"}
               aria-pressed={isRecording}
               className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 cursor-pointer ${
@@ -2440,7 +2572,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     : "जवाब लिखें या बोलने के लिए माइक दबाएँ..."
                 }
                 rows={1}
-                disabled={isSending || !["business_idea", "promoter_equity"].includes(chatStep)}
+                 disabled={isSending || !["business_idea", "business_idea_confirmation", "promoter_equity"].includes(chatStep)}
                 className="w-full resize-none rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 transition-all max-h-32 overflow-y-auto"
                 style={{ minHeight: "44px" }}
               />
@@ -2449,7 +2581,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             <button
               type="button"
               onClick={() => handleSendMessage()}
-              disabled={!inputText.trim() || isSending || !["business_idea", "promoter_equity"].includes(chatStep)}
+               disabled={!inputText.trim() || isSending || !["business_idea", "business_idea_confirmation", "promoter_equity"].includes(chatStep)}
               className="shrink-0 w-11 h-11 rounded-xl bg-gradient-to-r from-rose-600 via-pink-600 to-indigo-800 text-white flex items-center justify-center shadow-md shadow-pink-950/20 hover:shadow-lg disabled:opacity-40 transition-all duration-200 cursor-pointer"
             >
               {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}

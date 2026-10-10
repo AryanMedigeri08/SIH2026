@@ -1,14 +1,13 @@
 """Regression checks for Mira's location → idea → ODOP → investment → review flow."""
 
+import asyncio
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
-
-from backend.app.main import app
+from backend.app.main import app  # Adds backend to import path for the application package.
 from backend.app.core.business_interpreter import interpret_business_idea
+from app.routers.onboarding import OnboardingRequest, _business_idea_clarification, process_onboarding_message
 
 
-client = TestClient(app)
 API = "/api/v2/chat/onboarding"
 
 
@@ -21,9 +20,7 @@ def _turn(text, fields=None, action=None, language="en", **extra):
         "current_action": action,
         **extra,
     }
-    response = client.post(API, json=payload)
-    assert response.status_code == 200, response.text
-    return response.json()
+    return asyncio.run(process_onboarding_message(OnboardingRequest(**payload))).model_dump()
 
 
 def test_catalogue_interpretation_distinguishes_paneer_production_and_ghee_retail():
@@ -46,6 +43,57 @@ def test_catalogue_interpretation_distinguishes_paneer_production_and_ghee_retai
     assert shop["machinery_plan"]["machinery_list"] == []
 
 
+def test_voice_business_idea_requires_confirmation_before_odop_or_persistence():
+    fields = {"state_name": "Maharashtra", "district_name": "Pune"}
+    with patch("app.routers.onboarding.chat_service._call_llm_chat_completion", side_effect=RuntimeError("offline")):
+        heard = _turn("tail or ring", fields, "business_idea", input_source="voice")
+        assert heard["next_phase"] == "business_idea_confirmation"
+        assert heard["extracted_fields"] == {"pending_business_idea": "tail or ring"}
+        assert "odop_intro" not in heard or heard["odop_intro"] is None
+        assert "sector" not in heard["extracted_fields"]
+
+        # The user corrects the ASR mistake before the business is classified.
+        corrected = _turn("tailoring service", {**fields, **heard["extracted_fields"]}, "business_idea")
+        assert corrected["next_phase"] == "odop_check_prompt"
+        assert corrected["extracted_fields"]["sector"] == "apparel"
+        assert corrected["extracted_fields"]["business_idea"] == "tailoring service"
+
+
+def test_tailoring_clarification_confirms_activity_without_irrelevant_retail_question():
+    with patch("app.routers.onboarding.chat_service._call_llm_chat_completion", side_effect=RuntimeError("offline")):
+        reply = _business_idea_clarification(
+            "tailoring service", "en", {"sector": "apparel", "business_category": "manufacturing"}, True,
+        )
+    assert "tailoring service" in reply
+    assert "sell finished goods" not in reply
+    assert "correct" in reply.lower()
+
+
+def test_unverified_voice_idea_does_not_repeat_generic_llm_praise():
+    with patch("app.routers.onboarding.chat_service._call_llm_chat_completion", return_value=("Great idea! That will surely succeed.", None, "stub")):
+        reply = _business_idea_clarification(
+            "tail or ring", "en", {"sector": "general", "business_category": "service"}, True,
+        )
+    assert "Great idea" not in reply
+    assert "tail or ring" in reply
+
+
+def test_confirmed_voice_business_idea_uses_pending_transcript_not_yes():
+    fields = {"state_name": "Maharashtra", "district_name": "Pune", "pending_business_idea": "paneer manufacturing"}
+    with patch("app.routers.onboarding.chat_service._call_llm_chat_completion", side_effect=RuntimeError("offline")):
+        confirmed = _turn("yes", fields, "confirm_business_idea", input_source="voice")
+    assert confirmed["next_phase"] == "odop_check_prompt"
+    assert confirmed["extracted_fields"]["business_idea"] == "paneer manufacturing"
+    assert confirmed["extracted_fields"]["pending_business_idea"] is None
+
+
+def test_unrecognised_typed_business_asks_clarification_instead_of_praising():
+    with patch("app.routers.onboarding.chat_service._call_llm_chat_completion", side_effect=RuntimeError("offline")):
+        result = _turn("something", {"state_name": "Maharashtra", "district_name": "Pune"}, "business_idea")
+    assert result["next_phase"] == "business_idea_confirmation"
+    assert "sector" not in result["extracted_fields"]
+
+
 def test_llm_receives_retrieved_candidates_but_cannot_invent_machine_prices():
     captured = {}
 
@@ -63,7 +111,7 @@ def test_llm_receives_retrieved_candidates_but_cannot_invent_machine_prices():
 
 
 def test_full_paneer_onboarding_order_and_server_valued_equipment():
-    with patch("backend.app.routers.onboarding.chat_service._call_llm_chat_completion", side_effect=RuntimeError("offline")):
+    with patch("app.routers.onboarding.chat_service._call_llm_chat_completion", side_effect=RuntimeError("offline")):
         fields = {"state_name": "Maharashtra", "district_name": "Pune", "is_rural": True}
         location = _turn("Continue", fields, "confirm_location")
         assert location["next_phase"] == "business_idea"
@@ -107,7 +155,7 @@ def test_full_paneer_onboarding_order_and_server_valued_equipment():
 
 
 def test_ghee_shop_has_no_manufacturing_equipment_and_can_finish():
-    with patch("backend.app.routers.onboarding.chat_service._call_llm_chat_completion", side_effect=RuntimeError("offline")):
+    with patch("app.routers.onboarding.chat_service._call_llm_chat_completion", side_effect=RuntimeError("offline")):
         fields = {"state_name": "Maharashtra", "district_name": "Pune"}
         idea = _turn("Mujhe gaon ghee ki dukan kholni he", fields, "business_idea")
         fields.update(idea["extracted_fields"])
@@ -128,7 +176,7 @@ def test_ghee_shop_has_no_manufacturing_equipment_and_can_finish():
 
 
 def test_location_change_and_review_chat_do_not_mutate_business_fields():
-    with patch("backend.app.routers.onboarding.chat_service._call_llm_chat_completion", side_effect=RuntimeError("offline")):
+    with patch("app.routers.onboarding.chat_service._call_llm_chat_completion", side_effect=RuntimeError("offline")):
         change = _turn("Change location", {"state_name": "Maharashtra", "district_name": "Pune"}, "request_change_location")
         assert change["next_phase"] == "location_menu"
         selected = _turn("Use Bankura", {}, "submit_new_location", user_location={

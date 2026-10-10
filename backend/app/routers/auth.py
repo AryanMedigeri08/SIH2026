@@ -4,6 +4,7 @@ auth.py — REST API Router for User Authentication, Firebase Session Sync, and 
 
 from __future__ import annotations
 import logging
+import re
 from typing import Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from fastapi.responses import JSONResponse
@@ -27,7 +28,13 @@ async def register_user_profile(
     Creates or updates the user's PostgreSQL profile row after client-side Firebase account registration.
     Idempotent upsert keyed by current_user.uid.
     """
-    email = current_user.email or f"{current_user.uid}@udyam.gov.in"
+    if current_user.auth_provider == "phone":
+        if not current_user.phone_number or not reg_in.phone or current_user.phone_number != reg_in.phone:
+            raise HTTPException(status_code=400, detail="Phone number must match the verified Firebase phone credential.")
+    contact_email = (reg_in.email or "").strip().lower()
+    if contact_email and (len(contact_email) > 254 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", contact_email)):
+        raise HTTPException(status_code=400, detail="Invalid optional contact email.")
+    email = current_user.email or contact_email or f"{current_user.uid}@no-email.udyam.invalid"
     name = reg_in.name.strip() or current_user.name or email.split("@")[0]
 
     user_record = await db_manager.upsert_user(
@@ -67,7 +74,7 @@ async def sync_user_session(
     on first-time Google sign-in if not already present.
     """
     existing = await db_manager.get_user(current_user.uid)
-    email = current_user.email or (existing.get("email") if existing else f"{current_user.uid}@udyam.gov.in")
+    email = current_user.email or (existing.get("email") if existing else f"{current_user.uid}@no-email.udyam.invalid")
     name = (existing.get("name") if existing and existing.get("name") else current_user.name) or email.split("@")[0]
 
     user_record = await db_manager.upsert_user(
@@ -76,7 +83,7 @@ async def sync_user_session(
         name=name,
         gender=existing.get("gender", "Unspecified") if existing else "Unspecified",
         auth_provider=current_user.auth_provider,
-        phone=existing.get("phone") if existing else None,
+        phone=current_user.phone_number or (existing.get("phone") if existing else None),
         additional_business_details=existing.get("additional_business_details") if existing else None,
         language=existing.get("language") if existing else None,
     )
@@ -107,12 +114,13 @@ async def get_my_profile(
     """
     user_record = await db_manager.get_user(current_user.uid)
     if not user_record:
-        email = current_user.email or f"{current_user.uid}@udyam.gov.in"
+        email = current_user.email or f"{current_user.uid}@no-email.udyam.invalid"
         user_record = await db_manager.upsert_user(
             firebase_uid=current_user.uid,
             email=email,
             name=current_user.name or email.split("@")[0],
             auth_provider=current_user.auth_provider,
+            phone=current_user.phone_number,
         )
 
     projects_count = await db_manager.get_user_projects_count(current_user.uid)

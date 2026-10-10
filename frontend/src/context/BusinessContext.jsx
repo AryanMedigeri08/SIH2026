@@ -122,7 +122,7 @@ export const BusinessProvider = ({ children }) => {
       // business, report, or DPR content rendered while the route guard reacts.
       if (err.status === 401) clearBusinessState();
       setBusinessError(err.message || "Failed to load businesses.");
-      return { list: [], hasBusinesses: false, activeBusiness: null };
+      return { list: [], hasBusinesses: false, activeBusiness: null, error: err };
     } finally {
       if (requestSequence === loadRequestSequence.current) {
         setLoadingBusinesses(false);
