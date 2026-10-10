@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+import pytest
 
 # Setup Python paths
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -23,11 +24,35 @@ for p in (str(CORE_DIR), str(BACKEND_DIR), str(ROOT_DIR)):
         sys.path.insert(0, p)
 
 from fastapi.testclient import TestClient
-from backend.app.main import app
-from backend.app.database import db_manager
-from backend.app.models.schemas import compute_business_status, BusinessStatus
+from app.main import app
+from app.database import db_manager
+from app.config import settings
+from app.models.schemas import compute_business_status, BusinessStatus
 
 client = TestClient(app)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def isolated_database(tmp_path_factory):
+    """Run API persistence tests against one real, disposable SQLite database."""
+    old_path, old_url = settings.SQLITE_DATABASE_PATH, settings.DATABASE_URL
+    old_pool, old_sqlite = db_manager.pool, db_manager.sqlite
+    old_users, old_projects, old_reports = db_manager.in_memory_users, db_manager.in_memory_projects, db_manager.in_memory_reports
+    settings.DATABASE_URL = ""
+    settings.SQLITE_DATABASE_PATH = str(tmp_path_factory.mktemp("enterprise-api") / "app.sqlite3")
+    db_manager.pool = None
+    db_manager.sqlite = None
+    db_manager.in_memory_users = {}
+    db_manager.in_memory_projects = {}
+    db_manager.in_memory_reports = {}
+    db_manager._initialize_sqlite()
+    try:
+        yield
+    finally:
+        db_manager.sqlite.close()
+        settings.DATABASE_URL, settings.SQLITE_DATABASE_PATH = old_url, old_path
+        db_manager.pool, db_manager.sqlite = old_pool, old_sqlite
+        db_manager.in_memory_users, db_manager.in_memory_projects, db_manager.in_memory_reports = old_users, old_projects, old_reports
 
 # User Credentials & Tokens
 USER_A_UID = "usr_alpha_enterprise_101"
@@ -384,17 +409,16 @@ def test_8_durable_backend_fallback_persistence():
     headers = {"Authorization": f"Bearer test-token-{uid}:durable@udyam.gov.in:session-1"}
     payload = {**ENTERPRISE_A1_PAYLOAD, "business_name": "Durable SQLite Enterprise"}
 
-    # Entering TestClient executes FastAPI lifespan, which selects SQLite when
-    # DATABASE_URL is absent. Remove the process cache after creation and prove
-    # that the API reloads the enterprise from the backend store.
-    with TestClient(app) as persistent_client:
-        created = persistent_client.post("/api/v2/projects", json=payload, headers=headers)
-        assert created.status_code == 201
-        project_id = created.json()["project_id"]
-        db_manager.in_memory_projects.clear()
-        restored = persistent_client.get(f"/api/v2/projects/{project_id}", headers=headers)
-        assert restored.status_code == 200
-        assert restored.json()["business_name"] == "Durable SQLite Enterprise"
+    created = client.post("/api/v2/projects", json=payload, headers=headers)
+    assert created.status_code == 201
+    project_id = created.json()["project_id"]
+    db_manager.in_memory_projects.clear()
+    db_manager.sqlite.close()
+    db_manager.sqlite = None
+    db_manager._initialize_sqlite()
+    restored = client.get(f"/api/v2/projects/{project_id}", headers=headers)
+    assert restored.status_code == 200
+    assert restored.json()["business_name"] == "Durable SQLite Enterprise"
     print("  [PASS] Enterprise reloaded from durable SQLite backend after memory cache removal")
 
 

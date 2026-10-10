@@ -40,6 +40,10 @@ import { DataSourcesPage } from './pages/DataSourcesPage';
 import { SchemesPage } from './pages/SchemesPage';
 import { ReportDetailPage } from './pages/ReportDetailPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { MessagesPage } from './pages/MessagesPage';
+import { BankerDashboard } from './pages/BankerDashboard';
+import { GovernmentDashboard } from './pages/GovernmentDashboard';
+import { AdminDashboard } from './pages/AdminDashboard';
 
 // Skeletons
 import {
@@ -174,7 +178,7 @@ export function AppContent() {
   } = useBusiness();
   const { language } = useLanguage();
 
-  const isAuthOrLanding = ['/', '/landing', '/login', '/register'].includes(location.pathname) || location.pathname.startsWith('/onboarding');
+  const isAuthOrLanding = ['/', '/landing', '/login', '/register', '/banker', '/government', '/admin'].includes(location.pathname) || location.pathname.startsWith('/onboarding');
 
   // Health check on app start
   useEffect(() => {
@@ -301,6 +305,9 @@ export function AppContent() {
         <Route path="/landing" element={<Navigate to="/" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/banker" element={<ProtectedRoute allowedRoles={['banker']}><BankerDashboard /></ProtectedRoute>} />
+        <Route path="/government" element={<ProtectedRoute allowedRoles={['government']}><GovernmentDashboard /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute allowedRoles={['superadmin']}><AdminDashboard /></ProtectedRoute>} />
         <Route
           path="/onboarding"
           element={
@@ -597,6 +604,7 @@ export function AppContent() {
               />
 
               {/* Conversational Onboarding */}
+              <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
               <Route
                 path="/onboarding"
                 element={

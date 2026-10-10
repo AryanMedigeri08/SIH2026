@@ -28,6 +28,8 @@ async def register_user_profile(
     Creates or updates the user's PostgreSQL profile row after client-side Firebase account registration.
     Idempotent upsert keyed by current_user.uid.
     """
+    if current_user.role != "entrepreneur":
+        raise HTTPException(status_code=403, detail="Staff accounts cannot use entrepreneur registration.")
     if current_user.auth_provider == "phone":
         if not current_user.phone_number or not reg_in.phone or current_user.phone_number != reg_in.phone:
             raise HTTPException(status_code=400, detail="Phone number must match the verified Firebase phone credential.")
@@ -54,6 +56,7 @@ async def register_user_profile(
         email=user_record["email"],
         gender=user_record.get("gender", "Unspecified"),
         auth_provider=user_record.get("auth_provider", "email"),
+        role=current_user.role,
         phone=user_record.get("phone"),
         additional_business_details=user_record.get("additional_business_details"),
         preferred_language=user_record.get("language", "en"),
@@ -95,6 +98,7 @@ async def sync_user_session(
         email=user_record["email"],
         gender=user_record.get("gender", "Unspecified"),
         auth_provider=user_record.get("auth_provider", "email"),
+        role=current_user.role,
         phone=user_record.get("phone"),
         additional_business_details=user_record.get("additional_business_details"),
         preferred_language=user_record.get("language", "en"),
@@ -130,6 +134,7 @@ async def get_my_profile(
         email=user_record["email"],
         gender=user_record.get("gender", "Unspecified"),
         auth_provider=user_record.get("auth_provider", "email"),
+        role=current_user.role,
         phone=user_record.get("phone"),
         additional_business_details=user_record.get("additional_business_details"),
         preferred_language=user_record.get("language", "en"),
@@ -171,6 +176,7 @@ async def update_my_profile(
         email=updated["email"],
         gender=updated.get("gender", "Unspecified"),
         auth_provider=updated.get("auth_provider", "email"),
+        role=current_user.role,
         phone=updated.get("phone"),
         additional_business_details=updated.get("additional_business_details"),
         preferred_language=updated.get("language", "en"),

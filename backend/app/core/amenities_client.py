@@ -21,6 +21,7 @@ from dataclasses import dataclass, asdict
 from typing import Optional, Union, Any
 from pathlib import Path
 import logging
+import os
 
 logger = logging.getLogger("udyam_saathi.amenities")
 
@@ -39,6 +40,50 @@ STATE_BASELINE_INFRA = {
     "Telangana": {"power_hours": 22.0, "road": True, "banking_5km": True, "internet": True, "storage": True, "score": 9.10},
     "Default": {"power_hours": 18.0, "road": True, "banking_5km": True, "internet": True, "storage": False, "score": 7.00},
 }
+
+_bank_branch_cache: dict[tuple[str, str, str], tuple[float, dict[str, Any]]] = {}
+
+
+def lookup_village_bank_branch(state_name: str, district_name: str, village_name: str) -> dict[str, Any]:
+    """Only a live, exact village bank-branch indicator can authorize DPR routing.
+
+    The existing infrastructure score combines ATM and bank access and falls
+    back to state averages; neither is proof that a village has a bank branch.
+    """
+    key = tuple((part or "").strip().casefold() for part in (state_name, district_name, village_name))
+    cached = _bank_branch_cache.get(key)
+    if cached and time.time() - cached[0] < 86400:
+        return cached[1]
+    result = {"available": False, "verified": False, "source": "unavailable", "village": village_name}
+    resource_id = find_district_resource_id(district_name)
+    api_key = os.getenv("DATA_GOV_IN_API_KEY", "").strip()
+    if not all(key) or not resource_id or not api_key:
+        return result
+    params = urllib.parse.urlencode({
+        "api-key": api_key, "format": "json", "limit": 5,
+        "filters[village_name]": village_name.strip(),
+    })
+    url = f"{os.getenv('AMENITIES_API_BASE_URL', 'https://api.data.gov.in/resource').rstrip('/')}/{resource_id}?{params}"
+    try:
+        request = urllib.request.Request(url, headers={"User-Agent": "UdyamSaathi/2.0"})
+        with urllib.request.urlopen(request, timeout=4.0) as response:
+            records = json.loads(response.read().decode("utf-8")).get("records", [])
+        for record in records:
+            if str(record.get("village_name", "")).strip().casefold() != key[2]:
+                continue
+            indicators = [record.get("commercial_bank__status_a_1__na_2__"),
+                          record.get("cooperative_bank__status_a_1__na_2__")]
+            if any(value is not None for value in indicators):
+                result = {"available": any(str(value).strip() == "1" for value in indicators),
+                          "verified": True, "source": "data_gov_in_live", "village": village_name}
+                break
+    except Exception as exc:
+        logger.info("Village bank lookup unavailable for %s: %s", village_name, exc)
+    if result["verified"]:
+        if len(_bank_branch_cache) >= 256:
+            _bank_branch_cache.pop(next(iter(_bank_branch_cache)))
+        _bank_branch_cache[key] = (time.time(), result)
+    return result
 
 
 def _resolve_district_resources_path() -> Path:

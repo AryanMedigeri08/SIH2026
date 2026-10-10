@@ -165,6 +165,15 @@ class DatabaseManager:
             CREATE TABLE IF NOT EXISTS passkey_credentials (credential_id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE, public_key TEXT NOT NULL, sign_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS idx_passkey_credentials_user ON passkey_credentials(user_id);
             CREATE TABLE IF NOT EXISTS passkey_challenges (challenge_id TEXT PRIMARY KEY, purpose TEXT NOT NULL, user_id TEXT, challenge TEXT NOT NULL, expires_at REAL NOT NULL);
+            CREATE TABLE IF NOT EXISTS user_roles (user_id TEXT PRIMARY KEY REFERENCES users(firebase_uid) ON DELETE CASCADE, role TEXT NOT NULL CHECK(role IN ('entrepreneur','banker','government','superadmin')), state_key TEXT, district_key TEXT, village_key TEXT, created_at TEXT NOT NULL);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_banker_village_sqlite ON user_roles(state_key,district_key,village_key) WHERE role='banker';
+            CREATE TABLE IF NOT EXISTS bank_applications (application_id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(project_id), entrepreneur_uid TEXT NOT NULL REFERENCES users(firebase_uid), banker_uid TEXT NOT NULL REFERENCES users(firebase_uid), status TEXT NOT NULL DEFAULT 'submitted', submitted_at TEXT NOT NULL, UNIQUE(project_id,banker_uid));
+            CREATE INDEX IF NOT EXISTS idx_bank_applications_banker_sqlite ON bank_applications(banker_uid);
+            CREATE TABLE IF NOT EXISTS application_messages (message_id TEXT PRIMARY KEY, application_id TEXT NOT NULL REFERENCES bank_applications(application_id) ON DELETE CASCADE, sender_uid TEXT NOT NULL REFERENCES users(firebase_uid), recipient_uid TEXT NOT NULL REFERENCES users(firebase_uid), body TEXT NOT NULL, created_at TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS idx_application_messages_app_sqlite ON application_messages(application_id,created_at);
+            CREATE TABLE IF NOT EXISTS custom_schemes (scheme_id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, administering_body TEXT, benefit_amount REAL, created_by TEXT NOT NULL REFERENCES users(firebase_uid), created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS scheme_disbursements (disbursement_id TEXT PRIMARY KEY, scheme_name TEXT NOT NULL, beneficiary_uid TEXT NOT NULL REFERENCES users(firebase_uid), amount REAL NOT NULL, recorded_by TEXT NOT NULL REFERENCES users(firebase_uid), created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS activity_events (event_id TEXT PRIMARY KEY, actor_uid TEXT NOT NULL, action TEXT NOT NULL, subject_id TEXT, created_at TEXT NOT NULL);
         """)
         existing_columns = {row[1] for row in self.sqlite.execute("PRAGMA table_info(users)")}
         if "language" not in existing_columns:
@@ -261,6 +270,51 @@ class DatabaseManager:
                         user_id TEXT,
                         challenge TEXT NOT NULL,
                         expires_at DOUBLE PRECISION NOT NULL
+                    );
+                """)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS user_roles (
+                        user_id TEXT PRIMARY KEY REFERENCES users(firebase_uid) ON DELETE CASCADE,
+                        role TEXT NOT NULL CHECK (role IN ('entrepreneur','banker','government','superadmin')),
+                        state_key TEXT, district_key TEXT, village_key TEXT,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_banker_village ON user_roles(state_key,district_key,village_key) WHERE role='banker';
+                    CREATE TABLE IF NOT EXISTS bank_applications (
+                        application_id TEXT PRIMARY KEY,
+                        project_id TEXT NOT NULL REFERENCES projects(project_id),
+                        entrepreneur_uid TEXT NOT NULL REFERENCES users(firebase_uid),
+                        banker_uid TEXT NOT NULL REFERENCES users(firebase_uid),
+                        status TEXT NOT NULL DEFAULT 'submitted',
+                        submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        UNIQUE(project_id,banker_uid)
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_bank_applications_banker ON bank_applications(banker_uid);
+                    CREATE TABLE IF NOT EXISTS application_messages (
+                        message_id TEXT PRIMARY KEY,
+                        application_id TEXT NOT NULL REFERENCES bank_applications(application_id) ON DELETE CASCADE,
+                        sender_uid TEXT NOT NULL REFERENCES users(firebase_uid),
+                        recipient_uid TEXT NOT NULL REFERENCES users(firebase_uid),
+                        body TEXT NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_application_messages_app ON application_messages(application_id,created_at);
+                    CREATE TABLE IF NOT EXISTS custom_schemes (
+                        scheme_id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL,
+                        administering_body TEXT, benefit_amount NUMERIC(15,2),
+                        created_by TEXT NOT NULL REFERENCES users(firebase_uid),
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                    CREATE TABLE IF NOT EXISTS scheme_disbursements (
+                        disbursement_id TEXT PRIMARY KEY, scheme_name TEXT NOT NULL,
+                        beneficiary_uid TEXT NOT NULL REFERENCES users(firebase_uid),
+                        amount NUMERIC(15,2) NOT NULL,
+                        recorded_by TEXT NOT NULL REFERENCES users(firebase_uid),
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                    CREATE TABLE IF NOT EXISTS activity_events (
+                        event_id TEXT PRIMARY KEY, actor_uid TEXT NOT NULL, action TEXT NOT NULL,
+                        subject_id TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     );
                 """)
                 logger.info("PostgreSQL schema & tables (users, projects, reports) verified/initialized successfully.")
@@ -1199,13 +1253,13 @@ class DatabaseManager:
         if report_id in self.in_memory_reports:
             payload = self.in_memory_reports[report_id]
             owner = payload.get("_owner_id")
-            if user_id is None or owner is None or owner == user_id:
+            if user_id is None or owner == user_id:
                 return payload
 
         if self.sqlite:
             row = self.sqlite.execute("SELECT user_id, payload FROM feasibility_reports WHERE report_id = ?", (report_id,)).fetchone()
             if row:
-                if user_id is not None and row["user_id"] is not None and row["user_id"] != user_id:
+                if user_id is not None and row["user_id"] != user_id:
                     return None
                 payload = json.loads(row["payload"])
                 payload["_owner_id"] = row["user_id"]
@@ -1218,7 +1272,7 @@ class DatabaseManager:
                     row = await conn.fetchrow("SELECT user_id, report_payload, dpr_payload FROM feasibility_reports WHERE report_id = $1", report_id)
                     if row:
                         owner = row["user_id"]
-                        if user_id is not None and owner is not None and owner != user_id:
+                        if user_id is not None and owner != user_id:
                             return None
                         rep = json.loads(row["report_payload"]) if isinstance(row["report_payload"], str) else row["report_payload"]
                         dpr = json.loads(row["dpr_payload"]) if isinstance(row["dpr_payload"], str) else row["dpr_payload"]

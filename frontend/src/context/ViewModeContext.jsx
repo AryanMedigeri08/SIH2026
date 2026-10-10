@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
+import { useAuth } from './AuthContext';
 
 const ViewModeContext = createContext(null);
 
@@ -8,32 +9,14 @@ export const VIEW_MODES = {
 };
 
 export function ViewModeProvider({ children }) {
-  const [viewMode, setViewModeState] = useState(() => {
-    try {
-      const saved = localStorage.getItem('udyam_saathi_view_mode');
-      return saved === VIEW_MODES.BANKER ? VIEW_MODES.BANKER : VIEW_MODES.BENEFICIARY;
-    } catch {
-      return VIEW_MODES.BENEFICIARY;
-    }
-  });
-
-  const setViewMode = (mode) => {
-    if (mode === VIEW_MODES.BENEFICIARY || mode === VIEW_MODES.BANKER) {
-      setViewModeState(mode);
-      try {
-        localStorage.setItem('udyam_saathi_view_mode', mode);
-      } catch (err) {
-        console.warn('Could not persist view mode:', err);
-      }
-    }
-  };
-
-  const toggleViewMode = () => {
-    setViewMode(viewMode === VIEW_MODES.BENEFICIARY ? VIEW_MODES.BANKER : VIEW_MODES.BENEFICIARY);
-  };
-
-  const isBeneficiary = viewMode === VIEW_MODES.BENEFICIARY;
-  const isBanker = viewMode === VIEW_MODES.BANKER;
+  // Appraisal mode comes only from the backend-authenticated role. A visitor
+  // cannot reveal banker components by editing browser storage or a toggle.
+  const { userProfile } = useAuth();
+  const isBanker = userProfile?.role === 'banker';
+  const isBeneficiary = !isBanker;
+  const viewMode = isBanker ? VIEW_MODES.BANKER : VIEW_MODES.BENEFICIARY;
+  const setViewMode = () => {};
+  const toggleViewMode = () => {};
 
   return (
     <ViewModeContext.Provider

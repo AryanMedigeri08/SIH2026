@@ -38,7 +38,7 @@ except ImportError:
 
 from app.config import settings
 from app.database import db_manager
-from app.core.auth_dependency import get_current_user, get_current_user_optional, AuthenticatedUser
+from app.core.auth_dependency import get_current_user, AuthenticatedUser
 from app.core.translation_service import TranslationService
 from app.core.odop_matcher import match_odop
 from app.models.schemas import UserInput, FeasibilityReport
@@ -546,11 +546,10 @@ async def get_report_dpr(
     report_id: str,
     format: str = Query("json", description="Output format: json | markdown | html"),
     lang: str = Query("en", description="Target language: en | hi | mr | ta | te | kn"),
-    current_user: Optional[AuthenticatedUser] = Depends(get_current_user_optional),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Retrieves 7-Section Bank DPR for an existing feasibility report with multilingual translation."""
-    user_id = current_user.uid if current_user else None
-    cached = await db_manager.get_feasibility_report(report_id, user_id)
+    cached = await db_manager.get_feasibility_report(report_id, current_user.uid)
     if not cached:
         raise HTTPException(status_code=404, detail=f"Report '{report_id}' not found.")
 

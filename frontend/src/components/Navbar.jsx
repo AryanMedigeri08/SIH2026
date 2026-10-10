@@ -8,7 +8,6 @@ import { BusinessSwitcher } from './BusinessSwitcher';
 import { LanguageSelector } from './LanguageSelector';
 import { useLanguage } from '../context/LanguageContext';
 import { ChatbotNavButton } from './Chat/ChatbotNavButton';
-import { PersonaSwitcher } from './PersonaSwitcher';
 
 export function Navbar({ health, onToggleMobileSidebar }) {
   const isHealthy = health?.status === 'healthy';
@@ -69,9 +68,6 @@ export function Navbar({ health, onToggleMobileSidebar }) {
         {/* Right: Controls, Personas, AI Chat & Identity */}
         <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2.5 shrink-0">
           
-          {/* Persona Switcher: Compact icon-only on mobile, full labels on lg+ */}
-          <PersonaSwitcher compact />
-
           {/* Persistent AI Chatbot Navigation Button */}
           <ChatbotNavButton />
 

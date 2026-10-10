@@ -1,20 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { StatutoryChecklistCard } from '../../components/Dashboard/StatutoryChecklistCard';
-import { fetchDprDocument } from '../../services/api';
+import { fetchDprDocument, rolesApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useBusiness } from '../../context/BusinessContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { FileText, Printer, Download, Copy, Check, Loader2, CheckCircle2, ShieldCheck, Sparkles, Landmark, IndianRupee, PieChart, TrendingUp, Languages } from 'lucide-react';
 import { TranslatedText } from '../../components/TranslatedText';
 
 export function BankDprPage({ reportData }) {
   const { token } = useAuth();
+  const { activeBusiness } = useBusiness();
   const { language, setLanguage, languages = [] } = useLanguage();
   const [format, setFormat] = useState('html');
   const [dprContent, setDprContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-
+  const [bankAvailability, setBankAvailability] = useState(null);
+  const [handoffStatus, setHandoffStatus] = useState('');
+  const [sending, setSending] = useState(false);
   const reportId = reportData?.report_id;
+  const sendableProjectId = activeBusiness?.analysis_result?.report?.report_id === reportId
+    ? activeBusiness.project_id : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    setBankAvailability(null);
+    setHandoffStatus('');
+    if (!token || !sendableProjectId) return () => { cancelled = true; };
+    rolesApi.bankAvailability(token, sendableProjectId)
+      .then((result) => { if (!cancelled) setBankAvailability(result); })
+      .catch(() => { if (!cancelled) setBankAvailability({ available: false, verified: false }); });
+    return () => { cancelled = true; };
+  }, [token, sendableProjectId]);
+
+  const sendToBanker = async () => {
+    setSending(true);
+    setHandoffStatus('');
+    try {
+      const application = await rolesApi.submitDpr(token, sendableProjectId);
+      setHandoffStatus(`DPR sent to the village banker. Application ${application.application_id} is now in Messages.`);
+    } catch (error) {
+      setHandoffStatus(error.message || 'Could not send the DPR.');
+    } finally { setSending(false); }
+  };
+
   const p = reportData?.input_parameters || {};
   const fin = reportData?.financial_analysis || {};
   const schemes = reportData?.scheme_optimization || [];
@@ -91,6 +120,13 @@ export function BankDprPage({ reportData }) {
 
   return (
     <div className="space-y-6">
+      {sendableProjectId && <section className="rounded-2xl border border-sky-200 bg-sky-50 p-5 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-900">Send this DPR to a banker</h2>
+        <p className="mt-1 text-sm text-slate-700">We check the live village amenities record for an actual bank branch before routing your application.</p>
+        <p className="mt-2 text-sm font-semibold text-sky-900">{bankAvailability === null ? 'Checking village bank availability…' : bankAvailability.verified ? bankAvailability.available ? 'Bank branch verified in your village.' : 'No bank branch found for this village.' : 'Bank availability could not be verified. Sending is unavailable for now.'}</p>
+        <button type="button" onClick={sendToBanker} disabled={sending || !bankAvailability?.verified || !bankAvailability.available} className="mt-3 rounded-xl bg-sky-900 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{sending ? 'Sending…' : 'Send DPR to banker'}</button>
+        {handoffStatus && <p role="status" className="mt-3 text-sm text-slate-800">{handoffStatus}</p>}
+      </section>}
       
       {/* Header Banner */}
       <div className="glass-panel p-4 sm:p-6 border-l-4 border-purple-600 bg-gradient-to-r from-white via-purple-50/20 to-white shadow-card border border-slate-200/90 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">

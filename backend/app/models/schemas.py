@@ -47,6 +47,7 @@ class UserProfileResponse(BaseModel):
     email: str
     gender: Optional[str] = "Unspecified"
     auth_provider: str = "email"
+    role: str = "entrepreneur"
     phone: Optional[str] = None
     additional_business_details: Optional[str] = None
     preferred_language: str = "en"

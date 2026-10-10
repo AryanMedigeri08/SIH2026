@@ -7,6 +7,8 @@ import { AuthField, AuthLayout, useAuthCopy } from '../components/AuthExperience
 import { auth, RecaptchaVerifier } from '../services/firebaseClient';
 import { authErrorMessage } from '../services/authErrorMessage';
 import { destinationAfterSignIn } from '../services/authNavigation';
+import { roleHome, isStaffRole } from '../services/roleRoutes';
+import { firebaseStaffEmail } from '../services/staffIdentity';
 import { useLanguage } from '../context/LanguageContext';
 
 const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100';
@@ -14,7 +16,7 @@ const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-4 py-3
 export function LoginPage() {
   const c = useAuthCopy();
   const { language } = useLanguage();
-  const { loginWithPasskey, sendPhoneCode, completePhoneSignIn, loginWithGoogle, loginWithEmail, loginAsDemo } = useAuth();
+  const { loginWithPasskey, sendPhoneCode, completePhoneSignIn, loginWithGoogle, loginWithEmail, loginAsDemo, logout } = useAuth();
   const { loadUserBusinesses } = useBusiness();
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,15 +29,27 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [selectedRole, setSelectedRole] = useState('entrepreneur');
 
   const enterWith = async (method) => {
     setBusy(true); setError('');
     try {
       const session = await method();
+      const actualRole = session.profile?.role || 'entrepreneur';
+      if (actualRole !== selectedRole) {
+        await logout();
+        const mismatch = new Error(`This account is registered as ${actualRole}. Select that role to sign in.`);
+        mismatch.code = 'role/mismatch';
+        throw mismatch;
+      }
+      if (isStaffRole(actualRole)) {
+        navigate(roleHome(actualRole), { replace: true });
+        return;
+      }
       const from = location.state?.from?.pathname;
       const destination = await destinationAfterSignIn(session, loadUserBusinesses, from);
       navigate(destination, { replace: true });
-    } catch (err) { setError(authErrorMessage(err, c.errors.signIn, language)); }
+    } catch (err) { setError(err?.code === 'role/mismatch' ? err.message : authErrorMessage(err, c.errors.signIn, language)); }
     finally { setBusy(false); }
   };
   const sendCode = async (event) => {
@@ -49,11 +63,27 @@ export function LoginPage() {
     finally { setBusy(false); }
   };
   const verifyCode = (event) => { event.preventDefault(); enterWith(() => completePhoneSignIn(confirmation, code)); };
-  const emailLogin = (event) => { event.preventDefault(); enterWith(() => loginWithEmail(email, password)); };
+  const emailLogin = (event) => { event.preventDefault(); enterWith(() => loginWithEmail(isStaffRole(selectedRole) ? firebaseStaffEmail(email) : email, password)); };
 
-  return <AuthLayout mode="login" prompt={confirmation ? c.guideCode : c.guideLogin}>
+  return <AuthLayout mode="login" prompt={isStaffRole(selectedRole) ? c.guideStaff : confirmation ? c.guideCode : c.guideLogin}>
     <div className="mb-6 text-xs font-bold uppercase tracking-widest text-violet-700">{c.signIn}</div>
     {error && <p role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
+    <label className="mb-5 block text-sm font-bold text-slate-800">Sign in as
+      <select aria-label="Sign in as" className={`${inputClass} mt-2`} value={selectedRole} onChange={(event) => { setSelectedRole(event.target.value); setError(''); }}>
+        <option value="entrepreneur">Entrepreneur</option>
+        <option value="banker">Banker / Auditor</option>
+        <option value="government">Government Official</option>
+        <option value="superadmin">SuperAdmin</option>
+      </select>
+    </label>
+    {isStaffRole(selectedRole) ? <>
+      <p className="mb-4 rounded-xl bg-sky-50 p-3 text-sm text-sky-900">Staff accounts are issued by the SuperAdmin. Your selected role must match your account.</p>
+      <form onSubmit={emailLogin} className="space-y-3">
+        <input className={inputClass} type="text" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Staff email or village@udyam" required />
+        <input className={inputClass} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={c.password} required />
+        <button type="submit" disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-900 px-4 py-3 font-bold text-white disabled:opacity-50"><ArrowRight className="h-4 w-4" />{c.signIn}</button>
+      </form>
+    </> : <>
     <button type="button" disabled={busy} onClick={() => enterWith(loginWithPasskey)} className="flex w-full items-center justify-center gap-3 rounded-2xl bg-violet-900 px-4 py-4 text-base font-bold text-white shadow-lg shadow-violet-200 hover:bg-violet-800 disabled:opacity-50"><Fingerprint className="h-6 w-6" />{c.passkey}</button>
     <p className="mt-2 text-center text-xs text-slate-500">Face ID · Fingerprint · Windows Hello · Device PIN</p>
     <div className="my-6 flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-slate-400"><span className="h-px flex-1 bg-slate-200" />{c.orPhone}<span className="h-px flex-1 bg-slate-200" /></div>
@@ -74,6 +104,7 @@ export function LoginPage() {
     <p className="mt-2 text-center text-xs leading-relaxed text-slate-500">{c.existingNote}</p>
     {legacy && <form onSubmit={emailLogin} className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4"><input className={inputClass} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={c.email} required /><input className={inputClass} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={c.password} required /><button type="submit" disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 font-bold text-white"><ArrowRight className="h-4 w-4" />{c.signIn}</button></form>}
     <p className="mt-6 text-center text-sm text-slate-600">{c.newAccount} <Link to="/register" className="font-bold text-violet-800 underline">{c.create}</Link></p>
+    </>}
   </AuthLayout>;
 }
 

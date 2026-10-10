@@ -16,7 +16,7 @@ const phoneIsValid = (value) => /^[6-9]\d{9}$/.test(value);
 export function RegisterPage() {
   const c = useAuthCopy();
   const { language } = useLanguage();
-  const { sendPhoneCode, completePhoneSignIn, loginWithGoogle, loginAsDemo, addPasskey } = useAuth();
+  const { sendPhoneCode, completePhoneSignIn, loginWithGoogle, loginAsDemo, addPasskey, logout } = useAuth();
   const { loadUserBusinesses } = useBusiness();
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -99,6 +99,10 @@ export function RegisterPage() {
     setBusy(true); setError('');
     try {
       const session = await method();
+      if (session.profile?.role && session.profile.role !== 'entrepreneur') {
+        await logout();
+        throw new Error('Staff accounts must use the role selector on the sign-in page.');
+      }
       const destination = await destinationAfterSignIn(session, loadUserBusinesses);
       navigate(destination, { replace: true });
     } catch (err) { setError(authErrorMessage(err, c.errors.signIn, language)); }

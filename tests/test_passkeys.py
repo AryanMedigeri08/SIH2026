@@ -42,6 +42,7 @@ def client(monkeypatch):
       CREATE TABLE passkey_challenges (challenge_id TEXT PRIMARY KEY, purpose TEXT NOT NULL, user_id TEXT, challenge TEXT NOT NULL, expires_at REAL NOT NULL);
       CREATE TABLE revoked_sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, revoked_at TEXT NOT NULL);
       CREATE TABLE projects (project_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, payload TEXT, created_at TEXT, updated_at TEXT);
+      CREATE TABLE user_roles (user_id TEXT PRIMARY KEY, role TEXT NOT NULL, state_key TEXT, district_key TEXT, village_key TEXT, created_at TEXT);
     """)
     db_manager.sqlite, db_manager.pool = conn, None
     monkeypatch.setattr(passkeys, "init_firebase_admin", lambda: None)

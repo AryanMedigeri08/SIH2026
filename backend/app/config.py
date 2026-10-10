@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     FIREBASE_PROJECT_ID: Optional[str] = os.getenv("FIREBASE_PROJECT_ID", None)
     PASSKEY_RP_ID: str = os.getenv("PASSKEY_RP_ID", "localhost")
     PASSKEY_ORIGIN: str = os.getenv("PASSKEY_ORIGIN", "http://localhost:3000")
+    STAFF_INITIAL_PASSWORD: str = os.getenv("STAFF_INITIAL_PASSWORD", "")
 
     # Groq AI Model & Dedicated Chatbot Configuration
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")

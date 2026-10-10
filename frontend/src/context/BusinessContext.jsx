@@ -132,12 +132,12 @@ export const BusinessProvider = ({ children }) => {
 
   // Trigger business load or clear on auth state change
   useEffect(() => {
-    if (isAuthenticated && token) {
+    if (isAuthenticated && token && userProfile?.role === 'entrepreneur') {
       loadUserBusinesses(token);
     } else {
       clearBusinessState();
     }
-  }, [isAuthenticated, token, loadUserBusinesses, clearBusinessState]);
+  }, [isAuthenticated, token, userProfile?.role, loadUserBusinesses, clearBusinessState]);
 
   // Switch Active Business
   const switchBusiness = useCallback(

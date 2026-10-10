@@ -1,0 +1,62 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { StaffShell } from '../components/StaffShell';
+import { rolesApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+
+export function AdminDashboard() {
+  const { token } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [activity, setActivity] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [userProjects, setUserProjects] = useState([]);
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [form, setForm] = useState({ email: '', name: '', role: 'banker', state_name: '', district_name: '', village_name: '' });
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!token) return;
+    try {
+      const [nextUsers, nextApplications, nextActivity] = await Promise.all([
+        rolesApi.adminUsers(token), rolesApi.adminApplications(token), rolesApi.adminActivity(token),
+      ]);
+      setUsers(nextUsers); setApplications(nextApplications); setActivity(nextActivity); setError('');
+    } catch (err) { setError(err.message || 'Could not load administration data.'); }
+  }, [token]);
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const createStaff = async (event) => {
+    event.preventDefault(); setBusy(true); setError(''); setNotice('');
+    try {
+      const result = await rolesApi.createStaff(token, form);
+      setNotice(`${result.created ? 'Created' : 'Found existing'} ${form.role} account: ${result.email}. Share the temporary password through a secure channel.`);
+      setForm({ email: '', name: '', role: 'banker', state_name: '', district_name: '', village_name: '' });
+      await refresh();
+    } catch (err) { setError(err.message); }
+    finally { setBusy(false); }
+  };
+
+  const inspectUser = async (user) => {
+    setError(''); setSelectedUser(user); setSelectedApplication(null);
+    try { setUserProjects(await rolesApi.adminUserProjects(token, user.firebase_uid)); }
+    catch (err) { setError(err.message); }
+  };
+  const inspectApplication = async (id) => {
+    setError(''); setSelectedUser(null);
+    try { setSelectedApplication(await rolesApi.adminApplication(token, id)); }
+    catch (err) { setError(err.message); }
+  };
+
+  return <StaffShell title="SuperAdmin dashboard" subtitle="Role-restricted account, DPR and activity oversight.">
+    {error && <p role="alert" className="mb-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
+    {notice && <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+    <div className="mb-6 grid gap-4 sm:grid-cols-3">{[['Users shown', users.length], ['Bank DPR applications shown', applications.length], ['Recent events shown', activity.length]].map(([label, value]) => <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 text-3xl font-black text-sky-950">{value}</p></div>)}</div>
+    <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Provision staff account</h2><p className="mt-1 text-xs text-slate-500">Entrepreneurs register publicly; banker and government accounts are restricted to administration. Village bankers are also created automatically on the first eligible DPR submission.</p><form onSubmit={createStaff} className="mt-4 grid gap-3 sm:grid-cols-2"><input className="rounded-xl border p-3" type="text" placeholder="Staff email or village@udyam" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /><input className="rounded-xl border p-3" placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /><select className="rounded-xl border p-3" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option value="banker">Banker / Auditor</option><option value="government">Government Official</option></select>{form.role === 'banker' && <><input className="rounded-xl border p-3" placeholder="State" value={form.state_name} onChange={(e) => setForm({ ...form, state_name: e.target.value })} required /><input className="rounded-xl border p-3" placeholder="District" value={form.district_name} onChange={(e) => setForm({ ...form, district_name: e.target.value })} required /><input className="rounded-xl border p-3" placeholder="Village" value={form.village_name} onChange={(e) => setForm({ ...form, village_name: e.target.value })} required /></>}<button disabled={busy} className="rounded-xl bg-sky-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">Create staff login</button></form></section>
+    <div className="grid gap-6 lg:grid-cols-2"><section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Users (most recent {users.length})</h2><div className="mt-3 max-h-96 overflow-auto space-y-2">{users.map((user) => <div key={user.firebase_uid} className="rounded-xl bg-slate-50 p-3 text-sm"><strong>{user.name}</strong><span className="ml-2 rounded bg-sky-100 px-2 py-0.5 text-xs">{user.role || 'entrepreneur'}</span><p className="break-all text-xs text-slate-600">{user.email || user.phone || user.firebase_uid}</p><button type="button" onClick={() => inspectUser(user)} className="mt-2 text-xs font-bold text-sky-800 underline">View enterprises</button></div>)}</div></section><section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">DPR activity</h2><div className="mt-3 max-h-96 overflow-auto space-y-2">{applications.map((item) => <div key={item.application_id} className="rounded-xl bg-slate-50 p-3 text-sm"><strong>{item.application_id}</strong> · {item.status}<p className="break-all text-xs text-slate-600">Project {item.project_id}</p><button type="button" onClick={() => inspectApplication(item.application_id)} className="mt-2 text-xs font-bold text-sky-800 underline">Inspect application and messages</button></div>)}{!applications.length && <p className="text-sm text-slate-500">No submissions yet.</p>}</div></section></div>
+    {selectedUser && <section className="mt-6 rounded-3xl border border-sky-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{selectedUser.name}: saved enterprises</h2><p className="mt-1 text-xs text-slate-500">Read-only view of persisted project records.</p><div className="mt-3 grid gap-3 sm:grid-cols-2">{userProjects.map((project) => <div key={project.project_id} className="rounded-xl bg-slate-50 p-4"><strong>{project.business_name}</strong><p className="text-xs text-slate-600">{project.village_name}, {project.district_name} · {project.status}</p><p className="text-xs text-slate-500">{project.project_id}</p></div>)}{!userProjects.length && <p className="text-sm text-slate-500">No enterprises saved.</p>}</div></section>}
+    {selectedApplication && <section className="mt-6 rounded-3xl border border-sky-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Application {selectedApplication.application.application_id}</h2><p className="mt-2 text-sm">{selectedApplication.project?.business_name || selectedApplication.application.project_id} · {selectedApplication.application.status}</p><p className="mt-1 text-xs text-slate-500">{selectedApplication.project?.village_name}, {selectedApplication.project?.district_name}</p><h3 className="mt-5 font-bold">Conversation ({selectedApplication.messages.length})</h3><div className="mt-2 max-h-64 space-y-2 overflow-auto">{selectedApplication.messages.map((message) => <p key={message.message_id} className="rounded-xl bg-slate-50 p-3 text-sm">{message.body}</p>)}{!selectedApplication.messages.length && <p className="text-sm text-slate-500">No messages yet.</p>}</div></section>}
+    <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Recent account and application events</h2><div className="mt-3 max-h-72 overflow-auto space-y-2">{activity.map((event) => <div key={event.event_id} className="flex flex-wrap justify-between gap-2 rounded-xl bg-slate-50 p-3 text-xs"><span><strong>{event.action.replaceAll('_', ' ')}</strong> · {event.actor_uid}</span><time>{new Date(event.created_at).toLocaleString()}</time></div>)}{!activity.length && <p className="text-sm text-slate-500">No events recorded yet.</p>}</div></section>
+  </StaffShell>;
+}

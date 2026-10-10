@@ -7,9 +7,10 @@ import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Loader2 } from "lucide-react";
+import { roleHome } from '../services/roleRoutes';
 
-export const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+export const ProtectedRoute = ({ children, allowedRoles = ['entrepreneur'] }) => {
+  const { isAuthenticated, loading, userProfile } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -30,6 +31,10 @@ export const ProtectedRoute = ({ children }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!allowedRoles.includes(userProfile?.role || 'entrepreneur')) {
+    return <Navigate to={roleHome(userProfile?.role)} replace />;
   }
 
   return children;

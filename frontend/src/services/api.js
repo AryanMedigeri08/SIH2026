@@ -102,6 +102,26 @@ export const passkeyApi = {
   authenticateVerify: (body) => authFetch(`${API_BASE}/auth/passkeys/authenticate/verify`, null, { method: 'POST', body: JSON.stringify(body) }),
 };
 
+export const rolesApi = {
+  bankAvailability: (token, projectId) => authFetch(`${API_BASE}/roles/bank-availability/${encodeURIComponent(projectId)}`, token),
+  submitDpr: (token, projectId) => authFetch(`${API_BASE}/roles/applications`, token, { method: 'POST', body: JSON.stringify({ project_id: projectId }) }),
+  listApplications: (token) => authFetch(`${API_BASE}/roles/applications`, token),
+  application: (token, applicationId) => authFetch(`${API_BASE}/roles/applications/${encodeURIComponent(applicationId)}`, token),
+  updateStatus: (token, applicationId, status) => authFetch(`${API_BASE}/roles/applications/${encodeURIComponent(applicationId)}/status`, token, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  messages: (token, applicationId) => authFetch(`${API_BASE}/roles/applications/${encodeURIComponent(applicationId)}/messages`, token),
+  sendMessage: (token, applicationId, body) => authFetch(`${API_BASE}/roles/applications/${encodeURIComponent(applicationId)}/messages`, token, { method: 'POST', body: JSON.stringify({ body }) }),
+  adminUsers: (token) => authFetch(`${API_BASE}/roles/admin/users`, token),
+  adminActivity: (token) => authFetch(`${API_BASE}/roles/admin/activity`, token),
+  adminApplications: (token) => authFetch(`${API_BASE}/roles/admin/applications`, token),
+  adminUserProjects: (token, uid) => authFetch(`${API_BASE}/roles/admin/users/${encodeURIComponent(uid)}/projects`, token),
+  adminApplication: (token, id) => authFetch(`${API_BASE}/roles/admin/applications/${encodeURIComponent(id)}`, token),
+  createStaff: (token, data) => authFetch(`${API_BASE}/roles/staff`, token, { method: 'POST', body: JSON.stringify(data) }),
+  governmentSummary: (token) => authFetch(`${API_BASE}/roles/government/summary`, token),
+  governmentSchemes: (token) => authFetch(`${API_BASE}/roles/government/schemes`, token),
+  addGovernmentScheme: (token, data) => authFetch(`${API_BASE}/roles/government/schemes`, token, { method: 'POST', body: JSON.stringify(data) }),
+  recordDisbursement: (token, data) => authFetch(`${API_BASE}/roles/government/disbursements`, token, { method: 'POST', body: JSON.stringify(data) }),
+};
+
 // --- Projects State Persistence API (Owner-Grounded) ---
 export const projectsApi = {
   async createProject(token, projectData) {

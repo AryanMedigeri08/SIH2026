@@ -21,6 +21,7 @@ import {
   Tag,
   Megaphone,
   LogOut,
+  MessageSquare,
 } from 'lucide-react';
 import { useBusiness } from '../../context/BusinessContext';
 import { BusinessSwitcher, BusinessStatusPill } from '../BusinessSwitcher';
@@ -93,6 +94,12 @@ export function Sidebar({
           path: reportId ? `/reports/${reportId}/dpr` : '/dpr',
           icon: FileText,
           badge: 'Download PDF',
+        },
+        {
+          id: 'messages',
+          name: 'Messages',
+          path: '/messages',
+          icon: MessageSquare,
         },
       ]
     : [

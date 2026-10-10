@@ -19,7 +19,7 @@ from app.models.schemas import (
     UserInput,
 )
 from app.routers.feasibility import _run_pipeline
-from app.core.auth_dependency import get_current_user, AuthenticatedUser
+from app.core.auth_dependency import get_entrepreneur, AuthenticatedUser
 from app.core.translation_service import TranslationService
 from dpr_generator import BankDPRDocument, dpr_to_printable_markdown, dpr_to_html
 
@@ -60,7 +60,7 @@ def _project_dict_to_user_input(p: dict[str, Any]) -> UserInput:
 @router.post("", response_model=ProjectModel, status_code=status.HTTP_201_CREATED)
 async def create_project(
     project_in: ProjectCreate,
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_entrepreneur),
 ):
     """
     Creates a new persistent project record belonging to the authenticated user.
@@ -115,7 +115,7 @@ async def create_project(
 @router.post("/create-and-analyze", response_model=ProjectModel, status_code=status.HTTP_201_CREATED)
 async def create_and_analyze_project(
     project_in: ProjectCreate,
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_entrepreneur),
 ):
     """
     Atomic creation and analysis endpoint:
@@ -174,7 +174,7 @@ async def create_and_analyze_project(
 
 @router.get("", response_model=list[ProjectModel])
 async def list_user_projects(
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_entrepreneur),
 ):
     """
     Lists all persistent business records belonging to the authenticated user.
@@ -187,7 +187,7 @@ async def list_user_projects(
 @router.get("/{project_id}", response_model=ProjectModel)
 async def get_project_details(
     project_id: str,
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_entrepreneur),
 ):
     """
     Retrieves a single business record by ID with strict ownership verification (IDOR protection).
@@ -208,7 +208,7 @@ async def get_project_details(
 @router.get("/{project_id}/status", response_model=BusinessStatus)
 async def get_project_status(
     project_id: str,
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_entrepreneur),
 ):
     """
     Retrieves the institutional health, solvency, and viability status for a business.
@@ -229,7 +229,7 @@ async def get_project_status(
 @router.post("/{project_id}/analyze", response_model=ProjectModel)
 async def analyze_and_persist_project(
     project_id: str,
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_entrepreneur),
 ):
     """
     Runs the full feasibility pipeline for an existing project draft, updates project status,
@@ -266,7 +266,7 @@ async def analyze_and_persist_project(
 async def update_project(
     project_id: str,
     project_in: ProjectUpdate,
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_entrepreneur),
 ):
     """
     Updates enterprise parameters of an existing business with ownership verification.
@@ -295,7 +295,7 @@ async def get_project_dpr(
     project_id: str,
     format: str = Query("json", description="Output format: json | markdown | html"),
     lang: str = Query("en", description="Target language: en | hi | mr | ta | te | kn"),
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_entrepreneur),
 ):
     """Retrieves official 7-Section Bank DPR for a project with ownership verification and translation."""
     project = await db_manager.get_project(project_id)
@@ -340,7 +340,7 @@ async def get_project_dpr(
 @router.delete("/{project_id}", status_code=status.HTTP_200_OK)
 async def delete_project(
     project_id: str,
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_entrepreneur),
 ):
     """Deletes a business record owned by the authenticated user."""
     project = await db_manager.get_project(project_id)

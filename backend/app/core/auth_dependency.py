@@ -8,7 +8,7 @@ import hashlib
 import os
 from typing import Optional, Any
 from dataclasses import dataclass, field
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from pydantic import BaseModel
 
 try:
@@ -37,6 +37,10 @@ class AuthenticatedUser(BaseModel):
     picture: Optional[str] = None
     phone_number: Optional[str] = None
     claims: dict[str, Any] = {}
+    role: str = "entrepreneur"
+    state_key: Optional[str] = None
+    district_key: Optional[str] = None
+    village_key: Optional[str] = None
 
 
 def _extract_bearer_token(authorization: Optional[str]) -> str:
@@ -132,6 +136,8 @@ async def get_current_user(
     firebase_meta = claims.get("firebase", {})
     sign_in_provider = firebase_meta.get("sign_in_provider", "email")
     picture = claims.get("picture")
+    from app.core.role_store import get_role
+    assigned = await get_role(str(uid))
 
     return AuthenticatedUser(
         uid=str(uid),
@@ -142,7 +148,17 @@ async def get_current_user(
         picture=picture,
         phone_number=claims.get("phone_number"),
         claims=claims,
+        role=assigned["role"],
+        state_key=assigned.get("state_key"),
+        district_key=assigned.get("district_key"),
+        village_key=assigned.get("village_key"),
     )
+
+
+async def get_entrepreneur(current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+    if current_user.role != "entrepreneur":
+        raise HTTPException(status_code=403, detail="Entrepreneur access required.")
+    return current_user
 
 
 async def get_current_user_optional(
