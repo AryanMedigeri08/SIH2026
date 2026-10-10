@@ -17,7 +17,7 @@ Branch: `Refactor-wizard-aryan`. Implementation commit: `595ae82` (pushed).
 - `node --test tests/roles.test.mjs`: **2 passed**.
 - `npm run build`: **passed**. Both backend and frontend development servers started. Direct public/staff URLs responded, unauthenticated staff/DPR APIs returned 401, and browser smoke checks confirmed the role selector and `/banker` redirect to `/login`.
 - `python -m scripts.check_live_roles` from `backend/`: **passed** for government and SuperAdmin Firebase sign-in, Neon role, API access denial, and post-logout rejection.
-- `python -m pytest -q tests --ignore=tests/test_phase6.py --tb=short`: **268 passed, 26 failed**. Failures are in pre-existing voice/opportunity/audit test expectations and API-dependent mocks, not the new role/persistence suites. A raw `python -m pytest -q` additionally fails collection in `misc/scratch/test_opportunity_engine_medak.py` and `tests/test_phase6.py` (obsolete unsigned-token assumption). Do not report the full suite as green.
+- `python -m pytest -q tests --ignore=tests/test_phase6.py --tb=short`: **268 passed, 26 failed**. Failures are in voice/opportunity/audit tests and API-dependent mocks, while the new role/persistence suites pass. These modules were not changed by the role implementation; a clean-baseline run was not performed, so their prior status is unconfirmed. A raw `python -m pytest -q` additionally fails collection in `misc/scratch/test_opportunity_engine_medak.py` and `tests/test_phase6.py` (unsigned test-token assumption). Do not report the full suite as green.
 
 ## Remaining / needs a decision
 
