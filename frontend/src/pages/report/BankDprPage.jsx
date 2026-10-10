@@ -18,6 +18,7 @@ export function BankDprPage({ reportData }) {
   const [bankAvailability, setBankAvailability] = useState(null);
   const [handoffStatus, setHandoffStatus] = useState('');
   const [sending, setSending] = useState(false);
+  const [requestingVerification, setRequestingVerification] = useState(false);
   const reportId = reportData?.report_id;
   const sendableProjectId = activeBusiness?.analysis_result?.report?.report_id === reportId
     ? activeBusiness.project_id : null;
@@ -42,6 +43,17 @@ export function BankDprPage({ reportData }) {
     } catch (error) {
       setHandoffStatus(error.message || 'Could not send the DPR.');
     } finally { setSending(false); }
+  };
+
+  const requestVerification = async () => {
+    setRequestingVerification(true);
+    setHandoffStatus('');
+    try {
+      await rolesApi.requestBankVerification(token, sendableProjectId);
+      setHandoffStatus('A verification request was sent to the administrator. You can send your DPR once your village bank is confirmed.');
+    } catch (error) {
+      setHandoffStatus(error.message || 'Could not request bank verification.');
+    } finally { setRequestingVerification(false); }
   };
 
   const p = reportData?.input_parameters || {};
@@ -122,9 +134,10 @@ export function BankDprPage({ reportData }) {
     <div className="space-y-6">
       {sendableProjectId && <section className="rounded-2xl border border-sky-200 bg-sky-50 p-5 shadow-sm">
         <h2 className="text-lg font-bold text-slate-900">Send this DPR to a banker</h2>
-        <p className="mt-1 text-sm text-slate-700">We check the live village amenities record for an actual bank branch before routing your application.</p>
-        <p className="mt-2 text-sm font-semibold text-sky-900">{bankAvailability === null ? 'Checking village bank availability…' : bankAvailability.verified ? bankAvailability.available ? 'Bank branch verified in your village.' : 'No bank branch found for this village.' : 'Bank availability could not be verified. Sending is unavailable for now.'}</p>
+        <p className="mt-1 text-sm text-slate-700">Your DPR is routed only after a village bank is verified from a source or by an administrator. An already-provisioned village banker can receive it directly.</p>
+        <p className="mt-2 text-sm font-semibold text-sky-900">{bankAvailability === null ? 'Checking village bank availability…' : bankAvailability.verified ? bankAvailability.available ? bankAvailability.source === 'provisioned_village_banker' ? 'Your village banker is ready to receive this DPR.' : 'Bank branch verified in your village.' : 'No bank branch is verified for this village.' : 'Bank availability is not yet verified. Request an administrator check below.'}</p>
         <button type="button" onClick={sendToBanker} disabled={sending || !bankAvailability?.verified || !bankAvailability.available} className="mt-3 rounded-xl bg-sky-900 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{sending ? 'Sending…' : 'Send DPR to banker'}</button>
+        {bankAvailability && !bankAvailability.verified && <button type="button" onClick={requestVerification} disabled={requestingVerification} className="ml-2 mt-3 rounded-xl border border-sky-300 bg-white px-4 py-2.5 text-sm font-bold text-sky-900 disabled:opacity-50">{requestingVerification ? 'Requesting…' : 'Request bank verification'}</button>}
         {handoffStatus && <p role="status" className="mt-3 text-sm text-slate-800">{handoffStatus}</p>}
       </section>}
       

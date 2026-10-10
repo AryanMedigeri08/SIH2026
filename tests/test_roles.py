@@ -106,7 +106,10 @@ async def test_dpr_submission_membership_messages_and_role_rejection(client, mon
 
 def test_bank_availability_must_be_verified(client, monkeypatch):
     from app.core import amenities_client
-    monkeypatch.setattr(amenities_client, "find_district_resource_id", lambda _: None)
+    monkeypatch.delenv("BANK_AMENITIES_RESOURCE_IDS", raising=False)
+    def unexpected_network(*_args, **_kwargs):
+        raise AssertionError("Census download-only resource must not be queried as a bank-status API")
+    monkeypatch.setattr(amenities_client.urllib.request, "urlopen", unexpected_network)
     result = amenities_client.lookup_village_bank_branch("Maharashtra", "Pune", "Alandi")
     assert result["available"] is False
     assert result["verified"] is False
@@ -185,3 +188,57 @@ async def test_government_scheme_reach_and_actual_reimbursements_are_separate(cl
     updated = client.get("/api/v2/roles/government/summary", headers=headers("government")).json()
     assert updated["total_reimbursed"] == 2000
     assert updated["scheme_interest"] == summary.json()["scheme_interest"]
+
+
+@pytest.mark.asyncio
+async def test_admin_bank_verification_unblocks_submission_and_system_status_is_private(client, monkeypatch):
+    for uid in ("alice", "admin"):
+        await db_manager.upsert_user(uid, f"{uid}@example.com", uid)
+    await role_store.assign_role("admin", "superadmin")
+    project = await db_manager.create_project({
+        "user_id": "alice", "business_name": "Alandi Dairy", "business_category": "dairy",
+        "investment_amount": 100000, "annual_turnover_estimate": 200000,
+        "state_name": "Maharashtra", "district_name": "Pune", "village_name": "Alandi",
+        "analysis_result": {"dpr": {"sections": []}},
+    })
+    monkeypatch.setattr(roles, "lookup_village_bank_branch", lambda *_: {
+        "available": False, "verified": False, "source": "unavailable", "village": "Alandi",
+    })
+    path = f"/api/v2/roles/bank-availability/{project['project_id']}"
+    assert client.get(path, headers=headers("alice")).json()["verified"] is False
+    blocked = client.post("/api/v2/roles/applications", headers=headers("alice"),
+                          json={"project_id": project["project_id"]})
+    assert blocked.status_code == 503
+    request_url = f"/api/v2/roles/bank-verification-requests/{project['project_id']}"
+    assert client.post(request_url, headers=headers("alice")).json()["already_requested"] is False
+    assert client.post(request_url, headers=headers("alice")).json()["already_requested"] is True
+    assert client.get("/api/v2/roles/admin/bank-verification-requests", headers=headers("alice")).status_code == 403
+    requests = client.get("/api/v2/roles/admin/bank-verification-requests", headers=headers("admin")).json()
+    assert requests[0]["village_name"] == "Alandi"
+    verification = {"state_name": "Maharashtra", "district_name": "Pune", "village_name": "Alandi",
+                    "available": True, "evidence": "Verified branch address at Alandi market"}
+    assert client.post("/api/v2/roles/admin/bank-verifications", headers=headers("alice"),
+                       json=verification).status_code == 403
+    assert client.post("/api/v2/roles/admin/bank-verifications", headers=headers("admin"),
+                       json=verification).status_code == 200
+    available = client.get(path, headers=headers("alice")).json()
+    assert available["verified"] is True and available["available"] is True
+    assert available["source"] == "admin_verified"
+
+    async def provision(email, role, name, state, district, village):
+        await db_manager.upsert_user("alandi-banker", "alandi@udyam.example.com", name)
+        await role_store.assign_role("alandi-banker", role, state, district, village)
+        return {"uid": "alandi-banker", "created": True}
+
+    monkeypatch.setattr(roles, "_create_staff_account", provision)
+    sent = client.post("/api/v2/roles/applications", headers=headers("alice"),
+                       json={"project_id": project["project_id"]})
+    assert sent.status_code == 200, sent.text
+    assert sent.json()["banker_uid"] == "alandi-banker"
+    assert client.get("/api/v2/roles/admin/system-status", headers=headers("alice")).status_code == 403
+    status = client.get("/api/v2/roles/admin/system-status", headers=headers("admin"))
+    assert status.status_code == 200
+    assert status.json()["database"]["status"] == "connected"
+    assert status.json()["database"]["engine"] == "sqlite"
+    assert "disk_free_mb" in status.json()
+    assert "ml_model_file_present" in status.json()["services"]

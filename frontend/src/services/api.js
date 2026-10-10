@@ -104,6 +104,7 @@ export const passkeyApi = {
 
 export const rolesApi = {
   bankAvailability: (token, projectId) => authFetch(`${API_BASE}/roles/bank-availability/${encodeURIComponent(projectId)}`, token),
+  requestBankVerification: (token, projectId) => authFetch(`${API_BASE}/roles/bank-verification-requests/${encodeURIComponent(projectId)}`, token, { method: 'POST' }),
   submitDpr: (token, projectId) => authFetch(`${API_BASE}/roles/applications`, token, { method: 'POST', body: JSON.stringify({ project_id: projectId }) }),
   listApplications: (token) => authFetch(`${API_BASE}/roles/applications`, token),
   application: (token, applicationId) => authFetch(`${API_BASE}/roles/applications/${encodeURIComponent(applicationId)}`, token),
@@ -115,6 +116,9 @@ export const rolesApi = {
   adminApplications: (token) => authFetch(`${API_BASE}/roles/admin/applications`, token),
   adminUserProjects: (token, uid) => authFetch(`${API_BASE}/roles/admin/users/${encodeURIComponent(uid)}/projects`, token),
   adminApplication: (token, id) => authFetch(`${API_BASE}/roles/admin/applications/${encodeURIComponent(id)}`, token),
+  adminBankVerificationRequests: (token) => authFetch(`${API_BASE}/roles/admin/bank-verification-requests`, token),
+  saveBankVerification: (token, data) => authFetch(`${API_BASE}/roles/admin/bank-verifications`, token, { method: 'POST', body: JSON.stringify(data) }),
+  adminSystemStatus: (token) => authFetch(`${API_BASE}/roles/admin/system-status`, token),
   createStaff: (token, data) => authFetch(`${API_BASE}/roles/staff`, token, { method: 'POST', body: JSON.stringify(data) }),
   governmentSummary: (token) => authFetch(`${API_BASE}/roles/government/summary`, token),
   governmentSchemes: (token) => authFetch(`${API_BASE}/roles/government/schemes`, token),

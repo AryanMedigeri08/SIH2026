@@ -33,7 +33,7 @@ import { ProductPricingPage } from './pages/report/ProductPricingPage';
 import { MarketingPage } from './pages/report/MarketingPage';
 
 // Standalone System Pages
-import { WizardPage } from './pages/WizardPage';
+// The legacy seven-step feasibility wizard is retired; Mira onboarding is the only creation flow.
 import { OnboardingPage } from './pages/OnboardingPage';
 import { CalculatorPage } from './pages/CalculatorPage';
 import { DataSourcesPage } from './pages/DataSourcesPage';
@@ -98,11 +98,11 @@ function EmptyAppraisalState({ onOpenWizard }) {
 
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
           <button
-            onClick={() => onOpenWizard ? onOpenWizard() : navigate('/wizard')}
+            onClick={() => onOpenWizard ? onOpenWizard() : navigate('/onboarding')}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-sovereign-900 via-sovereign-800 to-indigo-950 hover:from-sovereign-800 hover:to-indigo-900 px-6 py-3 rounded-xl shadow-md shadow-sovereign-950/20 border border-sovereign-700 transition-all duration-200 group"
           >
             <Sparkles className="w-4 h-4 text-cyan-300 group-hover:scale-110 transition-transform" />
-            <span>Launch Feasibility Wizard</span>
+            <span>Start with Mira</span>
             <ArrowRight className="w-4 h-4 text-slate-300 group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>
@@ -233,7 +233,7 @@ export function AppContent() {
       setIsDprOpen(true);
     };
     const handleRunAnalysis = () => {
-      navigate('/wizard');
+      navigate('/onboarding');
     };
 
     window.addEventListener('udyam:export_dpr', handleExportDpr);
@@ -333,7 +333,7 @@ export function AppContent() {
       />
 
       {/* Main Workspace Layout with Collapsible Sidebar */}
-      <div className="flex-1 flex max-w-[1600px] w-full mx-auto overflow-x-hidden">
+      <div className="flex-1 flex w-full overflow-x-hidden">
         
         {/* Collapsible Left Sidebar */}
         <Sidebar
@@ -345,7 +345,7 @@ export function AppContent() {
         />
 
         {/* Main Content Body */}
-        <main className="flex-1 min-w-0 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 overflow-x-hidden">
+        <main className={`flex-1 min-w-0 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 overflow-x-hidden ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
           
           {/* Top Benchmark Pitch Cases Bar — ONLY visible in Quick Login / Evaluator Demo Mode */}
           {isDemoMode && (
@@ -376,11 +376,11 @@ export function AppContent() {
                 path="/dashboard"
                 element={
                   <ProtectedRoute>
-                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses} onOpenWizard={() => navigate('/wizard')}>
+                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses} onOpenWizard={() => navigate('/onboarding')}>
                       <OverviewPage
                         reportData={reportData}
                         onOpenDpr={() => setIsDprOpen(true)}
-                        onOpenWizard={() => navigate('/wizard')}
+                        onOpenWizard={() => navigate('/onboarding')}
                       />
                     </AppraisalSectionWrapper>
                   </ProtectedRoute>
@@ -390,11 +390,11 @@ export function AppContent() {
                 path="/reports/:reportId"
                 element={
                   <ProtectedRoute>
-                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses} onOpenWizard={() => navigate('/wizard')}>
+                    <AppraisalSectionWrapper skeleton={OverviewSkeleton} reportData={reportData} isLoading={isLoadingInitial || loadingBusinesses} onOpenWizard={() => navigate('/onboarding')}>
                       <OverviewPage
                         reportData={reportData}
                         onOpenDpr={() => setIsDprOpen(true)}
-                        onOpenWizard={() => navigate('/wizard')}
+                        onOpenWizard={() => navigate('/onboarding')}
                       />
                     </AppraisalSectionWrapper>
                   </ProtectedRoute>
@@ -617,28 +617,14 @@ export function AppContent() {
                 }
               />
 
-              {/* 7-Step Feasibility Wizard */}
+              {/* Legacy seven-step wizard routes remain as compatibility redirects. */}
               <Route
                 path="/wizard"
-                element={
-                  <ProtectedRoute>
-                    <WizardPage
-                      onWizardSubmit={handleWizardSubmit}
-                      isLoading={isGenerating}
-                    />
-                  </ProtectedRoute>
-                }
+                element={<ProtectedRoute><Navigate to="/onboarding" replace /></ProtectedRoute>}
               />
               <Route
                 path="/new-assessment"
-                element={
-                  <ProtectedRoute>
-                    <WizardPage
-                      onWizardSubmit={handleWizardSubmit}
-                      isLoading={isGenerating}
-                    />
-                  </ProtectedRoute>
-                }
+                element={<ProtectedRoute><Navigate to="/onboarding" replace /></ProtectedRoute>}
               />
 
               {/* Public Discovery Pages */}
@@ -649,7 +635,7 @@ export function AppContent() {
                 path="/reports/:reportId/full"
                 element={
                   <ProtectedRoute>
-                    <ReportDetailPage onOpenWizard={() => navigate('/wizard')} />
+                    <ReportDetailPage onOpenWizard={() => navigate('/onboarding')} />
                   </ProtectedRoute>
                 }
               />

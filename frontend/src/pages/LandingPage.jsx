@@ -135,7 +135,7 @@ export const LandingPage = () => {
             {isAuthenticated ? (
               <>
                 <Link
-                  to="/wizard"
+                  to="/onboarding"
                   className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl bg-gradient-to-r from-sovereign-900 via-sovereign-800 to-sovereign-700 hover:from-sovereign-800 hover:to-sovereign-600 text-white font-bold text-sm sm:text-base shadow-lg shadow-sovereign-900/25 transition-all duration-200 transform hover:-translate-y-0.5"
                 >
                   <span>New Feasibility Appraisal ({userProfile?.name?.split(" ")[0] || "Enterprise"})</span>

@@ -8,6 +8,8 @@ import re
 import unicodedata
 import uuid
 import asyncio
+import shutil
+import time
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -25,6 +27,7 @@ from app.database import db_manager
 
 logger = logging.getLogger("udyam_saathi.roles")
 router = APIRouter(prefix="/roles", tags=["Role-based workflows"])
+_process_started = time.monotonic()
 
 
 def require_roles(*roles: str):
@@ -104,11 +107,11 @@ async def _banker_for_project(project: dict) -> dict:
     state, district, village = (project.get(key) or "" for key in ("state_name", "district_name", "village_name"))
     if not all((state, district, village)):
         raise HTTPException(400, "Project has no complete village location.")
-    bank = await run_in_threadpool(lookup_village_bank_branch, state, district, village)
+    bank = await _bank_availability(state, district, village)
     if not bank["verified"]:
-        raise HTTPException(503, "Village bank availability could not be verified from the live amenities dataset.")
+        raise HTTPException(503, "Village bank availability has not been verified. Request administrator verification before sending.")
     if not bank["available"]:
-        raise HTTPException(409, "No village bank branch was found in the amenities dataset.")
+        raise HTTPException(409, "No village bank branch is verified for this location.")
     existing = await role_store.find_banker(state, district, village)
     if existing:
         return {"uid": existing["user_id"], "created": False}
@@ -124,6 +127,20 @@ async def _banker_for_project(project: dict) -> dict:
             return {"uid": existing["user_id"], "created": False}
         alias = f"{_slug(village)}-{_slug(district)}@udyam"
         return await _create_staff_account(alias, "banker", f"{village} Banker", state, district, village)
+
+
+async def _bank_availability(state: str, district: str, village: str) -> dict:
+    """Use durable admin evidence or an existing village banker before the external feed."""
+    if not all((state, district, village)):
+        return {"available": False, "verified": False, "source": "missing_location", "village": village}
+    manual = await role_store.bank_verification(state, district, village)
+    if manual:
+        return {"available": bool(manual["available"]), "verified": True,
+                "source": "admin_verified", "village": village}
+    if await role_store.find_banker(state, district, village):
+        return {"available": True, "verified": True,
+                "source": "provisioned_village_banker", "village": village}
+    return await run_in_threadpool(lookup_village_bank_branch, state, district, village)
 
 
 async def _owned_project(project_id: str, uid: str) -> dict:
@@ -181,6 +198,14 @@ class DisbursementIn(BaseModel):
     amount: float = Field(gt=0)
 
 
+class BankVerificationIn(BaseModel):
+    state_name: str = Field(min_length=2, max_length=120)
+    district_name: str = Field(min_length=2, max_length=120)
+    village_name: str = Field(min_length=2, max_length=120)
+    available: bool
+    evidence: str = Field(min_length=8, max_length=500)
+
+
 @router.get("/me")
 async def my_role(user: AuthenticatedUser = Depends(get_current_user)):
     return {"role": user.role, "state_key": user.state_key,
@@ -191,7 +216,58 @@ async def my_role(user: AuthenticatedUser = Depends(get_current_user)):
 async def bank_availability(project_id: str, user: AuthenticatedUser = Depends(require_roles("entrepreneur"))):
     project = await _owned_project(project_id, user.uid)
     state, district, village = (project.get(key) or "" for key in ("state_name", "district_name", "village_name"))
-    return await run_in_threadpool(lookup_village_bank_branch, state, district, village)
+    return await _bank_availability(state, district, village)
+
+
+@router.post("/bank-verification-requests/{project_id}")
+async def request_bank_verification(project_id: str, user: AuthenticatedUser = Depends(require_roles("entrepreneur"))):
+    project = await _owned_project(project_id, user.uid)
+    state, district, village = (project.get(key) or "" for key in ("state_name", "district_name", "village_name"))
+    if not all((state, district, village)):
+        raise HTTPException(400, "Complete your enterprise location first.")
+    latest = await role_store.fetch_one(
+        "SELECT created_at FROM activity_events WHERE actor_uid=? AND action='bank_verification_requested' "
+        "AND subject_id=? ORDER BY created_at DESC LIMIT 1", user.uid, project_id,
+    )
+    if latest:
+        previous = latest["created_at"]
+        if isinstance(previous, str):
+            previous = datetime.fromisoformat(previous)
+        if (datetime.now(timezone.utc) - previous).total_seconds() < 86400:
+            return {"requested": True, "already_requested": True}
+    await role_store.record_activity(user.uid, "bank_verification_requested", project_id)
+    return {"requested": True, "already_requested": False}
+
+
+@router.get("/admin/bank-verification-requests")
+async def admin_bank_verification_requests(user: AuthenticatedUser = Depends(require_roles("superadmin"))):
+    events = await role_store.fetch_all(
+        "SELECT subject_id,MAX(created_at) AS requested_at FROM activity_events "
+        "WHERE action='bank_verification_requested' GROUP BY subject_id ORDER BY requested_at DESC LIMIT 100"
+    )
+    result = []
+    for event in events:
+        project = await db_manager.get_project(event["subject_id"])
+        if project:
+            state, district, village = (project.get(key) or "" for key in ("state_name", "district_name", "village_name"))
+            manual = await role_store.bank_verification(state, district, village)
+            banker = await role_store.find_banker(state, district, village) if not manual else None
+            result.append({"project_id": event["subject_id"], "business_name": project.get("business_name"),
+                           "state_name": state, "district_name": district, "village_name": village,
+                           "requested_at": event["requested_at"],
+                           "verification": {"available": bool(manual["available"]) if manual else bool(banker),
+                                            "verified": bool(manual or banker),
+                                            "source": "admin_verified" if manual else "provisioned_village_banker" if banker else "pending"}})
+    return result
+
+
+@router.post("/admin/bank-verifications")
+async def admin_save_bank_verification(payload: BankVerificationIn,
+                                       user: AuthenticatedUser = Depends(require_roles("superadmin"))):
+    await role_store.save_bank_verification(payload.state_name, payload.district_name, payload.village_name,
+                                            payload.available, payload.evidence, user.uid)
+    await role_store.record_activity(user.uid, "bank_branch_verified", payload.village_name)
+    return await _bank_availability(payload.state_name, payload.district_name, payload.village_name)
 
 
 @router.post("/applications")
@@ -262,6 +338,41 @@ async def admin_users(user: AuthenticatedUser = Depends(require_roles("superadmi
         "SELECT u.firebase_uid,u.email,u.name,u.phone,r.role,r.state_key,r.district_key,r.village_key "
         "FROM users u LEFT JOIN user_roles r ON r.user_id=u.firebase_uid ORDER BY u.created_at DESC LIMIT 200"
     )
+
+
+@router.get("/admin/system-status")
+async def admin_system_status(user: AuthenticatedUser = Depends(require_roles("superadmin"))):
+    """A read-only operational snapshot; never return connection strings or secrets."""
+    engine = "postgresql" if db_manager.pool else "sqlite" if db_manager.sqlite else "unavailable"
+    started = time.monotonic()
+    try:
+        await asyncio.wait_for(role_store.fetch_one("SELECT 1 AS ok"), timeout=3.0)
+        db_status = "connected"
+    except Exception:
+        db_status = "unavailable"
+    try:
+        disk_free_mb = round(shutil.disk_usage(settings.DATA_DIR).free / (1024 * 1024))
+    except OSError:
+        disk_free_mb = None
+    return {
+        "api": "operational",
+        "uptime_seconds": round(time.monotonic() - _process_started),
+        "database": {"engine": engine, "status": db_status,
+                     "latency_ms": round((time.monotonic() - started) * 1000),
+                     "fallback_active": bool(settings.DATABASE_URL and engine == "sqlite")},
+        "authentication": {"provider": "firebase", "configured": bool(
+            settings.FIREBASE_SERVICE_ACCOUNT_JSON or settings.FIREBASE_SERVICE_ACCOUNT_PATH),
+            "connectivity": "not_tested"},
+        "bank_data": {"external_lookup": "best_effort", "admin_verification": "enabled"},
+        "services": {
+            "ml_model_file_present": settings.MODEL_FILE.is_file(),
+            "llm_configured": bool(settings.GROQ_API_KEY or settings.GROQ_CHAT_KEY or settings.GROQ_API_KEY_LLM or settings.SARVAM_API_KEY),
+            "speech_configured": bool(settings.BHASHINI_API_KEY and settings.BHASHINI_USER_ID),
+            "remote_connectivity": "not_tested",
+        },
+        "disk_free_mb": disk_free_mb,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @router.get("/admin/activity")

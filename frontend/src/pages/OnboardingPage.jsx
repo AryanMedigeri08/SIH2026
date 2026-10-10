@@ -153,7 +153,7 @@ export function MiraAvatar({ size = "w-8 h-8", rounded = "rounded-xl", className
   return (
     <div className={`${size} ${rounded} overflow-hidden shrink-0 border border-rose-300/40 shadow-sm bg-rose-50 flex items-center justify-center ${className}`}>
       <img
-        src="/mira-avatar.png"
+        src="/mira-avatar-v2.png"
         alt="Mira"
         className="w-full h-full object-cover"
         onError={(e) => {

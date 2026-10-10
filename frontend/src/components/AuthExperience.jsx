@@ -62,7 +62,7 @@ export function MiraGuide({ prompt }) {
   }, [prompt, activated]);
   return (
     <div className="flex items-start gap-3 rounded-2xl border border-violet-200 bg-white/90 p-4 shadow-sm" aria-live="polite">
-      <img src="/mira-avatar.png" alt="Mira" className="h-14 w-14 shrink-0 rounded-2xl object-cover border border-violet-100" />
+      <img src="/mira-avatar-v2.png" alt="Mira" className="h-14 w-14 shrink-0 rounded-2xl object-cover border border-violet-100" />
       <div className="min-w-0 flex-1">
         <p className="text-xs font-bold uppercase tracking-wide text-violet-700">{c.miraName}</p>
         <p className="mt-1 text-sm font-semibold text-slate-900">{c.welcome}</p>

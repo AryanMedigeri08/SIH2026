@@ -90,7 +90,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
 
           {/* + Create New Business - quick action */}
           <Link
-            to="/wizard"
+            to="/onboarding"
             className="hidden 2xl:flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-sovereign-800 via-sky-700 to-sovereign-800 hover:from-sovereign-700 hover:to-sky-600 px-3 py-1.5 rounded-xl shadow-xs border border-sky-400/20 transition-all shrink-0 group whitespace-nowrap"
             title={t('newEnterprise')}
           >

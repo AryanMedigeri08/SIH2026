@@ -323,7 +323,7 @@ export function FloatingChatWindow() {
         {/* Left: Bot Identity & Active Enterprise */}
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-white shadow-md shadow-sky-950/30 border border-sky-300/40 shrink-0">
-            <img src="/mira-avatar.png" alt="Mira" className="w-full h-full object-cover object-top" />
+            <img src="/mira-avatar-v2.png" alt="Mira" className="w-full h-full object-cover object-top" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
@@ -522,7 +522,7 @@ export function FloatingChatWindow() {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-bold text-purple-200 flex items-center gap-1.5">
-                <img src="/mira-avatar.png" alt="Mira" className="w-4 h-4 rounded-full object-cover object-top ring-1 ring-purple-300/60" />
+                <img src="/mira-avatar-v2.png" alt="Mira" className="w-4 h-4 rounded-full object-cover object-top ring-1 ring-purple-300/60" />
                 <span>🎙️ &ldquo;Mira&rdquo; Activated</span>
               </p>
               {siriNotice.trailingQuery ? (

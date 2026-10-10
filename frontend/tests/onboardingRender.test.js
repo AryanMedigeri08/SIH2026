@@ -34,7 +34,7 @@ test('language selection renders all supported choices and Mira artwork', async 
     for (const language of ['Hindi', 'English', 'Marathi', 'Telugu', 'Tamil', 'Kannada']) {
       assert.match(html, new RegExp(`Continue in ${language}`));
     }
-    assert.match(html, /mira-avatar\.png/);
+    assert.match(html, /mira-avatar-v2\.png/);
     assert.match(html, /Choose your language/);
   } finally {
     await vite.close();

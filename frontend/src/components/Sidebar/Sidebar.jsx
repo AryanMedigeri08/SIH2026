@@ -263,14 +263,14 @@ export function Sidebar({
         />
       )}
 
-      {/* Fixed Sticky Sidebar Container */}
+      {/* Fixed sidebar; only its navigation region scrolls when needed. */}
       <aside
-        className={`fixed top-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-r border-slate-200 flex flex-col justify-between transition-all duration-300 shadow-card lg:sticky lg:top-14 sm:lg:top-16 lg:h-[calc(100vh-3.5rem)] sm:lg:h-[calc(100vh-4rem)] lg:overflow-y-auto lg:overflow-x-hidden lg:shrink-0 ${
+        className={`fixed top-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-r border-slate-200 flex flex-col transition-all duration-300 shadow-card lg:top-16 lg:bottom-0 lg:overflow-hidden ${
           isMobileOpen ? 'left-0 w-[min(72vw,18rem)]' : '-left-full lg:left-0'
         } ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}`}
       >
         {/* Top Header / Collapse Control (Non-redundant branding) */}
-        <div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div className="h-14 px-3.5 border-b border-slate-200/80 flex items-center justify-between bg-gradient-to-b from-slate-50/80 to-white">
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="p-1.5 rounded-lg bg-sovereign-50 text-sovereign-800 border border-sovereign-200 shrink-0">
@@ -400,7 +400,7 @@ export function Sidebar({
 
           {!isCollapsed ? (
             <Link
-              to="/wizard"
+              to="/onboarding"
               onClick={onCloseMobile}
               className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-sovereign-800 to-sky-700 hover:from-sovereign-700 hover:to-sky-600 text-white text-xs font-bold shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition-all group"
             >
@@ -409,7 +409,7 @@ export function Sidebar({
             </Link>
           ) : (
             <Link
-              to="/wizard"
+              to="/onboarding"
               onClick={onCloseMobile}
               title="Create New Enterprise"
               className="w-full flex items-center justify-center p-2 rounded-xl bg-sovereign-800 text-white hover:bg-sovereign-700 transition shadow-sm"

@@ -50,14 +50,14 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
             <TranslatedText text="No Active Feasibility Assessment" />
           </h3>
           <p className="text-xs text-slate-600 leading-relaxed font-medium">
-            <TranslatedText text="Select a benchmark scenario from the top bar or launch the 7-Step Feasibility Wizard to generate an instant bank-ready credit appraisal." />
+            <TranslatedText text="Select a benchmark scenario from the top bar or create a new enterprise with Mira to generate a bank-ready credit appraisal." />
           </p>
           <button
             onClick={onOpenWizard}
             className="inline-flex items-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-sovereign-800 to-sky-700 hover:from-sovereign-700 hover:to-sky-600 px-5 py-2.5 rounded-xl shadow-md shadow-sovereign-900/15 border border-sky-400/20 transition"
           >
             <Sparkles className="w-4 h-4 text-sky-200" />
-            <span><TranslatedText text="Launch Feasibility Wizard" /></span>
+            <span><TranslatedText text="Start with Mira" /></span>
           </button>
         </div>
       </div>

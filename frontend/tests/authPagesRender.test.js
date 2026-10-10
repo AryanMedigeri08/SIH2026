@@ -44,12 +44,12 @@ test('registration and login render every supported language, Mira, and secure c
       );
       const register = wrap(RegisterPage);
       const login = wrap(LoginPage);
-      assert.match(register, /mira-avatar\.png/);
+      assert.match(register, /mira-avatar-v2\.png/);
       assert.match(register, new RegExp(title));
       assert.match(register, new RegExp(phone));
       assert.match(register, /type="tel"/);
       assert.match(register, /type="email"/);
-      assert.match(login, /mira-avatar\.png/);
+      assert.match(login, /mira-avatar-v2\.png/);
       assert.match(login, /Face ID/);
       assert.match(login, /login-recaptcha/);
     }

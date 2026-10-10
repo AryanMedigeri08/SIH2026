@@ -97,7 +97,7 @@ export function BusinessSwitcher({ compact = false }) {
 
   const handleCreateNew = () => {
     setIsOpen(false);
-    navigate("/wizard");
+    navigate("/onboarding");
   };
 
   const handleSelectBusiness = async (biz) => {

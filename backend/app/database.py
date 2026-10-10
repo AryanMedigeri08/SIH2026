@@ -174,6 +174,7 @@ class DatabaseManager:
             CREATE TABLE IF NOT EXISTS custom_schemes (scheme_id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, administering_body TEXT, benefit_amount REAL, created_by TEXT NOT NULL REFERENCES users(firebase_uid), created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS scheme_disbursements (disbursement_id TEXT PRIMARY KEY, scheme_name TEXT NOT NULL, beneficiary_uid TEXT NOT NULL REFERENCES users(firebase_uid), amount REAL NOT NULL, recorded_by TEXT NOT NULL REFERENCES users(firebase_uid), created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS activity_events (event_id TEXT PRIMARY KEY, actor_uid TEXT NOT NULL, action TEXT NOT NULL, subject_id TEXT, created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS bank_branch_verifications (state_key TEXT NOT NULL, district_key TEXT NOT NULL, village_key TEXT NOT NULL, available INTEGER NOT NULL, evidence TEXT NOT NULL, verified_by TEXT NOT NULL REFERENCES users(firebase_uid), verified_at TEXT NOT NULL, PRIMARY KEY(state_key,district_key,village_key));
         """)
         existing_columns = {row[1] for row in self.sqlite.execute("PRAGMA table_info(users)")}
         if "language" not in existing_columns:
@@ -315,6 +316,13 @@ class DatabaseManager:
                     CREATE TABLE IF NOT EXISTS activity_events (
                         event_id TEXT PRIMARY KEY, actor_uid TEXT NOT NULL, action TEXT NOT NULL,
                         subject_id TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                    CREATE TABLE IF NOT EXISTS bank_branch_verifications (
+                        state_key TEXT NOT NULL, district_key TEXT NOT NULL, village_key TEXT NOT NULL,
+                        available BOOLEAN NOT NULL, evidence TEXT NOT NULL,
+                        verified_by TEXT NOT NULL REFERENCES users(firebase_uid),
+                        verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        PRIMARY KEY(state_key,district_key,village_key)
                     );
                 """)
                 logger.info("PostgreSQL schema & tables (users, projects, reports) verified/initialized successfully.")

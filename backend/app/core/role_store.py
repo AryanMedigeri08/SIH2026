@@ -95,6 +95,25 @@ async def find_banker(state: str, district: str, village: str) -> dict[str, Any]
     )
 
 
+async def bank_verification(state: str, district: str, village: str) -> dict[str, Any] | None:
+    return await fetch_one(
+        "SELECT available,evidence,verified_by,verified_at FROM bank_branch_verifications "
+        "WHERE state_key=? AND district_key=? AND village_key=?",
+        location_key(state), location_key(district), location_key(village),
+    )
+
+
+async def save_bank_verification(state: str, district: str, village: str,
+                                 available: bool, evidence: str, verified_by: str) -> None:
+    await execute(
+        "INSERT INTO bank_branch_verifications(state_key,district_key,village_key,available,evidence,verified_by,verified_at) "
+        "VALUES(?,?,?,?,?,?,?) ON CONFLICT(state_key,district_key,village_key) DO UPDATE SET "
+        "available=excluded.available,evidence=excluded.evidence,verified_by=excluded.verified_by,verified_at=excluded.verified_at",
+        location_key(state), location_key(district), location_key(village),
+        available, evidence.strip(), verified_by, datetime.now(timezone.utc).isoformat(),
+    )
+
+
 async def submit_application(project_id: str, entrepreneur_uid: str, banker_uid: str) -> dict[str, Any]:
     application_id = f"APP-{uuid.uuid4().hex[:12].upper()}"
     await execute(

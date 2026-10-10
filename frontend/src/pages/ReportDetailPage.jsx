@@ -62,7 +62,7 @@ export function ReportDetailPage({ onOpenWizard }) {
               Back to Dashboard
             </button>
             <button
-              onClick={() => navigate('/wizard')}
+              onClick={() => navigate('/onboarding')}
               className="text-xs font-bold px-4 py-2 rounded-xl bg-sovereign-800 text-white hover:bg-sovereign-700 shadow-sm"
             >
               New Assessment

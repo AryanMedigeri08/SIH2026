@@ -45,17 +45,23 @@ _bank_branch_cache: dict[tuple[str, str, str], tuple[float, dict[str, Any]]] = {
 
 
 def lookup_village_bank_branch(state_name: str, district_name: str, village_name: str) -> dict[str, Any]:
-    """Only a live, exact village bank-branch indicator can authorize DPR routing.
+    """Use only an explicitly configured bank-status API resource for this district.
 
-    The existing infrastructure score combines ATM and bank access and falls
-    back to state averages; neither is proof that a village has a bank branch.
+    district_resources.json identifies Census 2011 download-only resources,
+    not the Mission Antyodaya API fields below. It must not be used as proof.
+    A live resource can be configured under BANK_AMENITIES_RESOURCE_IDS as a
+    JSON map of "state|district" to a verified API resource UUID.
     """
     key = tuple((part or "").strip().casefold() for part in (state_name, district_name, village_name))
     cached = _bank_branch_cache.get(key)
     if cached and time.time() - cached[0] < 86400:
         return cached[1]
     result = {"available": False, "verified": False, "source": "unavailable", "village": village_name}
-    resource_id = find_district_resource_id(district_name)
+    try:
+        resource_ids = json.loads(os.getenv("BANK_AMENITIES_RESOURCE_IDS", "{}"))
+        resource_id = resource_ids.get(f"{key[0]}|{key[1]}")
+    except (ValueError, AttributeError):
+        resource_id = None
     api_key = os.getenv("DATA_GOV_IN_API_KEY", "").strip()
     if not all(key) or not resource_id or not api_key:
         return result

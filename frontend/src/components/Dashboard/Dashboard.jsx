@@ -47,14 +47,14 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
             No Active Feasibility Assessment
           </h3>
           <p className="text-xs text-slate-600 leading-relaxed font-medium">
-            Click any of the Quick-Start Benchmark Scenarios above, or launch the 7-Step Feasibility Wizard to generate an instant bank-ready credit appraisal.
+            Click a Quick-Start Benchmark Scenario above, or create a new enterprise with Mira to generate a bank-ready credit appraisal.
           </p>
           <button
             onClick={onOpenWizard}
             className="inline-flex items-center gap-2 text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-5 py-2.5 rounded-xl shadow-sm transition"
           >
             <Sparkles className="w-4 h-4" />
-            Launch Feasibility Wizard
+            Start with Mira
           </button>
         </div>
       </div>
