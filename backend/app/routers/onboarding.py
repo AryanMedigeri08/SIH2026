@@ -22,6 +22,7 @@ try:
     from app.core.chat_service import chat_service
     from app.core.odop_matcher import match_odop, find_district_odop
     from app.core.business_interpreter import interpret_business_idea
+    from app.core.onboarding_locale import onboarding_copy, has_selected_script
     from app.core.machinery_matcher import (
         find_matching_machinery_profile,
         detect_owned_machinery,
@@ -35,6 +36,7 @@ except ImportError:
     from backend.app.core.chat_service import chat_service
     from backend.app.core.odop_matcher import match_odop, find_district_odop
     from backend.app.core.business_interpreter import interpret_business_idea
+    from backend.app.core.onboarding_locale import onboarding_copy, has_selected_script
     from backend.app.core.machinery_matcher import (
         find_matching_machinery_profile,
         detect_owned_machinery,
@@ -345,7 +347,7 @@ Return ONLY valid JSON like: {"sector": "food_processing", "business_category": 
 """
 
 CONVERSATION_SYSTEM_PROMPT_TEMPLATE = """You are Mira, a warm, energetic, and encouraging personal business advisor for Indian entrepreneurs.
-You speak {language_name} naturally, affectionately, and respectfully (always using जी / Ji).
+Speak only in {language_name}, in its native script when applicable. Use a respectful honorific natural to that language. Do not switch to Hindi or English because the user's message, place name, or prior conversation used another language. Keep proper names, scheme identifiers, and user-entered business names unchanged.
 
 PERSONA & INTERACTION GUIDELINES:
 1. TALK LIKE A REAL CARING HUMAN: Talk like an experienced, supportive elder sister or mentor (दीदी / मार्गदर्शक) sitting with the entrepreneur having tea. Never sound like a robot, generic AI, or clerk.
@@ -414,22 +416,31 @@ def _business_idea_clarification(idea: str, language: str, interpretation: dict,
             max_tokens=130,
             timeout_s=8.0,
         )
-        if content and content.strip() and not re.search(r"\b(great idea|wonderful idea|excellent idea|strong market demand)\b|बहुत अच्छा विचार|खूप छान कल्पना", content, re.I):
+        if content and content.strip() and has_selected_script(content, language) and not re.search(r"\b(great idea|wonderful idea|excellent idea|strong market demand)\b|बहुत अच्छा विचार|खूप छान कल्पना", content, re.I):
             return content.strip()[:600]
     except Exception:
         pass
     if unclear_activity:
+        localized = onboarding_copy(language, "clarify_unclear", idea=idea)
+        if localized:
+            return localized
         if language == "hi":
             return f"मैंने ‘{idea}’ सुना। क्या आप अपना उत्पाद या सेवा थोड़ा स्पष्ट करेंगे? अगर मैंने गलत सुना है तो सही शब्द बता दें।"
         if language == "mr":
             return f"मला ‘{idea}’ असे ऐकू आले. तुम्ही कोणते उत्पादन किंवा सेवा देणार आहात ते स्पष्ट कराल का? चुकले असल्यास दुरुस्त करा."
         return f"I heard ‘{idea}’. What product or service did you mean? Please correct the wording if I misheard you."
     if not goods_activity or category == "service":
+        localized = onboarding_copy(language, "clarify_service", idea=idea)
+        if localized:
+            return localized
         if language == "hi":
             return f"मैंने ‘{idea}’ सुना। क्या मैंने आपका व्यवसाय सही समझा? गलत हो तो कृपया सुधार दें।"
         if language == "mr":
             return f"मला ‘{idea}’ असे ऐकू आले. मी तुमचा व्यवसाय बरोबर समजले का? चुकले असल्यास दुरुस्त करा."
         return f"I heard ‘{idea}’. Is that the business you mean? Please correct me if I misheard it."
+    localized = onboarding_copy(language, "clarify_goods", idea=idea)
+    if localized:
+        return localized
     if language == "hi":
         return f"मैंने ‘{idea}’ सुना। क्या यही आपका विचार है, और आप इसे बनाएँगे या तैयार माल बेचेंगे? गलत सुना हो तो सुधार दें।"
     if language == "mr":
@@ -696,12 +707,15 @@ def _generate_mira_response(
             max_tokens=380,
             timeout_s=12.0,
         )
-        if content and content.strip():
+        if content and content.strip() and has_selected_script(content, language):
             return content.strip()
     except Exception as e:
         logger.error("Mira response generation failed: %s", e)
 
     # A failed LLM call must not pretend to understand an unclear answer.
+    localized = onboarding_copy(language, "generic_fallback", name=user_name)
+    if localized:
+        return localized
     if language == "hi":
         return f"{user_name} जी, मैं आपकी बात सही समझना चाहती हूँ। कृपया अपने उत्पाद या सेवा के बारे में थोड़ा और बताइए।"
     if language == "mr":
@@ -865,6 +879,10 @@ def _compute_deterministic_benchmark(
             verdict_spoken = f"मी तुमच्याशी अगदी खरे बोलेन, या व्यवसायासाठी जबरदस्तीने {odop_product} जोडणे योग्य ठरणार नाही. तुमचा स्कोअर {score} आहे. तुम्ही तुमच्या मूळ कल्पनेसह PMEGP आणि मुद्रा कर्ज योजनांचा लाभ घ्यावा."
         else:
             verdict_spoken = f"I will be completely honest with you. Forced alignment with {odop_product} does not suit your business model, and the alignment score is only {score} out of 100. My sincere recommendation is to proceed with your original business model under standard PMEGP and Mudra loan schemes."
+
+    localized_verdict = onboarding_copy(language, "verdict_good" if score >= 65 else "verdict_mid" if score >= 50 else "verdict_low")
+    if localized_verdict:
+        verdict_spoken = localized_verdict
 
     if sector_norm in ("dairy", "food_processing"):
         innov_title = f"Product Innovation ({odop_product}-Infused {sector_clean})"
@@ -1063,6 +1081,33 @@ def _generate_odop_synergy(
         except Exception as llm_err:
             logger.warning("LLM ODOP benchmark scoring fallback used due to: %s", llm_err)
 
+        # The scoring model is language-independent, but its explanatory payload
+        # must never be an English LLM/fallback paragraph for a regional-language user.
+        localized = onboarding_copy(
+            language, "odop_explain", district=district, odop=odop_product,
+            scheme=scheme_name, subsidy=subsidy_summary,
+        )
+        if localized:
+            baseline["what_is_odop"] = localized
+            baseline["user_business"] = user_business
+            verdict_key = "verdict_good" if baseline["alignment_score"] >= 65 else "verdict_mid" if baseline["alignment_score"] >= 50 else "verdict_low"
+            baseline["verdict_spoken"] = onboarding_copy(language, verdict_key)
+            baseline["mira_recommendation"] = baseline["verdict_spoken"]
+            baseline["verdict_title"] = baseline["verdict_spoken"]
+            for pillar, title_key, detail_key in (
+                ("product_innovation", "product_title", "product_detail"),
+                ("local_sourcing", "sourcing_title", "sourcing_detail"),
+                ("financial_incentives", "finance_title", "finance_detail"),
+            ):
+                baseline["synergy_pillars"][pillar] = {
+                    "title": onboarding_copy(language, title_key),
+                    "description": onboarding_copy(
+                        language, detail_key, district=district, odop=odop_product,
+                        scheme=scheme_name, subsidy=subsidy_summary,
+                    ),
+                }
+            baseline["key_benefits"] = [pillar["description"] for pillar in baseline["synergy_pillars"].values()]
+
         return baseline
     except Exception as e:
         logger.error("ODOP synergy generation error: %s", e, exc_info=True)
@@ -1130,7 +1175,10 @@ async def process_onboarding_message(payload: OnboardingRequest):
 
         # Action: User confirmed the auto-detected location
         if action == "confirm_location":
-            if payload.language == "hi":
+            localized = onboarding_copy(payload.language, "confirm_location", name=payload.user_name, loc=loc_str)
+            if localized:
+                reply = localized
+            elif payload.language == "hi":
                 reply = f"बहुत अच्छा लगा {payload.user_name} जी! हम {loc_str} से आपकी खूबसूरत व्यवसाय यात्रा शुरू कर रहे हैं। कृपया मुझे बताइए कि आप किस प्रकार का व्यवसाय शुरू करना चाहते हैं? जैसे कि डेयरी फार्म, आइसक्रीम पार्लर, बेकरी, कपड़ों की दुकान या मोबाइल रिपेयर?"
             elif payload.language == "mr":
                 reply = f"खूप छान {payload.user_name} जी! आपण {loc_str} मधून तुमचा व्यवसाय प्रवास सुरू करत आहोत. कृपया मला सांगा की तुम्हाला कोणत्या प्रकारचा व्यवसाय सुरू करायचा आहे? जसे की डेअरी, आईस्क्रीम, बेकरी, कापड दुकान किंवा मोबाइल दुरुस्ती?"
@@ -1150,7 +1198,10 @@ async def process_onboarding_message(payload: OnboardingRequest):
 
         # Action: User requested location change menu
         if action == "request_change_location":
-            if payload.language == "hi":
+            localized = onboarding_copy(payload.language, "request_change_location", name=payload.user_name)
+            if localized:
+                reply = localized
+            elif payload.language == "hi":
                 reply = f"कोई बात नहीं {payload.user_name} जी! आप जहाँ से भी अपना व्यवसाय शुरू करना चाहते हैं, कृपया नीचे दिए गए मेन्यू से अपना राज्य, ज़िला, ब्लॉक और गाँव चुन लीजिए।"
             elif payload.language == "mr":
                 reply = f"काही हरकत नाही {payload.user_name} जी! तुम्हाला जिथून व्यवसाय सुरू करायचा आहे, कृपया खालील मेनूमधून तुमचे राज्य, जिल्हा, ब्लॉक आणि गाव निवडा."
@@ -1170,7 +1221,10 @@ async def process_onboarding_message(payload: OnboardingRequest):
 
         # Action: User submitted location from dropdown menu
         if action == "submit_new_location":
-            if payload.language == "hi":
+            localized = onboarding_copy(payload.language, "submit_new_location", name=payload.user_name, loc=loc_str)
+            if localized:
+                reply = localized
+            elif payload.language == "hi":
                 reply = f"बहुत खूब {payload.user_name} जी! आपकी लोकेशन {loc_str} सफलतापूर्वक सुरक्षित कर ली गई है। कृपया मुझे बताइए कि आप किस प्रकार का व्यवसाय शुरू करना चाहते हैं? जैसे कि डेयरी, आइसक्रीम, बेकरी, कपड़े, या मोबाइल रिपेयर?"
             elif payload.language == "mr":
                 reply = f"फार छान {payload.user_name} जी! तुमचे स्थान {loc_str} यशस्वीरित्या अपडेट झाले आहे. कृपया मला सांगा की तुम्हाला कोणत्या प्रकारचा व्यवसाय सुरू करायचा आहे?"
@@ -1274,7 +1328,14 @@ async def process_onboarding_message(payload: OnboardingRequest):
             sub_sum = odop_synergy.get("subsidy_summary", "25%–35%") if odop_synergy else "25%–35%"
             sch_title = odop_synergy.get("scheme_name", "Government Subsidy") if odop_synergy else "Government Subsidy"
 
-            if payload.language == "hi":
+            localized = onboarding_copy(
+                payload.language, "odop_verdict", name=payload.user_name,
+                district=district_name, odop=p_crop, score=score_val,
+                verdict=onboarding_copy(payload.language, "verdict_good" if score_val >= 65 else "verdict_mid" if score_val >= 50 else "verdict_low") or mira_verdict,
+            )
+            if localized:
+                reply = localized
+            elif payload.language == "hi":
                 reply = (
                     f"अरे वाह {payload.user_name} जी! मैंने आपके व्यवसाय का {district_name} ज़िले के आधिकारिक उत्पाद {p_crop} के साथ पूरा मूल्यांकन कर लिया है। "
                     f"आपका रणनीतिक तालमेल स्कोर 100 में से **{score_val}** आया है! {mira_verdict}\n\n"
@@ -1321,7 +1382,10 @@ async def process_onboarding_message(payload: OnboardingRequest):
             merged_fields["odop_decision"] = "keep_original"
             merged_fields["odop_synergy_aligned"] = False
 
-            if payload.language == "hi":
+            localized = onboarding_copy(payload.language, "skip_odop", name=payload.user_name)
+            if localized:
+                reply = localized
+            elif payload.language == "hi":
                 reply = (
                     f"बहुत बढ़िया {payload.user_name} जी! मुझे आपका आत्मविश्वास बहुत पसंद आया। "
                     f"हम आपके मूल व्यवसाय मॉडल के साथ PMEGP और मुद्रा लोन योजनाओं के तहत आगे बढ़ेंगे।\n\n"
@@ -1360,7 +1424,10 @@ async def process_onboarding_message(payload: OnboardingRequest):
             merged_fields["enterprise_name"] = ent_name
             merged_fields["promoter_category"] = prom_cat
 
-            if payload.language == "hi":
+            localized = onboarding_copy(payload.language, "enterprise_info", name=payload.user_name, enterprise=ent_name, category=prom_cat.upper())
+            if localized:
+                reply = localized
+            elif payload.language == "hi":
                 reply = (
                     f"बहुत खूब {payload.user_name} जी! आपके उद्यम का नाम **{ent_name}** और श्रेणी **{prom_cat.upper()}** सुरक्षित कर ली गई है। "
                     f"अब बस मुझे बताइए कि इस उद्यम को शुरू करने के लिए आपके पास अपनी खुद की कितनी प्रमोटर इक्विटी "
@@ -1490,7 +1557,10 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 owned_lead_mr = f"खूप छान {payload.user_name} जी! मी नोंदवून घेतले आहे की तुम्हाला सर्व नवीन यंत्रसामग्रीची आवश्यकता असेल. "
                 owned_lead_en = f"Got it {payload.user_name} Ji! I have noted that you will need all fresh equipment. "
 
-            if payload.language == "hi":
+            localized = onboarding_copy(payload.language, "review", name=payload.user_name)
+            if localized:
+                reply = localized
+            elif payload.language == "hi":
                 reply = (
                     f"{owned_lead_hi}"
                     f"अरे वाह {payload.user_name} जी! बहुत-बहुत बधाई! आपकी सभी जानकारियाँ पूरी तरह से सुरक्षित हो गई हैं। "
@@ -1623,7 +1693,13 @@ async def process_onboarding_message(payload: OnboardingRequest):
                     new_fields["additional_business_details"] = merged_fields["additional_business_details"]
 
             # ── After ODOP decision → Ask for Enterprise Name + Caste Category ──
-            if payload.language == "hi":
+            localized = onboarding_copy(
+                payload.language, "odop_align" if align_with_odop else "skip_odop",
+                name=payload.user_name, district=district_name, odop=odop_prod, scheme=scheme_title,
+            )
+            if localized:
+                reply = localized
+            elif payload.language == "hi":
                 if align_with_odop:
                     lead = (
                         f"बहुत ही शानदार और समझदारी भरा निर्णय {payload.user_name} जी! "
@@ -1877,7 +1953,13 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 activity_hi = "उत्पादन करने"
                 activity_en = "making the product"
 
-            if payload.language == "hi":
+            localized = onboarding_copy(
+                payload.language, "odop_intro", name=payload.user_name, biz=biz_desc,
+                district=district_name, odop=odop_prod, scheme=scheme_title, subsidy=sub_summary,
+            )
+            if localized:
+                reply = localized
+            elif payload.language == "hi":
                 reply = (
                     f"{payload.user_name} जी, मैंने आपकी बात **{biz_desc}** के रूप में समझी है और योजना में **{activity_hi}** का मॉडल रखा है। अगर यह अलग है, तो कृपया मुझे सुधार दें।\n\n"
                     f"आगे बढ़ने से पहले एक बहुत महत्वपूर्ण जानकारी: भारत सरकार की **ODOP (एक ज़िला एक उत्पाद)** पहल के तहत "
@@ -1958,7 +2040,14 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 p_crop = odop_synergy.get("primary_odop_product", "District Product") if odop_synergy else "District Product"
                 score_val = odop_synergy.get("alignment_score", 50) if odop_synergy else 50
                 mira_verdict = odop_synergy.get("verdict_spoken") or ""
-                if payload.language == "hi":
+                localized = onboarding_copy(
+                    payload.language, "odop_verdict", name=payload.user_name,
+                    district=district_name, odop=p_crop, score=score_val,
+                    verdict=onboarding_copy(payload.language, "verdict_good" if score_val >= 65 else "verdict_mid" if score_val >= 50 else "verdict_low") or mira_verdict,
+                )
+                if localized:
+                    reply = localized
+                elif payload.language == "hi":
                     reply = (
                         f"अरे वाह {payload.user_name} जी! मैंने आपके व्यवसाय का {district_name} ज़िले के आधिकारिक उत्पाद {p_crop} के साथ पूरा मूल्यांकन कर लिया है। "
                         f"आपका रणनीतिक तालमेल स्कोर 100 में से **{score_val}** आया है! {mira_verdict}\n\n"
@@ -2003,7 +2092,10 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 merged_fields["odop_decision"] = "keep_original"
                 merged_fields["odop_synergy_aligned"] = False
 
-                if payload.language == "hi":
+                localized = onboarding_copy(payload.language, "skip_odop", name=payload.user_name)
+                if localized:
+                    reply = localized
+                elif payload.language == "hi":
                     reply = (
                         f"बहुत बढ़िया {payload.user_name} जी! मुझे आपका आत्मविश्वास बहुत पसंद आया। "
                         f"हम आपके मूल व्यवसाय मॉडल के साथ PMEGP और मुद्रा लोन योजनाओं के तहत आगे बढ़ेंगे।\n\n"
@@ -2037,7 +2129,10 @@ async def process_onboarding_message(payload: OnboardingRequest):
         curr_eq = merged_fields.get("promoter_equity")
         has_valid_eq = curr_eq is not None and float(curr_eq or 0) >= 5000
         if existing_fields.get("odop_decision") and not has_valid_eq:
-            if payload.language == "hi":
+            localized = onboarding_copy(payload.language, "equity_prompt", name=payload.user_name)
+            if localized:
+                reply = localized
+            elif payload.language == "hi":
                 reply = (
                     f"बहुत खूब {payload.user_name} जी! अब मुझे यह बताइए कि इस उद्यम को शुरू करने के लिए "
                     f"आपके पास अपनी खुद की कितनी पूँजी या बचत तैयार है? जैसे 50 हजार, ₹1 लाख, ₹2 लाख, या जो भी राशि आप लगाना चाहें—मुझे आसानी से अपने शब्दों में बताइए!"
@@ -2070,7 +2165,11 @@ async def process_onboarding_message(payload: OnboardingRequest):
             eq_val = float(merged_fields["promoter_equity"])
             biz_name = matched_machinery.get("business_name") if matched_machinery else (merged_fields.get("enterprise_name") or "व्यवसाय")
 
-            if payload.language == "hi":
+            equipment = onboarding_copy(payload.language, "equipment_found" if matched_machinery else "equipment_none", biz=biz_name)
+            localized = onboarding_copy(payload.language, "machinery_prompt", name=payload.user_name, equity=f"{int(eq_val):,}", equipment=equipment)
+            if localized:
+                reply = localized
+            elif payload.language == "hi":
                 reply = (
                     f"बहुत सुंदर {payload.user_name} जी! आपकी ₹{int(eq_val):,} की बचत पूँजी बिल्कुल सही है—यह आपके उद्यम की नींव मजबूत करेगी।\n\n"
                     + (f"अब मैंने आपके **{biz_name}** के लिए उपकरणों की सूची निकाली है। इनमें से जो पहले से आपके पास हैं उन्हें चुनें; अनुमानित मूल्य परियोजना लागत में गिना जाएगा।"
@@ -2117,7 +2216,10 @@ async def process_onboarding_message(payload: OnboardingRequest):
 
         # ── Step 8: Machinery confirmed -> Split Screen Form ─────────────────
         if existing_fields.get("machinery_selection_confirmed"):
-            if payload.language == "hi":
+            localized = onboarding_copy(payload.language, "review", name=payload.user_name)
+            if localized:
+                final_reply = localized
+            elif payload.language == "hi":
                 final_reply = (
                     f"अरे वाह {payload.user_name} जी! बहुत-बहुत बधाई! आपकी सभी जानकारियाँ पूरी तरह से सुरक्षित हो गई हैं। "
                     f"मैंने आपके लिए पूरा वित्तीय व व्यवसाय सारांश फॉर्म तैयार कर दिया है। "

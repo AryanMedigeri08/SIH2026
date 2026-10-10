@@ -32,6 +32,7 @@ import {
   detectLocationFromIP,
 } from "../services/api";
 import { chooseRecordingFormat, classifyVoiceChoice, transcribeOnboardingAudio } from "../services/onboardingAudio";
+import { onboardingText, onboardingFormat, onboardingCategory, onboardingSector } from "../i18n/onboardingCopy";
 import {
   Mic,
   MicOff,
@@ -703,7 +704,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     const userMsg = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: selectedLang === "en" ? "Yes, continue with this location" : "हाँ, इसी लोकेशन के साथ आगे बढ़ें",
+      content: onboardingText(selectedLang, "confirmLocation"),
       timestamp: new Date().toISOString(),
     };
     setMessages(prev => [...prev, userMsg]);
@@ -765,7 +766,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     const userMsg = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: selectedLang === "en" ? "No, I want to change location" : "नहीं, मुझे लोकेशन बदलनी है",
+      content: onboardingText(selectedLang, "changeLocation"),
       timestamp: new Date().toISOString(),
     };
     setMessages(prev => [...prev, userMsg]);
@@ -899,9 +900,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     setMessages(prev => [...prev, {
       id: `assistant-revise-${Date.now()}`,
       role: "assistant",
-      content: selectedLang === "en"
-        ? "Let's revise your business idea. Tell me what you want to make, sell, or provide, and I will reassess the sector, equipment, and ODOP fit."
-        : "आइए व्यवसाय विचार फिर से देखें। बताइए आप क्या बनाएँगे, बेचेंगे या सेवा देंगे; मैं क्षेत्र, उपकरण और ODOP तालमेल फिर जाँचूँगी।",
+      content: onboardingText(selectedLang, "reviseIdea"),
       timestamp: new Date().toISOString(),
     }]);
   };
@@ -909,7 +908,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
   // ─── Step 1c: User submits updated location menu ─────────────────────────
   const handleSubmitNewLocation = async () => {
     if (!selectedState || !selectedDistrict) {
-      alert(selectedLang === "en" ? "Please select both State and District." : "कृपया राज्य और ज़िला दोनों चुनें।");
+      alert(onboardingText(selectedLang, "locationRequired"));
       return;
     }
 
@@ -928,9 +927,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     const userMsg = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: selectedLang === "en"
-        ? `Location selected: ${selectedVillage ? `${selectedVillage}, ` : ""}${selectedDistrict}, ${selectedState} (${areaClassification})`
-        : `स्थान चुना गया: ${selectedVillage ? `${selectedVillage}, ` : ""}${selectedDistrict}, ${selectedState} (${areaClassification === "rural" ? "ग्रामीण" : "शहरी"})`,
+      content: `${onboardingText(selectedLang, "locationSelected")}: ${selectedVillage ? `${selectedVillage}, ` : ""}${selectedDistrict}, ${selectedState} (${onboardingText(selectedLang, areaClassification === "semi-urban" ? "semiUrban" : areaClassification)})`,
       timestamp: new Date().toISOString(),
     };
     setMessages(prev => [...prev, userMsg]);
@@ -1108,7 +1105,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       }
     } catch (err) {
       console.error("Mira chat turn error:", err);
-      setChatError(err.message || "Mira could not respond. Please try again.");
+      setChatError(onboardingText(selectedLang, "chatFailed"));
     } finally {
       setIsSending(false);
     }
@@ -1122,7 +1119,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     const userMsg = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: selectedLang === "en" ? "Let's Check" : "तालमेल जाँचें",
+      content: onboardingText(selectedLang, "checkOdop"),
       timestamp: new Date().toISOString(),
     };
     setMessages(prev => [...prev, userMsg]);
@@ -1182,7 +1179,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     const userMsg = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: selectedLang === "en" ? "Will go with my idea" : "मूल विचार से चलें",
+      content: onboardingText(selectedLang, "keepIdea"),
       timestamp: new Date().toISOString(),
     };
     setMessages(prev => [...prev, userMsg]);
@@ -1254,16 +1251,12 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     }
 
     const valFormatted = totalVal >= 100000 
-      ? `₹${(totalVal / 100000).toFixed(2)} Lakhs` 
+      ? `₹${(totalVal / 100000).toFixed(2)} ${onboardingText(selectedLang, "lakhs")}`
       : `₹${totalVal.toLocaleString("en-IN")}`;
 
     const userLabel = hasSelection
-      ? (selectedLang === "en"
-          ? `I already own: ${machinesToConfirm.join(", ")} (Valuation Credit: ${valFormatted})`
-          : `मेरे पास पहले से उपलब्ध मशीनें: ${machinesToConfirm.join(", ")} (कुल बचत: ${valFormatted})`)
-      : (selectedLang === "en"
-          ? "I don't own any of these machines. I will acquire 100% fresh equipment."
-          : "मेरे पास इनमें से कोई मशीन नहीं है, मुझे सभी नए उपकरणों की आवश्यकता होगी।");
+      ? `${onboardingText(selectedLang, "machinesOwned")}: ${machinesToConfirm.join(", ")} (${onboardingText(selectedLang, "valuation")}: ${valFormatted})`
+      : onboardingText(selectedLang, "noMachinesOwned");
 
     const userMsg = {
       id: `user-${Date.now()}`,
@@ -1337,8 +1330,8 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
     const decision = alignWithOdop ? "align" : "keep_original";
     const decisionLabel = alignWithOdop
-      ? (selectedLang === "en" ? "1. Align with ODOP (Unlock 35% Subsidy)" : "1. ODOP से जुड़ें (35% सब्सिडी)")
-      : (selectedLang === "en" ? "2. Keep my original idea" : "2. अपना मूल विचार रखें");
+      ? onboardingText(selectedLang, "alignOdop")
+      : onboardingText(selectedLang, "keepIdea");
 
     const userMsg = {
       id: `user-${Date.now()}`,
@@ -1410,13 +1403,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
     setIsSending(true);
 
-    const catLabel = PROMOTER_CATEGORIES.find(c => c.value === promCat)?.label || promCat;
+    const catLabel = onboardingCategory(selectedLang, promCat);
     const userMsg = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: selectedLang === "en"
-        ? `Enterprise: ${entName} | Category: ${catLabel}`
-        : `उद्यम: ${entName} | श्रेणी: ${catLabel}`,
+      content: `${onboardingText(selectedLang, "enterpriseLabel")}: ${entName} | ${onboardingText(selectedLang, "categoryLabel")}: ${catLabel}`,
       timestamp: new Date().toISOString(),
     };
     setMessages(prev => [...prev, userMsg]);
@@ -1477,7 +1468,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     const submitFn = onWizardSubmit || createAndSaveBusiness;
     if (!submitFn) return;
     if (!collectedFields.enterprise_name?.trim() || !collectedFields.state_name || !collectedFields.district_name || Number(collectedFields.project_cost) <= 0) {
-      setSubmitError("Please provide an enterprise name, state, district, and a valid project cost.");
+      setSubmitError(onboardingText(selectedLang, "reportFields"));
       return;
     }
     setSubmitError("");
@@ -1492,7 +1483,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error("Final appraisal generation failed:", err);
-      setSubmitError(err.message || "The report could not be generated. Please review the form and try again.");
+      setSubmitError(onboardingText(selectedLang, "reportFailed"));
     }
   }, [collectedFields, selectedLang, onWizardSubmit, createAndSaveBusiness, getAutoDetectedLocation, locationWasChanged, navigate]);
 
@@ -1513,7 +1504,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       if (correction && !/^(no|nope|नहीं|नाही)[\s.!।]*$/i.test(heard)) {
         return handleSendMessage(correction || heard, { inputSource: "voice" });
       }
-      setChatError("Please say the corrected business idea or type it below.");
+      setChatError(onboardingText(selectedLang, "correctIdea"));
       return;
     } else if (chatStep === "odop_check_prompt") {
       if (negative) return handleSkipOdopAlignment();
@@ -1526,7 +1517,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       const name = heard.match(/(?:name is|called|named|नाम|नाव)\s+(.+?)(?:,|\band\b|और|आणि|$)/i)?.[1]?.trim();
       if (category) setPromoterCategoryInput(category.value);
       if (name) setEnterpriseNameInput(name);
-      setChatError("I filled what I could hear. Please review the enterprise details card and submit it.");
+      setChatError(onboardingText(selectedLang, "enterpriseCardHint"));
       return;
     } else if (chatStep === "machinery_selection") {
       if (/\b(none|no machine|don't own|do not own)\b|कोई नहीं|नाही/.test(lower)) return handleConfirmMachinery([]);
@@ -1534,16 +1525,16 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         lower.includes(machine.machine_name.toLowerCase())) || [];
       if (matching.length) {
         setSelectedOwnedMachines(matching.map(machine => machine.machine_name));
-        setChatError("Please review the selected equipment and confirm it in the card.");
+        setChatError(onboardingText(selectedLang, "equipmentCardHint"));
         return;
       }
     } else if (["business_idea", "promoter_equity", "split_screen"].includes(chatStep)) {
       return handleSendMessage(heard, { inputSource: "voice" });
     }
-    setChatError(`I heard “${heard}”. Please use the choices shown or say your answer more clearly.`);
+    setChatError(`“${heard}” — ${onboardingText(selectedLang, "heardUnclear")}`);
   }, [chatStep, handleRequestChangeLocation, handleConfirmLocation, handleSendMessage,
     handleSkipOdopAlignment, handleCheckOdopAlignment, handleOdopDecision,
-    handleConfirmMachinery, applicableMachinery]);
+    handleConfirmMachinery, applicableMachinery, selectedLang]);
 
   onVoiceTranscriptRef.current = handleVoiceTranscript;
 
@@ -1572,7 +1563,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
-      mediaRecorder.onerror = () => setChatError("Recording stopped unexpectedly. Please try again.");
+      mediaRecorder.onerror = () => setChatError(onboardingText(selectedLang, "recordingFailed"));
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
@@ -1581,7 +1572,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
         setIsRecording(false);
         const audioBlob = new Blob(audioChunksRef.current, { type: format.mimeType || mediaRecorder.mimeType || "audio/webm" });
         if (Date.now() - recordingStartedAtRef.current < 500 || !audioBlob.size) {
-          setChatError("Recording was too short. Tap the microphone, speak, then tap again to send.");
+          setChatError(onboardingText(selectedLang, "recordingShort"));
           return;
         }
         setIsTranscribing(true);
@@ -1593,7 +1584,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           await onVoiceTranscriptRef.current?.(transcript);
         } catch (e) {
           console.error("Voice recording processing error:", e);
-          setChatError(e.message || "Voice input failed. Please try again or type your answer.");
+          setChatError(onboardingText(selectedLang, "voiceFailed"));
         } finally {
           setIsTranscribing(false);
         }
@@ -1607,7 +1598,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       stream?.getTracks().forEach(track => track.stop());
       recordingStreamRef.current = null;
       mediaRecorderRef.current = null;
-      setChatError(err.name === "NotAllowedError" ? "Microphone permission was denied. Allow access in your browser and try again." : err.message || "Could not start the microphone.");
+      setChatError(onboardingText(selectedLang, err.name === "NotAllowedError" ? "micDenied" : "micFailed"));
     } finally {
       recordingStartingRef.current = false;
       setIsStartingRecording(false);
@@ -1732,17 +1723,17 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           <div className="flex-1 min-w-0">
             <h1 className="text-sm font-bold truncate flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-rose-500" />
-              Mira <span className="font-medium text-slate-400">/</span> Your business guide
+              Mira <span className="font-medium text-slate-400">/</span> {onboardingText(selectedLang, "guide")}
             </h1>
             <p className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
               <span>{selectedLang && ONBOARDING_LANGUAGES.find(l => l.code === selectedLang)?.native}</span>
               <span>•</span>
               {isPlayingAudio ? (
                 <span className="text-emerald-300 font-semibold animate-pulse flex items-center gap-1">
-                  <Volume2 className="w-3 h-3" /> Speaking...
+                  <Volume2 className="w-3 h-3" /> {onboardingText(selectedLang, "speaking")}
                 </span>
               ) : (
-                <span className="text-emerald-700">Here to help you plan</span>
+                <span className="text-emerald-700">{onboardingText(selectedLang, "ready")}</span>
               )}
             </p>
           </div>
@@ -1753,15 +1744,15 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 type="button"
                 onClick={stopAudio}
                 className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold hover:bg-rose-100 transition-colors flex items-center gap-1 cursor-pointer"
-                title="Stop speech"
+                title={onboardingText(selectedLang, "stop")}
               >
-                <VolumeX className="w-3 h-3" /> Stop
+                <VolumeX className="w-3 h-3" /> {onboardingText(selectedLang, "stop")}
               </button>
             )}
 
             {Object.keys(collectedFields).length > 0 && (
               <div className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold">
-                {Object.keys(collectedFields).filter(k => !["latitude", "longitude"].includes(k)).length} Details Filled
+                {Object.keys(collectedFields).filter(k => !["latitude", "longitude"].includes(k)).length} {onboardingText(selectedLang, "detailsFilled")}
               </div>
             )}
           </div>
@@ -1771,16 +1762,16 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
       <div className="max-w-4xl w-full mx-auto px-4 pt-5">
         <div className="rounded-2xl bg-white/85 backdrop-blur border border-white/90 shadow-[0_12px_35px_rgba(30,41,59,0.06)] px-4 sm:px-5 py-4 flex items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-rose-600">Your venture, step by step</p>
+            <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-rose-600">{onboardingText(selectedLang, "journey")}</p>
             <p className="text-sm font-semibold text-slate-800">
-              {{ location_confirm: "Confirm your location", location_menu: "Choose your location", business_idea: "Describe your idea", odop_check_prompt: "Explore district ODOP", odop_alignment: "Choose your ODOP path", enterprise_info: "Name your enterprise", promoter_equity: "Plan your investment", machinery_selection: "Review equipment" }[chatStep] || "Review your plan"}
+              {onboardingText(selectedLang, { location_confirm: "locationConfirmStep", location_menu: "locationMenuStep", business_idea: "businessIdeaStep", odop_check_prompt: "odopCheckStep", odop_alignment: "odopAlignmentStep", enterprise_info: "enterpriseInfoStep", promoter_equity: "equityStep", machinery_selection: "machineryStep" }[chatStep] || "reviewStep")}
             </p>
           </div>
           <span className="shrink-0 rounded-full bg-rose-50 border border-rose-200 text-rose-700 px-3 py-1 text-xs font-bold">
             {STEP_NUMBER[chatStep] || 7} / 7
           </span>
         </div>
-        <div className="mt-2 h-1.5 rounded-full bg-white/70 overflow-hidden" aria-label={`Onboarding step ${STEP_NUMBER[chatStep] || 7} of 7`}>
+        <div className="mt-2 h-1.5 rounded-full bg-white/70 overflow-hidden" aria-label={`${onboardingText(selectedLang, "step")} ${STEP_NUMBER[chatStep] || 7} ${onboardingText(selectedLang, "of")} 7`}>
           <div className="h-full rounded-full bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-400 transition-all duration-500" style={{ width: `${((STEP_NUMBER[chatStep] || 7) / 7) * 100}%` }} />
         </div>
       </div>
@@ -1816,7 +1807,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                         className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 hover:text-rose-900 cursor-pointer"
                       >
                         <Volume2 className="w-3.5 h-3.5" />
-                        <span>{isPlayingAudio ? "Speaking..." : "Listen"}</span>
+                        <span>{onboardingText(selectedLang, isPlayingAudio ? "speaking" : "listen")}</span>
                       </button>
                     </div>
                   )}
@@ -1839,7 +1830,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Check className="w-4 h-4 text-emerald-200" />
-                    <span>{selectedLang === "en" ? "Yes, continue with this location" : "हाँ, इसी लोकेशन के साथ आगे बढ़ें"}</span>
+                    <span>{onboardingText(selectedLang, "confirmLocation")}</span>
                   </button>
 
                   <button
@@ -1849,7 +1840,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     className="py-2.5 px-4 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
-                    <span>{selectedLang === "en" ? "No, I want to change location" : "नहीं, मुझे लोकेशन बदलनी है"}</span>
+                    <span>{onboardingText(selectedLang, "changeLocation")}</span>
                   </button>
                 </div>
               )}
@@ -1862,19 +1853,19 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
               <div className="bg-white rounded-3xl border-2 border-indigo-200 shadow-xl overflow-hidden p-5 space-y-4">
                 <div className="flex items-center gap-2 text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">
                   <MapPin className="w-4 h-4 text-indigo-600" />
-                  <span>{selectedLang === "en" ? "Select Your Enterprise Location" : "अपने व्यवसाय का नया स्थान चुनें"}</span>
+                  <span>{onboardingText(selectedLang, "selectLocation")}</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* State Select */}
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">State / राज्य *</label>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">{onboardingText(selectedLang, "state")} *</label>
                     <select
                       value={selectedState}
                       onChange={(e) => handleStateChange(e.target.value)}
                       className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                     >
-                      <option value="">{selectedLang === "en" ? "-- Choose State --" : "-- राज्य चुनें --"}</option>
+                      <option value="">{onboardingText(selectedLang, "chooseState")}</option>
                       {statesList.map(s => (
                         <option key={s.state_code || s.state_name} value={s.state_name}>{s.state_name}</option>
                       ))}
@@ -1883,14 +1874,14 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
                   {/* District Select */}
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">District / ज़िला *</label>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">{onboardingText(selectedLang, "district")} *</label>
                     <select
                       value={selectedDistrict}
                       onChange={(e) => handleDistrictChange(e.target.value)}
                       disabled={!selectedState}
                       className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50"
                     >
-                      <option value="">{selectedLang === "en" ? "-- Choose District --" : "-- ज़िला चुनें --"}</option>
+                      <option value="">{onboardingText(selectedLang, "chooseDistrict")}</option>
                       {districtsList.map(d => (
                         <option key={d.district_code || d.district_name} value={d.district_name}>{d.district_name}</option>
                       ))}
@@ -1899,14 +1890,14 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
                   {/* Block Select */}
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Block / ब्लॉक (वैकल्पिक)</label>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">{onboardingText(selectedLang, "block")} ({onboardingText(selectedLang, "optional")})</label>
                     <select
                       value={selectedBlock}
                       onChange={(e) => handleBlockChange(e.target.value)}
                       disabled={!selectedDistrict}
                       className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50"
                     >
-                      <option value="">{selectedLang === "en" ? "-- Choose Block --" : "-- ब्लॉक चुनें --"}</option>
+                      <option value="">{onboardingText(selectedLang, "chooseBlock")}</option>
                       {blocksList.map(b => (
                         <option key={b.development_block_code || b.development_block_name} value={b.development_block_name}>
                           {b.development_block_name}
@@ -1917,14 +1908,14 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
                   {/* Village Select */}
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Village/Locality / गाँव/इलाका</label>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">{onboardingText(selectedLang, "village")}</label>
                     <select
                       value={selectedVillage}
                       onChange={(e) => setSelectedVillage(e.target.value)}
                       disabled={!selectedBlock}
                       className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50"
                     >
-                      <option value="">{selectedLang === "en" ? "-- Choose Village --" : "-- गाँव चुनें --"}</option>
+                      <option value="">{onboardingText(selectedLang, "chooseVillage")}</option>
                       {villagesList.map(v => (
                         <option key={v.village_code || v.village_name} value={v.village_name}>{v.village_name}</option>
                       ))}
@@ -1934,12 +1925,12 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
                 {/* Area Classification */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1.5">Area Classification / क्षेत्र वर्गीकरण</label>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1.5">{onboardingText(selectedLang, "locationType")}</label>
                   <div className="flex gap-2">
                     {[
-                      { id: "rural", label: selectedLang === "en" ? "Rural (ग्रामीण)" : "ग्रामीण" },
-                      { id: "semi-urban", label: selectedLang === "en" ? "Semi-Urban (अर्ध-शहरी)" : "अर्ध-शहरी" },
-                      { id: "urban", label: selectedLang === "en" ? "Urban (शहरी)" : "शहरी" },
+                      { id: "rural", label: onboardingText(selectedLang, "rural") },
+                      { id: "semi-urban", label: onboardingText(selectedLang, "semiUrban") },
+                      { id: "urban", label: onboardingText(selectedLang, "urban") },
                     ].map(type => (
                       <button
                         type="button"
@@ -1965,7 +1956,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   className="w-full py-3 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-indigo-600 to-sovereign-800 hover:from-indigo-500 hover:to-sovereign-700 shadow-md shadow-indigo-950/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Check className="w-4 h-4" />
-                  <span>{selectedLang === "en" ? "Submit Location" : "स्थान सुरक्षित करें"}</span>
+                  <span>{onboardingText(selectedLang, "submitLocation")}</span>
                 </button>
               </div>
             </div>
@@ -1980,7 +1971,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 {collectedFields.pending_business_idea}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" disabled={isSending} onClick={() => handleSendMessage("Yes, that is my business idea", { confirmBusinessIdea: true })}
+                <button type="button" disabled={isSending} onClick={() => handleSendMessage(onboardingText(selectedLang, "confirmIdea"), { confirmBusinessIdea: true })}
                   className="rounded-xl bg-indigo-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
                   {(IDEA_CONFIRM_LABELS[selectedLang] || IDEA_CONFIRM_LABELS.en)[1]}
                 </button>
@@ -2001,22 +1992,18 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-amber-800 border border-amber-300">
                       <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                      {selectedLang === "en" ? "ODOP Scheme Opportunity" : "ODOP योजना अवसर"}
+                      {onboardingText(selectedLang, "odopOpportunity")}
                     </span>
                     <span className="text-xs text-amber-800 font-semibold flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> {selectedLang === "en" ? "Eligibility check" : "पात्रता जाँच"}
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> {onboardingText(selectedLang, "eligibility")}
                     </span>
                   </div>
 
                   <h3 className="text-base sm:text-lg font-bold font-display text-slate-900">
-                    {selectedLang === "en"
-                      ? `Could ${collectedFields.business_idea || "your idea"} fit the district ODOP?`
-                      : `क्या ${collectedFields.business_idea || "आपका विचार"} ज़िला ODOP से जुड़ सकता है?`}
+                    {onboardingText(selectedLang, "odopQuestion")}
                   </h3>
                   <p className="text-xs text-slate-700 mt-1 leading-relaxed">
-                    {selectedLang === "en"
-                      ? `ODOP means One District One Product. ${odopIntroData.district} identifies ${odopIntroData.odop_product} as its product. A real link may help local sourcing and eligibility for ${odopIntroData.scheme}; benefits depend on scheme rules. Shall I assess your idea?`
-                      : `ODOP यानी एक ज़िला एक उत्पाद। ${odopIntroData.district} का उत्पाद ${odopIntroData.odop_product} है। वास्तविक तालमेल से स्थानीय आपूर्ति और ${odopIntroData.scheme} की पात्रता जाँची जा सकती है; लाभ नियमों पर निर्भर हैं। क्या मैं आपके विचार की जाँच करूँ?`}
+                    {onboardingText(selectedLang, "odopExplanation")}
                   </p>
                 </div>
 
@@ -2025,7 +2012,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800 mb-0.5">
-                        {selectedLang === "en" ? "District ODOP Produce" : "ज़िला ODOP उत्पाद"}
+                        {onboardingText(selectedLang, "districtProduce")}
                       </div>
                       <div className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
                         <span>🌾</span>
@@ -2034,7 +2021,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     </div>
                     <div className="p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mb-0.5">
-                        {selectedLang === "en" ? "Government Scheme" : "पात्र सरकारी योजना"}
+                        {onboardingText(selectedLang, "governmentScheme")}
                       </div>
                       <div className="font-bold text-sm text-emerald-950 flex items-center gap-1.5">
                         <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -2053,7 +2040,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     >
                       <Sparkles className="w-4 h-4 text-emerald-200" />
                       <span>
-                        {selectedLang === "en" ? "Let's Check (Evaluate Synergy)" : "तालमेल जाँचें (Let's Check)"}
+                        {onboardingText(selectedLang, "checkOdop")}
                       </span>
                     </button>
                     <button
@@ -2062,7 +2049,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                       disabled={isSending}
                       className="sm:w-auto py-3 px-4 rounded-xl font-semibold text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      {selectedLang === "en" ? "Will go with my idea" : "मूल विचार से चलें"}
+                      {onboardingText(selectedLang, "keepIdea")}
                     </button>
                   </div>
                 </div>
@@ -2079,22 +2066,22 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-emerald-800 border border-emerald-300">
                       <Sparkles className="w-3.5 h-3.5" />
-                      ODOP Synergy Benchmarking
+                      {onboardingText(selectedLang, "odopBenchmark")}
                     </span>
                     <span className="text-xs text-emerald-800 font-semibold flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" /> {selectedLang === "en" ? "Assessment complete" : "मूल्यांकन पूरा"}
+                      <ShieldCheck className="w-3.5 h-3.5" /> {onboardingText(selectedLang, "assessmentComplete")}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between gap-4 mt-2">
                     <div>
                       <h3 className="text-base sm:text-lg font-bold font-display text-slate-900">
-                        {selectedLang === "en"
-                          ? "One District One Product Synergy Match"
-                          : "एक जिला एक उत्पाद (ODOP) तालमेल स्कोर"}
+                        {onboardingText(selectedLang, "odopBenchmark")}
                       </h3>
                       <p className="text-xs text-emerald-900 mt-0.5">
-                        {odopData.mira_recommendation || "Mira's Strategic Evaluation"}
+                        {["en", "kn", "te", "ta"].includes(selectedLang) && odopData.mira_recommendation
+                          ? odopData.mira_recommendation
+                          : onboardingText(selectedLang, odopData.alignment_score >= 65 ? "verdictGood" : odopData.alignment_score >= 50 ? "verdictMid" : "verdictLow")}
                       </p>
                     </div>
 
@@ -2115,10 +2102,12 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-xs leading-relaxed text-emerald-950">
                     <p className="font-bold text-emerald-900 mb-1 flex items-center gap-1.5">
                       <Info className="w-4 h-4 text-emerald-700 shrink-0" />
-                      {selectedLang === "en" ? "What is the ODOP Scheme?" : "ODOP योजना क्या है?"}
+                      {onboardingText(selectedLang, "whatIsOdop")}
                     </p>
                     <p className="text-emerald-900/90">
-                      {odopData.what_is_odop || "The One District One Product (ODOP) initiative by the central government focuses on each district's designated indigenous product to provide capital subsidies, priority procurement on GeM, and cluster common facility centers."}
+                      {["en", "kn", "te", "ta"].includes(selectedLang) && odopData.what_is_odop
+                        ? odopData.what_is_odop
+                        : onboardingFormat(selectedLang, "odopSummary", { product: odopData.odop_product || odopData.district_odop })}
                     </p>
                   </div>
 
@@ -2126,7 +2115,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                        {selectedLang === "en" ? "Your Current Business" : "आपका वर्तमान व्यवसाय"}
+                        {onboardingText(selectedLang, "currentBusiness")}
                       </div>
                       <div className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
                         <span>🏪</span>
@@ -2136,7 +2125,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
 
                     <div className="p-3 rounded-2xl bg-teal-50 border border-teal-200">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-teal-700 mb-1">
-                        {selectedLang === "en" ? "The District's ODOP" : "जिले का आधिकारिक ODOP"}
+                        {onboardingText(selectedLang, "districtOdop")}
                       </div>
                       <div className="font-bold text-sm text-teal-950 flex items-center gap-1.5">
                         <span>🌾</span>
@@ -2150,9 +2139,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     <div className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4 text-amber-500" />
                       <span>
-                        {selectedLang === "en"
-                          ? "How We Aligned Both (Strategic Synergy):"
-                          : "हमने दोनों को कैसे जोड़ा (रणनीतिक तालमेल):"}
+                        {onboardingText(selectedLang, "synergyTitle")}
                       </span>
                     </div>
 
@@ -2160,10 +2147,10 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1">
                       <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
                         <span className="w-5 h-5 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-[11px] font-black shrink-0">1</span>
-                        <span>{odopData.synergy_pillars?.product_innovation?.title || "Product Innovation"}</span>
+                        <span>{["en", "kn", "te", "ta"].includes(selectedLang) && odopData.synergy_pillars?.product_innovation?.title || onboardingText(selectedLang, "productPillar")}</span>
                       </div>
                       <p className="text-xs text-slate-600 pl-7 leading-relaxed">
-                        {odopData.synergy_pillars?.product_innovation?.description}
+                        {["en", "kn", "te", "ta"].includes(selectedLang) && odopData.synergy_pillars?.product_innovation?.description || onboardingText(selectedLang, "productPillarDetail")}
                       </p>
                     </div>
 
@@ -2171,10 +2158,10 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1">
                       <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
                         <span className="w-5 h-5 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-[11px] font-black shrink-0">2</span>
-                        <span>{odopData.synergy_pillars?.local_sourcing?.title || "Local Sourcing Advantage"}</span>
+                        <span>{["en", "kn", "te", "ta"].includes(selectedLang) && odopData.synergy_pillars?.local_sourcing?.title || onboardingText(selectedLang, "sourcingPillar")}</span>
                       </div>
                       <p className="text-xs text-slate-600 pl-7 leading-relaxed">
-                        {odopData.synergy_pillars?.local_sourcing?.description}
+                        {["en", "kn", "te", "ta"].includes(selectedLang) && odopData.synergy_pillars?.local_sourcing?.description || onboardingText(selectedLang, "sourcingPillarDetail")}
                       </p>
                     </div>
 
@@ -2182,10 +2169,10 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1">
                       <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
                         <span className="w-5 h-5 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-[11px] font-black shrink-0">3</span>
-                        <span>{odopData.synergy_pillars?.financial_incentives?.title || "Financial & Scheme Incentives"}</span>
+                        <span>{["en", "kn", "te", "ta"].includes(selectedLang) && odopData.synergy_pillars?.financial_incentives?.title || onboardingText(selectedLang, "financePillar")}</span>
                       </div>
                       <p className="text-xs text-slate-600 pl-7 leading-relaxed">
-                        {odopData.synergy_pillars?.financial_incentives?.description}
+                        {["en", "kn", "te", "ta"].includes(selectedLang) && odopData.synergy_pillars?.financial_incentives?.description || onboardingText(selectedLang, "financePillarDetail")}
                       </p>
                     </div>
                   </div>
@@ -2200,9 +2187,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     >
                       <Sparkles className="w-4 h-4 text-emerald-200" />
                       <span>
-                        {selectedLang === "en"
-                          ? "Align with ODOP strategy"
-                          : "ODOP रणनीति से जोड़ें"}
+                        {onboardingText(selectedLang, "alignOdop")}
                       </span>
                     </button>
 
@@ -2212,7 +2197,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                       disabled={isSending}
                       className="sm:w-auto py-3 px-4 rounded-xl font-semibold text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      {selectedLang === "en" ? "Keep My Idea" : "मेरा विचार रखें"}
+                      {onboardingText(selectedLang, "keepIdea")}
                     </button>
                   </div>
                 </div>
@@ -2228,18 +2213,14 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-violet-800 border border-violet-200">
                       <User className="w-3.5 h-3.5" />
-                      {selectedLang === "en" ? "Enterprise Details" : "उद्यम विवरण"}
+                      {onboardingText(selectedLang, "enterpriseDetails")}
                     </span>
                   </div>
                   <h3 className="text-base sm:text-lg font-bold font-display text-slate-900">
-                    {selectedLang === "en"
-                      ? "Your Enterprise Name & Category"
-                      : "आपके उद्यम का नाम और जाति श्रेणी"}
+                    {onboardingText(selectedLang, "enterpriseTitle")}
                   </h3>
                   <p className="text-xs text-slate-600 mt-1">
-                    {selectedLang === "en"
-                      ? "Please share your enterprise name and caste category for government scheme eligibility."
-                      : "कृपया अपने उद्यम का नाम और सरकारी योजना पात्रता के लिए जाति श्रेणी बताएं।"}
+                    {onboardingText(selectedLang, "enterpriseDescription")}
                   </p>
                 </div>
 
@@ -2248,13 +2229,13 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
                       <Edit3 className="w-3.5 h-3.5 text-violet-600" />
-                      {selectedLang === "en" ? "Enterprise Name" : "उद्यम का नाम"}
+                      {onboardingText(selectedLang, "enterpriseName")}
                     </label>
                     <input
                       type="text"
                       value={enterpriseNameInput}
                       onChange={(e) => setEnterpriseNameInput(e.target.value)}
-                      placeholder={selectedLang === "en" ? `${userName}'s Enterprise` : `${userName} का उद्यम`}
+                      placeholder={`${userName} — ${onboardingText(selectedLang, "enterpriseName")}`}
                       className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500 transition-all"
                     />
                   </div>
@@ -2263,7 +2244,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      {selectedLang === "en" ? "Caste Category (for Subsidy Eligibility)" : "जाति श्रेणी (सब्सिडी पात्रता हेतु)"}
+                      {onboardingText(selectedLang, "casteCategory")}
                     </label>
                     <select
                       value={promoterCategoryInput}
@@ -2272,14 +2253,12 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     >
                       {PROMOTER_CATEGORIES.map(cat => (
                         <option key={cat.value} value={cat.value}>
-                          {selectedLang === "en" ? cat.label : cat.labelHi} ({cat.value.toUpperCase()})
+                          {onboardingCategory(selectedLang, cat.value)} ({cat.value.toUpperCase()})
                         </option>
                       ))}
                     </select>
                     <p className="mt-1.5 text-[10px] text-slate-500">
-                      {selectedLang === "en"
-                        ? "SC/ST/OBC categories may qualify for higher PMEGP subsidy (25-35% vs 15-25%)."
-                        : "SC/ST/OBC श्रेणियों को PMEGP में अधिक सब्सिडी (25-35% बनाम 15-25%) मिल सकती है।"}
+                      {onboardingText(selectedLang, "categoryHint")}
                     </p>
                   </div>
 
@@ -2292,9 +2271,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   >
                     <Check className="w-4 h-4" />
                     <span>
-                      {selectedLang === "en"
-                        ? "Save & Continue"
-                        : "सुरक्षित करें और आगे बढ़ें"}
+                      {onboardingText(selectedLang, "saveContinue")}
                     </span>
                   </button>
                 </div>
@@ -2311,11 +2288,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-indigo-800 border border-indigo-200">
                       <Wrench className="w-3.5 h-3.5" />
-                      {selectedLang === "en" ? "Standard MSME Plant & Machinery" : "मानक प्लांट एवं मशीनरी"}
+                      {onboardingText(selectedLang, "machineTitle")}
                     </span>
                     <span className="text-xs text-indigo-700 font-semibold flex items-center gap-1">
                       <Zap className="w-3.5 h-3.5 text-amber-400" />
-                      {applicableMachinery.typical_capacity || (selectedLang === "en" ? "Idea-specific plan" : "आपके विचार के अनुसार")}
+                      {onboardingText(selectedLang, "ideaPlan")}
                     </span>
                   </div>
 
@@ -2325,9 +2302,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                         {applicableMachinery.business_name || collectedFields.business_idea || "Your business"}
                       </h3>
                       <p className="text-xs text-slate-600 mt-0.5">
-                        {selectedLang === "en"
-                          ? "Here is the catalogue-backed equipment for your idea. Select what you already own so its verified estimate can be considered in the project outlay."
-                          : "यह आपके विचार के लिए सूचीबद्ध उपकरण हैं। जो पहले से आपके पास हैं उन्हें चुनें, ताकि उनकी सत्यापित अनुमानित लागत परियोजना में गिनी जा सके।"}
+                        {onboardingText(selectedLang, "machineDescription")}
                       </p>
                     </div>
                   </div>
@@ -2336,9 +2311,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 <div className="p-4 sm:p-6 space-y-4 text-slate-800">
                   {applicableMachinery.machinery_list.length === 0 && (
                     <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-950">
-                      {selectedLang === "en"
-                        ? "The machinery catalogue has no production equipment for this idea. If you plan to manufacture rather than sell finished goods, describe that in the review form."
-                        : "इस विचार के लिए उत्पादन मशीनें सूची में नहीं हैं। यदि आप तैयार सामान बेचने के बजाय बनाना चाहते हैं, तो समीक्षा फॉर्म में यह स्पष्ट करें।"}
+                      {onboardingText(selectedLang, "noEquipment")}
                     </div>
                   )}
                   {/* Quick-Pick Dropdown */}
@@ -2346,10 +2319,10 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-indigo-950 mb-1.5 flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
                         <ChevronDown className="w-3.5 h-3.5 text-indigo-700" />
-                        {selectedLang === "en" ? "Select Machine from Dropdown:" : "मशीन ड्रॉपडाउन से चुनें:"}
+                        {onboardingText(selectedLang, "selectMachine")}
                       </span>
                       <span className="text-[10px] text-indigo-600 font-semibold">
-                        {applicableMachinery.machinery_list.length} {selectedLang === "en" ? "options" : "विकल्प"}
+                        {applicableMachinery.machinery_list.length} {onboardingText(selectedLang, "options")}
                       </span>
                     </label>
                     <select
@@ -2364,12 +2337,12 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                       }}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer disabled:opacity-60"
                     >
-                      <option value="">{selectedLang === "en" ? "-- Tap to choose a machine from dropdown --" : "-- ड्रॉपडाउन से कोई भी मशीन चुनें --"}</option>
+                      <option value="">{onboardingText(selectedLang, "machinePlaceholder")}</option>
                       {applicableMachinery.machinery_list.map((mach, idx) => {
                         const isSelected = selectedOwnedMachines.includes(mach.machine_name);
                         return (
                           <option key={idx} value={mach.machine_name}>
-                            {isSelected ? "✓ [Selected] " : "+ "} {mach.machine_name} (₹{(mach.estimated_cost_inr / 100000).toFixed(2)} Lakhs)
+                            {isSelected ? `✓ [${onboardingText(selectedLang, "selected")}] ` : "+ "} {mach.machine_name} (₹{(mach.estimated_cost_inr / 100000).toFixed(2)} {onboardingText(selectedLang, "lakhs")})
                           </option>
                         );
                       })}
@@ -2379,7 +2352,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   {/* Visual Checklist Cards */}
                   {applicableMachinery.machinery_list.length > 0 && <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                     <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-1">
-                      {selectedLang === "en" ? "Or Tap Applicable Equipment Below:" : "या नीचे दिए गए उपकरणों पर टैप करें:"}
+                      {onboardingText(selectedLang, "equipmentBelow")}
                     </div>
                     {applicableMachinery.machinery_list.map((mach, idx) => {
                       const isSelected = selectedOwnedMachines.includes(mach.machine_name);
@@ -2416,7 +2389,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                                 {mach.machine_name}
                               </span>
                               <span className="text-[11px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full shrink-0">
-                                ₹{(mach.estimated_cost_inr / 100000).toFixed(2)} Lakhs
+                                ₹{(mach.estimated_cost_inr / 100000).toFixed(2)} {onboardingText(selectedLang, "lakhs")}
                               </span>
                             </div>
                             <p className="text-[11px] text-slate-600 mt-0.5 line-clamp-1">
@@ -2429,11 +2402,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                                 </span>
                               )}
                               <span className="text-[10px] text-slate-500">
-                                Qty: {mach.quantity || 1}
+                                {onboardingText(selectedLang, "quantity")}: {mach.quantity || 1}
                               </span>
                               {mach.is_mandatory && (
                                 <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-medium border border-amber-200">
-                                  Core Machine
+                                  {onboardingText(selectedLang, "coreMachine")}
                                 </span>
                               )}
                             </div>
@@ -2449,20 +2422,18 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                       <div className="flex items-center justify-between font-bold">
                         <span className="flex items-center gap-1.5 text-emerald-900">
                           <Sparkles className="w-4 h-4 text-emerald-600" />
-                          {selectedLang === "en" ? "In-Kind Asset Valuation Credited:" : "इन-काइंड एसेट क्रेडिट:"}
+                          {onboardingText(selectedLang, "assetValue")}
                         </span>
                         <span className="text-emerald-700 text-sm font-black">
                           ₹{(
                             applicableMachinery.machinery_list
                               .filter(m => selectedOwnedMachines.includes(m.machine_name))
                               .reduce((sum, m) => sum + (m.estimated_cost_inr || 0), 0) / 100000
-                          ).toFixed(2)} Lakhs
+                          ).toFixed(2)} {onboardingText(selectedLang, "lakhs")}
                         </span>
                       </div>
                       <p className="text-[11px] text-emerald-800">
-                        {selectedLang === "en"
-                          ? `✓ Deducted directly from fresh loan requirement • Lowers your monthly EMI`
-                          : `✓ आपके आवश्यक बैंक लोन में से घटाया जाएगा • मासिक EMI में भारी बचत`}
+                        ✓ {onboardingText(selectedLang, "loanReduction")}
                       </p>
                     </div>
                   )}
@@ -2479,9 +2450,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                         >
                           <Check className="w-4 h-4" />
                           <span>
-                            {selectedLang === "en"
-                              ? `Confirm ${selectedOwnedMachines.length} Machine(s) Owned`
-                              : `मेरे पास उपलब्ध ${selectedOwnedMachines.length} मशीनें सुरक्षित करें`}
+                            {onboardingText(selectedLang, "confirmOwned")} ({selectedOwnedMachines.length})
                           </span>
                         </button>
                         <button
@@ -2490,7 +2459,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                           disabled={isSending}
                           className="sm:w-auto py-3 px-3 rounded-xl font-semibold text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer"
                         >
-                          {selectedLang === "en" ? "Clear" : "हटाएं"}
+                          {onboardingText(selectedLang, "clear")}
                         </button>
                       </>
                     ) : (
@@ -2501,9 +2470,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                         className="w-full py-3 px-4 rounded-xl font-bold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-300 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                       >
                         <span>
-                          {selectedLang === "en"
-                            ? (applicableMachinery.machinery_list.length ? "I don't own any of these" : "Continue with this idea")
-                            : (applicableMachinery.machinery_list.length ? "मेरे पास इनमें से कोई मशीन नहीं है" : "इस विचार के साथ आगे बढ़ें")}
+                          {onboardingText(selectedLang, applicableMachinery.machinery_list.length ? "noMachinesOwned" : "continueIdea")}
                         </span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
@@ -2530,7 +2497,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     <span className="w-2 h-2 bg-rose-400 rounded-full animate-bounce" style={{ animationDelay: "0.15s" }} />
                     <span className="w-2 h-2 bg-rose-400 rounded-full animate-bounce" style={{ animationDelay: "0.3s" }} />
                   </div>
-                  <span className="text-xs text-slate-500 ml-1">Mira is thinking...</span>
+                  <span className="text-xs text-slate-500 ml-1">{onboardingText(selectedLang, "thinking")}</span>
                 </div>
               </div>
             </div>
@@ -2548,14 +2515,14 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
               type="button"
               onClick={toggleRecording}
                disabled={isSending || isTranscribing || isStartingRecording}
-              aria-label={isRecording ? "Stop recording and transcribe" : "Start voice recording"}
+              aria-label={onboardingText(selectedLang, isRecording ? "stopRecording" : "startRecording")}
               aria-pressed={isRecording}
               className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 cursor-pointer ${
                 isRecording
                   ? "bg-rose-500 text-white shadow-lg shadow-rose-500/30 scale-110 animate-pulse"
                   : "bg-slate-100 text-slate-600 hover:bg-rose-100 hover:text-rose-800 border border-slate-200"
               }`}
-              title={isRecording ? "Tap to stop and send" : "Tap to start recording"}
+              title={onboardingText(selectedLang, isRecording ? "stopRecording" : "startRecording")}
             >
               {isStartingRecording || isTranscribing ? <Loader2 className="w-5 h-5 animate-spin" /> : isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
             </button>
@@ -2566,11 +2533,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={
-                  selectedLang === "en"
-                    ? "Type your answer or tap the mic to speak..."
-                    : "जवाब लिखें या बोलने के लिए माइक दबाएँ..."
-                }
+                placeholder={onboardingText(selectedLang, "answerPlaceholder")}
                 rows={1}
                  disabled={isSending || !["business_idea", "business_idea_confirmation", "promoter_equity"].includes(chatStep)}
                 className="w-full resize-none rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 transition-all max-h-32 overflow-y-auto"
@@ -2591,9 +2554,9 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
           <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400 px-1">
             <span>
               {isRecording
-                ? "🎙️ Recording · tap the mic again to send"
-                : isTranscribing ? "Transcribing your voice..." : isStartingRecording ? "Opening microphone..."
-                : (selectedLang === "en" ? "Enter to send · tap mic to record" : "भेजने के लिए Enter दबाएँ · रिकॉर्ड करने के लिए माइक दबाएँ")}
+                ? `🎙️ ${onboardingText(selectedLang, "recording")}`
+                : isTranscribing ? onboardingText(selectedLang, "transcribing") : isStartingRecording ? onboardingText(selectedLang, "openingMic")
+                : onboardingText(selectedLang, "sendHint")}
             </span>
             <span className="truncate max-w-[220px]">
               {collectedFields.district_name 
@@ -2615,9 +2578,9 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 <div>
                   <h2 className="text-sm sm:text-base font-bold flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-rose-500" />
-                    {selectedLang === "en" ? "Chat with Mira" : "Mira से बातचीत"}
+                    {onboardingText(selectedLang, "chatMira")}
                   </h2>
-                  <p className="text-[11px] text-slate-500">{selectedLang === "en" ? "Your plan is ready to review together" : "आपकी योजना समीक्षा के लिए तैयार है"}</p>
+                  <p className="text-[11px] text-slate-500">{onboardingText(selectedLang, "planReady")}</p>
                 </div>
               </div>
 
@@ -2626,9 +2589,9 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   type="button"
                   onClick={stopAudio}
                   className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold hover:bg-rose-100 transition-colors flex items-center gap-1 cursor-pointer"
-                  title="Stop speech"
+                  title={onboardingText(selectedLang, "stop")}
                 >
-                  <VolumeX className="w-3 h-3" /> Stop
+                  <VolumeX className="w-3 h-3" /> {onboardingText(selectedLang, "stop")}
                 </button>
               )}
             </div>
@@ -2658,7 +2621,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   <MiraAvatar size="w-6 h-6" rounded="rounded-lg" />
                   <span className="italic flex items-center gap-1.5">
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-500" />
-                    Mira is thinking...
+                    {onboardingText(selectedLang, "thinking")}
                   </span>
                 </div>
               )}
@@ -2673,14 +2636,14 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   type="button"
                   onClick={toggleRecording}
                   disabled={isSending || isTranscribing || isStartingRecording}
-                  aria-label={isRecording ? "Stop recording and transcribe" : "Start voice recording"}
+                  aria-label={onboardingText(selectedLang, isRecording ? "stopRecording" : "startRecording")}
                   aria-pressed={isRecording}
                   className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                     isRecording
                       ? "bg-rose-500 text-white shadow-md shadow-rose-500/30 scale-105 animate-pulse"
                       : "bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-700 border border-slate-200"
                   }`}
-                  title={isRecording ? "Tap to stop and send" : "Tap to start recording"}
+                  title={onboardingText(selectedLang, isRecording ? "stopRecording" : "startRecording")}
                 >
                   {isStartingRecording || isTranscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 </button>
@@ -2696,11 +2659,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                       handleSendMessage(t);
                     }
                   }}
-                  placeholder={
-                    selectedLang === "en"
-                      ? "Ask Mira anything or give instructions..."
-                      : "मीरा से कुछ भी पूछें या निर्देश दें..."
-                  }
+                  placeholder={onboardingText(selectedLang, "askMira")}
                   disabled={isSending}
                   className="flex-1 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 transition-all"
                 />
@@ -2719,7 +2678,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                   {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-[10px] text-slate-500 mt-2 px-1">{isRecording ? "Recording · tap again to send" : isTranscribing ? "Transcribing your voice..." : "Ask for a change before generating your report"}</p>
+              <p className="text-[10px] text-slate-500 mt-2 px-1">{onboardingText(selectedLang, isRecording ? "recording" : isTranscribing ? "transcribing" : "askChange")}</p>
             </div>
           </div>
 
@@ -2728,23 +2687,23 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
             <div className="bg-white/90 backdrop-blur text-slate-900 px-5 sm:px-7 py-4 flex items-center justify-between shrink-0 border-b border-white shadow-sm gap-2">
               <div className="flex items-center gap-3">
                 <span className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center border border-emerald-100"><CheckCircle2 className="w-5 h-5 text-emerald-600" /></span>
-                <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Final step · 07 / 07</p>
-                <h2 className="text-sm sm:text-base font-bold">{selectedLang === "en" ? "Review your enterprise plan" : "अपनी उद्यम योजना जाँचें"}</h2></div>
+                <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">{onboardingText(selectedLang, "finalStep")} · 07 / 07</p>
+                <h2 className="text-sm sm:text-base font-bold">{onboardingText(selectedLang, "reviewPlan")}</h2></div>
               </div>
-              <span className="hidden sm:inline text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">✓ {selectedLang === "en" ? "Editable before submitting" : "भेजने से पहले बदल सकते हैं"}</span>
+              <span className="hidden sm:inline text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">✓ {onboardingText(selectedLang, "editable")}</span>
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 sm:px-7 py-5 space-y-4">
-              <p className="text-xs text-slate-600 leading-relaxed rounded-2xl border border-sky-100 bg-sky-50/80 px-4 py-3">{selectedLang === "en" ? "Mira filled this from your conversation. Review and edit any field, then generate your feasibility report." : "Mira ने बातचीत के आधार पर यह फ़ॉर्म भरा है। किसी भी जानकारी को बदलें, फिर रिपोर्ट बनाएँ।"}</p>
+              <p className="text-xs text-slate-600 leading-relaxed rounded-2xl border border-sky-100 bg-sky-50/80 px-4 py-3">{onboardingText(selectedLang, "formHint")}</p>
               {/* Enterprise & Location Section */}
               <div className="bg-white rounded-2xl border border-slate-200/90 p-4 space-y-3 shadow-xs">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Building2 className="w-3.5 h-3.5 text-indigo-500" />
-                  Enterprise & Location
+                  {onboardingText(selectedLang, "enterpriseLocation")}
                 </div>
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-500 font-medium">Enterprise Name</span>
+                    <span className="text-slate-500 font-medium">{onboardingText(selectedLang, "enterpriseName")}</span>
                     <input
                       type="text"
                       value={collectedFields.enterprise_name || `${userName}'s Venture`}
@@ -2753,75 +2712,75 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     />
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-500 font-medium">Promoter name</span>
+                    <span className="text-slate-500 font-medium">{onboardingText(selectedLang, "promoterName")}</span>
                     <input type="text" value={collectedFields.promoter_name || userName} onChange={(e) => setCollectedFields(prev => ({ ...prev, promoter_name: e.target.value }))}
                       className="text-right font-semibold text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 max-w-[55%] text-xs" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-slate-500 font-medium" htmlFor="review-business-idea">Business idea</label>
+                    <label className="text-slate-500 font-medium" htmlFor="review-business-idea">{onboardingText(selectedLang, "businessIdea")}</label>
                     <textarea id="review-business-idea" rows={2} readOnly value={collectedFields.business_idea || collectedFields.additional_business_details || ""}
                       className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-slate-900" />
                     <button type="button" onClick={handleReviseBusinessIdea} className="text-indigo-700 font-semibold hover:underline">
-                      {selectedLang === "en" ? "Change idea and reassess equipment" : "विचार बदलें और उपकरण फिर जाँचें"}
+                      {onboardingText(selectedLang, "reviseEquipment")}
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="space-y-1 text-slate-500 font-medium">Industry sector
+                    <label className="space-y-1 text-slate-500 font-medium">{onboardingText(selectedLang, "industrySector")}
                       <select value={collectedFields.sector || "general"} onChange={(e) => setCollectedFields(prev => ({ ...prev, sector: e.target.value }))}
                         className="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
-                        {["dairy", "food_processing", "apparel", "repair", "fabrication", "artisan_trades", "general"].map(sector => <option key={sector} value={sector}>{sector.replace(/_/g, " ")}</option>)}
+                        {["dairy", "food_processing", "apparel", "repair", "fabrication", "artisan_trades", "general"].map(sector => <option key={sector} value={sector}>{onboardingSector(selectedLang, sector)}</option>)}
                       </select>
                     </label>
-                    <label className="space-y-1 text-slate-500 font-medium">Business type
+                    <label className="space-y-1 text-slate-500 font-medium">{onboardingText(selectedLang, "businessType")}
                       <select value={collectedFields.business_category || "service"} onChange={(e) => setCollectedFields(prev => ({ ...prev, business_category: e.target.value }))}
                         className="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
-                        <option value="manufacturing">Manufacturing</option><option value="service">Service / retail</option>
+                        <option value="manufacturing">{onboardingText(selectedLang, "manufacturing")}</option><option value="service">{onboardingText(selectedLang, "serviceRetail")}</option>
                       </select>
                     </label>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-500 font-medium">Promoter Category</span>
+                    <span className="text-slate-500 font-medium">{onboardingText(selectedLang, "promoterCategory")}</span>
                     <select
                       value={collectedFields.promoter_category || "general"}
                       onChange={(e) => setCollectedFields(prev => ({ ...prev, promoter_category: e.target.value }))}
                       className="text-right font-semibold text-slate-900 bg-transparent border-b border-dashed border-slate-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 text-xs cursor-pointer"
                     >
                       {PROMOTER_CATEGORIES.map(c => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
+                        <option key={c.value} value={c.value}>{onboardingCategory(selectedLang, c.value)}</option>
                       ))}
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="space-y-1 text-slate-500 font-medium">State
+                    <label className="space-y-1 text-slate-500 font-medium">{onboardingText(selectedLang, "state")}
                       <select value={collectedFields.state_name || ""} onChange={(e) => handleReviewLocationChange("state_name", e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
-                        {!statesList.some(s => s.state_name === collectedFields.state_name) && <option value={collectedFields.state_name || ""}>{collectedFields.state_name || "Select state"}</option>}
+                        {!statesList.some(s => s.state_name === collectedFields.state_name) && <option value={collectedFields.state_name || ""}>{collectedFields.state_name || onboardingText(selectedLang, "chooseState")}</option>}
                         {statesList.map(s => <option key={s.state_code || s.state_name} value={s.state_name}>{s.state_name}</option>)}
                       </select>
                     </label>
-                    <label className="space-y-1 text-slate-500 font-medium">District
+                    <label className="space-y-1 text-slate-500 font-medium">{onboardingText(selectedLang, "district")}
                       <select value={collectedFields.district_name || ""} onChange={(e) => handleReviewLocationChange("district_name", e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
-                        {!districtsList.some(d => d.district_name === collectedFields.district_name) && <option value={collectedFields.district_name || ""}>{collectedFields.district_name || "Select district"}</option>}
+                        {!districtsList.some(d => d.district_name === collectedFields.district_name) && <option value={collectedFields.district_name || ""}>{collectedFields.district_name || onboardingText(selectedLang, "chooseDistrict")}</option>}
                         {districtsList.map(d => <option key={d.district_code || d.district_name} value={d.district_name}>{d.district_name}</option>)}
                       </select>
                     </label>
-                    <label className="space-y-1 text-slate-500 font-medium">Block
+                    <label className="space-y-1 text-slate-500 font-medium">{onboardingText(selectedLang, "block")}
                       <select value={collectedFields.block_name || ""} onChange={(e) => handleReviewLocationChange("block_name", e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
-                        <option value="">Select block</option>
+                        <option value="">{onboardingText(selectedLang, "chooseBlock")}</option>
                         {collectedFields.block_name && !blocksList.some(b => b.development_block_name === collectedFields.block_name) && <option value={collectedFields.block_name}>{collectedFields.block_name}</option>}
                         {blocksList.map(b => <option key={b.development_block_code || b.development_block_name} value={b.development_block_name}>{b.development_block_name}</option>)}
                       </select>
                     </label>
-                    <label className="space-y-1 text-slate-500 font-medium">Village / locality
+                    <label className="space-y-1 text-slate-500 font-medium">{onboardingText(selectedLang, "village")}
                       <select value={collectedFields.village_name || ""} onChange={(e) => handleReviewLocationChange("village_name", e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
-                        <option value="">Select village</option>
+                        <option value="">{onboardingText(selectedLang, "chooseVillage")}</option>
                         {collectedFields.village_name && !villagesList.some(v => v.village_name === collectedFields.village_name) && <option value={collectedFields.village_name}>{collectedFields.village_name}</option>}
                         {villagesList.map(v => <option key={v.village_code || v.village_name} value={v.village_name}>{v.village_name}</option>)}
                       </select>
                     </label>
                   </div>
-                  <label className="flex items-center justify-between text-slate-500 font-medium">Area type
+                  <label className="flex items-center justify-between text-slate-500 font-medium">{onboardingText(selectedLang, "areaType")}
                     <select value={collectedFields.is_rural ? "rural" : "urban"} onChange={(e) => setCollectedFields(prev => ({ ...prev, is_rural: e.target.value === "rural" }))} className="rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
-                      <option value="rural">Rural</option><option value="urban">Urban / semi-urban</option>
+                      <option value="rural">{onboardingText(selectedLang, "rural")}</option><option value="urban">{onboardingText(selectedLang, "urban")} / {onboardingText(selectedLang, "semiUrban")}</option>
                     </select>
                   </label>
                 </div>
@@ -2831,11 +2790,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
               <div className="bg-white rounded-2xl border border-slate-200/90 p-4 space-y-3 shadow-xs">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  Financial Outlay & Promoter Equity
+                  {onboardingText(selectedLang, "financialOutlay")}
                 </div>
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-500 font-medium">Promoter Equity</span>
+                    <span className="text-slate-500 font-medium">{onboardingText(selectedLang, "promoterEquity")}</span>
                     <div className="flex items-center gap-1">
                       <span className="font-bold text-emerald-700 text-xs">₹</span>
                       <input
@@ -2845,14 +2804,14 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                         className="text-right font-bold text-emerald-700 bg-transparent border-b border-dashed border-slate-300 focus:border-emerald-500 focus:outline-none px-1 py-0.5 w-28 text-xs"
                       />
                       {collectedFields.promoter_margin_pct && (
-                        <span className="text-[10px] text-slate-500 font-normal">({collectedFields.promoter_margin_pct}% Margin)</span>
+                        <span className="text-[10px] text-slate-500 font-normal">({collectedFields.promoter_margin_pct}% {onboardingText(selectedLang, "margin")})</span>
                       )}
                     </div>
                   </div>
                   {Number(collectedFields.owned_machinery_value || 0) > 0 && (
                     <div className="text-emerald-800 bg-emerald-50/80 px-2.5 py-1.5 rounded-xl border border-emerald-200 space-y-0.5">
                       <div className="flex justify-between">
-                        <span className="font-medium text-[11px]">Owned Machinery Credit</span>
+                        <span className="font-medium text-[11px]">{onboardingText(selectedLang, "ownedCredit")}</span>
                         <span className="font-bold text-[11px]">-₹{Number(collectedFields.owned_machinery_value).toLocaleString('en-IN')}</span>
                       </div>
                       {collectedFields.owned_machines && Array.isArray(collectedFields.owned_machines) && collectedFields.owned_machines.length > 0 && (
@@ -2863,13 +2822,13 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                     </div>
                   )}
                   <div className="flex justify-between bg-slate-50 px-2.5 py-2 rounded-xl border border-slate-200">
-                    <label htmlFor="review-project-cost" className="text-slate-900 font-bold">Project cost (₹)</label>
+                    <label htmlFor="review-project-cost" className="text-slate-900 font-bold">{onboardingText(selectedLang, "projectCost")}</label>
                     <input id="review-project-cost" type="number" min="1" value={collectedFields.project_cost ?? ""}
                       onChange={(e) => setCollectedFields(prev => ({ ...prev, project_cost: Number(e.target.value), explicit_project_cost: Number(e.target.value) }))}
                       className="w-32 text-right font-extrabold text-indigo-950 bg-white rounded-md border border-slate-200 px-2 py-1" />
                   </div>
-                  <p className="text-[11px] text-slate-500">This is Mira's estimate. If you edit your investment or project cost, the entered values will be used for the final appraisal.</p>
-                  {collectedFields.annual_turnover_estimate > 0 && <div className="flex justify-between text-slate-600"><span>Estimated annual sales</span><span>₹{Number(collectedFields.annual_turnover_estimate).toLocaleString("en-IN")}</span></div>}
+                  <p className="text-[11px] text-slate-500">{onboardingText(selectedLang, "costHint")}</p>
+                  {collectedFields.annual_turnover_estimate > 0 && <div className="flex justify-between text-slate-600"><span>{onboardingText(selectedLang, "annualSales")}</span><span>₹{Number(collectedFields.annual_turnover_estimate).toLocaleString("en-IN")}</span></div>}
                 </div>
               </div>
 
@@ -2877,38 +2836,38 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
               <div className="bg-white rounded-2xl border border-slate-200/90 p-4 space-y-3 shadow-xs">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  MSME Banking Policy
+                  {onboardingText(selectedLang, "bankingPolicy")}
                 </div>
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-500 font-medium">Loan Tenure</span>
+                    <span className="text-slate-500 font-medium">{onboardingText(selectedLang, "loanTenure")}</span>
                     <select
                       value={collectedFields.tenure_years || 7}
                       onChange={(e) => setCollectedFields(prev => ({ ...prev, tenure_years: Number(e.target.value) }))}
                       className="text-right font-semibold text-slate-800 bg-transparent border-b border-dashed border-slate-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 text-xs cursor-pointer"
                     >
                       {[3, 5, 7, 8, 10].map(y => (
-                        <option key={y} value={y}>{y} Years</option>
+                        <option key={y} value={y}>{y} {onboardingText(selectedLang, "years")}</option>
                       ))}
                     </select>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-500 font-medium">Moratorium</span>
+                    <span className="text-slate-500 font-medium">{onboardingText(selectedLang, "moratorium")}</span>
                     <select
                       value={collectedFields.moratorium_months ?? 6}
                       onChange={(e) => setCollectedFields(prev => ({ ...prev, moratorium_months: Number(e.target.value) }))}
                       className="text-right font-semibold text-slate-800 bg-transparent border-b border-dashed border-slate-300 focus:border-indigo-500 focus:outline-none px-1 py-0.5 text-xs cursor-pointer"
                     >
                       {[0, 3, 6, 9, 12].map(m => (
-                        <option key={m} value={m}>{m} Months</option>
+                        <option key={m} value={m}>{m} {onboardingText(selectedLang, "months")}</option>
                       ))}
                     </select>
                   </div>
                   {collectedFields.odop_product && (
                     <div className="flex justify-between">
-                      <span className="text-slate-500 font-medium">ODOP Status</span>
+                      <span className="text-slate-500 font-medium">{onboardingText(selectedLang, "odopStatus")}</span>
                       <span className="font-semibold text-indigo-600">
-                        {collectedFields.odop_synergy_aligned ? `Aligned (${collectedFields.odop_product})` : "Standard Model"}
+                        {collectedFields.odop_synergy_aligned ? `${onboardingText(selectedLang, "aligned")} (${collectedFields.odop_product})` : onboardingText(selectedLang, "standardModel")}
                       </span>
                     </div>
                   )}
@@ -2927,11 +2886,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 {parentLoading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>{selectedLang === "en" ? "Generating Report..." : "रिपोर्ट बना रहे हैं..."}</span>
+                    <span>{onboardingText(selectedLang, "generatingReport")}</span>
                   </>
                 ) : (
                   <>
-                    <span className="text-base">{selectedLang === "en" ? "Generate Feasibility Report" : "व्यवहार्यता रिपोर्ट बनाएँ"}</span>
+                    <span className="text-base">{onboardingText(selectedLang, "generateReport")}</span>
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}

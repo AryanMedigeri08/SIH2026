@@ -2,13 +2,82 @@
 
 import asyncio
 from unittest.mock import patch
+from fastapi.testclient import TestClient
 
 from backend.app.main import app  # Adds backend to import path for the application package.
 from backend.app.core.business_interpreter import interpret_business_idea
 from app.routers.onboarding import OnboardingRequest, _business_idea_clarification, process_onboarding_message
+from app.core.onboarding_locale import has_selected_script
 
 
 API = "/api/v2/chat/onboarding"
+
+
+def test_location_actions_never_fall_back_to_english_for_southern_languages():
+    for language in ("kn", "te", "ta"):
+        fields = {"state_name": "Karnataka", "district_name": "Bengaluru"}
+        for action, expected_phase in (
+            ("confirm_location", "business_idea"),
+            ("request_change_location", "location_menu"),
+            ("submit_new_location", "business_idea"),
+        ):
+            result = _turn("Continue", fields, action, language=language)
+            assert result["next_phase"] == expected_phase
+            assert has_selected_script(result["reply"], language)
+            assert "Wonderful" not in result["reply"]
+            assert has_selected_script(result["tts_text"], language)
+
+
+def test_kannada_location_confirmation_over_http_api():
+    response = TestClient(app).post(API, json={
+        "messages": [{"role": "user", "content": "ಹೌದು, ಇದೇ ಸ್ಥಳದೊಂದಿಗೆ ಮುಂದುವರಿಯೋಣ"}],
+        "language": "kn", "user_name": "Sneha",
+        "collected_fields": {"state_name": "Maharashtra", "district_name": "Pune"},
+        "current_action": "confirm_location", "conversation_step": 1,
+    })
+    assert response.status_code == 200
+    result = response.json()
+    assert result["next_phase"] == "business_idea"
+    assert has_selected_script(result["reply"], "kn")
+    assert has_selected_script(result["tts_text"], "kn")
+
+
+def test_southern_languages_remain_selected_through_full_onboarding():
+    with patch("app.routers.onboarding.chat_service._call_llm_chat_completion", side_effect=RuntimeError("offline")):
+        for language in ("kn", "te", "ta"):
+            fields = {"state_name": "Karnataka", "district_name": "Bengaluru", "is_rural": True}
+            location = _turn("Continue", fields, "confirm_location", language=language)
+            idea = _turn("I want to make paneer", fields, "business_idea", language=language)
+            assert idea["next_phase"] == "odop_check_prompt"
+            fields.update(idea["extracted_fields"])
+            verdict = _turn("Check", fields, "check_odop_alignment", language=language)
+            assert verdict["next_phase"] == "odop_alignment"
+            for detail in (
+                verdict["odop_alignment"]["what_is_odop"],
+                verdict["odop_alignment"]["mira_recommendation"],
+                verdict["odop_alignment"]["synergy_pillars"]["product_innovation"]["description"],
+            ):
+                assert has_selected_script(detail, language)
+            fields.update(verdict["extracted_fields"])
+            decision = _turn("Keep original", fields, "odop_decision", language=language, odop_decision="keep_original")
+            fields.update(decision["extracted_fields"])
+            fields.update({"enterprise_name": "Asha Paneer", "promoter_category": "obc"})
+            enterprise = _turn("Asha Paneer", fields, "submit_enterprise_info", language=language)
+            fields.update(enterprise["extracted_fields"])
+            investment = _turn("I can invest 1 lakh", fields, "promoter_equity", language=language)
+            fields.update(investment["extracted_fields"])
+            review = _turn("No machines", fields, "select_owned_machinery", language=language, selected_machines=[])
+            for result in (location, idea, verdict, decision, enterprise, investment, review):
+                assert has_selected_script(result["reply"], language), (language, result["next_phase"], result["reply"])
+                assert has_selected_script(result["tts_text"], language)
+            assert review["next_phase"] == "split_screen"
+
+
+def test_wrong_language_llm_answer_is_not_spoken_to_kannada_user():
+    with patch("app.routers.onboarding.chat_service._call_llm_chat_completion", return_value=("I heard tailoring, is that right?", None, "stub")):
+        reply = _business_idea_clarification("tailoring", "kn", {"sector": "apparel", "business_category": "service"}, True)
+    assert has_selected_script(reply, "kn")
+    assert "I heard" not in reply
 
 
 def _turn(text, fields=None, action=None, language="en", **extra):
