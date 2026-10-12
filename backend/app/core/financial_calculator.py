@@ -156,6 +156,21 @@ def _load_schemes() -> list[dict]:
     return _CACHED_SCHEMES
 
 
+def scheme_promoter_contribution_rate(scheme_id: str, promoter_category: str) -> float:
+    """Return the selected scheme's published beneficiary-contribution fraction.
+
+    An unknown scheme has no verified minimum; never borrow PMEGP's slab for it.
+    This is a planning benchmark, not proof that a lender has sanctioned a loan.
+    """
+    scheme = next((s for s in _load_schemes() if s["scheme_id"] == scheme_id), None)
+    if scheme is None:
+        return 0.0
+    contribution = scheme.get("promoter_contribution_pct") or {}
+    category = (promoter_category or "general").lower()
+    key = "general" if category == "general" else "special"
+    return max(float(contribution.get(key, 0.0)), 0.0)
+
+
 def emi_with_moratorium(
     principal: float,
     annual_rate_pct: float,

@@ -72,29 +72,9 @@ export function GovernmentSchemesPage({ reportData }) {
   const promoterMargin = fin.promoter_margin_amount || (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05));
   const termLoan = fin.loan_principal || Math.max(projectCost - subsidyAmount - promoterMargin, 0);
   const dscr = fin.dscr?.dscr ?? 1.33;
-  const districtLower = (p.district_name || '').toLowerCase();
-  const sectorLower = (p.sector || '').toLowerCase();
-  let fallbackProduct = "Terracotta Pottery & Dokra Metal Craft";
-  let fallbackAligned = false;
-
-  if (districtLower.includes('bankura')) {
-    fallbackProduct = "Terracotta Pottery & Dokra Metal Craft";
-    fallbackAligned = sectorLower === 'artisan_trades' || sectorLower === 'apparel';
-  } else if (districtLower.includes('bulandshahr')) {
-    fallbackProduct = "Khurja Glazed Pottery & Ceramic Ware";
-    fallbackAligned = sectorLower === 'fabrication' || sectorLower === 'artisan_trades' || sectorLower === 'manufacturing';
-  } else if (districtLower.includes('ujjain')) {
-    fallbackProduct = "Bhairavgarh Batik Print Textiles";
-    fallbackAligned = sectorLower === 'apparel' || sectorLower === 'artisan_trades';
-  }
-
-  const odop = reportData.odop_alignment || {
-    is_aligned: fallbackAligned,
-    odop_product: fallbackProduct,
-    status_text: fallbackAligned ? "ODOP ALIGNED" : "NON-ODOP SECTOR",
-    badge_title: fallbackAligned ? `Official ODOP Enterprise — ${p.district_name || 'District'} ${fallbackProduct}` : `Non-ODOP (${p.district_name || 'District'} ODOP: ${fallbackProduct})`,
-    pmfme_eligible: fallbackAligned,
-  };
+  const odop = reportData.odop_alignment?.has_odop_record
+    ? reportData.odop_alignment
+    : { has_odop_record: false, is_aligned: false, odop_product: null };
 
   const isReconsider = ml.verdict === 'RECONSIDER' || dscr < 1.0;
   const isCaution = ml.verdict === 'CAUTION' || (dscr >= 1.0 && dscr < 1.33);

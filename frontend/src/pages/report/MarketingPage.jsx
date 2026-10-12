@@ -56,55 +56,10 @@ export function MarketingPage({ reportData }) {
   const dailyCustomersGoal = Math.max(15, Math.round(turnover / (unitPrice * 312)) || 25);
   const catchmentSharePct = ((dailyCustomersGoal / households) * 100).toFixed(1);
 
-  // ODOP Cluster Alignment & Statutory Benefits
-  const districtLower = (district || '').toLowerCase();
-  const sectorLower = (sector || '').toLowerCase();
-  let fallbackProduct = "District Specialty Product";
-  let fallbackAligned = false;
-
-  if (districtLower.includes('bankura')) {
-    fallbackProduct = "Terracotta Pottery & Dokra Metal Craft";
-    fallbackAligned = sectorLower === 'artisan_trades' || sectorLower === 'apparel';
-  } else if (districtLower.includes('bulandshahr')) {
-    fallbackProduct = "Khurja Glazed Pottery & Ceramic Ware";
-    fallbackAligned = sectorLower === 'fabrication' || sectorLower === 'artisan_trades' || sectorLower === 'manufacturing';
-  } else if (districtLower.includes('ujjain')) {
-    fallbackProduct = "Bhairavgarh Batik Print Textiles";
-    fallbackAligned = sectorLower === 'apparel' || sectorLower === 'artisan_trades';
-  }
-
-  const odop = reportData?.odop_alignment || {
-    is_aligned: fallbackAligned,
-    odop_product: fallbackProduct,
-    district_name: district,
-    state_name: state,
-    category: fallbackAligned ? 'Food / Craft Processing (ODOP)' : 'Rural Commercial Enterprise',
-    pmfme_eligible: fallbackAligned,
-    gem_category: fallbackAligned ? 'ODOP Official Catalog' : 'General MSME Direct Procurement',
-    cfc_available: true,
-    key_benefits: fallbackAligned ? [
-      'PMFME 35% credit-linked capital subsidy up to ₹10 Lakhs',
-      'GeM ODOP seller corridor priority listing without tender',
-      'Common Facility Centre (CFC) testing & cold-chain access',
-      'District ODOP packaging seal authorization'
-    ] : [
-      'PMEGP 25%–35% rural capital subsidy via KVIC / DIC',
-      'GeM MSME Public Procurement corridor (25% reserved quota)',
-      'DIC District Industries Centre general enterprise support',
-      'FSSAI & local Gram Panchayat provenance branding'
-    ],
-    branding_seal: fallbackAligned ? {
-      seal_title: `District ODOP Certified Product — ${district}`,
-      recommended_price_premium_pct: 18.0,
-      labeling_compliance: 'FSSAI / Agmark / ODOP Registered Cluster',
-      is_seal_eligible: true,
-    } : {
-      seal_title: `Local Rural Enterprise — ${district}`,
-      recommended_price_premium_pct: 8.0,
-      labeling_compliance: 'Standard FSSAI / Gram Panchayat Certified',
-      is_seal_eligible: false,
-    }
-  };
+  // Never invent a district product or alignment when the registry has no record.
+  const odop = reportData?.odop_alignment?.has_odop_record
+    ? reportData.odop_alignment
+    : { has_odop_record: false, is_aligned: false, odop_product: null };
 
   // Interactive Tab State
   const [searchParams] = useSearchParams();
@@ -586,7 +541,11 @@ Support your local village entrepreneur! Please share this with your village Wha
 
         {/* Tab 5: ODOP & GeM Marketplace Linkage */}
         {activeTab === 'odop' && (
-          odop.is_aligned ? (
+          !odop.has_odop_record ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-700">
+              <TranslatedText text="No verified district ODOP mapping is available. Confirm the district product before using ODOP branding or incentives." />
+            </div>
+          ) : odop.is_aligned ? (
             <div className="space-y-5 animate-in fade-in duration-200">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                 <div>
@@ -748,31 +707,27 @@ Support your local village entrepreneur! Please share this with your village Wha
                       <div className="w-7 h-7 rounded-lg bg-amber-700 text-white flex items-center justify-center">
                         <Award className="w-4 h-4" />
                       </div>
-                      <span><TranslatedText text="1. Earthenware Cluster Packaging Synergy" /></span>
+                      <span><TranslatedText text="1. Local Packaging Opportunity" /></span>
                     </div>
                     <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold font-mono">
-                      +15%–20% <TranslatedText text="Artisanal Premium" />
+                      <TranslatedText text="Verify local suppliers" />
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
-                    {districtLower.includes('bankura') ? (
-                      <TranslatedText text="Partner with Bankura's famous Panchmura terracotta artisans (the district's notified ODOP craft) to package your curd (Mishti Doi), paneer, and ghee in authentic terracotta handis/matkas. Commands a 15–20% price premium over standard pouches while celebrating local GI heritage and 100% plastic-free sustainability." />
-                    ) : (
-                      <TranslatedText text="Collaborate with local artisanal packaging producers to provide eco-friendly, traditional container packaging that commands an authentic rural premium over industrial mass products while complying with FSSAI standards." />
-                    )}
+                    <TranslatedText text={`Explore packaging suppliers relevant to ${district}'s mapped ODOP product, ${odop.odop_product}. Confirm availability, food-safety requirements and actual customer willingness to pay before changing your packaging.`} />
                   </p>
                   <div className="p-3 rounded-xl bg-white border border-amber-200/80 text-[11px] font-mono text-slate-700 flex items-center justify-between">
                     <div>
                       <strong className="block text-slate-900 font-bold">
-                        {districtLower.includes('bankura') ? `"${enterpriseName} — Authentic Bankura Terracotta Packaged"` : `"${enterpriseName} — Pure Rural Origin • Authentic Local Quality"`}
+                        {`"${enterpriseName} — Local Origin"`}
                       </strong>
                       <span className="text-[10px] text-slate-500">
-                        {districtLower.includes('bankura') ? "Eco-Friendly Earthen Matka • GI Cluster Synergy" : "FSSAI Registered • Natural Local Produce"}
+                        <TranslatedText text="Check applicable packaging and labeling rules" />
                       </span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleCopy(districtLower.includes('bankura') ? `${enterpriseName} - Handcrafted in Bankura Terracotta` : `${enterpriseName} - Pure Rural Origin`, 'synergy_tag')}
+                      onClick={() => handleCopy(`${enterpriseName} - Local Origin`, 'synergy_tag')}
                       className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition shrink-0 ml-2"
                       title="Copy packaging tagline"
                     >

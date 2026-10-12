@@ -16,7 +16,7 @@ logger = logging.getLogger("udyam_saathi.feasibility")
 
 from financial_calculator import (
     emi_with_moratorium, working_capital_estimate, compute_dscr, rank_eligible_schemes,
-    compute_break_even_and_payback,
+    compute_break_even_and_payback, scheme_promoter_contribution_rate,
 )
 from market_analyzer import (
     project_population, estimate_tam, compute_msme_density, compute_competition_intensity,
@@ -127,20 +127,18 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     )
     top_scheme = next((r for r in schemes if r.eligible), schemes[0])
 
-    min_statutory_pct = 0.05 if input_data.promoter_category.lower() != "general" else 0.10
+    min_statutory_pct = scheme_promoter_contribution_rate(top_scheme.scheme_id, input_data.promoter_category)
     min_statutory_margin_val = round(input_data.project_cost * min_statutory_pct, 2)
 
     # Committed liquid promoter cash equity (from user onboarding/persistence)
-    if input_data.promoter_equity is not None and float(input_data.promoter_equity) > 0:
-        committed_cash_equity = float(input_data.promoter_equity)
-    else:
-        committed_cash_equity = min_statutory_margin_val
+    committed_cash_equity = max(float(input_data.promoter_equity or 0.0), 0.0)
 
-    # Promoter cash applied to net fresh borrowing outlay (ensuring statutory minimum is met)
-    promoter_cash_applied = max(
-        min_statutory_margin_val,
-        min(committed_cash_equity, max(input_data.project_cost - top_scheme.subsidy_grant_amount, min_statutory_margin_val))
+    # Do not fabricate a contribution to satisfy a scheme's minimum.
+    promoter_cash_applied = min(
+        committed_cash_equity,
+        max(input_data.project_cost - top_scheme.subsidy_grant_amount, 0.0),
     )
+    contribution_shortfall = max(min_statutory_margin_val - promoter_cash_applied, 0.0)
     loan_principal = max(input_data.project_cost - top_scheme.subsidy_grant_amount - promoter_cash_applied, 0.0)
     effective_loan_for_amort = max(loan_principal, 1.0)
     amort = emi_with_moratorium(effective_loan_for_amort, top_scheme.effective_interest_rate_pct, input_data.tenure_years, input_data.moratorium_months)
@@ -149,6 +147,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         amort.total_interest = 0.0
         amort.total_repayment = 0.0
     promoter_margin_val = promoter_cash_applied
+    available_cash_reserve = max(committed_cash_equity - promoter_cash_applied, 0.0)
 
     # Intelligently ground annual turnover with physical machine capacity, Census TAM, and RBI debt solvency
     turnover_audit = calculate_intelligent_turnover(
@@ -219,7 +218,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     fv = extract_features_from_pipeline_objects(
         pop, tam, dens, comp, top_scheme, amort, dscr_res, wc,
         input_data.project_cost, input_data.annual_turnover_estimate,
-        infra_score, cpi_pct, weather_score, promoter_margin_val,
+        infra_score, cpi_pct, weather_score, available_cash_reserve,
     )
     ml_pred = predict_viability(fv)
     logger.info(
@@ -228,7 +227,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     )
 
     # 7. Risk Assessment & Grounded SWOT (Tier 1 + Tier 2)
-    wc_buf = promoter_margin_val / wc.monthly_working_capital_outlay if wc.monthly_working_capital_outlay else 0.0
+    wc_buf = available_cash_reserve / wc.monthly_working_capital_outlay if wc.monthly_working_capital_outlay else 0.0
 
     risks = build_risk_matrix(
         dscr_res.dscr, amort.monthly_emi, tam.annual_tam, input_data.annual_turnover_estimate,
@@ -432,9 +431,12 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
             "loan_principal": loan_principal,
             "promoter_margin_amount": promoter_cash_applied,
             "committed_promoter_equity": committed_cash_equity,
+            "uncommitted_cash_reserve": available_cash_reserve,
+            "working_capital_months_buffer": wc_buf,
             "promoter_equity": committed_cash_equity,
             "minimum_statutory_margin_amount": min_statutory_margin_val,
             "minimum_statutory_margin_pct": round(min_statutory_pct * 100, 1),
+            "scheme_contribution_shortfall": contribution_shortfall,
             "statutory_margin_amount": min_statutory_margin_val,
             "gross_project_cost": input_data.gross_project_cost or input_data.project_cost,
             "owned_machinery_value": input_data.owned_machinery_value or 0.0,

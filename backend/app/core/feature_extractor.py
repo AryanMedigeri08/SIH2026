@@ -12,7 +12,7 @@ Feature Vector Specification:
     x4: msme_density_per_10k           [0.0 - 200.0] (registered MSMEs per 10k pop)
     x5: infrastructure_score           [0.0 - 10.0]  (composite: road+haat+power+bank+PDS)
     x6: cpi_inflation_pct              [-2.0 - 20.0] (state rural CPI inflation)
-    x7: working_capital_months_buffer  [0.0 - 24.0]  (promoter margin / monthly WC outlay)
+    x7: working_capital_months_buffer  [0.0 - 24.0]  (uncommitted cash reserve / monthly WC outlay)
     x8: competition_intensity          [0.0 - 1.0]   (estimated competitors per 1k catchment)
     x9: weather_risk_score             [0.0 - 1.0]   (heavy rain days fraction from Open-Meteo)
 
@@ -225,14 +225,15 @@ def extract_features_from_pipeline_objects(
     infrastructure_score: float,
     cpi_inflation_pct: float,
     weather_risk_score: float,
-    promoter_margin_amount: float,
+    available_cash_reserve: float,
 ) -> FeatureVector:
     """
     Direct helper to extract features when chaining Phase 2 module outputs.
     """
     subsidy_ratio = top_scheme.subsidy_grant_amount / project_cost if project_cost > 0 else 0.0
     loan_to_inc = amort_res.principal / annual_turnover if annual_turnover > 0 else 1.0
-    wc_buf = promoter_margin_amount / wc_res.monthly_working_capital_outlay if wc_res.monthly_working_capital_outlay > 0 else 0.0
+    # Cash already committed to the project cannot also cover operating shortfalls.
+    wc_buf = max(available_cash_reserve, 0.0) / wc_res.monthly_working_capital_outlay if wc_res.monthly_working_capital_outlay > 0 else 0.0
 
     return extract_features(
         dscr=dscr_res.dscr,

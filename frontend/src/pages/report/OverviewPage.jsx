@@ -86,31 +86,10 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   const avgRisk = risks.average_risk_score ?? (risks.verdict?.average_risk_score ?? 3.0);
   const riskSeverity = risks.composite_grade || (risks.verdict?.overall_severity || 'MODERATE');
   const reportId = reportData.report_id;
-  const districtLower = (p.district_name || '').toLowerCase();
-  const sectorLower = (p.sector || '').toLowerCase();
-
-  let fallbackAligned = false;
-  let fallbackProduct = "District Handicrafts & Produce";
-  if (districtLower.includes('bankura')) {
-    fallbackProduct = "Terracotta Pottery & Dokra Metal Craft";
-    fallbackAligned = sectorLower === 'artisan_trades' || sectorLower === 'apparel';
-  } else if (districtLower.includes('bulandshahr')) {
-    fallbackProduct = "Khurja Glazed Pottery & Ceramic Ware";
-    fallbackAligned = sectorLower === 'fabrication' || sectorLower === 'artisan_trades' || sectorLower === 'manufacturing';
-  } else if (districtLower.includes('ujjain')) {
-    fallbackProduct = "Bhairavgarh Batik Print Textiles";
-    fallbackAligned = sectorLower === 'apparel' || sectorLower === 'artisan_trades';
-  }
-
-  const odop = reportData.odop_alignment || {
-    is_aligned: fallbackAligned,
-    odop_product: fallbackProduct,
-    status_text: fallbackAligned ? "ODOP ALIGNED" : "NON-ODOP SECTOR",
-    badge_title: fallbackAligned ? `Official ODOP Enterprise — ${p.district_name || 'District'} ${fallbackProduct}` : `Non-ODOP (${p.district_name || 'District'} ODOP: ${fallbackProduct})`,
-    pmfme_eligible: false,
-    rbi_psl_category: sectorLower === 'dairy' ? 'Agri-Allied Dairy (General PSL)' : 'General MSME Priority Lending',
-    supply_chain_resilience_verdict: fallbackAligned ? 'HIGH (ODOP Cluster Integrated)' : 'STANDARD (Independent Enterprise)',
-  };
+  // The backend registry is the sole authority for district ODOP designations.
+  const odop = reportData.odop_alignment?.has_odop_record
+    ? reportData.odop_alignment
+    : { has_odop_record: false, is_aligned: false, odop_product: null };
 
   // Exact Demographic & TAM Values
   const pop2026 = demographics.population_projection?.projected_population || demographics.catchment_population_2026 || demographics.census_details?.total_population || 0;
@@ -354,7 +333,11 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
       </div>
 
       {/* Persona-Tailored ODOP Program Advantage / District Context Banner */}
-      {isBeneficiary ? (
+      {!odop.has_odop_record ? (
+        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-700">
+          <TranslatedText text="No verified district ODOP mapping is available for this report. Check the district registry before claiming an ODOP benefit." />
+        </div>
+      ) : isBeneficiary ? (
         odop.is_aligned ? (
           <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50/80 via-white to-emerald-50/70 border border-amber-200/90 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-start gap-3">

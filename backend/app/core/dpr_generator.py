@@ -87,6 +87,7 @@ class MeansOfFinanceTable(BaseModel):
     committed_promoter_equity: Optional[float] = None
     minimum_statutory_margin_amount: Optional[float] = None
     minimum_statutory_margin_pct: Optional[float] = None
+    scheme_contribution_shortfall: float = 0.0
     owned_machinery_value: Optional[float] = 0.0
     gross_project_cost: Optional[float] = None
     net_project_cost: Optional[float] = None
@@ -593,14 +594,13 @@ def build_bank_dpr(
     subsidy_amt = top_scheme.subsidy_grant_amount
     subsidy_pct = (subsidy_amt / project_cost * 100) if project_cost > 0 else 0.0
 
-    min_statutory_pct = 5.0 if promoter_category.lower() != "general" else 10.0
+    from financial_calculator import scheme_promoter_contribution_rate
+
+    min_statutory_pct = 100.0 * scheme_promoter_contribution_rate(top_scheme.scheme_id, promoter_category)
     min_statutory_margin_amt = round(project_cost * (min_statutory_pct / 100.0), 2)
 
-    committed_cash_equity = float(promoter_equity) if promoter_equity and float(promoter_equity) > 0 else min_statutory_margin_amt
-    promoter_cash_applied = max(
-        min_statutory_margin_amt,
-        min(committed_cash_equity, max(project_cost - subsidy_amt, min_statutory_margin_amt))
-    )
+    committed_cash_equity = max(float(promoter_equity or 0.0), 0.0)
+    promoter_cash_applied = min(committed_cash_equity, max(project_cost - subsidy_amt, 0.0))
 
     if loan_principal is not None:
         bank_loan_amt = max(float(loan_principal), 0.0)
@@ -608,7 +608,7 @@ def build_bank_dpr(
         bank_loan_amt = max(project_cost - subsidy_amt - promoter_cash_applied, 0.0)
 
     # Balanced promoter equity share for the borrowing base
-    promoter_margin_amt = max(project_cost - subsidy_amt - bank_loan_amt, min_statutory_margin_amt)
+    promoter_margin_amt = max(project_cost - subsidy_amt - bank_loan_amt, 0.0)
     promoter_pct = (promoter_margin_amt / project_cost * 100) if project_cost > 0 else min_statutory_pct
     bank_loan_pct = (bank_loan_amt / project_cost * 100) if project_cost > 0 else 0.0
 
@@ -625,6 +625,7 @@ def build_bank_dpr(
         committed_promoter_equity=round(committed_cash_equity, 2),
         minimum_statutory_margin_amount=round(min_statutory_margin_amt, 2),
         minimum_statutory_margin_pct=round(min_statutory_pct, 1),
+        scheme_contribution_shortfall=round(max(min_statutory_margin_amt - promoter_margin_amt, 0.0), 2),
         owned_machinery_value=round(owned_val, 2),
         gross_project_cost=round(gross_val, 2),
         net_project_cost=round(project_cost, 2),
@@ -803,7 +804,7 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
         f"\n### Means of Finance Reconciliation:",
         f"| Financing Source | % Share | Amount (₹) | Scheme / Terms |",
         f"| :--- | :---: | :---: | :--- |",
-        f"| **Promoter Cash Equity Committed** | {finance['promoter_margin_pct']:.1f}% | ₹{finance.get('committed_promoter_equity', finance['promoter_margin_amount']):,.2f} | Liquid cash equity (Min statutory bank margin: ₹{finance.get('minimum_statutory_margin_amount', finance['promoter_margin_amount']):,.2f} / {finance.get('minimum_statutory_margin_pct', 10)}%) |",
+        f"| **Promoter Cash Applied** | {finance['promoter_margin_pct']:.1f}% | ₹{finance['promoter_margin_amount']:,.2f} | Declared cash: ₹{finance.get('committed_promoter_equity', 0):,.2f}; scheme minimum: ₹{finance.get('minimum_statutory_margin_amount', 0):,.2f} / {finance.get('minimum_statutory_margin_pct', 0)}%; shortfall: ₹{finance.get('scheme_contribution_shortfall', 0):,.2f} |",
         f"| **Government Capital Subsidy Grant** | {finance['capital_subsidy_pct']:.1f}% | ₹{finance['capital_subsidy_amount']:,.2f} | {finance['subsidy_scheme_name']} |",
         f"| **Bank Term Loan / Debt** | {finance['bank_term_loan_pct']:.1f}% | ₹{finance['bank_term_loan_amount']:,.2f} | Scheduled Commercial Bank Loan |",
         f"| **TOTAL MEANS OF FINANCE** | **100.0%** | **₹{finance['total_means_of_finance']:,.2f}** | **Balanced: {finance['reconciliation_balanced']}** |",
@@ -1327,7 +1328,7 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
 <h3>B. Means of Finance (Sources of Funds):</h3>
 <table>
     <tr><th>Financing Means</th><th class="num">% Share</th><th class="num">Amount (₹)</th><th>Terms / Funding Source</th></tr>
-    <tr><td><strong>Promoter Cash Equity Committed</strong><br/><span style="font-size:10px; color:#64748b;">Min statutory bank margin: ₹{finance.get('minimum_statutory_margin_amount', finance['promoter_margin_amount']):,.2f} ({finance.get('minimum_statutory_margin_pct', 10):.1f}%)</span></td><td class="num">{finance['promoter_margin_pct']:.1f}%</td><td class="num" style="font-weight:bold; color:#0369a1;">₹{finance.get('committed_promoter_equity', finance['promoter_margin_amount']):,.2f}</td><td>Liquid equity funds committed (₹{finance['promoter_margin_amount']:,.2f} applied to borrowing base)</td></tr>
+    <tr><td><strong>Promoter Cash Applied</strong><br/><span style="font-size:10px; color:#64748b;">Scheme minimum contribution: ₹{finance.get('minimum_statutory_margin_amount', 0):,.2f} ({finance.get('minimum_statutory_margin_pct', 0):.1f}%)</span></td><td class="num">{finance['promoter_margin_pct']:.1f}%</td><td class="num" style="font-weight:bold; color:#0369a1;">₹{finance['promoter_margin_amount']:,.2f}</td><td>₹{finance.get('committed_promoter_equity', 0):,.2f} declared; ₹{finance.get('scheme_contribution_shortfall', 0):,.2f} minimum-contribution shortfall</td></tr>
     <tr><td>Government Capital Subsidy Grant</td><td class="num">{finance['capital_subsidy_pct']:.1f}%</td><td class="num">₹{finance['capital_subsidy_amount']:,.2f}</td><td>{finance['subsidy_scheme_name']}</td></tr>
     <tr><td>Bank Term Loan / Debt Facility</td><td class="num">{finance['bank_term_loan_pct']:.1f}%</td><td class="num">₹{finance['bank_term_loan_amount']:,.2f}</td><td>Scheduled Commercial Bank Term Loan</td></tr>
     <tr style="font-weight:bold; background:#f8fafc;"><td>TOTAL MEANS OF FINANCE</td><td class="num">100.0%</td><td class="num">₹{finance['total_means_of_finance']:,.2f}</td><td><strong>Reconciliation Status: Balanced ({reconciled_status})</strong></td></tr>
