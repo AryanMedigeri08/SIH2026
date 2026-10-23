@@ -18,10 +18,12 @@ def main():
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--details", action="store_true", help="Print synthetic calculation inputs and results")
     parser.add_argument("--sizing-only", action="store_true", help="Exercise only catchment-led machinery selection")
+    parser.add_argument("--operations-only", action="store_true", help="Exercise only saleable-unit conversion and monthly sales")
+    parser.add_argument("--idea", default="A small paneer manufacturing business selling to households in a rural village")
     args = parser.parse_args()
     call = chat_service._call_llm_chat_completion if args.live else None
-    idea = "A small paneer manufacturing business selling to households in a rural village"
-    interpretation = interpret_business_idea(idea, None if args.sizing_only else call)
+    idea = args.idea
+    interpretation = interpret_business_idea(idea, None if args.sizing_only or args.operations_only else call)
     evidence = {
         "idea": idea, "sector": interpretation["sector"],
         "business_category": interpretation["business_category"], "project_cost": 500000,
@@ -30,7 +32,7 @@ def main():
         "cpi": {"annual_pct": 5, "source": "synthetic_smoke_fixture"},
         "evidence_type": "synthetic_test_data",
     }
-    plan = select_machinery_capacity(interpretation["machinery_plan"], evidence, call)
+    plan = select_machinery_capacity(interpretation["machinery_plan"], evidence, None if args.operations_only else call)
     evidence["machinery_profile"] = plan
     if args.sizing_only:
         print(json.dumps({"selected_variant": plan.get("selected_capacity_variant_id"),
@@ -42,6 +44,16 @@ def main():
     assumptions = estimate_operations(evidence, call)
     operations = calculate_operations(assumptions)
     capacity = assumptions["capacity"]
+    if args.operations_only:
+        print(json.dumps({"source": operations["calculation_source"], "model": assumptions["model"],
+            "conversion": assumptions.get("conversion"), "capacity": capacity,
+            "monthly_production_capacity": operations["monthly_saleable_capacity"],
+            "monthly_sales_units": operations["monthly_sales_units"], "output_unit": operations["output_unit"],
+            "selling_price_inr": operations["selling_price_inr"], "monthly_gross_sales": operations["monthly_gross_sales"],
+            "annual_sales": operations["annual_sales"]}, ensure_ascii=True))
+        if args.live and operations["calculation_source"] != "llm_calculated":
+            raise SystemExit("Fallback report works, but live monthly production/sales conversion did not validate.")
+        return
     finance = calculate_report_finance(operations, {
         "project_cost": 500000, "loan_principal": 300000, "annual_rate_pct": 10,
         "tenure_years": 7, "moratorium_months": 6, "sector": interpretation["sector"],
@@ -57,7 +69,7 @@ def main():
         "financial_calculation_source": finance["source"], "financial_model": finance["model"],
         "dscr": finance["result"].dscr.dscr}, ensure_ascii=True))
     if args.details:
-        print(json.dumps({"capacity": assumptions["capacity"], "values": assumptions["values"],
+        print(json.dumps({"capacity": assumptions["capacity"], "conversion": assumptions.get("conversion"), "values": assumptions["values"],
             "calculations": {key: value for key, value in operations.items() if key != "assumptions"},
             "first_year": finance["result"].projections[0].model_dump()}, ensure_ascii=True))
     if args.live and (interpretation["interpretation_source"] != "llm_interpreted" or

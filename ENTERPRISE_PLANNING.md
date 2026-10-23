@@ -57,6 +57,31 @@ service. Negative profits and poor coverage remain visible.
 
 Validation:
 
+Every operating LLM response now requires a `conversion` contract. It defines the
+actual enterprise model, capacity basis (raw input, finished output, retail supply,
+service hours/jobs or stored stock), one explicit sold unit and portion size,
+capacity consumed per sold unit, working schedule, billing period, storage cycles
+and annual-average seasonality factor. The model supplies the numeric conversion
+and final monthly production, monthly sold quantity and monthly gross sales.
+Generic fallback sector prices and 1:1 recipe seeds are no longer sent to the model.
+
+The authoritative revenue quantity is `monthly_sales_units`, constrained by the
+converted saleable capacity and reachable average demand. `monthly_gross_sales`
+must equal this quantity times the price for the same defined sold unit, and
+annual sales must equal monthly gross sales times twelve. Validation checks the
+model's schedule, portions, recipe consistency, seasonal demand and arithmetic;
+it does not restore the disabled parser or invent a replacement conversion. A
+bounded repair asks the LLM to fix errors. When only operating arithmetic fails,
+the fallback preserves the validated conversion and uses the same unit definition
+and seasonal factor. Complete provider/schema failure retains the labelled
+indicative fallback so report generation stays available.
+
+The dashboard shows the sold-unit definition, monthly production capacity, monthly
+gross sales and the conversion basis. This improves dimensional consistency; an
+LLM-estimated recipe, serving size or price still needs business/supplier validation.
+This change does not reconcile the separate equity-derived project outlay with
+selected equipment cost or change the financing/moratorium conventions.
+
 Machinery sizing: all 37 profiles now contain five explicit capacity variants
 (starter, small, medium, reference and expanded), with the original reference
 equipment records retained. `scripts/populate_machinery_variants.py` authors these
@@ -90,9 +115,11 @@ Equipment cost is a component of project outlay, not a replacement for total out
 
 ```text
 python -m pytest tests/test_machinery_variants.py -q
+python -m pytest tests/test_production_conversion.py -q
 python -m pytest tests/test_enterprise_assumptions.py tests/test_enterprise_report_flow.py tests/test_llm_calculation_modes.py tests/test_planning_llm_transport.py tests/test_onboarding_sequence.py tests/test_odop_chat_flow.py -q
 python scripts/smoke_enterprise_planning.py --live --details
 python scripts/smoke_enterprise_planning.py --live --sizing-only
+python scripts/smoke_enterprise_planning.py --live --operations-only --idea "Ice cream in 100 ml cups"
 cd frontend
 node --test tests/financialsRender.test.js tests/planningAssumptionsRender.test.js tests/machineryCapacityRender.test.js
 npm run build

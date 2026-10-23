@@ -6,6 +6,7 @@ export function PlanningAssumptionsCard({ financialData }) {
   const assumptions = financialData?.planning_assumptions;
   if (!model || !assumptions?.values) return null;
   const a = assumptions.values;
+  const conversion = assumptions.conversion;
   const money = value => Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 });
   return (
     <div className="glass-panel p-4 sm:p-6 bg-white border border-slate-200 rounded-xl space-y-3">
@@ -19,12 +20,20 @@ export function PlanningAssumptionsCard({ financialData }) {
         <div><p className="text-slate-500"><TranslatedText text="Variable cost" /></p><strong>₹{money(model.variable_cost_per_output_unit)}/{a.output_unit}</strong></div>
         <div><p className="text-slate-500"><TranslatedText text="Monthly sales volume" /></p><strong>{money(model.monthly_sales_units)} {a.output_unit}</strong></div>
       </div>
+      {conversion?.saleable_unit_definition && (
+        <p className="text-xs font-medium text-slate-700"><TranslatedText text="Saleable unit" />: <TranslatedText text={conversion.saleable_unit_definition} /></p>
+      )}
       <p className="text-xs text-slate-600"><TranslatedText text={a.rationale} /></p>
       <details className="text-xs text-slate-600">
         <summary className="cursor-pointer"><TranslatedText text="View calculation assumptions" /></summary>
         <p className="mt-2">{a.input_units_per_output_unit} {a.input_unit}/{a.output_unit} · ₹{money(a.raw_material_cost_per_input_unit_inr)}/{a.input_unit} · {Math.round(a.utilization * 100)}% <TranslatedText text="utilization" /> · {Math.round(a.market_share * 100)}% <TranslatedText text="local market share" /></p>
         <p className="mt-1"><TranslatedText text={assumptions.source_summary} /></p>
         {assumptions.capacity?.basis && <p className="mt-1"><TranslatedText text={assumptions.capacity.basis} /></p>}
+        {conversion && <>
+          <p className="mt-2"><TranslatedText text="Monthly production capacity" />: {money(model.monthly_saleable_capacity)} {a.output_unit} · <TranslatedText text="Estimated monthly gross sales" />: ₹{money(model.monthly_gross_sales)}</p>
+          <p className="mt-1"><TranslatedText text={conversion.conversion_basis} /></p>
+          <p className="mt-1"><TranslatedText text="Annual-average seasonality factor" />: {money(conversion.seasonality_factor)}</p>
+        </>}
         {financialData.financial_calculation_source === 'llm_calculated' && (
           <p className="mt-1"><TranslatedText text="Capacity, conversions and report calculations provided by AI" /></p>
         )}

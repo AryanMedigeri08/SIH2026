@@ -15,8 +15,11 @@ test('financial report renders estimated sales, persisted projections and losses
       input_parameters: { project_cost: 500000, annual_turnover_estimate: 72000 },
       financial_analysis: {
         loan_principal: 300000, dscr: { dscr: -.5 }, amortization: { monthly_emi: 4000 },
-        operating_model: { annual_sales: 72000, monthly_sales_units: 100, variable_cost_per_output_unit: 65 },
-        planning_assumptions: { source_summary: 'Indicative planning estimate', values: {
+        operating_model: { annual_sales: 72000, monthly_sales_units: 100, monthly_gross_sales: 6000, monthly_saleable_capacity: 200, variable_cost_per_output_unit: 65 },
+        planning_assumptions: { source_summary: 'Indicative planning estimate', conversion: {
+          saleable_unit_definition: '1 kg of finished product', seasonality_factor: .7,
+          conversion_basis: 'One kg sold from 1.1 kg input; 25 operating days.',
+        }, values: {
           selling_price_inr: 60, output_unit: 'kg', input_unit: 'kg', input_units_per_output_unit: 1.1,
           raw_material_cost_per_input_unit_inr: 50, utilization: .75, market_share: .25,
           rationale: 'Optimistic estimate using the village catchment.',
@@ -33,6 +36,11 @@ test('financial report renders estimated sales, persisted projections and losses
     assert.match(html, /72,000/);
     assert.match(html, /-10,000/);
     assert.match(html, /-0.50/);
+    assert.match(html, /1 kg of finished product/);
+    assert.match(html, /Monthly production capacity/);
+    assert.match(html, /Estimated monthly gross sales/);
+    assert.match(html, /6,000/);
+    assert.match(html, /One kg sold from 1.1 kg input/);
     assert.doesNotMatch(html, /cannot be predicted|insufficient numbers|9,50,000/i);
     const noDebt = render({ ...reportData, financial_analysis: { ...reportData.financial_analysis,
       debt_service_required: false, dscr: { dscr: 0, verdict: 'NO DEBT' } } });

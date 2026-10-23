@@ -12,6 +12,7 @@ from app.core.amenities_client import VillageAmenitiesResult
 from app.core.inference import _rule_based_fallback
 from app.core.executive_synthesizer import ExecutiveSynthesis
 from dpr_generator import dpr_to_html, dpr_to_printable_markdown
+from tests.planning_fixtures import raw_input_conversion
 
 
 @pytest.mark.parametrize("reply,own_capital", [(None, 100000), ("[]", 100000), ('{"selling_price_inr":null}', 500000), ("valid", 100000)])
@@ -44,6 +45,7 @@ def test_report_completes_and_dashboard_matches_export(monkeypatch, reply, own_c
                 quantity = package["evidence"]["machinery_profile"]["capacity"]["quantity"]
                 seed["values"]["rated_monthly_input_units"] = quantity * 25
                 return json.dumps({"values": seed["values"], "calculations": calculate_operations(seed),
+                    "conversion": raw_input_conversion(seed["values"]),
                     "capacity": {"quantity": quantity, "unit": "litres", "period": "day", "monthly_quantity": quantity * 25,
                         "capacity_kind": "throughput", "basis": f"{quantity} litres/day * 25 working days"}}), None, "test"
             return json.dumps({"sector": "dairy", "business_category": "manufacturing", "business_type": "manufacturing",
@@ -74,6 +76,10 @@ def test_report_completes_and_dashboard_matches_export(monkeypatch, reply, own_c
     assert report.input_parameters.machinery_plan["selected_capacity_variant_id"] == "starter"
     assert fin["planning_assumptions"]["evidence"]["machinery_profile"]["capacity"]["quantity"] == 100
     if reply == "valid":
+        definition = fin["planning_assumptions"]["conversion"]["saleable_unit_definition"]
+        assert definition in dpr_to_html(dpr)
+        assert definition in dpr_to_printable_markdown(dpr)
+        assert report.pricing_recommendation["saleable_unit_definition"] == definition
         assert fin["operating_model"]["calculation_source"] == "llm_calculated"
         assert fin["financial_calculation_source"] == "llm_calculated"
         assert fin["average_dscr"] == dpr.section_3_financial_projections.average_dscr

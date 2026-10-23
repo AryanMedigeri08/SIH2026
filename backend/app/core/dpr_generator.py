@@ -807,6 +807,9 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
     if dpr.planning_assumptions:
         a = dpr.planning_assumptions["values"]
         lines.append(f"**Optimistic planning estimate**: Selling price ₹{a['selling_price_inr']:,.2f}/{a['output_unit']}; input requirement {a['input_units_per_output_unit']:g} {a['input_unit']}/{a['output_unit']}; raw input cost ₹{a['raw_material_cost_per_input_unit_inr']:,.2f}/{a['input_unit']}. {a['rationale']}")
+        conversion = dpr.planning_assumptions.get("conversion")
+        if conversion:
+            lines.append(f"**Saleable unit**: {conversion['saleable_unit_definition']}. {conversion['conversion_basis']}")
     for idx, rec in enumerate(ai.get("strategic_recommendations", []), 1):
         lines.append(f"{idx}. {rec}")
 
@@ -1139,6 +1142,11 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
             f"input requirement: {a['input_units_per_output_unit']:g} {escape(a['input_unit'])}/{escape(a['output_unit'])}; "
             f"raw input cost: ₹{a['raw_material_cost_per_input_unit_inr']:,.2f}/{escape(a['input_unit'])}. "
             f"{escape(a['rationale'])}</div>")
+        conversion = doc.planning_assumptions.get("conversion")
+        if conversion:
+            assumptions_html += ("<div style='padding:10px;border:1px solid #cbd5e1;margin:12px 0'>"
+                f"<strong>Saleable unit:</strong> {escape(conversion['saleable_unit_definition'])}<br/>"
+                f"{escape(conversion['conversion_basis'])}</div>")
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>

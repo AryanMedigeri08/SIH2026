@@ -256,7 +256,9 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
 
     # 8. Executive AI Synthesis & Grounded SWOT (Tier 3)
     synthesis = generate_executive_synthesis({
-        "planning_assumptions_summary": {"values": assumptions["values"], "source": assumptions["source_summary"], "scenario": assumptions["scenario"]},
+        "planning_assumptions_summary": {"values": assumptions["values"], "conversion": assumptions.get("conversion"),
+            "monthly_sales_units": operations["monthly_sales_units"], "monthly_gross_sales": operations["monthly_gross_sales"],
+            "source": assumptions["source_summary"], "scenario": assumptions["scenario"]},
         "enterprise_name": input_data.enterprise_name,
         "business_category": input_data.business_category,
         "sector": input_data.sector,
@@ -503,7 +505,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         } if resolved_lat is not None else None,
     )
 
-    feasibility_report.pricing_recommendation.update({"output_unit": operations["output_unit"], "price_source": assumptions["source_summary"], "selling_price_inr": operations["selling_price_inr"], "variable_cost_per_output_unit": operations["variable_cost_per_output_unit"], "monthly_fixed_cost_inr": assumptions["values"]["monthly_fixed_cost_inr"]})
+    feasibility_report.pricing_recommendation.update({"output_unit": operations["output_unit"], "saleable_unit_definition": operations.get("saleable_unit_definition"), "price_source": assumptions["source_summary"], "selling_price_inr": operations["selling_price_inr"], "variable_cost_per_output_unit": operations["variable_cost_per_output_unit"], "monthly_fixed_cost_inr": assumptions["values"]["monthly_fixed_cost_inr"]})
     return feasibility_report, dpr_doc
 
 

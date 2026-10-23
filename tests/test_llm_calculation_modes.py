@@ -8,6 +8,7 @@ from backend.app.core.enterprise_assumptions import estimate_operations, calcula
 from backend.app.core.llm_capacity import interpret_capacity
 from backend.app.core.llm_json import response_object
 from backend.app.core.llm_json import structured_response_format
+from tests.planning_fixtures import raw_input_conversion
 
 
 def operations():
@@ -110,6 +111,7 @@ def test_invalid_operating_arithmetic_is_not_accepted_as_llm_calculated():
         "project_cost": 500000, "business_category": "manufacturing"}
     seed = estimate_operations(ctx)
     good = {"values": seed["values"], "calculations": calculate_operations(seed),
+        "conversion": raw_input_conversion(seed["values"]),
         "capacity": dict(quantity=0, unit=seed["values"]["input_unit"], period="unknown",
             monthly_quantity=seed["values"]["rated_monthly_input_units"], capacity_kind="unknown", basis="Fixture planning estimate")}
     bad = json.loads(json.dumps(good))
