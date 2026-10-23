@@ -140,52 +140,9 @@ def parse_monthly_capacity(capacity_str: str) -> Tuple[float, str]:
       - "300 garments/day" -> (7500.0, "garments")
       - "1 Ton/hour" -> (200000.0, "kg")
     """
-    if not capacity_str:
-        return 5000.0, "units"
-
-    cap_clean = capacity_str.lower().replace(",", "").strip()
-
-    # Look for number
-    num_match = re.search(r'(\d+(?:\.\d+)?)', cap_clean)
-    if not num_match:
-        return 5000.0, "units"
-
-    val = float(num_match.group(1))
-
-    # Detect unit
-    unit = "units"
-    if "kg" in cap_clean:
-        unit = "kg"
-    elif "litre" in cap_clean or "liter" in cap_clean or " l " in cap_clean or cap_clean.endswith(" l"):
-        unit = "litres"
-    elif "brick" in cap_clean:
-        unit = "bricks"
-    elif "garment" in cap_clean or "piece" in cap_clean:
-        unit = "pieces"
-    elif "bag" in cap_clean:
-        unit = "bags"
-    elif "cup" in cap_clean:
-        unit = "cups"
-    elif "box" in cap_clean:
-        unit = "boxes"
-    elif "ton" in cap_clean:
-        unit = "tons"
-    elif "vehicle" in cap_clean:
-        unit = "vehicles"
-
-    # Scale to month (25 operating days)
-    if "/hour" in cap_clean or "per hour" in cap_clean or "hour" in cap_clean:
-        monthly_val = val * 8 * 25  # 8 hrs/day * 25 days
-    elif "/month" in cap_clean or "per month" in cap_clean or "month" in cap_clean:
-        monthly_val = val
-    else:  # /day or default daily
-        monthly_val = val * 25
-
-    if unit == "tons" and monthly_val < 500:
-        monthly_val *= 1000  # convert to kg for granular accounting
-        unit = "kg"
-
-    return round(monthly_val, 1), unit
+    from .capacity_units import parse_capacity
+    capacity = parse_capacity(capacity_str)
+    return float(capacity.monthly_quantity or 0), capacity.unit
 
 
 def detect_owned_machinery(
@@ -536,9 +493,9 @@ def calculate_intelligent_turnover(
        - Service: ~1.8x - 2.0x of Project Cost
     3. Catchment Market Demand (Census 2011 Catchment TAM):
        - If annual_tam is known, realistic village micro-enterprise market capture is 10% - 25% of TAM.
-    4. Debt Service Solvency Guardrail (RBI DSCR >= 1.33):
-       - At 30% Net Operating Income margin, minimum viable turnover to service loan EMI is:
-         Turnover_min = (1.33 * monthly_emi * 12) / 0.30 ≈ 53.2 * monthly_emi.
+    The monthly_emi parameter is retained for API compatibility. It never
+    changes projected sales: debt coverage must remain an independent outcome.
+    Full reports use enterprise_assumptions for product and local demand economics.
     """
     cost = max(float(project_cost or 500000.0), 10000.0)
     sector_lower = (sector or "general").lower().strip()
@@ -570,12 +527,6 @@ def calculate_intelligent_turnover(
         capacity_turnover = year1_units * price_per_unit
         capacity_derivation = f"Year 1 Commercial Ramp (65% capacity = {year1_units:,.0f} units @ ₹{price_per_unit:,.0f}/unit)"
 
-    # 3. Solvency Guardrail (RBI DSCR >= 1.33)
-    min_solvency_turnover = 0.0
-    if monthly_emi and monthly_emi > 0:
-        # DSCR = (Turnover * 0.30 / 12) / EMI >= 1.33
-        min_solvency_turnover = (1.33 * monthly_emi * 12) / 0.30
-
     # 4. Intelligent Triangulation
     if capacity_turnover is not None:
         # If capacity estimate is within reasonable economic bounds of capital outlay (0.5x to 2.5x of velocity turnover)
@@ -606,10 +557,7 @@ def calculate_intelligent_turnover(
         else:
             basis += f", verified against Census 2011 Catchment TAM (₹{annual_tam:,.0f})"
 
-    # Enforce solvency guardrail: turnover must service debt
-    if min_solvency_turnover > 0 and triangulated < min_solvency_turnover:
-        triangulated = max(triangulated, min_solvency_turnover * 1.05)
-        basis += f", adjusted to clear RBI statutory DSCR solvency standard (>= 1.33x)"
+    # Debt coverage is an outcome, never a reason to invent additional sales.
 
     final_turnover = round(triangulated, -2)
 

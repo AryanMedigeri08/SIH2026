@@ -14,6 +14,7 @@ import { SwotMatrixCard } from './SwotMatrixCard';
 import { RiskRadarCard } from './RiskRadarCard';
 import { StatutoryChecklistCard } from './StatutoryChecklistCard';
 import { ProductPricingCard } from './ProductPricingCard';
+import { PlanningAssumptionsCard } from './PlanningAssumptionsCard';
 import { VillageMarketingCard } from './VillageMarketingCard';
 import { useViewMode } from '../../context/ViewModeContext';
 import {
@@ -169,6 +170,7 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
       )}
 
       {/* Viability Gauge Hero Card */}
+      <PlanningAssumptionsCard financialData={fin} />
       <ViabilityMeterCard mlViability={ml} dscrInfo={fin.dscr} />
 
       {/* Alternative Enterprise Recommendations (Rendered exclusively when Verdict === RECONSIDER) */}

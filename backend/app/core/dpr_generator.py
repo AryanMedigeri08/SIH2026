@@ -190,6 +190,7 @@ class StatutoryChecklistItem(BaseModel):
 
 
 class BankDPRDocument(BaseModel):
+    planning_assumptions: dict[str, Any] = Field(default_factory=dict)
     dpr_version: str = "2.0"
     generated_at_utc: str
     section_1_header_and_profile: EnterpriseProfileHeader
@@ -218,6 +219,8 @@ def _compute_5yr_projections(
     sector: str,
     cpi_inflation_pct: float,
     unit_price_floor: float,
+    operating_projections: Optional[list[dict[str, Any]]] = None,
+    break_even_result: Optional[dict[str, Any]] = None,
 ) -> FiveYearFinancialHorizon:
     """
     Computes a deterministic 5-Year Cash Flow Projection using standard Scheduled
@@ -227,6 +230,20 @@ def _compute_5yr_projections(
       - Depreciation: 15% on Plant & Machinery (55% of project cost)
       - Loan Amortization: Equal principal repayment over tenure
     """
+    if operating_projections:
+        rows = [FinancialProjectionYear.model_validate(row) for row in operating_projections]
+        serviced = [row for row in rows if row.total_debt_service > 0]
+        average = sum(row.annual_dscr for row in serviced) / len(serviced) if serviced else 0
+        bep = break_even_result or {}
+        return FiveYearFinancialHorizon(
+            projection_years=rows, average_dscr=round(average, 2),
+            dscr_benchmark_met=not serviced or average >= 1.33,
+            break_even_point_pct=bep.get("break_even_pct", 0),
+            recommended_unit_price_floor=unit_price_floor,
+            break_even_milestone=bep.get("break_even_milestone", "Projection estimate"),
+            payback_period_years=bep.get("payback_period_years", 5),
+            break_even_rationale=bep.get("rationale", ""),
+        )
     capacity_slabs = [0.60, 0.70, 0.80, 0.85, 0.90]
     plant_machinery_cost = project_cost * 0.55
     depreciation_rate = 0.15
@@ -516,6 +533,9 @@ def build_bank_dpr(
     gross_project_cost: Optional[float] = None,
     owned_machinery_value: Optional[float] = None,
     loan_principal: Optional[float] = None,
+    operating_projections: Optional[list[dict[str, Any]]] = None,
+    planning_assumptions: Optional[dict[str, Any]] = None,
+    break_even_result: Optional[dict[str, Any]] = None,
 ) -> BankDPRDocument:
     """
     Compiles the complete 7-Section Bank DPR appraisal document.
@@ -641,6 +661,8 @@ def build_bank_dpr(
         sector=sector,
         cpi_inflation_pct=pricing_result.cpi_inflation_pct,
         unit_price_floor=pricing_result.cpi_adjusted_unit_price_floor,
+        operating_projections=operating_projections,
+        break_even_result=break_even_result,
     )
 
     # 4. Scheme Optimization Table (Top 5)
@@ -724,6 +746,7 @@ def build_bank_dpr(
     )
 
     return BankDPRDocument(
+        planning_assumptions=planning_assumptions or {},
         dpr_version="2.0",
         generated_at_utc=now_iso,
         section_1_header_and_profile=profile,
@@ -773,6 +796,9 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
         f"{ai.get('executive_summary', '')}\n",
         f"### Strategic Action Plan:",
     ]
+    if dpr.planning_assumptions:
+        a = dpr.planning_assumptions["values"]
+        lines.append(f"**Optimistic planning estimate**: Selling price ₹{a['selling_price_inr']:,.2f}/{a['output_unit']}; input requirement {a['input_units_per_output_unit']:g} {a['input_unit']}/{a['output_unit']}; raw input cost ₹{a['raw_material_cost_per_input_unit_inr']:,.2f}/{a['input_unit']}. {a['rationale']}")
     for idx, rec in enumerate(ai.get("strategic_recommendations", []), 1):
         lines.append(f"{idx}. {rec}")
 
@@ -1095,6 +1121,16 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
         </div>
         """
 
+    from html import escape
+    assumptions_html = ""
+    if doc.planning_assumptions:
+        a = doc.planning_assumptions["values"]
+        assumptions_html = ("<div style='padding:10px;border:1px solid #cbd5e1;margin:12px 0'>"
+            "<strong>Optimistic planning estimate</strong><br/>"
+            f"Selling price: ₹{a['selling_price_inr']:,.2f}/{escape(a['output_unit'])}; "
+            f"input requirement: {a['input_units_per_output_unit']:g} {escape(a['input_unit'])}/{escape(a['output_unit'])}; "
+            f"raw input cost: ₹{a['raw_material_cost_per_input_unit_inr']:,.2f}/{escape(a['input_unit'])}. "
+            f"{escape(a['rationale'])}</div>")
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1288,6 +1324,7 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
         </div>
     </div>
 
+    {assumptions_html}
     <div class="meta-grid">
         <div class="meta-item"><span class="meta-label">Enterprise Name:</span><span class="meta-val">{p.enterprise_name}</span></div>
         <div class="meta-item"><span class="meta-label">Legal Constitution:</span><span class="meta-val">{p.constitution}</span></div>

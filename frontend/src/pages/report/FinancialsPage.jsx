@@ -1,6 +1,7 @@
 import React from 'react';
 import { CapitalReconciliationCard } from '../../components/Dashboard/CapitalReconciliationCard';
 import { CashflowProjectionsChart } from '../../components/Dashboard/CashflowProjectionsChart';
+import { PlanningAssumptionsCard } from '../../components/Dashboard/PlanningAssumptionsCard';
 import { TrendingUp, Landmark, ShieldCheck, IndianRupee, PieChart, Percent, Target, Clock } from 'lucide-react';
 import { TranslatedText } from '../../components/TranslatedText';
 
@@ -113,10 +114,10 @@ export function FinancialsPage({ reportData }) {
             <span className="truncate"><TranslatedText text="DSCR" /></span>
           </div>
           <strong className="text-sm sm:text-base font-mono font-extrabold text-sovereign-900 block mt-1">
-            {dscr.toFixed(2)}x
+            {fin.debt_service_required === false ? 'No debt' : `${dscr.toFixed(2)}x`}
           </strong>
           <span className={`text-[9px] font-bold truncate block ${dscr >= 1.33 ? 'text-emerald-700' : 'text-amber-700'}`}>
-            <TranslatedText text={dscr >= 1.33 ? 'RBI Compliant' : 'Below 1.33'} />
+            <TranslatedText text={fin.debt_service_required === false ? 'No loan repayments' : dscr >= 1.33 ? 'Benchmark met' : 'Below 1.33'} />
           </span>
         </div>
 
@@ -143,6 +144,7 @@ export function FinancialsPage({ reportData }) {
         </div>
       </div>
 
+      <PlanningAssumptionsCard financialData={fin} />
       {/* Capital Reconciliation Card */}
       <CapitalReconciliationCard inputData={p} financialData={fin} schemeData={schemes} />
 

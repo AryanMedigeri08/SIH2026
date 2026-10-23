@@ -30,6 +30,10 @@ router = APIRouter(prefix="/projects", tags=["Project State Persistence & Multi-
 def _project_dict_to_user_input(p: dict[str, Any]) -> UserInput:
     """Helper to convert project dict into UserInput for pipeline execution."""
     return UserInput(
+        business_idea=p.get("business_idea"),
+        business_type=p.get("business_type"),
+        machinery_plan=p.get("machinery_plan"),
+        annual_turnover_source=p.get("annual_turnover_source", "user_supplied"),
         enterprise_name=p.get("business_name") or p.get("enterprise_name", "Enterprise"),
         business_category=p.get("business_category", "manufacturing"),
         sector=p.get("sector", "general"),
@@ -42,7 +46,7 @@ def _project_dict_to_user_input(p: dict[str, Any]) -> UserInput:
         village_name=p.get("village_name", "Joypur"),
         is_rural=p.get("is_rural", True),
         project_cost=float(p.get("investment_amount") or p.get("project_cost", 500000.0)),
-        annual_turnover_estimate=float(p.get("annual_turnover_estimate", 600000.0)),
+        annual_turnover_estimate=p.get("annual_turnover_estimate"),
         tenure_years=float(p.get("tenure_years", 5.0)),
         moratorium_months=int(p.get("moratorium_months", 6)),
         expected_monthly_units=p.get("expected_monthly_units"),
@@ -70,6 +74,10 @@ async def create_project(
     project_dict = {
         "user_id": current_user.uid,
         "business_name": project_in.business_name,
+        "business_idea": project_in.business_idea,
+        "business_type": project_in.business_type,
+        "machinery_plan": project_in.machinery_plan,
+        "annual_turnover_source": project_in.annual_turnover_source if project_in.annual_turnover_estimate is not None else "estimated",
         "business_category": project_in.business_category,
         "sector": project_in.sector,
         "investment_amount": project_in.investment_amount,
@@ -128,6 +136,10 @@ async def create_and_analyze_project(
     project_dict = {
         "user_id": current_user.uid,
         "business_name": project_in.business_name,
+        "business_idea": project_in.business_idea,
+        "business_type": project_in.business_type,
+        "machinery_plan": project_in.machinery_plan,
+        "annual_turnover_source": project_in.annual_turnover_source if project_in.annual_turnover_estimate is not None else "estimated",
         "business_category": project_in.business_category,
         "sector": project_in.sector,
         "investment_amount": project_in.investment_amount,

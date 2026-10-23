@@ -6,6 +6,7 @@ and Data.gov.in 613 District Resource Amenities.
 
 from __future__ import annotations
 import logging
+import asyncio
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, Any
@@ -31,11 +32,10 @@ from dpr_generator import build_bank_dpr, dpr_to_printable_markdown, dpr_to_html
 from amenities_client import fetch_village_amenities
 from opportunity_matcher import get_alternative_recommendations
 
-try:
-    from app.core.machinery_matcher import calculate_intelligent_turnover
-except ImportError:
-    from backend.app.core.machinery_matcher import calculate_intelligent_turnover
-
+from app.core.business_interpreter import interpret_business_idea
+from app.core.chat_service import chat_service
+from app.core.enterprise_assumptions import estimate_operations, calculate_operations
+from app.core.operating_finance import project_cashflows
 from app.config import settings
 from app.database import db_manager
 from app.core.auth_dependency import get_current_user, AuthenticatedUser
@@ -60,6 +60,17 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         f"⚡ [PIPELINE START] Enterprise: '{input_data.enterprise_name}' | Sector: '{input_data.sector}' | "
         f"Outlay: ₹{input_data.project_cost:,.0f} | Location: {input_data.village_name}, {input_data.district_name}, {input_data.state_name}"
     )
+
+    # Interpret the enterprise before selecting demand category or equipment.
+    idea = input_data.business_idea or input_data.additional_business_details or input_data.enterprise_name
+    if input_data.machinery_plan is None:
+        interpretation = await asyncio.to_thread(interpret_business_idea, idea, chat_service._call_llm_chat_completion)
+        input_data.business_type = interpretation["business_type"]
+        input_data.machinery_plan = interpretation["machinery_plan"]
+        if interpretation["interpretation_source"] == "llm_interpreted":
+            input_data.sector = interpretation["sector"]
+            input_data.business_category = interpretation["business_category"]
+    input_data.business_idea = idea
 
     # 0. Geographic Coordinates Grounding (GPS or Village-level Gazetteer resolution)
     from app.core.udyam.geography.gazetteer import Gazetteer
@@ -115,6 +126,33 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         f"Total MSMEs: {msme_total:,}, District MSME Density: {dens.msme_density_per_10k:.2f}/10k | Est. Catchment Competitors: {comp.estimated_local_competitors}"
     )
 
+    # Gather local evidence before asking the LLM for missing economics.
+    cpi_pct = input_data.cpi_inflation_pct if input_data.cpi_inflation_pct is not None else await db_manager.get_state_cpi_inflation(input_data.state_name)
+    weather_score = input_data.weather_risk_score if input_data.weather_risk_score is not None else await db_manager.get_weather_risk_score(input_data.state_name, input_data.district_name)
+    amenities = fetch_village_amenities(
+        state_name=input_data.state_name, district_name=input_data.district_name,
+        village_name=input_data.village_name, api_key=settings.DATA_GOV_IN_API_KEY,
+        api_base_url=settings.AMENITIES_API_BASE_URL,
+    )
+    infra_score = input_data.infrastructure_score if input_data.infrastructure_score is not None else amenities.infrastructure_score
+    evidence = {
+        "idea": idea, "business_category": input_data.business_category,
+        "business_type": input_data.business_type, "sector": input_data.sector,
+        "project_cost": input_data.project_cost,
+        "expected_monthly_units": input_data.expected_monthly_units,
+        "location": {"state": input_data.state_name, "district": input_data.district_name, "village": input_data.village_name},
+        "census": census_data, "population_projection": pop.to_dict(),
+        "households": pop.projected_households, "amenities": amenities.to_dict(),
+        "cpi": {"annual_pct": cpi_pct, "geography": "state", "source": "cpi_data_or_configured_fallback"},
+        "competition": comp.to_dict(), "district_msme": msme_data,
+        "machinery_profile": input_data.machinery_plan or {},
+    }
+    assumptions = await asyncio.to_thread(estimate_operations, evidence, chat_service._call_llm_chat_completion)
+    supplied_sales = input_data.annual_turnover_estimate if input_data.annual_turnover_source == "user_supplied" else None
+    operations = calculate_operations(assumptions, supplied_sales)
+    input_data.annual_turnover_estimate = operations["annual_sales"]
+    input_data.expected_monthly_units = operations["monthly_sales_units"]
+
     # 2. Financial & Scheme Optimization (Tier 1)
     schemes = rank_eligible_schemes(
         project_cost=input_data.project_cost,
@@ -146,25 +184,24 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     amort = emi_with_moratorium(effective_loan_for_amort, top_scheme.effective_interest_rate_pct, input_data.tenure_years, input_data.moratorium_months)
     if loan_principal <= 0.0:
         amort.monthly_emi = 0.0
-        amort.total_interest = 0.0
+        amort.total_interest_payable = 0.0
         amort.total_repayment = 0.0
     promoter_margin_val = promoter_cash_applied
 
-    # Intelligently ground annual turnover with physical machine capacity, Census TAM, and RBI debt solvency
-    turnover_audit = calculate_intelligent_turnover(
-        project_cost=input_data.project_cost,
-        sector=input_data.sector,
-        business_category=input_data.business_category,
-        expected_monthly_units=input_data.expected_monthly_units,
-        annual_tam=tam.annual_tam,
-        monthly_emi=amort.monthly_emi,
-    )
-    if not input_data.annual_turnover_estimate or input_data.annual_turnover_estimate <= 0:
-        input_data.annual_turnover_estimate = turnover_audit["projected_turnover"]
-
+    turnover_audit = {
+        "derivation_basis": operations["sales_source"] + "; achievable demand and saleable output; " + assumptions["values"]["rationale"],
+        "capacity_turnover": operations["monthly_saleable_capacity"] * operations["selling_price_inr"] * 12,
+        "velocity_turnover": None,
+    }
     wc = working_capital_estimate(input_data.annual_turnover_estimate, input_data.sector)
-    monthly_noi = input_data.monthly_net_operating_income_override or (input_data.annual_turnover_estimate * 0.30 / 12)
-    dscr_res = compute_dscr(monthly_noi, amort.monthly_emi)
+    projections = project_cashflows(
+        operations, input_data.project_cost, loan_principal, top_scheme.effective_interest_rate_pct,
+        input_data.tenure_years, input_data.moratorium_months, cpi_pct,
+        annual_noi_override=input_data.monthly_net_operating_income_override * 12 if input_data.monthly_net_operating_income_override is not None else None,
+    )
+    first_year = projections[0]
+    monthly_noi = (first_year["ebitda"] - first_year["tax_provision"]) / 12
+    dscr_res = compute_dscr(monthly_noi, first_year["total_debt_service"] / 12)
     subsidy_coverage_ratio = top_scheme.subsidy_grant_amount / input_data.project_cost if input_data.project_cost else 0.0
 
     logger.info(
@@ -175,8 +212,8 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     )
 
     # Compute additional key financial appraisal ratios (ROI & Break-Even)
-    monthly_net_profit = max(monthly_noi - amort.monthly_emi, 0.0)
-    annual_net_profit = monthly_net_profit * 12
+    annual_net_profit = first_year["profit_after_tax"]
+    monthly_net_profit = annual_net_profit / 12
     roi_pct = round((annual_net_profit / input_data.project_cost) * 100, 2) if input_data.project_cost > 0 else 0.0
 
     # Dynamic statutory Break-Even Horizon & Capital Payback Period
@@ -192,28 +229,13 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     )
     break_even_pct = bep_res.break_even_pct
 
-    # 3. Pricing Engine (Tier 1)
-    expected_units = input_data.expected_monthly_units or max(input_data.annual_turnover_estimate / 12 / 250, 50.0)
-    
-    # 4. Live CPI & Weather Risk Lookup
-    cpi_pct = input_data.cpi_inflation_pct if input_data.cpi_inflation_pct is not None else await db_manager.get_state_cpi_inflation(input_data.state_name)
+    # Production costs and market selling-price estimates are separate quantities.
+    expected_units = max(operations["monthly_sales_units"], 1e-9)
     pricing = compute_pricing(amort.monthly_emi, wc.monthly_working_capital_outlay, expected_units, cpi_pct)
-
-    weather_score = input_data.weather_risk_score if input_data.weather_risk_score is not None else await db_manager.get_weather_risk_score(input_data.state_name, input_data.district_name)
-
-    # 5. 613 Village Amenities API & Infrastructure Score
-    amenities = fetch_village_amenities(
-        state_name=input_data.state_name,
-        district_name=input_data.district_name,
-        village_name=input_data.village_name,
-        api_key=settings.DATA_GOV_IN_API_KEY,
-        api_base_url=settings.AMENITIES_API_BASE_URL,
-    )
-    infra_score = input_data.infrastructure_score if input_data.infrastructure_score is not None else amenities.infrastructure_score
-    logger.info(
-        f"🌐 [TIER 2 AMENITIES] Querying Source: 'district_resources.json' (Data.gov.in 613 Amenities) | "
-        f"District: '{input_data.district_name}' -> Infra Score: {infra_score:.1f}/10 | CPI: {cpi_pct:.1f}% | Weather Risk: {weather_score:.2f}"
-    )
+    pricing.unit_cost_floor = operations["unit_cost_floor"]
+    pricing.cpi_adjusted_unit_price_floor = operations["unit_cost_floor"]
+    pricing.recommended_selling_price_band_low = operations["selling_price_inr"] * .95
+    pricing.recommended_selling_price_band_high = operations["selling_price_inr"] * 1.05
 
     # 6. Feature Extraction & XGBoost Viability Model (Tier 2)
     fv = extract_features_from_pipeline_objects(
@@ -247,6 +269,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
 
     # 8. Executive AI Synthesis & Grounded SWOT (Tier 3)
     synthesis = generate_executive_synthesis({
+        "planning_assumptions_summary": {"values": assumptions["values"], "source": assumptions["source_summary"], "scenario": assumptions["scenario"]},
         "enterprise_name": input_data.enterprise_name,
         "business_category": input_data.business_category,
         "sector": input_data.sector,
@@ -334,6 +357,9 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         gross_project_cost=input_data.gross_project_cost,
         owned_machinery_value=input_data.owned_machinery_value,
         loan_principal=loan_principal,
+        operating_projections=projections,
+        planning_assumptions=assumptions,
+        break_even_result=bep_res.to_dict(),
     )
 
     report_id = f"REP-{uuid.uuid4().hex[:10].upper()}"
@@ -403,10 +429,10 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
 
     data_sources_used.append({
         "layer": "Tier 1: Sales Demand & Machine Capacity",
-        "logical_source": "Census 2011 Catchment TAM & 37-Profile MSME Machinery Capacity",
+        "logical_source": assumptions["source_summary"],
         "table_or_file": "msme_machinery_dataset.json + census_raw",
         "records_matched": 1,
-        "status": "Calibrated OK",
+        "status": assumptions["source_summary"],
         "attribution": f"Projected Sales: ₹{input_data.annual_turnover_estimate:,.0f} | Basis: {turnover_audit.get('derivation_basis', 'Triangulated Machine Capacity & Catchment TAM')}",
     })
 
@@ -424,6 +450,11 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
             "village_amenities_613": amenities.to_dict(),
         },
         financial_analysis={
+            "operating_model": operations,
+            "planning_assumptions": assumptions,
+            "five_year_projections": projections,
+            "capacity_unit_label": operations["output_unit"],
+            "debt_service_required": loan_principal > 0,
             "annual_turnover_estimate": round(input_data.annual_turnover_estimate, 2),
             "gross_annual_sales": round(input_data.annual_turnover_estimate, 2),
             "working_capital": wc.to_dict(),
@@ -441,6 +472,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
             "net_project_cost": input_data.project_cost,
             "monthly_net_profit": round(monthly_net_profit, 2),
             "annual_net_profit": round(annual_net_profit, 2),
+            "annual_cash_surplus_after_debt": round(first_year["ebitda"] - first_year["tax_provision"] - first_year["total_debt_service"], 2),
             "roi_pct": roi_pct,
             "break_even_pct": break_even_pct,
             "break_even_year": bep_res.break_even_year,
@@ -479,6 +511,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         } if resolved_lat is not None else None,
     )
 
+    feasibility_report.pricing_recommendation.update({"output_unit": operations["output_unit"], "price_source": assumptions["source_summary"], "selling_price_inr": operations["selling_price_inr"], "variable_cost_per_output_unit": operations["variable_cost_per_output_unit"], "monthly_fixed_cost_inr": assumptions["values"]["monthly_fixed_cost_inr"]})
     return feasibility_report, dpr_doc
 
 

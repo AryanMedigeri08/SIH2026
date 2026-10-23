@@ -2,6 +2,9 @@ import React from 'react';
 import { ShieldCheck, AlertTriangle, AlertCircle, Info, Landmark } from 'lucide-react';
 
 export function DscrGaugeChart({ dscrInfo, projections }) {
+  if (dscrInfo?.verdict === 'NO DEBT') {
+    return <div className="glass-panel p-6 bg-white border border-slate-200"><h3 className="font-bold">Debt Service Coverage</h3><p className="mt-2">No loan repayments</p><p className="text-xs text-slate-500">The enterprise is financed without a term loan.</p></div>;
+  }
   const dscr = Number(dscrInfo?.dscr ?? dscrInfo?.average_dscr ?? 1.85);
   const benchmarkMet = dscrInfo?.dscr_benchmark_met ?? dscr >= 1.33;
 

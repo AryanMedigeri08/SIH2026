@@ -285,7 +285,11 @@ def _machinery_profile_for_fields(fields: dict) -> Optional[dict]:
         base = next((item for item in load_machinery_dataset() if item["business_name"] == profile_name), None)
         if base:
             allowed = {machine["machine_name"] for machine in plan.get("machinery_list", [])}
-            return {**base, "machinery_list": [machine for machine in base["machinery_list"] if machine["machine_name"] in allowed]}
+            known = [machine for machine in base["machinery_list"] if machine["machine_name"] in allowed]
+            estimated = [machine for machine in plan.get("machinery_list", []) if machine.get("cost_source") == "llm_estimate"]
+            return {**base, "machinery_list": known + estimated}
+        if plan.get("has_estimated_equipment") or plan.get("is_support_equipment"):
+            return plan
     return find_matching_machinery_profile(
         fields.get("business_idea") or fields.get("additional_business_details") or fields.get("enterprise_name", ""),
         fields.get("sector"),
@@ -1289,7 +1293,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
             interpretation = interpret_business_idea(
                 last_user_msg, chat_service._call_llm_chat_completion,
             )
-            uncertain_idea = interpretation["sector"] == "general" and not interpretation["matched_machinery_profile"]
+            uncertain_idea = interpretation["interpretation_source"] != "llm_interpreted" and interpretation["sector"] == "general" and not interpretation["matched_machinery_profile"]
             if not confirmed_idea and (payload.input_source == "voice" or uncertain_idea):
                 reply = _business_idea_clarification(
                     last_user_msg, payload.language, interpretation, payload.input_source == "voice"
@@ -1531,6 +1535,8 @@ async def process_onboarding_message(payload: OnboardingRequest):
                     expected_monthly_units=merged_fields.get("expected_monthly_units"),
                     matched_profile=matched_mach,
                 )
+                new_fields["annual_turnover_source"] = "estimated"
+                merged_fields["annual_turnover_source"] = "estimated"
                 new_fields["annual_turnover_estimate"] = turnover_res["projected_turnover"]
                 merged_fields["annual_turnover_estimate"] = turnover_res["projected_turnover"]
             except Exception as e:
@@ -1921,6 +1927,8 @@ async def process_onboarding_message(payload: OnboardingRequest):
                     matched_profile=matched_machinery,
                 )
                 merged_fields["annual_turnover_estimate"] = turnover_res["projected_turnover"]
+                new_fields["annual_turnover_source"] = "estimated"
+                merged_fields["annual_turnover_source"] = "estimated"
                 new_fields["annual_turnover_estimate"] = merged_fields["annual_turnover_estimate"]
                 logger.info(
                     "Intelligent Turnover Calculation: ₹%s | Basis: %s",

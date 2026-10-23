@@ -164,9 +164,9 @@ def emi_with_moratorium(
 ) -> AmortizationResult:
     """
     Blueprint §2.3.
-    EMI = L * r_m * (1+r_m)^n / ((1+r_m)^n - 1)      where n = N - M
-    I_moratorium = L * r_m * M                        (simple interest, capitalized separately)
-    I_total = I_moratorium + (EMI * n - L)
+    I_moratorium = L * r_m * M (simple interest capitalized before repayment)
+    EMI = (L + I_moratorium) * r_m * (1+r_m)^n / ((1+r_m)^n - 1), n = N - M
+    I_total = EMI * n - L
     """
     if principal <= 0:
         raise ValueError("principal must be > 0")
@@ -182,14 +182,15 @@ def emi_with_moratorium(
     r_m = (annual_rate_pct / 100.0) / 12.0
     n = total_months - moratorium_months
 
+    moratorium_interest = principal * r_m * moratorium_months
+    amortizing_principal = principal + moratorium_interest
     if r_m == 0:
-        emi = principal / n
+        emi = amortizing_principal / n
     else:
         factor = (1 + r_m) ** n
-        emi = principal * r_m * factor / (factor - 1)
+        emi = amortizing_principal * r_m * factor / (factor - 1)
 
-    moratorium_interest = principal * r_m * moratorium_months
-    total_interest = moratorium_interest + (emi * n - principal)
+    total_interest = emi * n - principal
     total_repayment = principal + total_interest
 
     return AmortizationResult(
@@ -221,7 +222,10 @@ def working_capital_estimate(annual_turnover: float, sector: str) -> WorkingCapi
 
 def compute_dscr(monthly_net_operating_income: float, monthly_emi: float) -> DSCRResult:
     """Blueprint §2.4. RBI benchmark >= 1.33."""
-    if monthly_emi <= 0:
+    if monthly_emi == 0:
+        return DSCRResult(monthly_net_operating_income=monthly_net_operating_income,
+                          monthly_emi=0, dscr=0, verdict="NO DEBT")
+    if monthly_emi < 0:
         raise ValueError("monthly_emi must be > 0")
     dscr = monthly_net_operating_income / monthly_emi
     if dscr >= DSCR_BENCHMARK:

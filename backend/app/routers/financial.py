@@ -50,6 +50,10 @@ async def calculate_financial_summary(req: FinancialCalcRequest):
             tenure_years=req.tenure_years,
             moratorium_months=req.moratorium_months,
         )
+        if loan_principal == 0:
+            amort.monthly_emi = 0
+            amort.total_interest_payable = 0
+            amort.total_repayment = 0
 
         wc = working_capital_estimate(req.annual_turnover, req.sector)
         monthly_noi = req.annual_turnover * 0.30 / 12  # Standard 30% gross margin assumption

@@ -975,7 +975,7 @@ class DatabaseManager:
         business_name = project_dict.get("enterprise_name") or project_dict.get("business_name", "Enterprise Unit")
         business_category = project_dict.get("business_category", "manufacturing")
         investment_amount = float(project_dict.get("project_cost") or project_dict.get("investment_amount", 500000.0))
-        annual_turnover = float(project_dict.get("annual_turnover_estimate", 600000.0))
+        annual_turnover = float(project_dict.get("annual_turnover_estimate") or 0)
         state_name = project_dict.get("state_name", "West Bengal")
         district_name = project_dict.get("district_name", "Bankura")
         block_name = project_dict.get("block_name", "Joypur")

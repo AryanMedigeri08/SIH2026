@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ViabilityMeterCard } from '../../components/Dashboard/ViabilityMeterCard';
+import { PlanningAssumptionsCard } from '../../components/Dashboard/PlanningAssumptionsCard';
 import { ExecutiveNarrativeCard } from '../../components/Dashboard/ExecutiveNarrativeCard';
 import { AlternativeOpportunitiesCard } from '../../components/Dashboard/AlternativeOpportunitiesCard';
 import {
@@ -599,6 +600,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
         </div>
       )}
 
+      <PlanningAssumptionsCard financialData={reportData.financial_analysis} />
       {/* Row 1: ML Viability Card & AI Executive Synthesis Narrative */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         <div className="lg:col-span-5">

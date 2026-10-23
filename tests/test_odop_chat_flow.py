@@ -431,9 +431,12 @@ def test_calculate_intelligent_turnover_triangulation():
         monthly_emi=8800.0,
     )
     assert res["projected_turnover"] > 0
-    # Turnover must clear solvency guardrail for DSCR >= 1.33
-    min_solvency = (1.33 * 8800.0 * 12) / 0.30
-    assert res["projected_turnover"] >= min_solvency
+    # Debt coverage cannot change projected customer demand or sales.
+    higher_debt = calculate_intelligent_turnover(
+        project_cost=900000, sector="dairy", expected_monthly_units=5000,
+        annual_tam=3500000, monthly_emi=88000,
+    )
+    assert higher_debt["projected_turnover"] == res["projected_turnover"]
     assert "derivation_basis" in res
     assert "asset_turnover_ratio" in res
     assert 1.2 <= res["asset_turnover_ratio"] <= 3.5

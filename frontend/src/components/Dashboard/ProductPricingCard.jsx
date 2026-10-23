@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Tag, 
   TrendingUp, 
@@ -20,25 +20,27 @@ export function ProductPricingCard({ reportData, pricingData }) {
   const sector = reportData?.input_parameters?.sector || 'dairy';
 
   // Benchmark values
-  const unitCostFloor = p.unit_cost_floor || 45.0;
+  const unitCostFloor = p.unit_cost_floor ?? 45.0;
+  const variableCost = p.variable_cost_per_output_unit ?? unitCostFloor;
   const cpiFloor = p.cpi_adjusted_unit_price_floor || (unitCostFloor * 1.05);
   const defaultPrice = p.recommended_selling_price_band_high 
-    ? Math.round((p.recommended_selling_price_band_low + p.recommended_selling_price_band_high) / 2)
+    ? Number(((p.recommended_selling_price_band_low + p.recommended_selling_price_band_high) / 2).toFixed(2))
     : Math.round(cpiFloor * 1.25);
 
   const [sellingPrice, setSellingPrice] = useState(defaultPrice);
+  useEffect(() => setSellingPrice(defaultPrice), [defaultPrice]);
 
   // Derived unit economics
-  const marginPerUnit = Math.max(0, sellingPrice - unitCostFloor);
+  const marginPerUnit = sellingPrice - variableCost;
   const marginPct = sellingPrice > 0 ? ((marginPerUnit / sellingPrice) * 100) : 0;
   
   // Fixed monthly costs (EMI + basic overhead)
-  const monthlyEmi = reportData?.financial_projections?.amortization?.monthly_emi || 10500;
-  const fixedOverhead = monthlyEmi + (turnover * 0.03); // EMI + utilities/rent
+  const monthlyEmi = reportData?.financial_analysis?.amortization?.monthly_emi ?? 0;
+  const fixedOverhead = monthlyEmi + (p.monthly_fixed_cost_inr ?? turnover * 0.03 / 12);
   const breakEvenUnitsMonthly = marginPerUnit > 0 ? Math.ceil(fixedOverhead / marginPerUnit) : 0;
   const breakEvenUnitsDaily = Math.ceil(breakEvenUnitsMonthly / 26); // 26 working days
 
-  const estMonthlyUnits = p.expected_monthly_units || Math.round(turnover / (sellingPrice * 12) || 1200);
+  const estMonthlyUnits = p.expected_monthly_units ?? Math.round(turnover / (sellingPrice * 12) || 1200);
   const estMonthlyProfit = Math.round((marginPerUnit * estMonthlyUnits) - fixedOverhead);
 
   return (
@@ -87,9 +89,9 @@ export function ProductPricingCard({ reportData, pricingData }) {
 
         <input
           type="range"
-          min={Math.max(10, Math.floor(unitCostFloor * 0.8))}
-          max={Math.ceil(unitCostFloor * 2.2)}
-          step={1}
+          min={Math.max(0.1, Math.floor(Math.min(unitCostFloor, defaultPrice) * 0.8 * 10) / 10)}
+          max={Math.ceil(Math.max(unitCostFloor, defaultPrice) * 2.2)}
+          step={0.1}
           value={sellingPrice}
           onChange={(e) => setSellingPrice(Number(e.target.value))}
           className="w-full accent-emerald-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
@@ -116,7 +118,7 @@ export function ProductPricingCard({ reportData, pricingData }) {
             ₹{marginPerUnit.toFixed(1)}
           </div>
           <p className="text-[10px] text-slate-500">
-            <TranslatedText text="Cost of production" />: ₹{unitCostFloor.toFixed(1)}
+            <TranslatedText text="Variable cost" />: ₹{variableCost.toFixed(1)}/{p.output_unit || 'unit'}
           </p>
         </div>
 

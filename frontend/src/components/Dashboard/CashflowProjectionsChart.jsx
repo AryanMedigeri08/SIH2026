@@ -16,7 +16,7 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
   const loanPrincipal = financialData?.loan_principal || 585000;
   const dscr = financialData?.dscr?.dscr || 2.25;
 
-  const years = [
+  const legacyYears = [
     { yr: 'Yr 1 (60%)', yrShort: 'Y1', cap: 60, rev: turnover * 0.85, opex: turnover * 0.85 * 0.68, depr: projectCost * 0.55 * 0.15, int: loanPrincipal * 0.11, debt: emi * 12, dscr: Number((dscr * 0.9).toFixed(2)) },
     { yr: 'Yr 2 (70%)', yrShort: 'Y2', cap: 70, rev: turnover * 1.00, opex: turnover * 1.00 * 0.68, depr: projectCost * 0.55 * 0.15 * 0.85, int: loanPrincipal * 0.09, debt: emi * 12, dscr: Number((dscr * 1.0).toFixed(2)) },
     { yr: 'Yr 3 (80%)', yrShort: 'Y3', cap: 80, rev: turnover * 1.15, opex: turnover * 1.15 * 0.68, depr: projectCost * 0.55 * 0.15 * 0.72, int: loanPrincipal * 0.07, debt: emi * 12, dscr: Number((dscr * 1.15).toFixed(2)) },
@@ -24,9 +24,17 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
     { yr: 'Yr 5 (90%)', yrShort: 'Y5', cap: 90, rev: turnover * 1.35, opex: turnover * 1.35 * 0.68, depr: projectCost * 0.55 * 0.15 * 0.52, int: loanPrincipal * 0.02, debt: emi * 12, dscr: Number((dscr * 1.40).toFixed(2)) },
   ];
 
+  const persisted = financialData?.five_year_projections;
+  const years = Array.isArray(persisted) && persisted.length ? persisted.map(y => ({
+    yr: `Yr ${y.year} (${y.capacity_utilization_pct}%)`, yrShort: `Y${y.year}`,
+    cap: y.capacity_utilization_pct, rev: y.gross_turnover, opex: y.total_operating_expenses,
+    depr: y.depreciation, int: y.bank_interest, debt: y.total_debt_service,
+    dscr: y.annual_dscr, pat: y.profit_after_tax,
+  })) : legacyYears;
+
   const chartData = years.map(y => {
     const ebitda = y.rev - y.opex;
-    const pat = Math.max(ebitda - y.depr - y.int, 0);
+    const pat = y.pat ?? (ebitda - y.depr - y.int);
     return {
       name: y.yr,
       nameShort: y.yrShort,
@@ -37,7 +45,8 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
     };
   });
 
-  const avgDscr = (years.reduce((acc, y) => acc + y.dscr, 0) / years.length).toFixed(2);
+  const servicedYears = years.filter(y => y.debt > 0);
+  const avgDscr = servicedYears.length ? (servicedYears.reduce((acc, y) => acc + y.dscr, 0) / servicedYears.length).toFixed(2) : "No debt";
   const breakEvenPct = Number(financialData?.break_even_pct) || 64.5;
   const breakEvenMilestone = financialData?.break_even_milestone || 'Year 2 (Month 16)';
   const breakEvenYear = Number(financialData?.break_even_year) || 2;
@@ -66,7 +75,7 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
             <TranslatedText text="5-Year Financial Horizon & Capacity Ramp Schedule" />
           </h3>
           <p className="text-xs text-slate-600 mt-0.5 hidden sm:block">
-            <TranslatedText text="Standard commercial banking capacity ramp (60% to 90%) with loan amortization and tax depreciation." />
+            <TranslatedText text="Planning assumptions with scheduled repayments and tax depreciation." />
           </p>
         </div>
 
@@ -194,7 +203,7 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
           {years.map(y => {
             const ebitda = y.rev - y.opex;
-            const pat = Math.max(ebitda - y.depr - y.int, 0);
+            const pat = y.pat ?? (ebitda - y.depr - y.int);
             const dscrOk = y.dscr >= 1.33;
             const isBepYear = y.yrShort === `Y${breakEvenYear}`;
             return (
@@ -282,7 +291,7 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
                   <TranslatedText text="Net Profit After Tax (PAT)" />
                 </td>
                 {years.map(y => {
-                  const pat = Math.max(y.rev - y.opex - y.depr - y.int, 0);
+                  const pat = y.pat ?? (y.rev - y.opex - y.depr - y.int);
                   return <td key={y.yr} className="py-2.5 px-3 text-right text-emerald-800 font-bold">₹{Math.round(pat).toLocaleString('en-IN')}</td>;
                 })}
               </tr>

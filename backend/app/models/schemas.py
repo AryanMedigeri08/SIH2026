@@ -97,6 +97,10 @@ class VillageInfo(BaseModel):
 # Feasibility Input & Output Schemas
 # ---------------------------------------------------------------------------
 class UserInput(BaseModel):
+    business_idea: Optional[str] = Field(None, max_length=2000)
+    business_type: Optional[str] = None
+    machinery_plan: Optional[dict[str, Any]] = None
+    annual_turnover_source: str = "user_supplied"
     enterprise_name: str = Field("Micro Enterprise Unit", description="Commercial name of the enterprise")
     business_category: str = Field("manufacturing", description="manufacturing | service")
     sector: str = Field("dairy", description="dairy | food_processing | repair | apparel | fabrication | artisan_trades | general")
@@ -259,11 +263,15 @@ def compute_business_status(analysis_result: Optional[dict[str, Any]]) -> Busine
 
 
 class ProjectCreate(BaseModel):
+    business_idea: Optional[str] = Field(None, max_length=2000)
+    business_type: Optional[str] = None
+    machinery_plan: Optional[dict[str, Any]] = None
+    annual_turnover_source: str = "user_supplied"
     business_name: str
     business_category: str
     sector: str
     investment_amount: float
-    annual_turnover_estimate: float
+    annual_turnover_estimate: Optional[float] = Field(None, ge=0)
     state_name: str
     district_name: str
     block_name: str = "N/A"
@@ -287,6 +295,10 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectUpdate(BaseModel):
+    business_idea: Optional[str] = Field(None, max_length=2000)
+    business_type: Optional[str] = None
+    machinery_plan: Optional[dict[str, Any]] = None
+    annual_turnover_source: Optional[str] = None
     business_name: Optional[str] = None
     investment_amount: Optional[float] = None
     annual_turnover_estimate: Optional[float] = None
@@ -304,6 +316,10 @@ class ProjectUpdate(BaseModel):
 
 
 class ProjectModel(BaseModel):
+    business_idea: Optional[str] = None
+    business_type: Optional[str] = None
+    machinery_plan: Optional[dict[str, Any]] = None
+    annual_turnover_source: str = "user_supplied"
     project_id: str
     user_id: str
     business_name: str
