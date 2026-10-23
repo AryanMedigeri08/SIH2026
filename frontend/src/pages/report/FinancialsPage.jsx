@@ -19,12 +19,14 @@ export function FinancialsPage({ reportData }) {
   const statutoryPct = fin.minimum_statutory_margin_pct ?? (p.promoter_category === 'general' ? 10 : 5);
   const ownedMachinery = fin.owned_machinery_value ?? p.owned_machinery_value ?? 0;
   const grossProjectCost = fin.gross_project_cost ?? p.gross_project_cost ?? (projectCost + ownedMachinery);
-  const promoterMargin = fin.promoter_margin_amount || committedEquity;
+  const promoterMargin = fin.promoter_margin_amount ?? committedEquity;
   const loanPrincipal = fin.loan_principal || 0;
   const monthlyEmi = fin.amortization?.monthly_emi || 0;
   const annualNetProfit = fin.annual_net_profit || 0;
   const roiPct = fin.roi_pct || 0;
-  const dscr = fin.dscr?.dscr ?? 1.33;
+  const dscr = fin.dscr?.dscr ?? 0;
+  const inMoratorium = fin.dscr?.verdict === 'MORATORIUM';
+  const fullYear = fin.first_full_repayment_year;
   const breakEvenMilestone = fin.break_even_milestone || 'Year 2 (Mo 16)';
   const breakEvenPct = fin.break_even_pct ? `${Number(fin.break_even_pct).toFixed(1)}%` : '64.5%';
   const paybackYears = fin.payback_period_years ? `${Number(fin.payback_period_years).toFixed(1)} Yrs` : '2.6 Yrs';
@@ -43,7 +45,7 @@ export function FinancialsPage({ reportData }) {
           <TranslatedText text="Capital Outlay Deployment, Means of Finance & 5-Year Cash Flow Projections" />
         </h1>
         <p className="text-xs text-slate-600 mt-1 max-w-3xl font-medium leading-relaxed">
-          <TranslatedText text="Zero-drift capital outlay sizing, statutory promoter margin reconciliation, RBI-compliant Debt Service Coverage Ratio (DSCR) testing, and 5-year capacity ramp projections with tax depreciation." />
+          <TranslatedText text="Itemized investment and funding estimates, scheduled debt service and five-year operating projections." />
         </p>
       </div>
 
@@ -94,7 +96,7 @@ export function FinancialsPage({ reportData }) {
           <strong className="text-sm sm:text-base font-mono font-extrabold text-indigo-900 block mt-1">
             ₹{Math.round(monthlyEmi).toLocaleString('en-IN')}
           </strong>
-          <span className="text-[9px] text-slate-500 font-medium truncate block">5-Yr Amortized</span>
+          <span className="text-[9px] text-slate-500 font-medium truncate block">{fin.amortization?.tenure_years || p.tenure_years || 5} <TranslatedText text="year loan term" /></span>
         </div>
 
         <div className="glass-panel p-3 bg-white border border-slate-200/90 rounded-xl shadow-card hover:shadow-card-hover transition-all">
@@ -111,13 +113,13 @@ export function FinancialsPage({ reportData }) {
         <div className="glass-panel p-3 bg-white border border-slate-200/90 rounded-xl shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
             <ShieldCheck className="w-3 h-3 text-sovereign-700 shrink-0" />
-            <span className="truncate"><TranslatedText text="DSCR" /></span>
+            <span className="truncate"><TranslatedText text="Year 1 DSCR" /></span>
           </div>
           <strong className="text-sm sm:text-base font-mono font-extrabold text-sovereign-900 block mt-1">
-            {fin.debt_service_required === false ? 'No debt' : `${dscr.toFixed(2)}x`}
+            {fin.debt_service_required === false ? 'No debt' : inMoratorium ? 'Moratorium' : `${dscr.toFixed(2)}x`}
           </strong>
           <span className={`text-[9px] font-bold truncate block ${dscr >= 1.33 ? 'text-emerald-700' : 'text-amber-700'}`}>
-            <TranslatedText text={fin.debt_service_required === false ? 'No loan repayments' : dscr >= 1.33 ? 'Benchmark met' : 'Below 1.33'} />
+            <TranslatedText text={fin.debt_service_required === false || inMoratorium ? 'No loan repayments' : dscr >= 1.33 ? 'Benchmark met' : 'Below 1.33'} />
           </span>
         </div>
 
@@ -143,6 +145,12 @@ export function FinancialsPage({ reportData }) {
           <span className="text-[9px] text-sky-700 font-semibold truncate block">Equity: {equityPayback}</span>
         </div>
       </div>
+
+      {fullYear && <div className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-3">
+        <strong><TranslatedText text="Full repayment-year DSCR" />: {`${Number(fullYear.annual_dscr).toFixed(2)}x`}</strong>
+        {' · '}<TranslatedText text="Year" /> {fullYear.year}{' · '}<TranslatedText text="12 scheduled repayments" />
+        <p className="text-xs mt-1"><TranslatedText text="Year 1 may include fewer repayments during the moratorium. Operating months are independent of loan repayment timing." /></p>
+      </div>}
 
       <PlanningAssumptionsCard financialData={fin} />
       {/* Capital Reconciliation Card */}

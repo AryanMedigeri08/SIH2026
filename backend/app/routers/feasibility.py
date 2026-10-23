@@ -33,6 +33,7 @@ from app.core.machinery_variants import resolve_machinery_plan, select_machinery
 from app.core.chat_service import chat_service
 from app.core.enterprise_assumptions import estimate_operations, calculate_operations
 from app.core.llm_financials import calculate_report_finance
+from app.core.project_budget import estimate_project_budget, apply_project_budget, reconcile_funding
 from app.config import settings
 from app.database import db_manager
 from app.core.auth_dependency import get_current_user, AuthenticatedUser
@@ -153,7 +154,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     previous_budget = sizing_context.get("gross_project_cost") or sizing_context.get("project_cost")
     selection_stale = (
         bool(sizing_context.get("location")) and sizing_context["location"] != evidence["location"]
-        or previous_budget is not None and abs(float(previous_budget) - evidence["gross_project_cost"]) > 1
+        or previous_budget is not None and not (input_data.machinery_plan or {}).get("project_budget") and abs(float(previous_budget) - evidence["gross_project_cost"]) > 1
         or bool(sizing_context.get("idea")) and sizing_context["idea"] != idea
     )
     if plan and (not plan.get("selected_capacity_variant_id") or selection_stale):
@@ -164,6 +165,16 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     evidence["annual_sales_override"] = supplied_sales
     assumptions = await asyncio.to_thread(estimate_operations, evidence, chat_service._call_llm_chat_completion)
     operations = calculate_operations(assumptions, supplied_sales)
+    budget = await asyncio.to_thread(estimate_project_budget, evidence, operations,
+        input_data.owned_machinery_value or 0, input_data.owned_machines,
+        chat_service._call_llm_chat_completion)
+    operations = apply_project_budget(operations, budget)
+    assumptions = operations["assumptions"]
+    funding = reconcile_funding(budget, input_data.promoter_equity)
+    input_data.project_cost = budget["net_fresh_outlay"]
+    input_data.gross_project_cost = budget["gross_project_cost"]
+    input_data.owned_machinery_value = budget["owned_machinery_credit"]
+    input_data.machinery_plan["project_budget"] = budget
     input_data.annual_turnover_estimate = operations["annual_sales"]
     input_data.expected_monthly_units = operations["monthly_sales_units"]
 
@@ -182,25 +193,17 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     min_statutory_pct = 0.05 if input_data.promoter_category.lower() != "general" else 0.10
     min_statutory_margin_val = round(input_data.project_cost * min_statutory_pct, 2)
 
-    # Committed liquid promoter cash equity (from user onboarding/persistence)
-    if input_data.promoter_equity is not None and float(input_data.promoter_equity) > 0:
-        committed_cash_equity = float(input_data.promoter_equity)
-    else:
-        committed_cash_equity = min_statutory_margin_val
-
-    # Promoter cash applied to net fresh borrowing outlay (ensuring statutory minimum is met)
-    promoter_cash_applied = max(
-        min_statutory_margin_val,
-        min(committed_cash_equity, max(input_data.project_cost - top_scheme.subsidy_grant_amount, min_statutory_margin_val))
-    )
-    loan_principal = max(input_data.project_cost - top_scheme.subsidy_grant_amount - promoter_cash_applied, 0.0)
+    committed_cash_equity = funding["committed_cash"]
+    promoter_cash_applied = funding["cash_applied"]
+    loan_principal = funding["loan_required"]
     promoter_margin_val = promoter_cash_applied
     financial_calculation = await asyncio.to_thread(calculate_report_finance, operations, {
         "project_cost": input_data.project_cost, "loan_principal": loan_principal,
         "annual_rate_pct": top_scheme.effective_interest_rate_pct,
         "tenure_years": input_data.tenure_years, "moratorium_months": input_data.moratorium_months,
         "sector": input_data.sector, "cpi_pct": cpi_pct,
-        "subsidy_amount": top_scheme.subsidy_grant_amount, "promoter_margin": promoter_margin_val,
+        "subsidy_amount": funding["upfront_subsidy"], "promoter_margin": promoter_margin_val,
+        "depreciable_machinery_value": budget["equipment_total"],
         "monthly_noi_override": input_data.monthly_net_operating_income_override,
     }, chat_service._call_llm_chat_completion)
     financial_plan = financial_calculation["result"]
@@ -257,6 +260,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     # 8. Executive AI Synthesis & Grounded SWOT (Tier 3)
     synthesis = generate_executive_synthesis({
         "planning_assumptions_summary": {"values": assumptions["values"], "conversion": assumptions.get("conversion"),
+            "pricing": assumptions.get("pricing"),
             "monthly_sales_units": operations["monthly_sales_units"], "monthly_gross_sales": operations["monthly_gross_sales"],
             "source": assumptions["source_summary"], "scenario": assumptions["scenario"]},
         "enterprise_name": input_data.enterprise_name,
@@ -266,7 +270,9 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         "project_cost": input_data.project_cost,
         "promoter_margin_amount": committed_cash_equity,
         "top_scheme_name": f"{top_scheme.scheme_id} ({top_scheme.full_name})",
-        "subsidy_amount": top_scheme.subsidy_grant_amount,
+        "subsidy_amount": funding["upfront_subsidy"],
+        "potential_scheme_subsidy": top_scheme.subsidy_grant_amount,
+        "funding_basis": funding["basis"],
         "subsidy_pct": subsidy_coverage_ratio * 100,
         "effective_loan": loan_principal,
         "monthly_emi": amort.monthly_emi,
@@ -350,6 +356,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         planning_assumptions=assumptions,
         break_even_result=bep_res.to_dict(),
         projection_summary={"average_dscr": summary.average_dscr, "dscr_benchmark_met": summary.dscr_benchmark_met},
+        funding_plan=funding,
     )
 
     report_id = f"REP-{uuid.uuid4().hex[:10].upper()}"
@@ -418,6 +425,15 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     })
 
     data_sources_used.append({
+        "layer": "Project budget & financing",
+        "logical_source": budget["source"],
+        "table_or_file": "selected machinery + itemized startup and monthly estimates",
+        "records_matched": len(budget["startup"]) + len(budget["monthly"]),
+        "status": "Estimated, reconciled",
+        "attribution": funding["basis"],
+    })
+
+    data_sources_used.append({
         "layer": "Tier 1: Sales Demand & Machine Capacity",
         "logical_source": assumptions["source_summary"],
         "table_or_file": "msme_machinery_dataset.json + census_raw",
@@ -440,6 +456,11 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
             "village_amenities_613": amenities.to_dict(),
         },
         financial_analysis={
+            "project_budget": budget,
+            "funding_plan": funding,
+            "potential_scheme_subsidy": top_scheme.subsidy_grant_amount,
+            "cash_margin_shortfall": max(min_statutory_margin_val - promoter_cash_applied, 0),
+            "first_full_repayment_year": next((row for row in projections if row["total_debt_service"] > 0 and abs(row["total_debt_service"] - amort.monthly_emi * 12) < 1), None),
             "operating_model": operations,
             "planning_assumptions": assumptions,
             "financial_calculation_source": financial_calculation["source"],
@@ -505,7 +526,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         } if resolved_lat is not None else None,
     )
 
-    feasibility_report.pricing_recommendation.update({"output_unit": operations["output_unit"], "saleable_unit_definition": operations.get("saleable_unit_definition"), "price_source": assumptions["source_summary"], "selling_price_inr": operations["selling_price_inr"], "variable_cost_per_output_unit": operations["variable_cost_per_output_unit"], "monthly_fixed_cost_inr": assumptions["values"]["monthly_fixed_cost_inr"]})
+    feasibility_report.pricing_recommendation.update({"output_unit": operations["output_unit"], "saleable_unit_definition": operations.get("saleable_unit_definition"), "price_source": assumptions["source_summary"], "selling_price_inr": operations["selling_price_inr"], "average_selling_price_inr": operations["average_selling_price_inr"], "expected_monthly_units": operations["monthly_sales_units"], "variable_cost_per_output_unit": operations["variable_cost_per_output_unit"], "monthly_fixed_cost_inr": assumptions["values"]["monthly_fixed_cost_inr"]})
     return feasibility_report, dpr_doc
 
 

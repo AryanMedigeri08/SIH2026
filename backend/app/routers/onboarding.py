@@ -1534,11 +1534,10 @@ async def process_onboarding_message(payload: OnboardingRequest):
             # Outlay recalculation with equity and credited owned machinery
             emi_saved = 0.0
             eq_val = float(merged_fields.get("promoter_equity", 100000.0))
-            outlay_calc = calculate_tiered_capital_outlay(
-                promoter_equity=eq_val,
-                owned_machinery_value=total_owned_val,
-                explicit_project_cost=existing_fields.get("explicit_project_cost"),
-            )
+            from app.core.project_budget import preliminary_project_outlay
+            outlay_calc = preliminary_project_outlay(merged_fields, matched_mach)
+            budget_plan = {**(merged_fields.get("machinery_plan") or matched_mach or {}), "project_budget": outlay_calc["project_budget"]}
+            new_fields["machinery_plan"] = merged_fields["machinery_plan"] = budget_plan
             new_fields["gross_project_cost"] = outlay_calc["gross_project_cost"]
             new_fields["project_cost"] = outlay_calc["net_project_cost"]
             new_fields["promoter_margin_pct"] = outlay_calc["promoter_margin_pct"]
@@ -1589,9 +1588,9 @@ async def process_onboarding_message(payload: OnboardingRequest):
             applicable_mach_payload = dict(matched_mach) if matched_mach else (merged_fields.get("machinery_plan") or {"business_name": None, "machinery_list": [], "total_machinery_cost_inr": 0})
 
             if total_owned_val > 0:
-                owned_lead_hi = f"बहुत खूब {payload.user_name} जी! आपने {mach_names_str} चुना है (मूल्य ₹{int(total_owned_val):,})। हमने इसे आपके आवश्यक बैंक लोन में से घटा दिया है, जिससे आपकी मासिक EMI में लगभग ₹{int(emi_saved):,} रुपये की बचत होगी! "
+                owned_lead_hi = f"बहुत खूब {payload.user_name} जी! आपने {mach_names_str} चुना है (मूल्य ₹{int(total_owned_val):,})। इसे नए उपकरणों की खरीद की लागत से एक बार घटाया गया है। बैंक लोन और EMI की गणना पूरी परियोजना लागत के आधार पर रिपोर्ट में होगी। "
                 owned_lead_mr = f"अतिशय छान {payload.user_name} जी! तुम्ही {mach_names_str} निवडले आहे (मूल्य ₹{int(total_owned_val):,}). आम्ही हे तुमच्या आवश्यक बँक कर्जातून वजा केले आहे! "
-                owned_lead_en = f"Excellent {payload.user_name} Ji! You have selected {mach_names_str} (valued at ₹{int(total_owned_val):,}). We have credited this against your bank loan, saving you approximately ₹{int(emi_saved):,} per month in EMI! "
+                owned_lead_en = f"Excellent {payload.user_name} Ji! You have selected {mach_names_str} (valued at ₹{int(total_owned_val):,}). This is credited once against the equipment still to be purchased. The report will calculate borrowing and EMI from the full project budget. "
             else:
                 owned_lead_hi = f"बहुत अच्छा {payload.user_name} जी! मैंने नोट कर लिया है कि आपको सभी नए उपकरणों की आवश्यकता होगी। "
                 owned_lead_mr = f"खूप छान {payload.user_name} जी! मी नोंदवून घेतले आहे की तुम्हाला सर्व नवीन यंत्रसामग्रीची आवश्यकता असेल. "
@@ -1913,15 +1912,14 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 merged_fields["owned_machines"] = existing_owned
                 merged_fields["owned_machinery_value"] = total_val
 
-        # ── Tiered MSME Outlay Optimization from Promoter Equity ─────────────
+        # ── Preliminary investment from equipment and startup allowances ─────────────
         if "promoter_equity" in merged_fields:
             eq_val = float(merged_fields["promoter_equity"])
             owned_val = float(merged_fields.get("owned_machinery_value", 0.0))
-            outlay_calc = calculate_tiered_capital_outlay(
-                promoter_equity=eq_val,
-                owned_machinery_value=owned_val,
-                explicit_project_cost=existing_fields.get("explicit_project_cost"),
-            )
+            from app.core.project_budget import preliminary_project_outlay
+            outlay_calc = preliminary_project_outlay(merged_fields, matched_machinery)
+            budget_plan = {**(merged_fields.get("machinery_plan") or matched_machinery or {}), "project_budget": outlay_calc["project_budget"]}
+            new_fields["machinery_plan"] = merged_fields["machinery_plan"] = budget_plan
             new_fields["gross_project_cost"] = outlay_calc["gross_project_cost"]
             new_fields["project_cost"] = outlay_calc["net_project_cost"]
             new_fields["promoter_margin_pct"] = outlay_calc["promoter_margin_pct"]

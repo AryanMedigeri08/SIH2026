@@ -8,6 +8,7 @@ import json
 import pytest
 
 from backend.app.core.enterprise_assumptions import estimate_operations, calculate_operations
+from tests.planning_fixtures import uniform_price_mix
 
 
 CASES = [
@@ -65,7 +66,8 @@ def package(case):
         annual_operating_cashflow=monthly_gross * 12 - sold * variable_cost * 12 - 1200,
         annual_capacity_sales=production * 20 * 12, unit_cost_floor=variable_cost + 100 / sold,
         output_unit=output_unit, selling_price_inr=20)
-    return {"values": values, "capacity": capacity, "conversion": conversion, "calculations": calculations}
+    return {"values": values, "capacity": capacity, "conversion": conversion,
+        "pricing": uniform_price_mix(values), "calculations": calculations}
 
 
 def estimate(response, override=None):

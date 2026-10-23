@@ -543,6 +543,7 @@ def build_bank_dpr(
     planning_assumptions: Optional[dict[str, Any]] = None,
     break_even_result: Optional[dict[str, Any]] = None,
     projection_summary: Optional[dict[str, Any]] = None,
+    funding_plan: Optional[dict[str, Any]] = None,
 ) -> BankDPRDocument:
     """
     Compiles the complete 7-Section Bank DPR appraisal document.
@@ -575,11 +576,16 @@ def build_bank_dpr(
         rbi_psl_classification=odop_info.get("rbi_psl_category") if odop_info else None,
     )
 
-    # 2. Capital Outlay Breakdown (100% standard allocation)
-    cost_machinery = project_cost * 0.55
-    cost_civil = project_cost * 0.15
-    cost_wc = project_cost * 0.20
-    cost_contingency = project_cost * 0.10
+    # New reports use the same itemized budget as the dashboard.
+    budget = (planning_assumptions or {}).get("project_budget")
+    if budget:
+        startup = budget["startup"]
+        cost_machinery = budget["equipment_total"] - budget["owned_machinery_credit"]
+        cost_civil = sum(startup[key]["amount_inr"] for key in ("installation", "premises_deposit_and_fitout", "utility_connections"))
+        cost_wc = startup["initial_working_capital"]["amount_inr"]
+        cost_contingency = sum(startup[key]["amount_inr"] for key in ("contingency", "licences_and_launch"))
+    else:
+        cost_machinery, cost_civil, cost_wc, cost_contingency = (project_cost * fraction for fraction in (.55, .15, .20, .10))
 
     gross_val = float(gross_project_cost) if gross_project_cost and float(gross_project_cost) > 0 else project_cost
     owned_val = float(owned_machinery_value or 0.0)
@@ -587,25 +593,25 @@ def build_bank_dpr(
     outlay_table = CapitalOutlayTable(
         plant_and_machinery=CapitalOutlayItem(
             item_name="Plant, Machinery & Core Equipment",
-            percentage_of_outlay=55.0,
+            percentage_of_outlay=cost_machinery / project_cost * 100,
             amount_inr=round(cost_machinery, 2),
             description="Primary processing machinery, tools, and technical apparatus",
         ),
         electrification_and_site_works=CapitalOutlayItem(
             item_name="Electrification, Installation & Site Works",
-            percentage_of_outlay=15.0,
+            percentage_of_outlay=cost_civil / project_cost * 100,
             amount_inr=round(cost_civil, 2),
             description="Power cabling, transformer connection, foundation, and fixtures",
         ),
         initial_working_capital_reserve=CapitalOutlayItem(
             item_name="Initial Working Capital Reserve",
-            percentage_of_outlay=20.0,
+            percentage_of_outlay=cost_wc / project_cost * 100,
             amount_inr=round(cost_wc, 2),
             description="Raw material inventory buffer and operating liquidity for launch",
         ),
         contingency_and_pre_operative=CapitalOutlayItem(
             item_name="Contingency & Pre-Operative Outlay",
-            percentage_of_outlay=10.0,
+            percentage_of_outlay=cost_contingency / project_cost * 100,
             amount_inr=round(cost_contingency, 2),
             description="Trial run expenses, licensing, logistics contingency, and buffer",
         ),
@@ -617,7 +623,7 @@ def build_bank_dpr(
 
     # Means of Finance (Promoter Margin + Subsidy Grant + Bank Loan == Outlay)
     top_scheme = next((r for r in ranked_schemes if r.eligible), ranked_schemes[0])
-    subsidy_amt = top_scheme.subsidy_grant_amount
+    subsidy_amt = funding_plan["upfront_subsidy"] if funding_plan else top_scheme.subsidy_grant_amount
     subsidy_pct = (subsidy_amt / project_cost * 100) if project_cost > 0 else 0.0
 
     min_statutory_pct = 5.0 if promoter_category.lower() != "general" else 10.0
@@ -636,6 +642,9 @@ def build_bank_dpr(
 
     # Balanced promoter equity share for the borrowing base
     promoter_margin_amt = max(project_cost - subsidy_amt - bank_loan_amt, min_statutory_margin_amt)
+    if funding_plan:
+        committed_cash_equity = funding_plan["committed_cash"]
+        promoter_margin_amt = funding_plan["cash_applied"]
     promoter_pct = (promoter_margin_amt / project_cost * 100) if project_cost > 0 else min_statutory_pct
     bank_loan_pct = (bank_loan_amt / project_cost * 100) if project_cost > 0 else 0.0
 
@@ -644,7 +653,7 @@ def build_bank_dpr(
         promoter_margin_pct=round(promoter_pct, 1),
         capital_subsidy_amount=round(subsidy_amt, 2),
         capital_subsidy_pct=round(subsidy_pct, 1),
-        subsidy_scheme_name=f"{top_scheme.scheme_id} ({top_scheme.full_name})",
+        subsidy_scheme_name="Unconfirmed subsidy excluded from upfront funding" if funding_plan else f"{top_scheme.scheme_id} ({top_scheme.full_name})",
         bank_term_loan_amount=round(bank_loan_amt, 2),
         bank_term_loan_pct=round(bank_loan_pct, 1),
         total_means_of_finance=round(promoter_margin_amt + subsidy_amt + bank_loan_amt, 2),
@@ -761,6 +770,9 @@ def build_bank_dpr(
         section_2_capital_outlay_and_finance={
             "capital_outlay": outlay_table.model_dump(),
             "means_of_finance": means_of_finance.model_dump(),
+            "itemized_budget": budget,
+            "funding_plan": funding_plan,
+            "first_full_repayment_year": next((row.model_dump() for row in projections.projection_years if row.total_debt_service > 0 and abs(row.total_debt_service - amortization.monthly_emi * 12) < 1), None),
         },
         section_3_financial_projections=projections,
         section_4_scheme_optimization=scheme_entries,
@@ -806,10 +818,27 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
     ]
     if dpr.planning_assumptions:
         a = dpr.planning_assumptions["values"]
-        lines.append(f"**Optimistic planning estimate**: Selling price ₹{a['selling_price_inr']:,.2f}/{a['output_unit']}; input requirement {a['input_units_per_output_unit']:g} {a['input_unit']}/{a['output_unit']}; raw input cost ₹{a['raw_material_cost_per_input_unit_inr']:,.2f}/{a['input_unit']}. {a['rationale']}")
+        price_label = "Average realized selling price" if (dpr.planning_assumptions.get("pricing") or {}).get("source") in {"llm_quantity_weighted", "llm_mix_with_indicative_arithmetic"} else "Estimated selling price"
+        lines.append(f"**Optimistic planning estimate**: {price_label} ₹{a['selling_price_inr']:,.2f}/{a['output_unit']}; input requirement {a['input_units_per_output_unit']:g} {a['input_unit']}/{a['output_unit']}; raw input cost ₹{a['raw_material_cost_per_input_unit_inr']:,.2f}/{a['input_unit']}. {a['rationale']}")
+        pricing = dpr.planning_assumptions.get("pricing")
+        if pricing:
+            lines.append(f"**Price mix**: {pricing['basis']}")
+            for segment in pricing["sales_mix"]:
+                lines.append(f"- {segment['segment']}: {segment['quantity_share'] * 100:g}% of sold quantity at ₹{segment['realized_unit_price_inr']:,.2f}/{a['output_unit']} after discounts.")
         conversion = dpr.planning_assumptions.get("conversion")
         if conversion:
             lines.append(f"**Saleable unit**: {conversion['saleable_unit_definition']}. {conversion['conversion_basis']}")
+        budget = dpr.planning_assumptions.get("project_budget")
+        if budget:
+            lines.append(f"\n**Itemized estimated budget**: {budget['source']}")
+            for group, label in (("startup", "One-time startup costs"), ("monthly", "Monthly fixed costs")):
+                lines.append(f"\n**{label}**\n")
+                lines.extend(f"- {key.replace('_', ' ')}: ₹{item['amount_inr']:,.2f}. {item['basis']}" for key, item in budget[group].items())
+    if s2.get("funding_plan"):
+        lines.append(f"\n{s2['funding_plan']['basis']}. Unconfirmed scheme subsidy is excluded from upfront funding.")
+    full_year = s2.get("first_full_repayment_year")
+    if full_year:
+        lines.append(f"\n**Full repayment-year DSCR**: {full_year['annual_dscr']:.2f} (Year {full_year['year']}, 12 scheduled repayments). Year-one coverage uses its actual repayment months; operating months are independent of moratorium.")
     for idx, rec in enumerate(ai.get("strategic_recommendations", []), 1):
         lines.append(f"{idx}. {rec}")
 
@@ -840,7 +869,7 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
         f"\n### Means of Finance Reconciliation:",
         f"| Financing Source | % Share | Amount (₹) | Scheme / Terms |",
         f"| :--- | :---: | :---: | :--- |",
-        f"| **Promoter Cash Equity Committed** | {finance['promoter_margin_pct']:.1f}% | ₹{finance.get('committed_promoter_equity', finance['promoter_margin_amount']):,.2f} | Liquid cash equity (Min statutory bank margin: ₹{finance.get('minimum_statutory_margin_amount', finance['promoter_margin_amount']):,.2f} / {finance.get('minimum_statutory_margin_pct', 10)}%) |",
+        f"| **Promoter Cash Applied** | {finance['promoter_margin_pct']:.1f}% | ₹{finance['promoter_margin_amount']:,.2f} | Committed cash: ₹{finance.get('committed_promoter_equity', finance['promoter_margin_amount']):,.2f} |",
         f"| **Government Capital Subsidy Grant** | {finance['capital_subsidy_pct']:.1f}% | ₹{finance['capital_subsidy_amount']:,.2f} | {finance['subsidy_scheme_name']} |",
         f"| **Bank Term Loan / Debt** | {finance['bank_term_loan_pct']:.1f}% | ₹{finance['bank_term_loan_amount']:,.2f} | Scheduled Commercial Bank Loan |",
         f"| **TOTAL MEANS OF FINANCE** | **100.0%** | **₹{finance['total_means_of_finance']:,.2f}** | **Balanced: {finance['reconciliation_balanced']}** |",
@@ -1136,17 +1165,35 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
     assumptions_html = ""
     if doc.planning_assumptions:
         a = doc.planning_assumptions["values"]
+        pricing = doc.planning_assumptions.get("pricing")
+        price_label = "Average realized selling price" if (pricing or {}).get("source") in {"llm_quantity_weighted", "llm_mix_with_indicative_arithmetic"} else "Estimated selling price"
         assumptions_html = ("<div style='padding:10px;border:1px solid #cbd5e1;margin:12px 0'>"
             "<strong>Optimistic planning estimate</strong><br/>"
-            f"Selling price: ₹{a['selling_price_inr']:,.2f}/{escape(a['output_unit'])}; "
+            f"{price_label}: ₹{a['selling_price_inr']:,.2f}/{escape(a['output_unit'])}; "
             f"input requirement: {a['input_units_per_output_unit']:g} {escape(a['input_unit'])}/{escape(a['output_unit'])}; "
             f"raw input cost: ₹{a['raw_material_cost_per_input_unit_inr']:,.2f}/{escape(a['input_unit'])}. "
             f"{escape(a['rationale'])}</div>")
+        if pricing:
+            mix_rows = "".join(f"<li>{escape(row['segment'])}: {row['quantity_share'] * 100:g}% of sold quantity at ₹{row['realized_unit_price_inr']:,.2f}/{escape(a['output_unit'])} after discounts.</li>" for row in pricing["sales_mix"])
+            assumptions_html += f"<div><strong>Price mix:</strong> {escape(pricing['basis'])}<ul>{mix_rows}</ul></div>"
         conversion = doc.planning_assumptions.get("conversion")
         if conversion:
             assumptions_html += ("<div style='padding:10px;border:1px solid #cbd5e1;margin:12px 0'>"
                 f"<strong>Saleable unit:</strong> {escape(conversion['saleable_unit_definition'])}<br/>"
                 f"{escape(conversion['conversion_basis'])}</div>")
+        budget = doc.planning_assumptions.get("project_budget")
+        if budget:
+            assumptions_html += f"<div><strong>Itemized estimated budget:</strong> {escape(budget['source'])}"
+            for group, label in (("startup", "One-time startup costs"), ("monthly", "Monthly fixed costs")):
+                rows = "".join(f"<li>{escape(key.replace('_', ' '))}: ₹{item['amount_inr']:,.2f} — {escape(item['basis'])}</li>" for key, item in budget[group].items())
+                assumptions_html += f"<p>{label}</p><ul>{rows}</ul>"
+            assumptions_html += "</div>"
+    funding = s2.get("funding_plan")
+    if funding:
+        assumptions_html += f"<p>{escape(funding['basis'])}. Unconfirmed scheme subsidy is excluded from upfront funding.</p>"
+    full_year = s2.get("first_full_repayment_year")
+    if full_year:
+        assumptions_html += f"<p><strong>Full repayment-year DSCR:</strong> {full_year['annual_dscr']:.2f} (Year {full_year['year']}, 12 scheduled repayments). Year-one coverage uses its actual repayment months; operating months are independent of moratorium.</p>"
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1380,7 +1427,7 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
 <h3>B. Means of Finance (Sources of Funds):</h3>
 <table>
     <tr><th>Financing Means</th><th class="num">% Share</th><th class="num">Amount (₹)</th><th>Terms / Funding Source</th></tr>
-    <tr><td><strong>Promoter Cash Equity Committed</strong><br/><span style="font-size:10px; color:#64748b;">Min statutory bank margin: ₹{finance.get('minimum_statutory_margin_amount', finance['promoter_margin_amount']):,.2f} ({finance.get('minimum_statutory_margin_pct', 10):.1f}%)</span></td><td class="num">{finance['promoter_margin_pct']:.1f}%</td><td class="num" style="font-weight:bold; color:#0369a1;">₹{finance.get('committed_promoter_equity', finance['promoter_margin_amount']):,.2f}</td><td>Liquid equity funds committed (₹{finance['promoter_margin_amount']:,.2f} applied to borrowing base)</td></tr>
+    <tr><td><strong>Promoter Cash Applied</strong></td><td class="num">{finance['promoter_margin_pct']:.1f}%</td><td class="num" style="font-weight:bold; color:#0369a1;">₹{finance['promoter_margin_amount']:,.2f}</td><td>Cash committed: ₹{finance.get('committed_promoter_equity', finance['promoter_margin_amount']):,.2f}</td></tr>
     <tr><td>Government Capital Subsidy Grant</td><td class="num">{finance['capital_subsidy_pct']:.1f}%</td><td class="num">₹{finance['capital_subsidy_amount']:,.2f}</td><td>{finance['subsidy_scheme_name']}</td></tr>
     <tr><td>Bank Term Loan / Debt Facility</td><td class="num">{finance['bank_term_loan_pct']:.1f}%</td><td class="num">₹{finance['bank_term_loan_amount']:,.2f}</td><td>Scheduled Commercial Bank Term Loan</td></tr>
     <tr style="font-weight:bold; background:#f8fafc;"><td>TOTAL MEANS OF FINANCE</td><td class="num">100.0%</td><td class="num">₹{finance['total_means_of_finance']:,.2f}</td><td><strong>Reconciliation Status: Balanced ({reconciled_status})</strong></td></tr>

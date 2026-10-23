@@ -79,11 +79,11 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   const projectCost = p.project_cost || activeBusiness?.investment_amount || 0;
   const subsidyAmount = topScheme.subsidy_grant_amount || 0;
   const subsidyPct = projectCost > 0 ? (subsidyAmount / projectCost) * 100 : 0;
-  const loanPrincipal = fin.loan_principal || Math.max(projectCost - subsidyAmount - (projectCost * 0.05), 0);
+  const loanPrincipal = fin.loan_principal ?? Math.max(projectCost - subsidyAmount - (projectCost * 0.05), 0);
   const emi = fin.amortization?.monthly_emi || 0;
-  const dscr = fin.dscr?.dscr ?? 1.33;
+  const dscr = fin.dscr?.dscr ?? 0;
   const annualTurnover = p.annual_turnover_estimate || activeBusiness?.annual_turnover_estimate || 0;
-  const monthlyNoi = fin.dscr?.monthly_net_operating_income || (annualTurnover * 0.30 / 12);
+  const monthlyNoi = fin.dscr?.monthly_net_operating_income ?? 0;
   const avgRisk = risks.average_risk_score ?? (risks.verdict?.average_risk_score ?? 3.0);
   const riskSeverity = risks.composite_grade || (risks.verdict?.overall_severity || 'MODERATE');
   const reportId = reportData.report_id;

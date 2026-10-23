@@ -11,6 +11,7 @@ from app.core.business_interpreter import interpret_business_idea
 from app.core.machinery_variants import select_machinery_capacity
 from app.core.enterprise_assumptions import estimate_operations, calculate_operations
 from app.core.llm_financials import calculate_report_finance
+from app.core.project_budget import estimate_project_budget, apply_project_budget, reconcile_funding
 
 
 def main():
@@ -47,6 +48,7 @@ def main():
     if args.operations_only:
         print(json.dumps({"source": operations["calculation_source"], "model": assumptions["model"],
             "conversion": assumptions.get("conversion"), "capacity": capacity,
+            "pricing": assumptions.get("pricing"), "price_comparison": operations.get("price_comparison"),
             "monthly_production_capacity": operations["monthly_saleable_capacity"],
             "monthly_sales_units": operations["monthly_sales_units"], "output_unit": operations["output_unit"],
             "selling_price_inr": operations["selling_price_inr"], "monthly_gross_sales": operations["monthly_gross_sales"],
@@ -54,10 +56,14 @@ def main():
         if args.live and operations["calculation_source"] != "llm_calculated":
             raise SystemExit("Fallback report works, but live monthly production/sales conversion did not validate.")
         return
+    budget = estimate_project_budget(evidence, operations, llm_call=call)
+    operations = apply_project_budget(operations, budget)
+    funding = reconcile_funding(budget, 100000)
     finance = calculate_report_finance(operations, {
-        "project_cost": 500000, "loan_principal": 300000, "annual_rate_pct": 10,
+        "project_cost": budget["net_fresh_outlay"], "loan_principal": funding["loan_required"], "annual_rate_pct": 10,
         "tenure_years": 7, "moratorium_months": 6, "sector": interpretation["sector"],
-        "cpi_pct": 5, "subsidy_amount": 100000, "promoter_margin": 100000,
+        "cpi_pct": 5, "subsidy_amount": 0, "promoter_margin": funding["cash_applied"],
+        "depreciable_machinery_value": budget["equipment_total"],
     }, call)
     print(json.dumps({"interpretation_source": interpretation["interpretation_source"],
         "category": interpretation["business_category"], "type": interpretation["business_type"],
@@ -67,14 +73,16 @@ def main():
         "annual_sales": operations["annual_sales"], "capacity_source": capacity["source"],
         "operating_calculation_source": operations["calculation_source"],
         "financial_calculation_source": finance["source"], "financial_model": finance["model"],
+        "budget_source": budget["source"], "gross_project_cost": budget["gross_project_cost"],
+        "net_fresh_outlay": budget["net_fresh_outlay"], "loan_required": funding["loan_required"],
         "dscr": finance["result"].dscr.dscr}, ensure_ascii=True))
     if args.details:
-        print(json.dumps({"capacity": assumptions["capacity"], "conversion": assumptions.get("conversion"), "values": assumptions["values"],
+        print(json.dumps({"capacity": assumptions["capacity"], "conversion": assumptions.get("conversion"), "pricing": assumptions.get("pricing"), "values": assumptions["values"],
             "calculations": {key: value for key, value in operations.items() if key != "assumptions"},
             "first_year": finance["result"].projections[0].model_dump()}, ensure_ascii=True))
     if args.live and (interpretation["interpretation_source"] != "llm_interpreted" or
                      capacity["source"] != "llm_calculated" or operations["calculation_source"] != "llm_calculated" or
-                     finance["source"] != "llm_calculated"):
+                     finance["source"] != "llm_calculated" or budget["source"] != "llm_itemized_budget"):
         raise SystemExit("Fallback report works, but a live LLM calculation step did not complete.")
 
 

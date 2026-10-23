@@ -193,6 +193,7 @@ export const BusinessProvider = ({ children }) => {
         business_idea: formData.business_idea || formData.additional_business_details || formData.enterprise_name,
         business_type: formData.business_type || null,
         machinery_plan: formData.machinery_plan || null,
+        owned_machines: formData.owned_machines ?? null,
         annual_turnover_source: formData.annual_turnover_source || 'user_supplied',
         business_name: formData.enterprise_name,
         business_category: formData.business_category || "manufacturing",

@@ -408,6 +408,8 @@ def _build_synthesis_prompt(
         "STRICT ARCHITECTURAL INVARIANTS:\n"
         "1. ZERO FINANCIAL RECALCULATION: You must NEVER re-compute, modify, or hallucinate any financial numbers. "
         "Use the EXACT rupee values (₹), DSCR ratio, EMI, subsidy amounts, and ML probabilities provided in the user prompt.\n"
+        "When funding_basis is supplied, it is authoritative: potential_scheme_subsidy is unconfirmed, excluded from upfront funding, and must never be described as approved, secured, disbursed or supporting the base loan.\n"
+        "A projected DSCR is an estimate, not a loan sanction, guarantee of repayment or regulatory compliance certificate.\n"
         "2. LANGUAGE: You must write the entire output strictly in fluent, professional English (standard financial and credit underwriting terminology).\n"
         "3. GROUNDED SWOT MATRIX: Provide a tailored 4-quadrant SWOT matrix (strengths, weaknesses, opportunities, threats) "
         "grounded in the specific enterprise sector, location, DSCR, subsidy grant, infrastructure score, competition, and inflation signals. "
@@ -480,6 +482,9 @@ def _build_synthesis_prompt(
 
     if payload.get("planning_assumptions_summary"):
         user_prompt += "\nECONOMIC ASSUMPTIONS (ESTIMATES):\n" + json.dumps(payload["planning_assumptions_summary"], ensure_ascii=False)
+    if payload.get("funding_basis"):
+        user_prompt += "\nFUNDING BASIS: " + str(payload["funding_basis"])
+        user_prompt += f"\nPotential unconfirmed scheme subsidy (excluded from base funding): ₹{payload.get('potential_scheme_subsidy', 0):,.2f}\n"
     return system_prompt, user_prompt
 
 

@@ -10,11 +10,11 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
   const [viewMode, setViewMode] = useState('all'); // 'all' | 'revenue' | 'dscr'
   const [showCards, setShowCards] = useState(false);
 
-  const turnover = Number(inputData?.annual_turnover_estimate) || 950000;
+  const turnover = Number(inputData?.annual_turnover_estimate ?? 0);
   const projectCost = Number(inputData?.project_cost) || 900000;
-  const emi = financialData?.amortization?.monthly_emi || 10530;
-  const loanPrincipal = financialData?.loan_principal || 585000;
-  const dscr = financialData?.dscr?.dscr || 2.25;
+  const emi = financialData?.amortization?.monthly_emi ?? 0;
+  const loanPrincipal = financialData?.loan_principal ?? 0;
+  const dscr = financialData?.dscr?.dscr ?? 0;
 
   const legacyYears = [
     { yr: 'Yr 1 (60%)', yrShort: 'Y1', cap: 60, rev: turnover * 0.85, opex: turnover * 0.85 * 0.68, depr: projectCost * 0.55 * 0.15, int: loanPrincipal * 0.11, debt: emi * 12, dscr: Number((dscr * 0.9).toFixed(2)) },

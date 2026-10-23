@@ -23,9 +23,9 @@ export function ProductPricingCard({ reportData, pricingData }) {
   const unitCostFloor = p.unit_cost_floor ?? 45.0;
   const variableCost = p.variable_cost_per_output_unit ?? unitCostFloor;
   const cpiFloor = p.cpi_adjusted_unit_price_floor || (unitCostFloor * 1.05);
-  const defaultPrice = p.recommended_selling_price_band_high 
+  const defaultPrice = p.average_selling_price_inr ?? (p.recommended_selling_price_band_high
     ? Number(((p.recommended_selling_price_band_low + p.recommended_selling_price_band_high) / 2).toFixed(2))
-    : Math.round(cpiFloor * 1.25);
+    : Math.round(cpiFloor * 1.25));
 
   const [sellingPrice, setSellingPrice] = useState(defaultPrice);
   useEffect(() => setSellingPrice(defaultPrice), [defaultPrice]);
@@ -40,7 +40,7 @@ export function ProductPricingCard({ reportData, pricingData }) {
   const breakEvenUnitsMonthly = marginPerUnit > 0 ? Math.ceil(fixedOverhead / marginPerUnit) : 0;
   const breakEvenUnitsDaily = Math.ceil(breakEvenUnitsMonthly / 26); // 26 working days
 
-  const estMonthlyUnits = p.expected_monthly_units ?? Math.round(turnover / (sellingPrice * 12) || 1200);
+  const estMonthlyUnits = p.expected_monthly_units ?? reportData?.financial_analysis?.operating_model?.monthly_sales_units ?? Math.round(turnover / (defaultPrice * 12) || 1200);
   const estMonthlyProfit = Math.round((marginPerUnit * estMonthlyUnits) - fixedOverhead);
 
   return (
@@ -78,9 +78,10 @@ export function ProductPricingCard({ reportData, pricingData }) {
 
       {/* Interactive Price Slider */}
       <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200 space-y-3">
+        <p className="text-xs text-slate-500"><TranslatedText text="Price-only comparison; monthly sales volume is held fixed." /></p>
         <div className="flex justify-between items-center text-xs">
           <span className="font-bold text-slate-800">
-            <TranslatedText text="Your Unit Selling Price (₹)" />
+            <TranslatedText text="Average realized price per unit (₹)" />
           </span>
           <span className="text-lg font-mono font-extrabold text-sovereign-800 bg-white px-3 py-0.5 rounded-lg border border-slate-300 shadow-xs">
             ₹{sellingPrice}

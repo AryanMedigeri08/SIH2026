@@ -100,6 +100,7 @@ class UserInput(BaseModel):
     business_idea: Optional[str] = Field(None, max_length=2000)
     business_type: Optional[str] = None
     machinery_plan: Optional[dict[str, Any]] = None
+    owned_machines: Optional[list[dict[str, Any]]] = None
     annual_turnover_source: str = "user_supplied"
     enterprise_name: str = Field("Micro Enterprise Unit", description="Commercial name of the enterprise")
     business_category: str = Field("manufacturing", description="manufacturing | service")
@@ -266,6 +267,7 @@ class ProjectCreate(BaseModel):
     business_idea: Optional[str] = Field(None, max_length=2000)
     business_type: Optional[str] = None
     machinery_plan: Optional[dict[str, Any]] = None
+    owned_machines: Optional[list[dict[str, Any]]] = None
     annual_turnover_source: str = "user_supplied"
     business_name: str
     business_category: str
@@ -298,6 +300,7 @@ class ProjectUpdate(BaseModel):
     business_idea: Optional[str] = Field(None, max_length=2000)
     business_type: Optional[str] = None
     machinery_plan: Optional[dict[str, Any]] = None
+    owned_machines: Optional[list[dict[str, Any]]] = None
     annual_turnover_source: Optional[str] = None
     business_name: Optional[str] = None
     investment_amount: Optional[float] = None
@@ -319,6 +322,7 @@ class ProjectModel(BaseModel):
     business_idea: Optional[str] = None
     business_type: Optional[str] = None
     machinery_plan: Optional[dict[str, Any]] = None
+    owned_machines: Optional[list[dict[str, Any]]] = None
     annual_turnover_source: str = "user_supplied"
     project_id: str
     user_id: str

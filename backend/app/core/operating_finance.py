@@ -6,13 +6,15 @@ from .financial_calculator import emi_with_moratorium
 
 def project_cashflows(operations: dict, project_cost: float, principal: float,
                       interest_rate: float, tenure_years: float, moratorium_months: int,
-                      cpi_pct: float, annual_noi_override: float | None = None) -> list[dict]:
+                      cpi_pct: float, annual_noi_override: float | None = None,
+                      depreciable_machinery_value: float | None = None) -> list[dict]:
     a = operations["assumptions"]["values"]
     amort = emi_with_moratorium(max(principal, 1), interest_rate, tenure_years, moratorium_months)
     balance = principal
     monthly_rate = interest_rate / 1200
     total_months = round(tenure_years * 12)
-    depreciation_base = project_cost * .55
+    depreciation_base = project_cost * .55 if depreciable_machinery_value is None else depreciable_machinery_value
+    budget = operations["assumptions"].get("project_budget", {})
     rows = []
     for year in range(1, 6):
         idx = year - 1
@@ -31,6 +33,8 @@ def project_cashflows(operations: dict, project_cost: float, principal: float,
         raw = monthly_units * a["input_units_per_output_unit"] * a["raw_material_cost_per_input_unit_inr"] * 12 * cost_index
         variable = monthly_units * a["other_variable_cost_per_output_unit_inr"] * 12 * cost_index
         fixed = operations["annual_fixed_cost"] * cost_index
+        wages = budget.get("monthly", {}).get("wages", {}).get("amount_inr", 0) * 12 * cost_index
+        fixed_utilities = budget.get("monthly", {}).get("fixed_utilities", {}).get("amount_inr", 0) * 12 * cost_index
         opex = raw + variable + fixed
         ebitda = revenue - opex
         if annual_noi_override is not None:
@@ -38,6 +42,7 @@ def project_cashflows(operations: dict, project_cost: float, principal: float,
             opex = revenue - ebitda
             # Override replaces the expense estimate; keep component sums honest.
             raw, variable, fixed = 0, 0, opex
+            wages = fixed_utilities = 0
         interest = principal_due = 0.0
         for month in range(idx * 12 + 1, year * 12 + 1):
             if balance <= 0 or month > total_months:
@@ -60,8 +65,8 @@ def project_cashflows(operations: dict, project_cost: float, principal: float,
         coverage_cashflow = pat + depreciation + interest
         rows.append(dict(year=year, capacity_utilization_pct=round(utilization * 100, 2),
                          gross_turnover=revenue, raw_materials_and_inputs=raw,
-                         power_and_utilities=variable, wages_and_labor=0,
-                         overheads_and_maintenance=fixed, total_operating_expenses=opex,
+                         power_and_utilities=variable + fixed_utilities, wages_and_labor=wages,
+                         overheads_and_maintenance=fixed - wages - fixed_utilities, total_operating_expenses=opex,
                          ebitda=ebitda, depreciation=depreciation, bank_interest=interest,
                          profit_before_tax=pbt, tax_provision=tax, profit_after_tax=pat,
                          cash_accruals=pat + depreciation, loan_principal_repayment=principal_due,

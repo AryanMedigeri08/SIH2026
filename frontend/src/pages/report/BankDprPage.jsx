@@ -62,14 +62,14 @@ export function BankDprPage({ reportData }) {
   const topScheme = schemes.find(s => s.eligible) || schemes[0] || {};
 
   const projectCost = Number(p.project_cost) || 0;
-  const subsidyAmount = topScheme.subsidy_grant_amount || 0;
+  const subsidyAmount = fin.funding_plan?.upfront_subsidy ?? topScheme.subsidy_grant_amount ?? 0;
   const committedEquity = fin.committed_promoter_equity ?? p.promoter_equity ?? fin.promoter_equity ?? fin.promoter_margin_amount ?? (projectCost * 0.10);
   const statutoryMargin = fin.minimum_statutory_margin_amount ?? fin.statutory_margin_amount ?? (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05));
   const statutoryPct = fin.minimum_statutory_margin_pct ?? (p.promoter_category === 'general' ? 10 : 5);
-  const promoterMargin = fin.promoter_margin_amount || committedEquity;
+  const promoterMargin = fin.promoter_margin_amount ?? committedEquity;
   const termLoan = fin.loan_principal !== undefined ? fin.loan_principal : Math.max(projectCost - subsidyAmount - promoterMargin, 0);
   const monthlyEmi = fin.amortization?.monthly_emi || 0;
-  const dscr = fin.dscr?.dscr ?? 1.33;
+  const dscr = fin.dscr?.dscr ?? 0;
 
   useEffect(() => {
     if (!reportId) return;

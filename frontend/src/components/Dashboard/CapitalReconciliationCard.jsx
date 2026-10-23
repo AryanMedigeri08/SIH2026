@@ -36,7 +36,9 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
   );
 
   const topScheme = schemeData?.find(s => s.eligible) || schemeData?.[0] || {};
-  const subsidyAmount = Number(topScheme.subsidy_grant_amount || 0);
+  const funding = financialData?.funding_plan;
+  const budget = financialData?.project_budget;
+  const subsidyAmount = Number(funding?.upfront_subsidy ?? topScheme.subsidy_grant_amount ?? 0);
 
   // Term loan and cash equity applied to net fresh borrowing base
   const loanAmount = financialData?.loan_principal !== undefined
@@ -49,10 +51,12 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
   );
 
   // Balanced outlay breakdown on net fresh borrowing base
-  const machinery = projectCost * 0.55;
-  const civil = projectCost * 0.20;
-  const workingCap = projectCost * 0.15;
-  const contingency = projectCost * 0.10;
+  const startup = budget?.startup;
+  const machinery = budget ? budget.equipment_total - budget.owned_machinery_credit : projectCost * 0.55;
+  const civil = startup ? ['installation', 'premises_deposit_and_fitout', 'utility_connections'].reduce((sum, key) => sum + startup[key].amount_inr, 0) : projectCost * 0.15;
+  const workingCap = startup ? startup.initial_working_capital.amount_inr : projectCost * 0.20;
+  const contingency = startup ? startup.contingency.amount_inr + startup.licences_and_launch.amount_inr : projectCost * 0.10;
+  const share = value => `(${(value / projectCost * 100).toFixed(1)}%)`;
 
   const totalMeans = promoterCashApplied + subsidyAmount + loanAmount;
   const isBalanced = Math.abs(totalMeans - projectCost) < 1.0;
@@ -63,13 +67,13 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wider text-sovereign-700 flex items-center gap-1.5 mb-1">
             <Layers className="w-3.5 h-3.5" />
-            <TranslatedText text="Statutory Capital Sizing & Underwriting" />
+            <TranslatedText text="Investment & funding estimates" />
           </div>
           <h3 className="text-lg font-outfit font-bold text-slate-900">
             <TranslatedText text="Capital Outlay & Means of Finance Reconciliation" />
           </h3>
           <p className="text-xs text-slate-600 mt-0.5">
-            <TranslatedText text="Preserves committed promoter equity, credits owned machinery in-kind, and verifies RBI bank margin requirements." />
+            <TranslatedText text="Selected equipment, startup costs and working capital reconciled with owned assets and available cash." />
           </p>
         </div>
 
@@ -129,19 +133,19 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
 
           <div className="space-y-2 text-xs">
             <div className="flex justify-between text-slate-700">
-              <span><TranslatedText text="Plant & Machinery / Upgrades" /> (55%)</span>
+              <span><TranslatedText text="Plant & Machinery / Upgrades" /> {share(machinery)}</span>
               <strong className="font-mono text-slate-900">₹{Math.round(machinery).toLocaleString('en-IN')}</strong>
             </div>
             <div className="flex justify-between text-slate-700">
-              <span><TranslatedText text="Civil Works & Electrical Setup" /> (20%)</span>
+              <span><TranslatedText text="Civil Works & Electrical Setup" /> {share(civil)}</span>
               <strong className="font-mono text-slate-900">₹{Math.round(civil).toLocaleString('en-IN')}</strong>
             </div>
             <div className="flex justify-between text-slate-700">
-              <span><TranslatedText text="Initial Working Capital Reserve" /> (15%)</span>
+              <span><TranslatedText text="Initial Working Capital Reserve" /> {share(workingCap)}</span>
               <strong className="font-mono text-slate-900">₹{Math.round(workingCap).toLocaleString('en-IN')}</strong>
             </div>
             <div className="flex justify-between text-slate-700">
-              <span><TranslatedText text="Pre-op & Contingency Buffer" /> (10%)</span>
+              <span><TranslatedText text="Pre-op & Contingency Buffer" /> {share(contingency)}</span>
               <strong className="font-mono text-slate-900">₹{Math.round(contingency).toLocaleString('en-IN')}</strong>
             </div>
           </div>
@@ -174,18 +178,30 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
             </div>
 
             <div className="flex justify-between text-slate-700">
-              <span><TranslatedText text="Bank Term Loan Disbursal" /> ({projectCost > 0 ? ((loanAmount / projectCost) * 100).toFixed(0) : '0'}%)</span>
+              <span><TranslatedText text="Estimated borrowing required" /> ({projectCost > 0 ? ((loanAmount / projectCost) * 100).toFixed(0) : '0'}%)</span>
               <strong className="font-mono text-blue-800">₹{Math.round(loanAmount).toLocaleString('en-IN')}</strong>
             </div>
 
             <div className="pt-2 border-t border-slate-200 flex justify-between text-xs font-bold text-slate-900">
-              <span><TranslatedText text="Total Fresh Finance Secured" />:</span>
+              <span><TranslatedText text="Total planned finance" />:</span>
               <span className="font-mono text-emerald-700 font-bold">₹{Math.round(totalMeans).toLocaleString('en-IN')}</span>
             </div>
           </div>
         </div>
 
       </div>
+
+      {funding && <p className="mt-3 text-xs text-slate-600"><TranslatedText text={funding.basis} />. <TranslatedText text="Potential scheme subsidy" />: ₹{Number(financialData.potential_scheme_subsidy || 0).toLocaleString('en-IN')}.</p>}
+      {financialData?.cash_margin_shortfall > 0 && <p className="mt-2 text-xs text-amber-800"><TranslatedText text="Cash contribution below the planning margin by" /> ₹{Number(financialData.cash_margin_shortfall).toLocaleString('en-IN')}.</p>}
+      {budget && <details className="mt-3 text-xs text-slate-600">
+        <summary className="cursor-pointer"><TranslatedText text="View itemized startup and monthly costs" /></summary>
+        <p className="mt-2"><TranslatedText text={budget.source?.startsWith('llm_') ? 'AI estimated budget' : 'Indicative budget allowances'} /></p>
+        {budget.source === 'llm_costs_with_validated_arithmetic' && <p><TranslatedText text="AI cost estimates retained; totals reconciled after an invalid AI calculation" /></p>}
+        {['startup', 'monthly'].map(group => <div key={group} className="mt-2 space-y-1">
+          <strong><TranslatedText text={group === 'startup' ? 'One-time startup costs' : 'Monthly fixed costs'} /></strong>
+          {Object.entries(budget[group]).map(([name, item]) => <p key={name}><TranslatedText text={name.replaceAll('_', ' ')} />: ₹{Number(item.amount_inr).toLocaleString('en-IN')} — <TranslatedText text={item.basis} /></p>)}
+        </div>)}
+      </details>}
 
       {/* Cash Equity Liquidity Cushion Callout */}
       {committedEquity > promoterCashApplied && (
@@ -200,7 +216,7 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
       {/* Grounded Data Source Lineage Tag */}
       <div className="text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 pt-3 mt-4 border-t border-slate-200">
         <span>
-          <strong className="text-slate-700"><TranslatedText text="Data Source:" /></strong> <TranslatedText text="Statutory MSME Credit & Margin Matrix" /> (<code className="font-mono text-sovereign-800 font-semibold">government_schemes.json</code>)
+          <strong className="text-slate-700"><TranslatedText text="Data Source:" /></strong> <TranslatedText text={budget ? 'Selected machinery and estimated itemized budget' : 'Legacy planning allocation'} />
         </span>
         <span className="font-mono text-slate-600 font-medium">
           <TranslatedText text="Reconciliation: Balanced (₹0 Residual Drift)" />

@@ -278,26 +278,11 @@ def calculate_tiered_capital_outlay(
     owned_machinery_value: float = 0.0,
     explicit_project_cost: Optional[float] = None,
 ) -> Dict[str, Any]:
-    """
-    Calculates statutory Total Capital Outlay and Net Fresh Bank Borrowing Base
-    following traditional Indian MSME debt financing guidelines:
+    """Legacy affordability hint used only when selecting a machinery size.
 
-    Promoter Contribution / Margin Expectation Slabs:
-    - Micro Projects (Outlay <= ₹10 Lakhs, Equity <= ₹1.5 Lakhs):
-        Margin Expectation = 15% (0.15)
-    - Small Projects (Outlay ₹10 Lakhs to ₹50 Lakhs, Equity ₹1.5L to ₹9 Lakhs):
-        Margin Expectation = 18% (0.18)
-    - Small & Medium Projects (Outlay ₹50 Lakhs to ₹5 Crores, Equity ₹9L to ₹1.1 Crore):
-        Margin Expectation = 22% (0.22) (Lenders evaluate 20% to 25% debt-to-equity)
-    - Mid-Sized to Large Projects (Outlay > ₹5 Crores, Equity > ₹1.1 Crore):
-        Margin Expectation = 28% (0.28) (Lenders evaluate 25% to 35% margin)
-
-    Owned Machinery Valuation Credit:
-    - If the entrepreneur already owns machines, their valuation is credited as
-      in-kind equity / fixed asset contribution.
-    - Gross Outlay is preserved as the enterprise valuation base.
-    - Net Fresh Project Cost (Borrowing Base) is reduced by owned_machinery_value,
-      lowering debt principal and monthly EMI while boosting DSCR!
+    These equity multiples are indicative planning heuristics, not statutory
+    investment costs. Actual onboarding/report outlay comes from project_budget.
+    The legacy return shape is retained for callers needing an affordability hint.
     """
     eq = max(float(promoter_equity or 0.0), 10000.0)
     owned_val = max(float(owned_machinery_value or 0.0), 0.0)

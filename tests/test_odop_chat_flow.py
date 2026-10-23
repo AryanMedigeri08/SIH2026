@@ -416,7 +416,10 @@ def test_select_owned_machinery_action_confirms_and_credits_outlay():
     assert len(fields["owned_machines"]) == 2
     # Gross cost minus owned value equals net cost
     assert fields["project_cost"] == fields["gross_project_cost"] - 280000.0
-    assert fields["estimated_monthly_emi_saved"] > 0
+    # EMI savings are not quoted before an actual financing schedule exists.
+    assert fields["estimated_monthly_emi_saved"] == 0
+    assert fields["machinery_plan"]["project_budget"]["equipment_total"] > 0
+    assert fields["outlay_tier_name"] == "Itemized preliminary budget"
 
     assert data["next_phase"] == "split_screen"
     assert data["all_fields_collected"] is True

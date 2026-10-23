@@ -1,5 +1,6 @@
 import React from 'react';
 import { TranslatedText } from '../TranslatedText';
+import { AverageSellingPriceDetails } from './AverageSellingPriceDetails';
 
 export function PlanningAssumptionsCard({ financialData }) {
   const model = financialData?.operating_model;
@@ -16,7 +17,7 @@ export function PlanningAssumptionsCard({ financialData }) {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
         <div><p className="text-slate-500"><TranslatedText text="Estimated annual sales" /></p><strong>₹{money(model.annual_sales)}</strong></div>
-        <div><p className="text-slate-500"><TranslatedText text="Selling price" /></p><strong>₹{money(a.selling_price_inr)}/{a.output_unit}</strong></div>
+        <div><p className="text-slate-500"><TranslatedText text={['llm_quantity_weighted', 'llm_mix_with_indicative_arithmetic'].includes(assumptions.pricing?.source) ? 'Average selling price' : 'Estimated selling price'} /></p><strong>₹{money(model.average_selling_price_inr ?? a.selling_price_inr)}/{a.output_unit}</strong></div>
         <div><p className="text-slate-500"><TranslatedText text="Variable cost" /></p><strong>₹{money(model.variable_cost_per_output_unit)}/{a.output_unit}</strong></div>
         <div><p className="text-slate-500"><TranslatedText text="Monthly sales volume" /></p><strong>{money(model.monthly_sales_units)} {a.output_unit}</strong></div>
       </div>
@@ -41,6 +42,7 @@ export function PlanningAssumptionsCard({ financialData }) {
           <p className="mt-1"><TranslatedText text="Financial calculations use the indicative fallback" /></p>
         )}
       </details>
+      <AverageSellingPriceDetails pricing={assumptions.pricing} comparison={model.price_comparison} unit={a.output_unit} />
     </div>
   );
 }

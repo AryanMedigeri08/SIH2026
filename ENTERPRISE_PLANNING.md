@@ -57,6 +57,42 @@ service. Negative profits and poor coverage remain visible.
 
 Validation:
 
+Average-price experiment (uncommitted for review): `selling_price_inr` now means
+quantity-weighted average realized selling price for the defined output unit.
+The operating response requires `pricing.sales_mix` with sold-quantity shares,
+quoted price, output units per quoted pack/billing quantity, discount percentage
+and net realized price per output unit. Shares must sum to one; the model's ASP
+must match the weighted net prices. A uniform-price enterprise can use one row.
+No generic retail/wholesale split is fabricated when the model is unavailable.
+
+All monthly/annual sales, cashflows, pricing simulation and DSCR consume this ASP.
+Discounts are included once, before averaging; pack prices are normalized before
+weighting. Prices for incompatible units/products cannot be averaged without a
+common saleable-unit/basket conversion and matching cost basis. The fallback may
+repair arithmetic using valid model quote/share assumptions while retaining the
+validated production conversion. Invalid shares/units produce a labelled uniform
+price fallback rather than silently normalizing or inventing a sales mix.
+
+The dashboard displays the mix, discounts, net prices and a same-volume comparison
+against an explicitly estimated regular undiscounted price. This is a reference
+scenario, not a historical before/after claim. Explicit user annual sales stay
+unchanged and have no price-only comparison. The price simulator holds monthly
+units fixed as its slider changes, so price changes affect revenue and profit.
+The DPR records average realized price and the supporting mix. Old saved reports
+remain unchanged; regenerate a report to use the experiment.
+
+Controlled example: 1,000 identical cups/month, 60% at ₹30 and 40% at ₹20 net of
+pack discounts, gives ASP ₹26. Annual revenue changes from ₹360,000 at the ₹30
+reference price to ₹312,000 at ASP, a ₹48,000 (13.33%) reduction at the same volume.
+These are illustrative inputs, not researched market prices or a recalculated
+saved business report. This change does not fix the separate project-outlay issue.
+
+A live synthetic ice-cream check on 24 October 2026 validated after one model
+correction: 60% retail at ₹30 and 40% wholesale at ₹25 gave ASP ₹28 per 100 ml cup.
+At the model's same 740 cups/month, the reference-price scenario was ₹266,400/year
+and weighted revenue ₹248,640/year, a ₹17,760 (6.67%) reduction. These are provider
+estimates for synthetic inputs, not observed prices or an update to saved reports.
+
 Every operating LLM response now requires a `conversion` contract. It defines the
 actual enterprise model, capacity basis (raw input, finished output, retail supply,
 service hours/jobs or stored stock), one explicit sold unit and portion size,
@@ -113,13 +149,49 @@ Investment/location changes before equipment confirmation trigger new sizing.
 Reports also refresh sizing when the stored idea, location or gross budget changes.
 Equipment cost is a component of project outlay, not a replacement for total outlay.
 
+Actual investment no longer comes from an equity/margin multiple. That older
+function remains only an affordability hint for choosing a machinery size.
+Onboarding uses labelled preliminary startup allowances; the report then requests
+an itemized LLM budget using selected equipment, local evidence and accepted
+operations. Installation, premises, utility connections, launch costs, initial
+working capital and contingency are added to equipment. Owned assets are credited
+once at selected equipment prices (legacy aggregate credit is capped at equipment
+value). Promoter cash affects funding, not the underlying cost of the project.
+
+The budget separately estimates wages, rent, fixed utilities, maintenance,
+distribution and administration with a basis for every amount, including zeros.
+Per-unit expenses stay in the accepted operating model. Working capital is included
+once as startup liquidity and never added again to recurring expenses. Budget
+arithmetic gets one LLM repair. If structured cost estimates are usable but totals
+still fail, retain those AI estimates and reconcile their totals with an explicit
+source label. If cost estimates are unavailable, use explicit indicative
+allowances so reports remain available. Output volume and average selling price
+remain unchanged when expense/funding estimates change.
+
+Base borrowing equals fresh outlay less available promoter cash. Potential scheme
+subsidy remains a recommendation and is excluded from upfront funding until
+confirmed; no missing cash contribution is silently invented. Any planning-margin
+shortfall is disclosed. The budget and funding reconciliation are shared by the
+dashboard and both DPR exports. Depreciation uses selected equipment, including
+owned equipment, rather than 55% of net fresh outlay.
+
+Year-one DSCR uses actual scheduled repayments. The first year with 12 repayments
+is shown separately to expose moratorium effects; operating months are independent
+of loan moratorium. An entire no-repayment year is labelled Moratorium, not a zero
+coverage failure. Validate yearly interest/principal splits, expense and profit
+arithmetic, DSCR verdicts and the average across serviced years. Negative coverage
+is preserved; a valid calculation is not a promise of viability.
+
 ```text
 python -m pytest tests/test_machinery_variants.py -q
 python -m pytest tests/test_production_conversion.py -q
+python -m pytest tests/test_average_selling_price.py -q
+python -m pytest tests/test_project_budget.py -q
 python -m pytest tests/test_enterprise_assumptions.py tests/test_enterprise_report_flow.py tests/test_llm_calculation_modes.py tests/test_planning_llm_transport.py tests/test_onboarding_sequence.py tests/test_odop_chat_flow.py -q
 python scripts/smoke_enterprise_planning.py --live --details
 python scripts/smoke_enterprise_planning.py --live --sizing-only
 python scripts/smoke_enterprise_planning.py --live --operations-only --idea "Ice cream in 100 ml cups"
+python scripts/recheck_feasibility.py REPORT_ID --live
 cd frontend
 node --test tests/financialsRender.test.js tests/planningAssumptionsRender.test.js tests/machineryCapacityRender.test.js
 npm run build
