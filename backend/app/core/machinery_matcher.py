@@ -130,19 +130,16 @@ def find_matching_machinery_profile(
     return dataset[0] if dataset else None
 
 
-def parse_monthly_capacity(capacity_str: str) -> Tuple[float, str]:
-    """
-    Parses natural language typical capacity into monthly production units (assuming 25 working days).
-    Examples:
-      - "500 kg/day" -> (12500.0, "kg")
-      - "1000 Litres/Day" -> (25000.0, "litres")
-      - "15,000 bricks/day" -> (375000.0, "bricks")
-      - "300 garments/day" -> (7500.0, "garments")
-      - "1 Ton/hour" -> (200000.0, "kg")
-    """
-    from .capacity_units import parse_capacity
-    capacity = parse_capacity(capacity_str)
-    return float(capacity.monthly_quantity or 0), capacity.unit
+def parse_monthly_capacity(capacity_str: str, llm_call=None, context=None) -> Tuple[float, str]:
+    """Compatibility entry point: the LLM now parses and converts raw capacity."""
+    # from .capacity_units import parse_capacity
+    # capacity = parse_capacity(capacity_str)
+    from .llm_capacity import interpret_capacity
+    if llm_call is None:
+        from .chat_service import chat_service
+        llm_call = chat_service._call_llm_chat_completion
+    capacity = interpret_capacity(capacity_str, context=context, llm_call=llm_call)
+    return capacity["monthly_quantity"], capacity["unit"]
 
 
 def detect_owned_machinery(
@@ -374,6 +371,7 @@ def compute_statutory_banking_parameters(
     project_cost: float,
     is_rural: bool = True,
     matched_profile: Optional[Dict[str, Any]] = None,
+    llm_call=None,
 ) -> Dict[str, Any]:
     """
     Dynamically computes statutory banking parameters (tenure, moratorium, infrastructure score,
@@ -429,7 +427,13 @@ def compute_statutory_banking_parameters(
     monthly_units = 5000.0
     capacity_unit_label = "units"
     if matched_profile and matched_profile.get("typical_capacity"):
-        monthly_units, capacity_unit_label = parse_monthly_capacity(matched_profile["typical_capacity"])
+        monthly_units, capacity_unit_label = parse_monthly_capacity(matched_profile["typical_capacity"],
+            llm_call=llm_call,
+            context={"business_name": matched_profile.get("business_name"), "sector": sector,
+                     "business_category": business_category,
+                     "selected_capacity_variant_id": matched_profile.get("selected_capacity_variant_id"),
+                     "selected_capacity": matched_profile.get("capacity"),
+                     "local_evidence": matched_profile.get("capacity_selection_context", {})})
     else:
         # Fallback velocity estimation: gross cost * sector turnover multiplier / typical unit price
         if sector_lower in ("dairy", "food_processing"):

@@ -22,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useBusiness } from "../context/BusinessContext";
+import { MachineryCapacityCard } from "../components/MachineryCapacityCard";
 import {
   fetchStates,
   fetchDistricts,
@@ -1246,7 +1247,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
     if (hasSelection && applicableMachinery?.machinery_list) {
       for (const name of machinesToConfirm) {
         const item = applicableMachinery.machinery_list.find(m => m.machine_name === name);
-        if (item) totalVal += (item.estimated_cost_inr || 0);
+        if (item) totalVal += (item.estimated_cost_inr || 0) * (item.quantity || 1);
       }
     }
 
@@ -2098,6 +2099,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                 </div>
 
                 <div className="p-4 sm:p-6 space-y-4 text-slate-800">
+                  <MachineryCapacityCard plan={applicableMachinery} />
                   {/* Explainer Box: What is ODOP? */}
                   <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-xs leading-relaxed text-emerald-950">
                     <p className="font-bold text-emerald-900 mb-1 flex items-center gap-1.5">
@@ -2428,7 +2430,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading: parentLoading }) {
                           ₹{(
                             applicableMachinery.machinery_list
                               .filter(m => selectedOwnedMachines.includes(m.machine_name))
-                              .reduce((sum, m) => sum + (m.estimated_cost_inr || 0), 0) / 100000
+                              .reduce((sum, m) => sum + (m.estimated_cost_inr || 0) * (m.quantity || 1), 0) / 100000
                           ).toFixed(2)} {onboardingText(selectedLang, "lakhs")}
                         </span>
                       </div>

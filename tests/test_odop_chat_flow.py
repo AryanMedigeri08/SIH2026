@@ -240,7 +240,8 @@ def test_machinery_matching_and_capacity():
     assert "Spice Grinding" in profile["business_name"]
     assert profile["total_machinery_cost_inr"] > 500000
 
-    monthly_units, unit_label = parse_monthly_capacity(profile["typical_capacity"])
+    monthly_units, unit_label = parse_monthly_capacity(profile["typical_capacity"], llm_call=lambda **kwargs: (
+        '{"quantity":500,"unit":"kg","period":"day","monthly_quantity":12500,"capacity_kind":"throughput","basis":"500 kg/day for 25 days"}', None, "test"))
     assert monthly_units == 12500.0  # 500 kg/day * 25 days
     assert unit_label == "kg"
 
@@ -302,6 +303,7 @@ def test_statutory_banking_parameters_allocation():
         project_cost=1000000.0,
         is_rural=True,
         matched_profile=profile,
+        llm_call=lambda **kwargs: ('{"quantity":1000,"unit":"litres","period":"day","monthly_quantity":25000,"capacity_kind":"throughput","basis":"1000 litres/day for 25 days"}', None, "test"),
     )
 
     assert params["tenure_years"] == 7.0  # RBI Plant & Machinery standard

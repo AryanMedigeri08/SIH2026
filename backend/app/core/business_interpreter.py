@@ -25,7 +25,7 @@ _PRODUCT_ALIASES = {
     "tofu": ("tofu", "soya paneer", "सोया पनीर"),
 }
 _RETAIL = ("shop", "store", "retail", "sell", "selling", "dukan", "dukkan", "dukaan", "दुकान", "बेचना", "बिक्री")
-_PRODUCTION = ("make", "making", "manufacture", "produce", "processing", "factory", "plant", "unit", "banana", "banane", "बनाना", "बनाने", "निर्माण", "उत्पादन", "प्रोसेस")
+_PRODUCTION = ("make", "making", "manufacture", "manufacturing", "production", "produce", "processing", "factory", "plant", "unit", "banana", "banane", "बनाना", "बनाने", "निर्माण", "उत्पादन", "प्रोसेस")
 _SECTOR_WORDS = {
     "dairy": ("paneer", "पनीर", "ghee", "घी", "milk", "दूध", "curd", "दही", "dairy", "डेयरी", "cheese", "ice cream", "आइसक्रीम"),
     "food_processing": ("spice", "masala", "मसाला", "bakery", "बेकरी", "oil", "तेल", "flour", "आटा", "juice", "जूस", "pickle", "अचार"),
@@ -65,6 +65,8 @@ def _candidates(text: str, sector: str) -> list[dict[str, Any]]:
 def _relevant_machines(profile: dict[str, Any], idea: str) -> list[dict[str, Any]]:
     machines = profile.get("machinery_list", [])
     products = _products(idea)
+    if len(products) > 1:
+        products.discard("milk")  # Milk can be the raw material for paneer/ghee.
     if not products or len(products) > 1:
         return machines
     product = next(iter(products))

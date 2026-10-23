@@ -8,6 +8,7 @@ Replaces the 7-step wizard with an intelligent conversational flow.
 
 from __future__ import annotations
 import json
+import asyncio
 import logging
 import re
 import sqlite3
@@ -22,6 +23,10 @@ try:
     from app.core.chat_service import chat_service
     from app.core.odop_matcher import match_odop, find_district_odop
     from app.core.business_interpreter import interpret_business_idea
+    from app.core.machinery_variants import resolve_machinery_plan, select_machinery_capacity
+    from app.core.market_analyzer import project_population
+    from app.core.amenities_client import fetch_village_amenities
+    from app.database import db_manager
     from app.core.onboarding_locale import onboarding_copy, has_selected_script
     from app.core.machinery_matcher import (
         find_matching_machinery_profile,
@@ -36,6 +41,10 @@ except ImportError:
     from backend.app.core.chat_service import chat_service
     from backend.app.core.odop_matcher import match_odop, find_district_odop
     from backend.app.core.business_interpreter import interpret_business_idea
+    from backend.app.core.machinery_variants import resolve_machinery_plan, select_machinery_capacity
+    from backend.app.core.market_analyzer import project_population
+    from backend.app.core.amenities_client import fetch_village_amenities
+    from backend.app.database import db_manager
     from backend.app.core.onboarding_locale import onboarding_copy, has_selected_script
     from backend.app.core.machinery_matcher import (
         find_matching_machinery_profile,
@@ -284,16 +293,48 @@ def _machinery_profile_for_fields(fields: dict) -> Optional[dict]:
             return None  # Retail or an idea absent from the plant catalogue.
         base = next((item for item in load_machinery_dataset() if item["business_name"] == profile_name), None)
         if base:
-            allowed = {machine["machine_name"] for machine in plan.get("machinery_list", [])}
-            known = [machine for machine in base["machinery_list"] if machine["machine_name"] in allowed]
-            estimated = [machine for machine in plan.get("machinery_list", []) if machine.get("cost_source") == "llm_estimate"]
-            return {**base, "machinery_list": known + estimated}
+            return resolve_machinery_plan(plan)
         if plan.get("has_estimated_equipment") or plan.get("is_support_equipment"):
             return plan
     return find_matching_machinery_profile(
         fields.get("business_idea") or fields.get("additional_business_details") or fields.get("enterprise_name", ""),
         fields.get("sector"),
     )
+
+
+async def _size_machinery_for_fields(fields: dict, profile: dict) -> dict:
+    """Recommend once investment and location are known; refresh if either changes."""
+    outlay = calculate_tiered_capital_outlay(
+        promoter_equity=float(fields["promoter_equity"]),
+        explicit_project_cost=fields.get("explicit_project_cost"),
+    )
+    inputs = {"idea": fields.get("business_idea") or fields.get("additional_business_details") or fields.get("enterprise_name"),
+        "sector": fields.get("sector"), "business_type": fields.get("business_type"),
+        "location": {"state": fields.get("state_name", ""), "district": fields.get("district_name", ""), "village": fields.get("village_name")},
+        "promoter_equity": fields["promoter_equity"], "gross_project_cost": outlay["gross_project_cost"],
+        "explicit_project_cost": fields.get("explicit_project_cost")}
+    if profile.get("selected_capacity_variant_id") and profile.get("capacity_selection_inputs") == inputs:
+        return profile
+    loc = inputs["location"]
+    results = await asyncio.gather(
+        db_manager.get_census_demographics(loc["state"], loc["district"], loc["village"]),
+        db_manager.get_district_msme_stats(loc["state"], loc["district"]),
+        db_manager.get_state_cpi_inflation(loc["state"]),
+        asyncio.to_thread(fetch_village_amenities, state_name=loc["state"], district_name=loc["district"],
+            village_name=loc["village"], api_key=settings.DATA_GOV_IN_API_KEY, api_base_url=settings.AMENITIES_API_BASE_URL),
+        return_exceptions=True,
+    )
+    census, msme, cpi, amenities = results
+    context = {**inputs,
+        "census": census if isinstance(census, dict) else {"provenance": "unavailable_estimate_required"},
+        "district_msme": msme if isinstance(msme, dict) else {"provenance": "unavailable_estimate_required"},
+        "cpi_inflation_pct": cpi if isinstance(cpi, (int, float)) else None,
+        "amenities": amenities.to_dict() if hasattr(amenities, "to_dict") else {"provenance": "unavailable_estimate_required"}}
+    if isinstance(census, dict) and census.get("base_population_2011") is not None:
+        pop = project_population(census["base_population_2011"], loc["state"], datetime.now().year)
+        context.update(population_projection=pop.to_dict(), households=pop.projected_households)
+    selected = await asyncio.to_thread(select_machinery_capacity, profile, context, chat_service._call_llm_chat_completion)
+    return {**selected, "capacity_selection_inputs": inputs}
 
 
 # ── Field Extraction System Prompt ───────────────────────────────────────────
@@ -1482,7 +1523,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                         confirmed_owned.append(dict(machine))
                         selected_names.add(machine["machine_name"])
 
-            total_owned_val = sum(m.get("estimated_cost_inr", 0) for m in confirmed_owned)
+            total_owned_val = sum(m.get("estimated_cost_inr", 0) * m.get("quantity", 1) for m in confirmed_owned)
             new_fields["owned_machines"] = confirmed_owned
             new_fields["owned_machinery_value"] = total_owned_val
             new_fields["machinery_selection_confirmed"] = True
@@ -1545,14 +1586,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
             mach_names_list = [m["machine_name"] for m in confirmed_owned]
             mach_names_str = ", ".join(mach_names_list) if mach_names_list else "आपकी मशीनें"
 
-            applicable_mach_payload = {
-                "business_name": matched_mach.get("business_name") if matched_mach else None,
-                "category": matched_mach.get("category") if matched_mach else None,
-                "industry_sector": matched_mach.get("industry_sector") if matched_mach else None,
-                "typical_capacity": matched_mach.get("typical_capacity") if matched_mach else None,
-                "total_machinery_cost_inr": matched_mach.get("total_machinery_cost_inr") if matched_mach else None,
-                "machinery_list": matched_mach.get("machinery_list", []) if matched_mach else [],
-            } if matched_mach else (merged_fields.get("machinery_plan") or {"business_name": None, "machinery_list": [], "total_machinery_cost_inr": 0})
+            applicable_mach_payload = dict(matched_mach) if matched_mach else (merged_fields.get("machinery_plan") or {"business_name": None, "machinery_list": [], "total_machinery_cost_inr": 0})
 
             if total_owned_val > 0:
                 owned_lead_hi = f"बहुत खूब {payload.user_name} जी! आपने {mach_names_str} चुना है (मूल्य ₹{int(total_owned_val):,})। हमने इसे आपके आवश्यक बैंक लोन में से घटा दिया है, जिससे आपकी मासिक EMI में लगभग ₹{int(emi_saved):,} रुपये की बचत होगी! "
@@ -1848,9 +1882,16 @@ async def process_onboarding_message(payload: OnboardingRequest):
 
         # ── Match MSME Machinery Profile & Detect Owned Equipment ───────────
         matched_machinery = None
+        capacity_resized = False
         if "sector" in merged_fields:
             biz_query = f"{merged_fields.get('enterprise_name', '')} {merged_fields.get('additional_business_details', '')} {last_user_msg}"
             matched_machinery = _machinery_profile_for_fields(merged_fields)
+            if matched_machinery and merged_fields.get("promoter_equity") and not merged_fields.get("machinery_selection_confirmed"):
+                previous_variant = matched_machinery.get("selected_capacity_variant_id")
+                matched_machinery = await _size_machinery_for_fields(merged_fields, matched_machinery)
+                capacity_resized = matched_machinery.get("selected_capacity_variant_id") != previous_variant
+                new_fields["machinery_plan"] = matched_machinery
+                merged_fields["machinery_plan"] = matched_machinery
             if matched_machinery:
                 m_name = matched_machinery.get("business_name")
                 new_fields["matched_machinery_profile"] = m_name
@@ -1907,12 +1948,12 @@ async def process_onboarding_message(payload: OnboardingRequest):
                 matched_profile=matched_machinery,
             )
             for k, v in bank_params.items():
-                if k not in existing_fields:
+                if k not in existing_fields or (capacity_resized and k in {"expected_monthly_units", "capacity_unit_label"}):
                     new_fields[k] = v
                     merged_fields[k] = v
 
         # Auto-calculate annual_turnover_estimate intelligently
-        if "project_cost" in merged_fields and "annual_turnover_estimate" not in merged_fields:
+        if "project_cost" in merged_fields and ("annual_turnover_estimate" not in merged_fields or (capacity_resized and merged_fields.get("annual_turnover_source") != "user_supplied")):
             try:
                 cost = float(merged_fields["project_cost"])
                 sector = merged_fields.get("sector", "general")
@@ -2196,14 +2237,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
                        if matched_machinery else "This appears to be retail or an idea with no production machinery in our catalogue. Please confirm that before reviewing the form.")
                 )
 
-            applicable_mach_payload = {
-                "business_name": matched_machinery.get("business_name") if matched_machinery else None,
-                "category": matched_machinery.get("category") if matched_machinery else None,
-                "industry_sector": matched_machinery.get("industry_sector") if matched_machinery else None,
-                "typical_capacity": matched_machinery.get("typical_capacity") if matched_machinery else None,
-                "total_machinery_cost_inr": matched_machinery.get("total_machinery_cost_inr") if matched_machinery else None,
-                "machinery_list": matched_machinery.get("machinery_list", []) if matched_machinery else [],
-            } if matched_machinery else (merged_fields.get("machinery_plan") or {"business_name": None, "machinery_list": [], "total_machinery_cost_inr": 0})
+            applicable_mach_payload = dict(matched_machinery) if matched_machinery else (merged_fields.get("machinery_plan") or {"business_name": None, "machinery_list": [], "total_machinery_cost_inr": 0})
 
             tts_clean = clean_for_bhashini_tts(reply, payload.language)
             return OnboardingResponse(
@@ -2301,14 +2335,7 @@ async def process_onboarding_message(payload: OnboardingRequest):
             all_fields_collected=all_collected,
             odop_alignment=odop_synergy,
             odop_comparison=odop_synergy,
-            applicable_machinery={
-                "business_name": matched_machinery.get("business_name") if matched_machinery else None,
-                "category": matched_machinery.get("category") if matched_machinery else None,
-                "industry_sector": matched_machinery.get("industry_sector") if matched_machinery else None,
-                "typical_capacity": matched_machinery.get("typical_capacity") if matched_machinery else None,
-                "total_machinery_cost_inr": matched_machinery.get("total_machinery_cost_inr") if matched_machinery else None,
-                "machinery_list": matched_machinery.get("machinery_list", []) if matched_machinery else [],
-            } if matched_machinery else None,
+            applicable_machinery=dict(matched_machinery) if matched_machinery else None,
             machinery_analysis={
                 "matched_profile": merged_fields.get("matched_machinery_profile"),
                 "owned_machines": merged_fields.get("owned_machines", []),

@@ -46,7 +46,9 @@ export function CashflowProjectionsChart({ inputData, financialData, pricingData
   });
 
   const servicedYears = years.filter(y => y.debt > 0);
-  const avgDscr = servicedYears.length ? (servicedYears.reduce((acc, y) => acc + y.dscr, 0) / servicedYears.length).toFixed(2) : "No debt";
+  const avgDscr = financialData?.debt_service_required === false ? 'No debt'
+    : financialData?.average_dscr != null ? Number(financialData.average_dscr).toFixed(2)
+    : servicedYears.length ? (servicedYears.reduce((acc, y) => acc + y.dscr, 0) / servicedYears.length).toFixed(2) : 'No debt';
   const breakEvenPct = Number(financialData?.break_even_pct) || 64.5;
   const breakEvenMilestone = financialData?.break_even_milestone || 'Year 2 (Month 16)';
   const breakEvenYear = Number(financialData?.break_even_year) || 2;

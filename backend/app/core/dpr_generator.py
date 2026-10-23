@@ -221,6 +221,7 @@ def _compute_5yr_projections(
     unit_price_floor: float,
     operating_projections: Optional[list[dict[str, Any]]] = None,
     break_even_result: Optional[dict[str, Any]] = None,
+    projection_summary: Optional[dict[str, Any]] = None,
 ) -> FiveYearFinancialHorizon:
     """
     Computes a deterministic 5-Year Cash Flow Projection using standard Scheduled
@@ -233,11 +234,16 @@ def _compute_5yr_projections(
     if operating_projections:
         rows = [FinancialProjectionYear.model_validate(row) for row in operating_projections]
         serviced = [row for row in rows if row.total_debt_service > 0]
-        average = sum(row.annual_dscr for row in serviced) / len(serviced) if serviced else 0
+        if projection_summary is not None:
+            average = projection_summary["average_dscr"]
+            benchmark_met = projection_summary["dscr_benchmark_met"]
+        else:
+            average = sum(row.annual_dscr for row in serviced) / len(serviced) if serviced else 0
+            benchmark_met = not serviced or average >= 1.33
         bep = break_even_result or {}
         return FiveYearFinancialHorizon(
-            projection_years=rows, average_dscr=round(average, 2),
-            dscr_benchmark_met=not serviced or average >= 1.33,
+            projection_years=rows, average_dscr=average,
+            dscr_benchmark_met=benchmark_met,
             break_even_point_pct=bep.get("break_even_pct", 0),
             recommended_unit_price_floor=unit_price_floor,
             break_even_milestone=bep.get("break_even_milestone", "Projection estimate"),
@@ -536,6 +542,7 @@ def build_bank_dpr(
     operating_projections: Optional[list[dict[str, Any]]] = None,
     planning_assumptions: Optional[dict[str, Any]] = None,
     break_even_result: Optional[dict[str, Any]] = None,
+    projection_summary: Optional[dict[str, Any]] = None,
 ) -> BankDPRDocument:
     """
     Compiles the complete 7-Section Bank DPR appraisal document.
@@ -663,6 +670,7 @@ def build_bank_dpr(
         unit_price_floor=pricing_result.cpi_adjusted_unit_price_floor,
         operating_projections=operating_projections,
         break_even_result=break_even_result,
+        projection_summary=projection_summary,
     )
 
     # 4. Scheme Optimization Table (Top 5)

@@ -24,6 +24,13 @@ export function PlanningAssumptionsCard({ financialData }) {
         <summary className="cursor-pointer"><TranslatedText text="View calculation assumptions" /></summary>
         <p className="mt-2">{a.input_units_per_output_unit} {a.input_unit}/{a.output_unit} · ₹{money(a.raw_material_cost_per_input_unit_inr)}/{a.input_unit} · {Math.round(a.utilization * 100)}% <TranslatedText text="utilization" /> · {Math.round(a.market_share * 100)}% <TranslatedText text="local market share" /></p>
         <p className="mt-1"><TranslatedText text={assumptions.source_summary} /></p>
+        {assumptions.capacity?.basis && <p className="mt-1"><TranslatedText text={assumptions.capacity.basis} /></p>}
+        {financialData.financial_calculation_source === 'llm_calculated' && (
+          <p className="mt-1"><TranslatedText text="Capacity, conversions and report calculations provided by AI" /></p>
+        )}
+        {financialData.financial_calculation_source === 'indicative_calculation_fallback' && (
+          <p className="mt-1"><TranslatedText text="Financial calculations use the indicative fallback" /></p>
+        )}
       </details>
     </div>
   );

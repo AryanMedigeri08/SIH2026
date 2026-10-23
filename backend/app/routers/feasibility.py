@@ -15,16 +15,12 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 
 logger = logging.getLogger("udyam_saathi.feasibility")
 
-from financial_calculator import (
-    emi_with_moratorium, working_capital_estimate, compute_dscr, rank_eligible_schemes,
-    compute_break_even_and_payback,
-)
+from financial_calculator import rank_eligible_schemes
 from market_analyzer import (
     project_population, estimate_tam, compute_msme_density, compute_competition_intensity,
 )
 from risk_analyzer import build_risk_matrix, overall_risk_verdict
 from swot_analyzer import build_swot, SWOTMatrix
-from pricing_engine import compute_pricing
 from feature_extractor import extract_features_from_pipeline_objects
 from inference import predict_viability
 from executive_synthesizer import generate_executive_synthesis
@@ -33,9 +29,10 @@ from amenities_client import fetch_village_amenities
 from opportunity_matcher import get_alternative_recommendations
 
 from app.core.business_interpreter import interpret_business_idea
+from app.core.machinery_variants import resolve_machinery_plan, select_machinery_capacity
 from app.core.chat_service import chat_service
 from app.core.enterprise_assumptions import estimate_operations, calculate_operations
-from app.core.operating_finance import project_cashflows
+from app.core.llm_financials import calculate_report_finance
 from app.config import settings
 from app.database import db_manager
 from app.core.auth_dependency import get_current_user, AuthenticatedUser
@@ -139,6 +136,8 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         "idea": idea, "business_category": input_data.business_category,
         "business_type": input_data.business_type, "sector": input_data.sector,
         "project_cost": input_data.project_cost,
+        "gross_project_cost": input_data.gross_project_cost or input_data.project_cost,
+        "promoter_equity": input_data.promoter_equity,
         "expected_monthly_units": input_data.expected_monthly_units,
         "location": {"state": input_data.state_name, "district": input_data.district_name, "village": input_data.village_name},
         "census": census_data, "population_projection": pop.to_dict(),
@@ -147,8 +146,23 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         "competition": comp.to_dict(), "district_msme": msme_data,
         "machinery_profile": input_data.machinery_plan or {},
     }
-    assumptions = await asyncio.to_thread(estimate_operations, evidence, chat_service._call_llm_chat_completion)
+    # Preserve the onboarding choice; old/direct report requests are sized with
+    # the same local evidence rather than inheriting the reference plant.
+    plan = resolve_machinery_plan(input_data.machinery_plan or {})
+    sizing_context = plan.get("capacity_selection_context") or {}
+    previous_budget = sizing_context.get("gross_project_cost") or sizing_context.get("project_cost")
+    selection_stale = (
+        bool(sizing_context.get("location")) and sizing_context["location"] != evidence["location"]
+        or previous_budget is not None and abs(float(previous_budget) - evidence["gross_project_cost"]) > 1
+        or bool(sizing_context.get("idea")) and sizing_context["idea"] != idea
+    )
+    if plan and (not plan.get("selected_capacity_variant_id") or selection_stale):
+        plan = await asyncio.to_thread(select_machinery_capacity, plan, evidence, chat_service._call_llm_chat_completion)
+    input_data.machinery_plan = plan
+    evidence["machinery_profile"] = plan
     supplied_sales = input_data.annual_turnover_estimate if input_data.annual_turnover_source == "user_supplied" else None
+    evidence["annual_sales_override"] = supplied_sales
+    assumptions = await asyncio.to_thread(estimate_operations, evidence, chat_service._call_llm_chat_completion)
     operations = calculate_operations(assumptions, supplied_sales)
     input_data.annual_turnover_estimate = operations["annual_sales"]
     input_data.expected_monthly_units = operations["monthly_sales_units"]
@@ -180,29 +194,28 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         min(committed_cash_equity, max(input_data.project_cost - top_scheme.subsidy_grant_amount, min_statutory_margin_val))
     )
     loan_principal = max(input_data.project_cost - top_scheme.subsidy_grant_amount - promoter_cash_applied, 0.0)
-    effective_loan_for_amort = max(loan_principal, 1.0)
-    amort = emi_with_moratorium(effective_loan_for_amort, top_scheme.effective_interest_rate_pct, input_data.tenure_years, input_data.moratorium_months)
-    if loan_principal <= 0.0:
-        amort.monthly_emi = 0.0
-        amort.total_interest_payable = 0.0
-        amort.total_repayment = 0.0
     promoter_margin_val = promoter_cash_applied
-
-    turnover_audit = {
-        "derivation_basis": operations["sales_source"] + "; achievable demand and saleable output; " + assumptions["values"]["rationale"],
-        "capacity_turnover": operations["monthly_saleable_capacity"] * operations["selling_price_inr"] * 12,
-        "velocity_turnover": None,
-    }
-    wc = working_capital_estimate(input_data.annual_turnover_estimate, input_data.sector)
-    projections = project_cashflows(
-        operations, input_data.project_cost, loan_principal, top_scheme.effective_interest_rate_pct,
-        input_data.tenure_years, input_data.moratorium_months, cpi_pct,
-        annual_noi_override=input_data.monthly_net_operating_income_override * 12 if input_data.monthly_net_operating_income_override is not None else None,
-    )
+    financial_calculation = await asyncio.to_thread(calculate_report_finance, operations, {
+        "project_cost": input_data.project_cost, "loan_principal": loan_principal,
+        "annual_rate_pct": top_scheme.effective_interest_rate_pct,
+        "tenure_years": input_data.tenure_years, "moratorium_months": input_data.moratorium_months,
+        "sector": input_data.sector, "cpi_pct": cpi_pct,
+        "subsidy_amount": top_scheme.subsidy_grant_amount, "promoter_margin": promoter_margin_val,
+        "monthly_noi_override": input_data.monthly_net_operating_income_override,
+    }, chat_service._call_llm_chat_completion)
+    financial_plan = financial_calculation["result"]
+    amort, wc, dscr_res = financial_plan.amortization, financial_plan.working_capital, financial_plan.dscr
+    bep_res, pricing = financial_plan.break_even, financial_plan.pricing
+    projections = [row.model_dump() for row in financial_plan.projections]
     first_year = projections[0]
-    monthly_noi = (first_year["ebitda"] - first_year["tax_provision"]) / 12
-    dscr_res = compute_dscr(monthly_noi, first_year["total_debt_service"] / 12)
-    subsidy_coverage_ratio = top_scheme.subsidy_grant_amount / input_data.project_cost if input_data.project_cost else 0.0
+    summary = financial_plan.summary
+    monthly_noi, subsidy_coverage_ratio = summary.monthly_noi, summary.subsidy_coverage_ratio
+    annual_net_profit, monthly_net_profit, roi_pct = summary.annual_net_profit, summary.monthly_net_profit, summary.roi_pct
+    break_even_pct = bep_res.break_even_pct
+    turnover_audit = {
+        "derivation_basis": operations["sales_source"] + "; " + assumptions["values"]["rationale"],
+        "capacity_turnover": operations["annual_capacity_sales"], "velocity_turnover": None,
+    }
 
     logger.info(
         f"🏛️ [TIER 1 SCHEMES] Querying Source: 'government_schemes.json' | Evaluated {len(schemes)} schemes -> "
@@ -210,32 +223,6 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         f"EMI: ₹{amort.monthly_emi:,.2f} | DSCR: {dscr_res.dscr:.2f} ({dscr_res.verdict}) | "
         f"Turnover: ₹{input_data.annual_turnover_estimate:,.0f} ({turnover_audit.get('derivation_basis', 'Triangulated')})"
     )
-
-    # Compute additional key financial appraisal ratios (ROI & Break-Even)
-    annual_net_profit = first_year["profit_after_tax"]
-    monthly_net_profit = annual_net_profit / 12
-    roi_pct = round((annual_net_profit / input_data.project_cost) * 100, 2) if input_data.project_cost > 0 else 0.0
-
-    # Dynamic statutory Break-Even Horizon & Capital Payback Period
-    bep_res = compute_break_even_and_payback(
-        project_cost=input_data.project_cost,
-        annual_turnover=input_data.annual_turnover_estimate,
-        monthly_emi=amort.monthly_emi,
-        monthly_working_capital_outlay=wc.monthly_working_capital_outlay,
-        moratorium_months=input_data.moratorium_months,
-        subsidy_amount=top_scheme.subsidy_grant_amount,
-        promoter_margin_val=promoter_margin_val,
-        loan_principal=loan_principal,
-    )
-    break_even_pct = bep_res.break_even_pct
-
-    # Production costs and market selling-price estimates are separate quantities.
-    expected_units = max(operations["monthly_sales_units"], 1e-9)
-    pricing = compute_pricing(amort.monthly_emi, wc.monthly_working_capital_outlay, expected_units, cpi_pct)
-    pricing.unit_cost_floor = operations["unit_cost_floor"]
-    pricing.cpi_adjusted_unit_price_floor = operations["unit_cost_floor"]
-    pricing.recommended_selling_price_band_low = operations["selling_price_inr"] * .95
-    pricing.recommended_selling_price_band_high = operations["selling_price_inr"] * 1.05
 
     # 6. Feature Extraction & XGBoost Viability Model (Tier 2)
     fv = extract_features_from_pipeline_objects(
@@ -250,7 +237,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     )
 
     # 7. Risk Assessment & Grounded SWOT (Tier 1 + Tier 2)
-    wc_buf = promoter_margin_val / wc.monthly_working_capital_outlay if wc.monthly_working_capital_outlay else 0.0
+    wc_buf = summary.working_capital_months_buffer
 
     risks = build_risk_matrix(
         dscr_res.dscr, amort.monthly_emi, tam.annual_tam, input_data.annual_turnover_estimate,
@@ -360,6 +347,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         operating_projections=projections,
         planning_assumptions=assumptions,
         break_even_result=bep_res.to_dict(),
+        projection_summary={"average_dscr": summary.average_dscr, "dscr_benchmark_met": summary.dscr_benchmark_met},
     )
 
     report_id = f"REP-{uuid.uuid4().hex[:10].upper()}"
@@ -452,6 +440,10 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         financial_analysis={
             "operating_model": operations,
             "planning_assumptions": assumptions,
+            "financial_calculation_source": financial_calculation["source"],
+            "financial_calculation_model": financial_calculation["model"],
+            "financial_calculation_basis": financial_plan.rationale,
+            "average_dscr": summary.average_dscr,
             "five_year_projections": projections,
             "capacity_unit_label": operations["output_unit"],
             "debt_service_required": loan_principal > 0,
@@ -472,7 +464,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
             "net_project_cost": input_data.project_cost,
             "monthly_net_profit": round(monthly_net_profit, 2),
             "annual_net_profit": round(annual_net_profit, 2),
-            "annual_cash_surplus_after_debt": round(first_year["ebitda"] - first_year["tax_provision"] - first_year["total_debt_service"], 2),
+            "annual_cash_surplus_after_debt": summary.annual_cash_surplus_after_debt,
             "roi_pct": roi_pct,
             "break_even_pct": break_even_pct,
             "break_even_year": bep_res.break_even_year,

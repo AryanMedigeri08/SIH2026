@@ -219,7 +219,10 @@ def test_full_paneer_onboarding_order_and_server_valued_equipment():
                        selected_machines=[{"machine_name": "Paneer Press & Cheese Vat", "estimated_cost_inr": 99999999},
                                           {"machine_name": "Invented Machine", "estimated_cost_inr": 99999999}])
         assert review["next_phase"] == "split_screen"
-        assert review["extracted_fields"]["owned_machinery_value"] == 130000
+        selected_press = next(m for m in investment["applicable_machinery"]["machinery_list"] if m["machine_name"] == "Paneer Press & Cheese Vat")
+        assert review["extracted_fields"]["owned_machinery_value"] == selected_press["estimated_cost_inr"]
+        assert review["applicable_machinery"]["typical_capacity"] == investment["applicable_machinery"]["typical_capacity"]
+        assert investment["applicable_machinery"]["selected_capacity_variant_id"] == "starter"
         assert [m["machine_name"] for m in review["extracted_fields"]["owned_machines"]] == ["Paneer Press & Cheese Vat"]
 
 

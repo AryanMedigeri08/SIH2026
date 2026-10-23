@@ -33,8 +33,19 @@ def test_report_completes_and_dashboard_matches_export(monkeypatch, reply, own_c
         captured.append(kwargs)
         if reply == "valid":
             package = json.loads(kwargs["messages"][1]["content"])
+            if "immutable_financing_facts" in package:
+                from app.core.llm_financials import _fallback
+                ops = {**package["accepted_operating_calculations"],
+                       "assumptions": {"values": package["operating_assumptions"]}}
+                return _fallback(ops, package["immutable_financing_facts"]).model_dump_json(), None, "test"
             if "output_schema_example" in package:
-                return json.dumps(package["output_schema_example"]), None, "test"
+                from app.core.enterprise_assumptions import estimate_operations, calculate_operations
+                seed = estimate_operations(package["evidence"])
+                quantity = package["evidence"]["machinery_profile"]["capacity"]["quantity"]
+                seed["values"]["rated_monthly_input_units"] = quantity * 25
+                return json.dumps({"values": seed["values"], "calculations": calculate_operations(seed),
+                    "capacity": {"quantity": quantity, "unit": "litres", "period": "day", "monthly_quantity": quantity * 25,
+                        "capacity_kind": "throughput", "basis": f"{quantity} litres/day * 25 working days"}}), None, "test"
             return json.dumps({"sector": "dairy", "business_category": "manufacturing", "business_type": "manufacturing",
                 "profile_name": "Dairy Processing Unit (Milk Pasteurization, Paneer, Curd & Ghee)"}), None, "test"
         if reply is None:
@@ -60,6 +71,12 @@ def test_report_completes_and_dashboard_matches_export(monkeypatch, reply, own_c
     assert "Optimistic planning estimate" in dpr_to_printable_markdown(dpr)
     json.dumps(report.model_dump(mode="json"), allow_nan=False)
     assert any("amenities" in call["messages"][1]["content"] for call in captured)
+    assert report.input_parameters.machinery_plan["selected_capacity_variant_id"] == "starter"
+    assert fin["planning_assumptions"]["evidence"]["machinery_profile"]["capacity"]["quantity"] == 100
+    if reply == "valid":
+        assert fin["operating_model"]["calculation_source"] == "llm_calculated"
+        assert fin["financial_calculation_source"] == "llm_calculated"
+        assert fin["average_dscr"] == dpr.section_3_financial_projections.average_dscr
     if own_capital == 500000:
         assert fin["debt_service_required"] is False
         assert fin["amortization"]["monthly_emi"] == 0

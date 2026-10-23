@@ -25,6 +25,8 @@ def project_cashflows(operations: dict, project_cost: float, principal: float,
         if operations["sales_source"] == "user_supplied":
             monthly_units = operations["monthly_sales_units"] * volume_factor
         revenue = monthly_units * a["selling_price_inr"] * 12 * (1.02 ** idx)
+        if idx == 0:
+            revenue = operations["annual_sales"]
         cost_index = (1 + max(cpi_pct, -50) / 100) ** idx
         raw = monthly_units * a["input_units_per_output_unit"] * a["raw_material_cost_per_input_unit_inr"] * 12 * cost_index
         variable = monthly_units * a["other_variable_cost_per_output_unit_inr"] * 12 * cost_index

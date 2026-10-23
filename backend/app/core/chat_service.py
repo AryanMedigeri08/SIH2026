@@ -416,6 +416,42 @@ class ChatService:
             os.environ.get("SARVAM_LLM_MODEL", "sarvam-105b-conversations")
         )
 
+    def _call_groq_calculation(self, messages, response_format, temperature, max_tokens, timeout_s):
+        """Use the configured reasoning model for structured arithmetic requests."""
+        from groq import Groq
+        key = (getattr(settings, "GROQ_API_KEY_LLM", None) or os.environ.get("GROQ_API_KEY_LLM")
+               or getattr(settings, "GROQ_CHAT_KEY", None) or os.environ.get("GROQ_CHAT_KEY")
+               or getattr(settings, "GROQ_API_KEY", None) or os.environ.get("GROQ_API_KEY"))
+        if not key:
+            raise RuntimeError("No configured Groq calculation credentials")
+        model = getattr(settings, "GROQ_LLM_MODEL", None) or getattr(settings, "GROQ_MODEL", "openai/gpt-oss-20b")
+        kwargs = {"messages": messages, "model": model, "temperature": temperature,
+                  "max_completion_tokens": min(max(max_tokens * 2, 4096), 8192)}
+        if response_format:
+            kwargs["response_format"] = response_format
+        if model in {"openai/gpt-oss-20b", "openai/gpt-oss-120b"}:
+            kwargs["reasoning_effort"] = "medium"
+        client = Groq(api_key=key, timeout=timeout_s, max_retries=0)
+        try:
+            completion = client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            headers = getattr(getattr(exc, "response", None), "headers", {})
+            try:
+                retry_after = float(headers.get("retry-after", "0"))
+            except (TypeError, ValueError):
+                retry_after = 0
+            if type(exc).__name__ == "RateLimitError" and 0 < retry_after <= 2:
+                time.sleep(retry_after)
+                completion = client.chat.completions.create(**kwargs)
+            else:
+                raise
+        message = completion.choices[0].message
+        content = message.content or ""
+        if not content:
+            raise ValueError("Calculation model returned no structured result")
+        logger.info("Groq calculation model (%s) returned structured results (%d chars)", model, len(content))
+        return content, None, f"groq:{model}"
+
     def _call_llm_chat_completion(
         self,
         messages: List[Dict[str, Any]],
@@ -423,12 +459,19 @@ class ChatService:
         temperature: float = 0.7,
         max_tokens: int = 512,
         timeout_s: float = 25.0,
+        response_format: Optional[Dict[str, Any]] = None,
+        calculation_mode: bool = False,
     ) -> tuple[str, Optional[Dict[str, Any]], str]:
         """
         Executes chat completion against Sarvam AI (sarvam-105b-conversations)
         with automatic fallback to Groq if Sarvam is unavailable.
         Returns (content, tool_call_result, model_identifier).
         """
+        if calculation_mode:
+            try:
+                return self._call_groq_calculation(messages, response_format, temperature, max_tokens, timeout_s)
+            except Exception as exc:
+                logger.warning("Reasoning calculation request failed (%s); using configured chat-provider fallback", type(exc).__name__)
         sarvam_key = getattr(settings, "SARVAM_API_KEY", None) or os.environ.get("SARVAM_API_KEY")
         sarvam_endpoint = self._get_chat_endpoint()
         sarvam_model = self._get_llm_model()
@@ -450,6 +493,8 @@ class ChatService:
                 if tools:
                     payload["tools"] = tools
                     payload["tool_choice"] = "auto"
+                if response_format:
+                    payload["response_format"] = response_format
 
                 with httpx.Client(timeout=timeout_s) as client:
                     resp = client.post(sarvam_endpoint, headers=headers, json=payload)
@@ -501,7 +546,7 @@ class ChatService:
         if groq_key:
             try:
                 from groq import Groq
-                client = Groq(api_key=groq_key, timeout=14.0)
+                client = Groq(api_key=groq_key, timeout=timeout_s)
                 groq_model = os.environ.get("GROQ_LLM_MODEL", os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b"))
                 call_kwargs: Dict[str, Any] = {
                     "messages": messages,
@@ -512,6 +557,8 @@ class ChatService:
                 if tools:
                     call_kwargs["tools"] = tools
                     call_kwargs["tool_choice"] = "auto"
+                if response_format:
+                    call_kwargs["response_format"] = response_format
                 chat_completion = client.chat.completions.create(**call_kwargs)
                 choice = chat_completion.choices[0]
                 msg = choice.message
