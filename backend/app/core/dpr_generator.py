@@ -29,6 +29,10 @@ from dataclasses import dataclass, asdict, field
 from typing import Optional, Union, Any
 from pathlib import Path
 from pydantic import BaseModel, Field
+try:
+    from .demand_report import demand_markdown, demand_html
+except ImportError:  # Legacy top-level import used by the report router.
+    from demand_report import demand_markdown, demand_html
 
 # ---------------------------------------------------------------------------
 # Pydantic v2 Models for Strict Serialization & REST API compatibility
@@ -819,8 +823,10 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
     if dpr.planning_assumptions:
         a = dpr.planning_assumptions["values"]
         price_label = "Average realized selling price" if (dpr.planning_assumptions.get("pricing") or {}).get("source") in {"llm_quantity_weighted", "llm_mix_with_indicative_arithmetic"} else "Estimated selling price"
-        lines.append(f"**Optimistic planning estimate**: {price_label} ₹{a['selling_price_inr']:,.2f}/{a['output_unit']}; input requirement {a['input_units_per_output_unit']:g} {a['input_unit']}/{a['output_unit']}; raw input cost ₹{a['raw_material_cost_per_input_unit_inr']:,.2f}/{a['input_unit']}. {a['rationale']}")
+        estimate_label = "Provisional base planning scenario" if dpr.planning_assumptions.get("demand_forecast") else "Optimistic planning estimate"
+        lines.append(f"**{estimate_label}**: {price_label} ₹{a['selling_price_inr']:,.2f}/{a['output_unit']}; input requirement {a['input_units_per_output_unit']:g} {a['input_unit']}/{a['output_unit']}; raw input cost ₹{a['raw_material_cost_per_input_unit_inr']:,.2f}/{a['input_unit']}. {a['rationale']}")
         pricing = dpr.planning_assumptions.get("pricing")
+        lines.append(demand_markdown(dpr.planning_assumptions.get("demand_forecast")))
         if pricing:
             lines.append(f"**Price mix**: {pricing['basis']}")
             for segment in pricing["sales_mix"]:
@@ -1167,8 +1173,9 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
         a = doc.planning_assumptions["values"]
         pricing = doc.planning_assumptions.get("pricing")
         price_label = "Average realized selling price" if (pricing or {}).get("source") in {"llm_quantity_weighted", "llm_mix_with_indicative_arithmetic"} else "Estimated selling price"
+        estimate_label = "Provisional base planning scenario" if doc.planning_assumptions.get("demand_forecast") else "Optimistic planning estimate"
         assumptions_html = ("<div style='padding:10px;border:1px solid #cbd5e1;margin:12px 0'>"
-            "<strong>Optimistic planning estimate</strong><br/>"
+            f"<strong>{estimate_label}</strong><br/>"
             f"{price_label}: ₹{a['selling_price_inr']:,.2f}/{escape(a['output_unit'])}; "
             f"input requirement: {a['input_units_per_output_unit']:g} {escape(a['input_unit'])}/{escape(a['output_unit'])}; "
             f"raw input cost: ₹{a['raw_material_cost_per_input_unit_inr']:,.2f}/{escape(a['input_unit'])}. "
@@ -1176,6 +1183,7 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
         if pricing:
             mix_rows = "".join(f"<li>{escape(row['segment'])}: {row['quantity_share'] * 100:g}% of sold quantity at ₹{row['realized_unit_price_inr']:,.2f}/{escape(a['output_unit'])} after discounts.</li>" for row in pricing["sales_mix"])
             assumptions_html += f"<div><strong>Price mix:</strong> {escape(pricing['basis'])}<ul>{mix_rows}</ul></div>"
+        assumptions_html += demand_html(doc.planning_assumptions.get("demand_forecast"))
         conversion = doc.planning_assumptions.get("conversion")
         if conversion:
             assumptions_html += ("<div style='padding:10px;border:1px solid #cbd5e1;margin:12px 0'>"

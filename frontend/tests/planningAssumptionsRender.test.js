@@ -92,6 +92,37 @@ test('financial report renders estimated sales, persisted projections and losses
     const noDebt = render({ ...reportData, financial_analysis: { ...reportData.financial_analysis,
       debt_service_required: false, dscr: { dscr: 0, verdict: 'NO DEBT' } } });
     assert.match(noDebt, /No loan repayments/);
+    const demandReport = structuredClone(reportData);
+    demandReport.financial_analysis.planning_assumptions.demand_forecast = {
+      business_model: 'B2C local food retail', product_service: 'Finished product by kg', sales_channel: 'Local direct sales',
+      method_reason: 'Captured active customers buy a defined basket; no additional market share multiplier applies.',
+      equation_with_units: 'active buyers * transactions/buyer/month * kg/transaction',
+      provisional: true, output_unit: 'kg', effective_monthly_capacity: 200, period: 'annual_average_month',
+      review_status: 'review_required', warnings: ['Observed customer transactions are needed to validate acquisition.'],
+      target_customer: 'Active business customers', buyer_base: 'people', location: 'Synthetic village', maturity: 'Startup',
+      buying_cycle: 'Monthly repeat purchases', acquisition_constraints: 'Limited local reach',
+      reality_review: 'Buyer counts, daily volume and staffing were reviewed as one startup scenario.',
+      reconciliation: 'No independent observed transaction records exist; do not average incompatible forecasts.',
+      uncertainty_drivers: ['Customer acquisition'], limitations: ['No external research was performed'], missing_data: ['Actual footfall records'],
+      scenarios: Object.fromEntries([['conservative',60],['base',100],['optimistic',150]].map(([name,q]) => [name, {
+        monthly_demand_units: q, realized_monthly_units: q, monthly_active_buyers: q/2, monthly_transactions: q,
+        daily_unit_sales: q/25, monthly_revenue_inr: q*60, capacity_utilization_pct: q/200*100,
+        inputs: [{ role: 'active_buyers', value: q/2, units: 'people', reference_period: 'annual_average_month',
+          source_kind: 'scenario_assumption', source: 'Synthetic acquisition hypothesis', confidence: 'low',
+          reasoning: 'This buyer count is an explicit scenario, not a verified local statistic.' }],
+      }])),
+    };
+    const demandHtml = render(demandReport);
+    assert.match(demandHtml, /Business-specific demand forecast/);
+    assert.match(demandHtml, /Provisional base planning scenario/);
+    assert.match(demandHtml, /hypotheses, not verified sales/);
+    assert.match(demandHtml, /conservative/);
+    assert.match(demandHtml, /optimistic/);
+    assert.match(demandHtml, /Synthetic acquisition hypothesis/);
+    assert.match(demandHtml, /Demand assumptions still require review/);
+    assert.match(demandHtml, /72,000/); // Existing annual sales and finance figures are untouched.
+    assert.match(demandHtml, /-0.50x/);
+    assert.doesNotMatch(demandHtml, /local market share|Annual-average seasonality factor/);
   } finally {
     await vite.close();
     delete globalThis.localStorage;

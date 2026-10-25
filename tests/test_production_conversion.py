@@ -8,7 +8,7 @@ import json
 import pytest
 
 from backend.app.core.enterprise_assumptions import estimate_operations, calculate_operations
-from tests.planning_fixtures import uniform_price_mix
+from tests.planning_fixtures import uniform_price_mix, business_demand_fixture
 
 
 CASES = [
@@ -67,6 +67,7 @@ def package(case):
         annual_capacity_sales=production * 20 * 12, unit_cost_floor=variable_cost + 100 / sold,
         output_unit=output_unit, selling_price_inr=20)
     return {"values": values, "capacity": capacity, "conversion": conversion,
+        "demand_forecast": business_demand_fixture(values, calculations),
         "pricing": uniform_price_mix(values), "calculations": calculations}
 
 
@@ -174,6 +175,7 @@ def test_storage_day_billing_uses_stock_days_not_invented_throughput():
     # Demand stays 50,000 kg-days/month, within the stock-day capacity.
     c.update(monthly_sales_units=50000, monthly_gross_sales=1000000, annual_sales=12000000,
         annual_variable_cost=7200000, annual_operating_cashflow=4798800, unit_cost_floor=12.002)
+    response["demand_forecast"] = business_demand_fixture(response["values"], c)
     result = estimate(response)
     assert result["calculation_source"] == "llm_calculated"
     assert result["calculations"]["monthly_saleable_capacity"] == 150000

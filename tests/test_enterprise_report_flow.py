@@ -12,7 +12,7 @@ from app.core.amenities_client import VillageAmenitiesResult
 from app.core.inference import _rule_based_fallback
 from app.core.executive_synthesizer import ExecutiveSynthesis
 from dpr_generator import dpr_to_html, dpr_to_printable_markdown
-from tests.planning_fixtures import raw_input_conversion, uniform_price_mix
+from tests.planning_fixtures import raw_input_conversion, uniform_price_mix, business_demand_fixture
 
 
 @pytest.mark.parametrize("reply,own_capital", [(None, 100000), ("[]", 100000), ('{"selling_price_inr":null}', 2000000), ("valid", 100000)])
@@ -51,6 +51,7 @@ def test_report_completes_and_dashboard_matches_export(monkeypatch, reply, own_c
                 quantity = package["evidence"]["machinery_profile"]["capacity"]["quantity"]
                 seed["values"]["rated_monthly_input_units"] = quantity * 25
                 return json.dumps({"values": seed["values"], "calculations": calculate_operations(seed),
+                    "demand_forecast": business_demand_fixture(seed["values"], calculate_operations(seed)),
                     "conversion": raw_input_conversion(seed["values"]),
                     "pricing": uniform_price_mix(seed["values"]),
                     "capacity": {"quantity": quantity, "unit": "litres", "period": "day", "monthly_quantity": quantity * 25,
@@ -89,8 +90,9 @@ def test_report_completes_and_dashboard_matches_export(monkeypatch, reply, own_c
     assert rows[0].gross_turnover == fin["gross_annual_sales"]
     assert rows[0].annual_dscr == pytest.approx(fin["dscr"]["dscr"], abs=.01)
     assert [row.model_dump() for row in rows] == fin["five_year_projections"]
-    assert "Optimistic planning estimate" in dpr_to_html(dpr)
-    assert "Optimistic planning estimate" in dpr_to_printable_markdown(dpr)
+    estimate_label = "Provisional base planning scenario" if reply == "valid" else "Optimistic planning estimate"
+    assert estimate_label in dpr_to_html(dpr)
+    assert estimate_label in dpr_to_printable_markdown(dpr)
     assert "Itemized estimated budget" in dpr_to_html(dpr)
     assert "Itemized estimated budget" in dpr_to_printable_markdown(dpr)
     assert "Unconfirmed scheme subsidy is excluded" in dpr_to_html(dpr)
@@ -102,6 +104,9 @@ def test_report_completes_and_dashboard_matches_export(monkeypatch, reply, own_c
     assert report.input_parameters.machinery_plan["selected_capacity_variant_id"] == "starter"
     assert fin["planning_assumptions"]["evidence"]["machinery_profile"]["capacity"]["quantity"] == 100
     if reply == "valid":
+        assert "Business-specific demand forecast" in dpr_to_html(dpr)
+        assert "Business-specific demand forecast" in dpr_to_printable_markdown(dpr)
+        assert fin["planning_assumptions"]["demand_forecast"]["scenarios"]["base"]["realized_monthly_units"] == fin["operating_model"]["monthly_sales_units"]
         definition = fin["planning_assumptions"]["conversion"]["saleable_unit_definition"]
         assert definition in dpr_to_html(dpr)
         assert definition in dpr_to_printable_markdown(dpr)

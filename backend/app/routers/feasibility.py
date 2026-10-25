@@ -261,6 +261,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     synthesis = generate_executive_synthesis({
         "planning_assumptions_summary": {"values": assumptions["values"], "conversion": assumptions.get("conversion"),
             "pricing": assumptions.get("pricing"),
+            "demand_forecast": assumptions.get("demand_forecast"),
             "monthly_sales_units": operations["monthly_sales_units"], "monthly_gross_sales": operations["monthly_gross_sales"],
             "source": assumptions["source_summary"], "scenario": assumptions["scenario"]},
         "enterprise_name": input_data.enterprise_name,

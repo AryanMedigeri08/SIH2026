@@ -7,6 +7,7 @@ import pytest
 from backend.app.core.enterprise_assumptions import estimate_operations, calculate_operations
 from backend.app.core.llm_financials import calculate_report_finance
 from tests.test_production_conversion import CASES, package
+from tests.planning_fixtures import business_demand_fixture
 
 
 def weighted_package():
@@ -18,12 +19,13 @@ def weighted_package():
                    dict(segment="Wholesale cartons of ten cups", quantity_share=.4, quoted_price_inr=250,
                        output_units_per_quote=10, discount_pct=20, realized_unit_price_inr=20)],
         basis="Synthetic scenario: 60% of units at retail price; 40% in ten-cup wholesale cartons with a 20% discount.")
-    # 4,000 households * 50% target * 1 purchase * 1 cup * 100% share * 50% seasonality = 1,000 cups.
+    # Preserve the existing price experiment's 1,000-cup demand as synthetic active customers.
     c = response["calculations"]
     c.update(selling_price_inr=26, monthly_sales_units=1000, monthly_local_demand_units=1000,
         monthly_gross_sales=26000, annual_sales=312000, annual_variable_cost=33000,
         annual_fixed_cost=1200, annual_operating_cashflow=277800,
         annual_capacity_sales=7987200, unit_cost_floor=2.85)
+    response["demand_forecast"] = business_demand_fixture(response["values"], c)
     return response
 
 

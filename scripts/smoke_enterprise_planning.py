@@ -46,8 +46,13 @@ def main():
     operations = calculate_operations(assumptions)
     capacity = assumptions["capacity"]
     if args.operations_only:
+        forecast = assumptions.get("demand_forecast")
+        forecast_summary = None if not forecast else {key: forecast[key] for key in ("business_model", "method", "buyer_base", "output_unit", "provisional", "review_status", "warnings", "limitations")}
+        if forecast_summary is not None:
+            forecast_summary["scenarios"] = {name: {key: row[key] for key in ("monthly_demand_units", "realized_monthly_units", "daily_unit_sales", "monthly_revenue_inr")} for name,row in forecast["scenarios"].items()}
         print(json.dumps({"source": operations["calculation_source"], "model": assumptions["model"],
             "conversion": assumptions.get("conversion"), "capacity": capacity,
+            "demand_forecast": forecast if args.details else forecast_summary,
             "pricing": assumptions.get("pricing"), "price_comparison": operations.get("price_comparison"),
             "monthly_production_capacity": operations["monthly_saleable_capacity"],
             "monthly_sales_units": operations["monthly_sales_units"], "output_unit": operations["output_unit"],

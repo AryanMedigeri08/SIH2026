@@ -54,6 +54,61 @@ The dashboard exposes the conversion basis and whether calculations came from th
 LLM or the indicative fallback. No-debt cases retain `NO DEBT` with zero debt
 service. Negative profits and poor coverage remain visible.
 
+## Business-specific LLM demand estimates
+
+The current LLM operating response now requires `demand_forecast`. Its forecasting
+instructions replace the universal household × penetration × frequency × share ×
+seasonality equation for new model responses. Classification selects customer
+purchases, services/bookings, B2B orders, manufacturing/wholesale, e-commerce,
+subscriptions, occupancy, a justified category-volume share model, or a simple
+custom customer/transaction model. Household counts are context, not a universal
+buyer base. Manufacturing sold directly to consumers can use B2C customer demand;
+manufacturing/wholesale orders use reachable organizations/contracts.
+
+Each conservative/base/optimistic scenario supplies named, nonoverlapping input
+roles with values, units, monthly periods, sources, confidence and reasoning.
+Non-scenario claims need a matching numeric path in supplied evidence; model
+hypotheses cannot silently become verified records. No external research is
+performed in this request. Category/independent estimates are optional when no
+independent evidence exists, with explicit reconciliation and limitations.
+After a failed model response, unsupported evidence claims may retain their
+numbers only as low-confidence scenario hypotheses with source warnings and
+`review_required`; fabricated citations are removed. They never retain verified
+status. Unit-label equivalence (for example cups/transaction when output_unit is
+cups) is checked without parsing physical capacity or scaling any numbers.
+
+The validator rejects additional conversion/share after active buyers are already
+captured, household bases for B2B orders, incompatible units/periods and seasonal
+reductions on annual-average monthly behaviour. Monthly active buyers have at
+least one transaction; infrequent category purchasing belongs in an explicit
+prospect-to-active-buyer step. Scenario outputs include implied buyers,
+transactions, daily units, realized sales, revenue and effective capacity usage.
+An uncertain forecast needs an actual range and remains provisional. Extremely
+low daily sales, near-zero/full effective capacity usage and large assumed
+conversion rates request one explicit reality re-examination. No numeric floor
+or DSCR target manufactures sales. Unresolved concerns remain visible.
+
+Only the base scenario's capacity-constrained sales feed the existing monthly
+volume. The report requires an annual-average month because its existing annual
+sales formula multiplies by 12. It cannot annualize an unadjusted peak month.
+Explicit user sales, including zero, remain immutable; scenarios are then a
+separate comparison. Existing price mixes, recipes, unit conversions, costs,
+funding and financial formulas are unchanged. Once conversion/pricing pass
+validation, demand repairs cannot change those accepted inputs. A replay with
+identical base sales must retain identical finances.
+
+Validated demand assumptions/scenarios survive an invalid arithmetic response
+through the labelled calculation fallback. If the provider supplies no usable
+model after physically valid units/pricing are accepted, one focused demand-only
+recovery (at most one correction) can repair its smaller contract while those
+facts remain immutable. Unavailable providers do not trigger an unbounded retry.
+If that also fails, no new demand response is presented as validated. If no usable
+business model is available, the pre-existing indicative fallback still keeps reports
+available and is labelled as needing demand review. Historical reports and legacy
+offline calculations do not need the new schema. The dashboard and both DPR
+formats show the classification, equation, scenario range, assumption tables,
+warnings, missing data and reality review. No stored reports are rewritten.
+
 
 Validation:
 
@@ -186,11 +241,13 @@ is preserved; a valid calculation is not a promise of viability.
 python -m pytest tests/test_machinery_variants.py -q
 python -m pytest tests/test_production_conversion.py -q
 python -m pytest tests/test_average_selling_price.py -q
+python -m pytest tests/test_business_demand.py -q
 python -m pytest tests/test_project_budget.py -q
 python -m pytest tests/test_enterprise_assumptions.py tests/test_enterprise_report_flow.py tests/test_llm_calculation_modes.py tests/test_planning_llm_transport.py tests/test_onboarding_sequence.py tests/test_odop_chat_flow.py -q
 python scripts/smoke_enterprise_planning.py --live --details
 python scripts/smoke_enterprise_planning.py --live --sizing-only
 python scripts/smoke_enterprise_planning.py --live --operations-only --idea "Ice cream in 100 ml cups"
+python scripts/smoke_business_demand.py --live
 python scripts/recheck_feasibility.py REPORT_ID --live
 cd frontend
 node --test tests/financialsRender.test.js tests/planningAssumptionsRender.test.js tests/machineryCapacityRender.test.js

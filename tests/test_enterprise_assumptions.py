@@ -10,7 +10,7 @@ from backend.app.core.enterprise_assumptions import estimate_operations, calcula
 from backend.app.core.business_interpreter import interpret_business_idea
 from backend.app.core.operating_finance import project_cashflows
 from backend.app.core.financial_calculator import emi_with_moratorium
-from tests.planning_fixtures import raw_input_conversion, uniform_price_mix
+from tests.planning_fixtures import raw_input_conversion, uniform_price_mix, business_demand_fixture
 
 
 def context(**updates):
@@ -66,6 +66,7 @@ def model_plan(ctx):
     return {"values": fallback["values"], "calculations": calculations,
             "conversion": raw_input_conversion(fallback["values"]),
             "pricing": uniform_price_mix(fallback["values"]),
+            "demand_forecast": business_demand_fixture(fallback["values"], calculations),
             "capacity": dict(quantity=1000, unit="litres", period="day", monthly_quantity=25000,
                 capacity_kind="throughput", basis="1000 litres/day * 25 operating days/month")}
 
@@ -167,6 +168,7 @@ def test_unit_prices_and_quantities_are_already_converted_in_llm_response():
     fallback = estimate_operations(ctx)
     fallback["values"] = response["values"]
     response["calculations"] = calculate_operations(fallback)
+    response["demand_forecast"] = business_demand_fixture(response["values"], response["calculations"])
     a = estimate_operations(ctx, lambda **kwargs: (json.dumps(response), None, "test"))
     assert a["values"]["selling_price_inr"] == 40
     assert a["values"]["raw_material_cost_per_input_unit_inr"] == 25
