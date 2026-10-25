@@ -23,7 +23,6 @@ import {
   BarChart3,
   Building2,
   AlertTriangle,
-  Tag,
   Megaphone,
   Calculator,
   Info,
@@ -71,7 +70,6 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   const synth = reportData.executive_synthesis || {};
   const swot = reportData.swot_matrix || {};
   const risks = reportData.risk_assessment || {};
-  const pricing = reportData.pricing_recommendation || {};
   const demographics = reportData.market_demographics || {};
 
   const topScheme = schemes.find(s => s.eligible) || schemes[0] || {};
@@ -141,17 +139,6 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   // Teaser Navigation Cards tailored by persona
   const sectionTeasers = isBeneficiary
     ? [
-        {
-          title: 'Product Pricing & Profit Margins',
-          path: reportId ? `/reports/${reportId}/pricing` : '/pricing',
-          icon: Tag,
-          color: 'amber',
-          iconBg: 'bg-amber-50 text-amber-700 border-amber-200 group-hover:bg-amber-600 group-hover:text-white',
-          accentTop: 'border-t-2 border-amber-500',
-          primaryMetric: pricing.recommended_selling_price ? `₹${pricing.recommended_selling_price} / unit` : 'Unit Economics',
-          teaserText: 'Unit cost breakdown, daily break-even sales & monthly profit simulator',
-          badge: 'Unit Profit',
-        },
         {
           title: 'Village Marketing & Local Ads',
           path: reportId ? `/reports/${reportId}/marketing` : '/marketing',

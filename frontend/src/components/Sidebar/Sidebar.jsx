@@ -18,7 +18,6 @@ import {
   Building2,
   PlusCircle,
   Layers,
-  Tag,
   Megaphone,
   LogOut,
 } from 'lucide-react';
@@ -58,13 +57,6 @@ export function Sidebar({
           path: reportId ? `/reports/${reportId}` : '/dashboard',
           icon: LayoutDashboard,
           badge: null,
-        },
-        {
-          id: 'pricing',
-          name: 'Pricing & Margins',
-          path: reportId ? `/reports/${reportId}/pricing` : '/pricing',
-          icon: Tag,
-          badge: 'Unit Profit',
         },
         {
           id: 'marketing',
