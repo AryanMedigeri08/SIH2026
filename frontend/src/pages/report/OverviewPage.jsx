@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ViabilityMeterCard } from '../../components/Dashboard/ViabilityMeterCard';
 import { ExecutiveNarrativeCard } from '../../components/Dashboard/ExecutiveNarrativeCard';
 import { AlternativeOpportunitiesCard } from '../../components/Dashboard/AlternativeOpportunitiesCard';
+import { AnnualSalesForecastCard } from '../../components/Dashboard/AnnualSalesForecastCard';
 import {
   BrainCircuit,
   Target,
@@ -79,7 +80,7 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   const loanPrincipal = fin.loan_principal || Math.max(projectCost - subsidyAmount - (projectCost * 0.05), 0);
   const emi = fin.amortization?.monthly_emi || 0;
   const dscr = fin.dscr?.dscr ?? 1.33;
-  const annualTurnover = p.annual_turnover_estimate || activeBusiness?.annual_turnover_estimate || 0;
+  const annualTurnover = p.annual_turnover_estimate ?? activeBusiness?.annual_turnover_estimate ?? 0;
   const monthlyNoi = fin.dscr?.monthly_net_operating_income || (annualTurnover * 0.30 / 12);
   const avgRisk = risks.average_risk_score ?? (risks.verdict?.average_risk_score ?? 3.0);
   const riskSeverity = risks.composite_grade || (risks.verdict?.overall_severity || 'MODERATE');
@@ -585,6 +586,8 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
           )}
         </div>
       )}
+
+      <AnnualSalesForecastCard forecast={reportData.sales_forecast} />
 
       {/* Row 1: ML Viability Card & AI Executive Synthesis Narrative */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">

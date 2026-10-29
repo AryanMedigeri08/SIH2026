@@ -44,7 +44,10 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
       is_rural: true,
       margin_capital: margin,
       project_cost: cost,
-      annual_turnover_estimate: 950000,
+      annual_turnover_estimate: 0,
+      sales_forecast_mode: initialData ? (initialData.sales_forecast_mode || 'manual') : 'estimate',
+      sales_context: { operating_days_per_month: 26, hours_per_day: 8, target_customers: '', sales_channels: '', local_observations: '' },
+      forecast_start_month: '',
       tenure_years: 7,
       moratorium_months: 6,
       additional_business_details: "",
@@ -296,6 +299,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
     e.preventDefault();
     const submissionPayload = {
       ...formData,
+      forecast_start_month: formData.forecast_start_month || null,
       monthly_net_operating_income_override: formData.monthly_net_operating_income_override 
         ? Number(formData.monthly_net_operating_income_override) 
         : undefined,
@@ -870,10 +874,34 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                   </div>
 
                   <div className="space-y-3">
+                    <label className="block text-xs font-bold text-slate-700">How should annual sales be estimated?
+                      <select value={formData.sales_forecast_mode || 'manual'} onChange={e => setFormData(prev => ({ ...prev, sales_forecast_mode: e.target.value }))} className="mt-1 w-full border border-slate-300 rounded-xl p-2 bg-white">
+                        <option value="estimate">Estimate demand, machinery and Year-1 sales</option>
+                        <option value="manual">Use my annual sales estimate</option>
+                      </select>
+                    </label>
+                    {formData.sales_forecast_mode === 'estimate' && (
+                      <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 space-y-3 text-xs">
+                        <p>We will estimate monthly customers, prices and production limits using your idea and regional context. The report will show a provisional range and its assumptions.</p>
+                        {[['target_customers', 'Who will buy?'], ['sales_channels', 'How will you sell?'], ['local_observations', 'Local prices, enquiries or orders you know about']].map(([key, label]) => (
+                          <label key={key} className="block font-semibold">{label}<input type="text" maxLength={key === 'local_observations' ? 1000 : 500} value={formData.sales_context?.[key] || ''}
+                            onChange={e => setFormData(prev => ({ ...prev, sales_context: { ...prev.sales_context, [key]: e.target.value } }))} className="mt-1 block w-full border border-slate-300 rounded-lg p-2 font-normal" /></label>
+                        ))}
+                        <div className="grid grid-cols-2 gap-2">
+                          {[['operating_days_per_month', 'Days/month', 31], ['hours_per_day', 'Hours/day', 24]].map(([key, label, max]) => (
+                            <label key={key} className="block font-semibold">{label}<input type="number" min={1} max={max} value={formData.sales_context?.[key] ?? (key === 'hours_per_day' ? 8 : 26)}
+                              onChange={e => setFormData(prev => ({ ...prev, sales_context: { ...prev.sales_context, [key]: Number(e.target.value) } }))} className="mt-1 block w-full border border-slate-300 rounded-lg p-2" /></label>
+                          ))}
+                        </div>
+                        <label className="block font-semibold">Expected first operating month<input type="month" value={formData.forecast_start_month?.slice(0, 7) || ''}
+                          onChange={e => setFormData(prev => ({ ...prev, forecast_start_month: e.target.value ? `${e.target.value}-01` : '' }))} className="mt-1 block w-full border border-slate-300 rounded-lg p-2" /></label>
+                        <p>Notes are treated as unverified user observations. If automatic forecasting fails, the optional estimate below is retained.</p>
+                      </div>
+                    )}
                     <div>
                       <div className="flex justify-between items-center mb-1.5">
-                        <label className="block text-xs font-bold text-slate-700">Estimated Annual Gross Sales (₹)</label>
-                        {cost > 0 && (
+                        <label className="block text-xs font-bold text-slate-700">{formData.sales_forecast_mode === 'estimate' ? 'Optional fallback annual sales (₹)' : 'Estimated Annual Gross Sales (₹)'}</label>
+                        {cost > 0 && formData.sales_forecast_mode !== 'estimate' && (
                           <span className="text-[10px] text-slate-500 font-medium">
                             Range: ₹{(cost * 0.8).toLocaleString('en-IN')} – ₹{(cost * 3.0).toLocaleString('en-IN')}
                           </span>
@@ -882,16 +910,16 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                       <input
                         type="number"
                         required
-                        min={25000}
+                        min={0}
                         step={5000}
                         value={formData.annual_turnover_estimate}
                         onChange={e => setFormData({ ...formData, annual_turnover_estimate: Number(e.target.value) })}
                         className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                       />
-                      <p className="text-[11px] text-slate-500 mt-1">Projected 100% capacity annual sales revenue</p>
+                      <p className="text-[11px] text-slate-500 mt-1">{formData.sales_forecast_mode === 'estimate' ? 'Used only if the automatic forecast is unavailable; zero means no fallback was provided.' : 'Your own Year-1 sales assumption; it is not verified market demand.'}</p>
 
                       {/* 1-Click Quick Preset Turnover Buttons */}
-                      {cost > 0 && (
+                      {cost > 0 && formData.sales_forecast_mode !== 'estimate' && (
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Presets:</span>
                           <button
@@ -941,7 +969,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                     </div>
 
                     {/* Live Underwriting Diagnostics Preview Card */}
-                    <div className="p-3 bg-gradient-to-br from-slate-50 to-sovereign-50/30 border border-slate-200 rounded-xl space-y-2 shadow-subtle">
+                    {formData.sales_forecast_mode !== 'estimate' && <div className="p-3 bg-gradient-to-br from-slate-50 to-sovereign-50/30 border border-slate-200 rounded-xl space-y-2 shadow-subtle">
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-slate-600 font-medium">Turnover to Capital Leverage:</span>
                         <strong className="text-sovereign-900 font-mono font-bold text-sm">
@@ -987,7 +1015,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                           </span>
                         )}
                       </div>
-                    </div>
+                    </div>}
                   </div>
                 </div>
               </div>
@@ -1170,7 +1198,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                       ₹{Number(formData.margin_capital !== undefined ? formData.margin_capital : Math.round(formData.project_cost * getMarginPct(formData.promoter_category))).toLocaleString('en-IN')} Margin ({(getMarginPct(formData.promoter_category) * 100).toFixed(0)}%)
                     </div>
                     <div className="font-mono text-slate-700 text-[10px] mt-0.5">
-                      ₹{Number(formData.project_cost).toLocaleString('en-IN')} Derived Outlay • ₹{Number(formData.annual_turnover_estimate).toLocaleString('en-IN')} Sales
+                      ₹{Number(formData.project_cost).toLocaleString('en-IN')} Derived Outlay • {formData.sales_forecast_mode === 'estimate' ? 'Year-1 sales estimated during analysis' : `₹${Number(formData.annual_turnover_estimate).toLocaleString('en-IN')} Sales`}
                     </div>
                   </div>
                 </div>
