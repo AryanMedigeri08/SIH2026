@@ -7,14 +7,16 @@ from __future__ import annotations
 
 import asyncio
 import calendar
+import copy
 import hashlib
 import json
 import logging
+import re
 from datetime import date, datetime, timezone
 from typing import Literal
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from .sales_catalogue import candidates, canonical_unit, select_equipment
 
@@ -40,8 +42,21 @@ DRIVER_UNITS = {
 Series = list[float]
 
 
+def unit_label(unit):
+    """Normalise synonymous labels only. Never rescale a numerical quantity."""
+    aliases = {"litres": "litre", "liters": "litre", "liter": "litre", "l": "litre",
+               "kilograms": "kg", "kilogram": "kg", "buyers": "buyer", "customers": "buyer",
+               "customer": "buyer", "households": "buyer", "household": "buyer",
+               "organizations": "buyer", "organization": "buyer", "shops": "buyer", "shop": "buyer",
+               "transactions": "transaction", "orders": "order", "visits": "visit",
+               "subscribers": "subscriber", "periods": "period", "cups": "cup", "jobs": "job",
+               "pieces": "piece", "units": "unit", "days": "day"}
+    label = unit.lower().replace(" per ", "/").replace(" ", "").replace("₹", "inr")
+    return re.sub(r"[a-z_]+", lambda m: aliases.get(m[0], m[0]), label)
+
+
 class StrictModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False, strict=True)
 
 
 class Source(StrictModel):
@@ -69,6 +84,21 @@ class Scenario(StrictModel):
         return self
 
 
+class ScenarioSet(StrictModel):
+    conservative: Scenario
+    base: Scenario
+    optimistic: Scenario
+
+    def keys(self):
+        return SCENARIOS
+
+    def values(self):
+        return [getattr(self, key) for key in SCENARIOS]
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+
 class Product(StrictModel):
     product_id: str = Field(pattern=r"^[a-z0-9_-]{1,50}$")
     name: str = Field(min_length=1, max_length=120)
@@ -82,18 +112,19 @@ class Product(StrictModel):
     independent_capacity_per_month: Series = Field(min_length=12, max_length=12)
     capacity_basis: Source
     assumptions: dict[str, Source]
-    scenarios: dict[str, Scenario]
+    scenarios: ScenarioSet
 
     @model_validator(mode="after")
     def structure(self):
-        if set(self.scenarios) != set(SCENARIOS):
+        if set(self.scenarios.keys()) != set(SCENARIOS):
             raise ValueError("Exactly conservative/base/optimistic scenarios are required")
         keys = set(METHODS[self.method])
         if set(self.assumptions) != keys | {"selling_price"}:
             raise ValueError("Every demand driver and selling price needs source/unit/confidence metadata")
         for key in keys:
-            if self.assumptions[key].unit != DRIVER_UNITS[key].format(unit=self.unit):
-                raise ValueError(f"Incorrect dimensional unit for {key}")
+            expected = DRIVER_UNITS[key].format(unit=self.unit)
+            if unit_label(self.assumptions[key].unit) != unit_label(expected):
+                raise ValueError(f"Incorrect dimensional unit for {key}; expected {expected}")
         if self.output_per_input.value <= 0:
             raise ValueError("Conversion to saleable units must be positive")
         import math
@@ -117,7 +148,7 @@ class ForecastPlan(StrictModel):
     operating_days: list[int] = Field(min_length=12, max_length=12)
     hours_per_day: Assumption
     availability: Assumption
-    non_machinery_budget_inr: Assumption
+    non_machinery_budget_inr: Assumption = Field(description="Estimated amount REQUIRED for setup, installation, premises and working capital; not the total available project budget. Remaining money funds machinery. Do not copy the entire project budget when a machinery profile is selected.")
     products: list[Product] = Field(min_length=1, max_length=4)
     limitations: list[str] = Field(min_length=1, max_length=20)
 
@@ -150,6 +181,9 @@ Prices must fit the exact product, pack and channel. Never derive a price from E
 For every driver and price provide unit (including /month or /buyer/month etc), source_kind,
 evidence_ref (null for assumptions), confidence and reasoning. Supplied_evidence means an actual
 value present in this payload; Census/amenities/registration records are not observed sales or prices.
+Use the EXACT driver unit strings in driver_unit_contract, replacing {unit} with the product unit.
+The selling_price unit is exactly INR/{unit}; capacity_basis is {unit}/month. All ratios called
+availability, conversion_rate and occupancy_rate are fractions, not percentages.
 Without records, customer counts, repeat frequency, prices and conversions are scenario_assumption.
 Do not claim internet research: you have no browsing tool. No desired sales/DSCR is provided.
 Choose profile_id only from supplied machinery candidates, or null if none is technically suitable.
@@ -161,15 +195,47 @@ For shared equipment, use the same profile_id across products so Python allocate
 Independent_capacity_per_month must describe the independent operational bottleneck for this channel:
 staffing/appointments/raw-material supply/storage/delivery, in the same saleable units/month; it is
 also required for services with no catalogue machinery. Do not use equipment capacity as demand.
+Do not apply equipment availability a second time inside independent operational capacity.
 For storage, canonical capacity is stock-unit-days, not goods manufactured. Output ratio is per
 canonical stock-unit-day. Do not count storage charges as product sales.
 hours_per_day, availability and non_machinery_budget_inr are sourced numerical assumptions. Reserve
 setup/installation/premises and working capital explicitly; use the budget only for equipment feasibility,
 never as proof of demand. Include operational-day assumptions and uncertainty in limitations.
+Important JSON shape: hours_per_day, availability, non_machinery_budget_inr and each
+output_per_input MUST contain a numeric value plus source metadata. In contrast, capacity_basis
+and each entry in product.assumptions contain metadata ONLY, with no value field: their actual
+quantities are already in independent_capacity_per_month and scenario.drivers/selling_prices arrays.
+Each scenario drivers object MUST contain exactly the keys listed for its chosen method in
+demand_equations. Do not invent names such as units_per_buyer for customer_purchases.
 Return 1-4 distinct product/channel lines; do not count the same transactions or customers twice.
 Never fabricate precision or make a business attractive. Warn about low/high demand, uncertainty,
 missing channels and missing evidence. Do not silently adjust prices or demand to fit the budget.
+output_shape_example illustrates JSON nesting only. Its artificial values and unit are NOT market
+benchmarks. Replace them with the actual business, appropriate method, units and reasoned hypotheses.
 """
+
+
+def output_shape_example():
+    def meta(unit):
+        return {"unit": unit, "source_kind": "scenario_assumption", "evidence_ref": None,
+                "confidence": "low", "reasoning": "Structure example only; replace with business-specific reasoning."}
+    def number(value, unit):
+        return {"value": value, **meta(unit)}
+    return {
+        "business_classification": "Example business model; replace",
+        "operating_days": [25] * 12, "hours_per_day": number(8, "hours/day"),
+        "availability": number(.8, "fraction"), "non_machinery_budget_inr": number(1, "INR"),
+        "limitations": ["Structure example only, not evidence or numerical guidance."],
+        "products": [{"product_id": "example", "name": "Example", "channel": "Example channel", "unit": "unit",
+            "method": "customer_purchases", "method_reason": "Replace with actual business-specific method rationale.",
+            "buyer_definition": "Replace with the actual monthly active customer group.", "profile_id": None,
+            "output_per_input": number(1, "unit/unit"), "independent_capacity_per_month": [1] * 12,
+            "capacity_basis": meta("unit/month"),
+            "assumptions": {key: meta(DRIVER_UNITS[key].format(unit="unit")) for key in METHODS["customer_purchases"]}
+                           | {"selling_price": meta("INR/unit")},
+            "scenarios": {key: {"drivers": {driver: [1] * 12 for driver in METHODS["customer_purchases"]},
+                                "selling_prices": [1] * 12} for key in SCENARIOS}}],
+    }
 
 
 def build_payload(user_input, evidence):
@@ -178,6 +244,8 @@ def build_payload(user_input, evidence):
     context = getattr(user_input, "sales_context", {})
     if hasattr(context, "model_dump"):
         context = context.model_dump()
+    schema = ForecastPlan.model_json_schema()
+    schema["$defs"]["Product"]["properties"]["profile_id"] = {"enum": [None, *[row["profile_id"] for row in options]]}
     return {
         "business": {"idea": idea[:1500], "sector_hint": user_input.sector,
                      "location": {k: getattr(user_input, k) for k in ("state_name", "district_name", "block_name", "village_name")}},
@@ -188,13 +256,16 @@ def build_payload(user_input, evidence):
         "forecast_start_month": (getattr(user_input, "forecast_start_month", None) or date.today()).replace(day=1).isoformat(),
         "known_data_gaps": ["No independent market survey, actual sales, confirmed orders or verified local prices unless explicitly supplied.",
                             "UDYAM coverage is incomplete; CPI is not purchasing power or a product quote."],
-        "output_schema": ForecastPlan.model_json_schema(),
+        "output_schema": schema,
+        "allowed_profile_ids": [None, *[row["profile_id"] for row in options]],
+        "output_shape_example": output_shape_example(),
         "driver_unit_contract": DRIVER_UNITS,
+        "demand_equations": METHODS,
     }
 
 
 def _evidence_at(payload, ref):
-    if not ref or not ref.startswith("evidence."):
+    if not ref or not ref.startswith(("evidence.", "user_constraints.")):
         raise ValueError("Evidence references must point into the supplied evidence snapshot")
     node = payload
     for key in ref.split("."):
@@ -213,9 +284,18 @@ def validate_sources(plan, payload):
         all_sources += [("output_per_input", p.output_per_input), ("capacity_basis", p.capacity_basis)]
     for name, source in all_sources:
         if source.source_kind == "supplied_evidence":
-            node = _evidence_at(payload, source.evidence_ref)
-            # Current inputs are contextual only. No observation is authenticated as a sales driver.
-            if not isinstance(node, dict) or node.get("status") != "observed_business_record":
+            verified_user_number = False
+            try:
+                node = _evidence_at(payload, source.evidence_ref)
+                verified_user_number = (isinstance(source, Assumption) and isinstance(node, (int, float))
+                    and source.evidence_ref.startswith("user_constraints.") and source.value == node
+                    and name in {"hours_per_day"})
+            except ValueError:
+                node = None
+                source.reasoning = "Unverified LLM scenario assumption. Its claimed evidence reference was absent or invalid and has been discarded."
+                warnings.append(f"{name}: unsupported source claim discarded; numerical hypothesis requires local verification.")
+            # Current evidence supplies context, not authenticated sales-driver observations.
+            if not verified_user_number:
                 source.source_kind = "scenario_assumption"
                 source.confidence = "low"
                 source.evidence_ref = None
@@ -231,16 +311,27 @@ def calculate_forecast(plan, payload):
     warnings = validate_sources(plan, payload)
     budget = payload["user_constraints"]["project_budget_inr"]
     reserve = plan.non_machinery_budget_inr.value
-    if not 0 < reserve < budget:
+    if plan.non_machinery_budget_inr.unit != "INR" or plan.hours_per_day.unit != "hours/day" or plan.availability.unit != "fraction":
+        raise ValueError("Global assumptions must use INR, hours/day and fraction respectively")
+    if not 0 <= reserve <= budget:
         raise ValueError("Reserve setup and working capital within the project budget")
+    if reserve == 0:
+        warnings.append("No setup or working-capital reserve was assumed. Confirm how startup operating purchases will be funded before relying on this forecast.")
     start = date.fromisoformat(payload["forecast_start_month"])
     months = [date(start.year + (start.month - 1 + i) // 12, (start.month - 1 + i) % 12 + 1, 1) for i in range(12)]
     if any(days > calendar.monthrange(month.year, month.month)[1] for month, days in zip(months, plan.operating_days)):
         raise ValueError("Operating days exceed the forecast calendar month")
+    constraints = payload["user_constraints"]
+    if constraints.get("operating_days_per_month"):
+        allowed_days = int(constraints["operating_days_per_month"])
+        if any(d > allowed_days for d in plan.operating_days):
+            raise ValueError("Operating days exceed the user's operating schedule")
+    if constraints.get("hours_per_day") and plan.hours_per_day.value > float(constraints["hours_per_day"]):
+        raise ValueError("Operating hours exceed the user's schedule")
     options = {p["profile_id"]: p for p in payload["machinery_options"]}
     for product in plan.products:
-        expected_ratio_unit = f"{product.unit}/"
-        if not product.output_per_input.unit.startswith(expected_ratio_unit):
+        expected_ratio_unit = unit_label(f"{product.unit}/")
+        if not unit_label(product.output_per_input.unit).startswith(expected_ratio_unit):
             raise ValueError("Conversion must explicitly use the declared sales unit as numerator")
         if product.profile_id:
             profile = options.get(product.profile_id)
@@ -249,11 +340,11 @@ def calculate_forecast(plan, payload):
             cap = profile["capacity_reference"]
             canonical = canonical_unit(cap["unit"])[0]
             denominator = canonical + ("-day" if cap["capacity_kind"] == "storage" else "")
-            if product.output_per_input.unit != f"{product.unit}/{denominator}":
+            if unit_label(product.output_per_input.unit) != unit_label(f"{product.unit}/{denominator}"):
                 raise ValueError("Conversion denominator must be the canonical machinery input unit")
-        if product.assumptions["selling_price"].unit != f"INR/{product.unit}":
+        if unit_label(product.assumptions["selling_price"].unit) != unit_label(f"INR/{product.unit}"):
             raise ValueError("Selling price unit does not match product unit")
-        if product.capacity_basis.unit != f"{product.unit}/month":
+        if unit_label(product.capacity_basis.unit) != unit_label(f"{product.unit}/month"):
             raise ValueError("Capacity unit does not match sales unit/month")
         for m in range(12):
             quantities = [product.demand(s, m) for s in SCENARIOS]
@@ -304,15 +395,29 @@ def calculate_forecast(plan, payload):
         raise ValueError("Capacity allocation and product mix inverted the annual scenarios; review assumptions")
     warnings += ["Demand, prices, process conversions and operational assumptions are provisional until locally verified.",
                  "The existing DSCR/expense methodology is unchanged; this forecast does not validate profitability."]
-    for p in plan.products:
+    review_required = not equipment and any(p.profile_id for p in plan.products)
+    for index, p in enumerate(plan.products):
         if not p.profile_id:
             warnings.append(f"{p.name}: no suitable catalogue configuration selected; operational capacity is an explicit scenario assumption.")
-        base_total = sum(row["products"][list(plan.products).index(p)]["units_sold"] for row in calculated["base"])
+        base_total = sum(row["products"][index]["units_sold"] for row in calculated["base"])
+        total_capacity = sum(row["products"][index]["effective_capacity"] for row in calculated["base"])
+        if total_capacity > 0 and base_total / total_capacity < .10:
+            warnings.append(f"{p.name}: base utilisation is below 10%; review equipment sizing, acquisition assumptions and conversion yield.")
+            review_required = True
+        if any(row["products"][index]["units_sold"] > 0 and row["products"][index]["average_selling_price"] == 0
+               for row in calculated["base"]):
+            warnings.append(f"{p.name}: some sales have a zero price; verify whether these are free trials or a missing price.")
+            review_required = True
         if base_total < 12:
             warnings.append(f"{p.name}: negligible base sales; review buyer definitions, frequency, channels and units.")
+            review_required = True
+    if annual["conservative"] == annual["optimistic"]:
+        warnings.append("Scenario revenues coincide. Capacity or unsupported uncertainty assumptions may dominate; review the forecast range.")
+        review_required = True
     snapshot = {k: v for k, v in payload.items() if k != "output_schema"}
     return {
         "version": "year1-sales-v1", "status": "provisional", "source": "llm_assumptions_validated_arithmetic",
+        "review_required": review_required,
         "generated_at": datetime.now(timezone.utc).isoformat(), "annual_sales": annual,
         "monthly_scenarios": calculated, "accepted_plan": plan.model_dump(),
         "selected_equipment": list(equipment.values()), "equipment_cost_inr": sum(e["total_machinery_cost_inr"] for e in equipment.values()),
@@ -333,23 +438,61 @@ async def request_plan(payload):
     if settings.SARVAM_API_KEY:
         providers.append(("sarvam", settings.SARVAM_CHAT_ENDPOINT, settings.SARVAM_LLM_MODEL,
                           {"api-subscription-key": settings.SARVAM_API_KEY}))
+    prompt_payload = copy.deepcopy(payload)
+    for profile in prompt_payload["machinery_options"]:
+        # Repeated machine-cost tables are used by Python, not by demand reasoning.
+        profile["capacity_variants"] = [{k: v[k] for k in ("variant_id", "capacity", "total_machinery_cost_inr", "cost_source")}
+                                        for v in profile["capacity_variants"]]
     for provider, endpoint, model, headers in providers:
         try:
-            async with httpx.AsyncClient(timeout=18) as client:
-                response = await client.post(endpoint, headers=headers, json={
-                    "model": model, "messages": [{"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": json.dumps(payload, default=str)}],
-                    "temperature": .2, "max_tokens": 8000, "response_format": {"type": "json_object"},
-                })
-                response.raise_for_status()
-                content = response.json()["choices"][0]["message"]["content"].strip()
-                if content.startswith("```"):
-                    content = content.split("\n", 1)[1].rsplit("```", 1)[0]
-                plan = ForecastPlan.model_validate_json(content)
-                result = calculate_forecast(plan, payload)
-                result["provider"] = provider
-                result["model"] = model
-                return result
+            messages = [{"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": json.dumps(prompt_payload, default=str, separators=(",", ":"))}]
+            async with httpx.AsyncClient(timeout=20) as client:
+                for attempt in range(2):
+                    response = await client.post(endpoint, headers=headers, json={
+                        "model": model, "messages": messages,
+                        "temperature": .2, "max_tokens": 8000, "response_format": {"type": "json_object"},
+                    })
+                    response.raise_for_status()
+                    content = response.json()["choices"][0]["message"]["content"].strip()
+                    if content.startswith("```"):
+                        content = content.split("\n", 1)[1].rsplit("```", 1)[0]
+                    try:
+                        data = json.loads(content)
+                        # Models sometimes repeat a scalar beside a monthly series. It is metadata,
+                        # never an alternative numerical input; arrays remain the sole calculation basis.
+                        ignored_scalars = []
+                        for product in data.get("products", []):
+                            sources = {**product.get("assumptions", {}), "capacity_basis": product.get("capacity_basis", {})}
+                            for name, source in sources.items():
+                                if isinstance(source, dict) and "value" in source:
+                                    source.pop("value")
+                                    ignored_scalars.append(name)
+                        plan = ForecastPlan.model_validate(data)
+                        result = calculate_forecast(plan, payload)
+                        if attempt == 0 and result["review_required"] and not result["selected_equipment"] and any(p.profile_id for p in plan.products):
+                            raise ValueError("Review equipment-budget allocation: selected machinery has no funding after the non-machinery reserve. That reserve is estimated setup/working capital SPENDING, not total available capital. Re-examine the equipment choice and reserve from supplied catalogue prices. Do not increase the project budget, invent demand, or force a positive forecast. If genuinely infeasible, retain zero sales with the reason.")
+                        if ignored_scalars:
+                            result["warnings"].append("Redundant scalar metadata was disregarded; all quantities and prices use the accepted twelve-month arrays.")
+                        result["provider"] = provider
+                        result["model"] = model
+                        return result
+                    except (ValidationError, ValueError) as exc:
+                        if isinstance(exc, ValidationError):
+                            logger.info("Forecast contract errors: %s", [(e["loc"], e["type"]) for e in exc.errors(include_input=False)[:5]])
+                        else:
+                            logger.info("Forecast arithmetic contract error: %s", str(exc))
+                        if attempt:
+                            raise
+                        if isinstance(exc, ValidationError):
+                            errors = [{"path": list(e["loc"]), "message": e["msg"]} for e in exc.errors(include_input=False)]
+                        else:
+                            errors = [{"message": str(exc)}]
+                        # Only the same provider sees its own invalid response and correction.
+                        messages.extend([{"role": "assistant", "content": content}, {"role": "user", "content":
+                            "Correct these contract errors and return the complete JSON. Keep the business meaning and evidence truthful; do not tune revenue. " + json.dumps(errors)}])
+        except httpx.HTTPStatusError as exc:
+            logger.warning("Sales forecast provider %s HTTP status %s", provider, exc.response.status_code)
         except Exception as exc:
             # Never log response bodies, credentials or private business context.
             logger.warning("Sales forecast provider %s failed validation/request (%s)", provider, type(exc).__name__)
@@ -359,7 +502,7 @@ async def request_plan(payload):
 async def generate_sales_forecast(user_input, evidence):
     payload = build_payload(user_input, evidence)
     try:
-        result = await asyncio.wait_for(request_plan(payload), timeout=38)
+        result = await asyncio.wait_for(request_plan(payload), timeout=55)
         if result:
             return result
     except (TimeoutError, ValueError, httpx.HTTPError):

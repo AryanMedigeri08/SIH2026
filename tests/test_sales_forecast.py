@@ -88,12 +88,15 @@ def test_context_does_not_become_verified_sales():
     assert any("does not verify" in warning for warning in result["warnings"])
 
 
-def test_fabricated_evidence_reference_rejected():
+def test_fabricated_evidence_reference_is_discarded_and_never_shown_as_fact():
     raw = plan_dict()
     raw["products"][0]["assumptions"]["selling_price"].update(
         source_kind="supplied_evidence", evidence_ref="evidence.nonexistent_market_survey")
-    with pytest.raises(ValueError, match="Invented"):
-        calculate_forecast(ForecastPlan(**raw), payload())
+    result = calculate_forecast(ForecastPlan(**raw), payload())
+    source_meta = result["accepted_plan"]["products"][0]["assumptions"]["selling_price"]
+    assert source_meta["source_kind"] == "scenario_assumption"
+    assert source_meta["evidence_ref"] is None and source_meta["confidence"] == "low"
+    assert "discarded" in source_meta["reasoning"]
 
 
 def test_payload_excludes_targets_and_personal_identifiers():
@@ -178,3 +181,111 @@ def test_accepted_forecast_replays_without_llm():
     replay = calculate_forecast(ForecastPlan(**first["accepted_plan"]), payload())
     assert first["annual_sales"] == replay["annual_sales"]
     assert first["monthly_scenarios"] == replay["monthly_scenarios"]
+
+
+@pytest.mark.parametrize("method,drivers", [
+    ("buyer_orders", {"active_buyers": 5, "orders_per_buyer": 2, "units_per_order": 10}),
+    ("service_visits", {"bookable_customers": 20, "visits_per_customer": 1, "units_per_visit": 1}),
+    ("traffic_conversion", {"qualified_visits": 1000, "conversion_rate": .02, "units_per_order": 2}),
+    ("subscriptions", {"active_subscribers": 30, "recognized_units_per_subscriber": 1}),
+    ("occupancy", {"rentable_units": 10, "available_periods": 25, "occupancy_rate": .4}),
+])
+def test_business_specific_demand_equations(method, drivers):
+    import math
+    from app.core.sales_forecast import DRIVER_UNITS
+    raw = plan_dict(); product = raw["products"][0]
+    product["method"] = method
+    product["assumptions"] = {key: source(DRIVER_UNITS[key].format(unit="litre")) for key in drivers}
+    product["assumptions"]["selling_price"] = source("INR/litre")
+    for scenario in product["scenarios"].values():
+        scenario["drivers"] = {key: [value]*12 for key, value in drivers.items()}
+    result = calculate_forecast(ForecastPlan(**raw), payload())
+    assert result["annual_sales"]["base"] == math.prod(drivers.values()) * 60 * 12
+
+
+def test_user_operating_schedule_cannot_be_overridden():
+    p = payload(); p["user_constraints"]["operating_days_per_month"] = 20
+    with pytest.raises(ValueError, match="user's operating schedule"):
+        calculate_forecast(ForecastPlan(**plan_dict()), p)
+
+
+def test_explicit_extraction_yield_is_applied_to_raw_throughput():
+    p = build_payload(user(enterprise_name="Cold pressed edible oil seed extraction", additional_business_details="Oil sold by kg"), {})
+    row = p["machinery_options"][0]
+    raw = plan_dict(); prod = raw["products"][0]
+    prod["profile_id"] = row["profile_id"]
+    prod["output_per_input"] = assumption(.3, "litre/kg")
+    prod["independent_capacity_per_month"] = [1e7]*12
+    for scenario in prod["scenarios"].values():
+        scenario["drivers"]["active_buyers"] = [1e5]*12
+    result = calculate_forecast(ForecastPlan(**raw), p)
+    machine = result["selected_equipment"][0]
+    line = result["monthly_scenarios"]["base"][0]["products"][0]
+    assert line["units_sold"] == pytest.approx(machine["monthly_input_capacity"][0] * .3)
+
+
+def test_provider_schema_correction_is_bounded_and_recalculates(monkeypatch):
+    import json, httpx
+    from app.config import settings
+    from app.core.sales_forecast import request_plan
+    monkeypatch.setattr(settings, "GROQ_API_KEY_LLM", "synthetic-test-key")
+    monkeypatch.setattr(settings, "SARVAM_API_KEY", None)
+    invalid = plan_dict(); invalid["products"][0]["scenarios"]["base"]["selling_prices"] = [60]
+    calls = []
+    class Client:
+        def __init__(self, **_): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_): pass
+        async def post(self, endpoint, **kwargs):
+            calls.append(copy.deepcopy(kwargs["json"]))
+            content = invalid if len(calls) == 1 else plan_dict()
+            return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(content)}}]},
+                                  request=httpx.Request("POST", endpoint))
+    monkeypatch.setattr("app.core.sales_forecast.httpx.AsyncClient", Client)
+    result = asyncio.run(request_plan(payload()))
+    assert len(calls) == 2
+    assert result["annual_sales"]["base"] == 720000
+    assert "Correct these contract errors" in calls[1]["messages"][-1]["content"]
+    assert "input" not in calls[1]["messages"][-1]["content"]
+
+
+def test_no_configured_providers_returns_without_network(monkeypatch):
+    from app.config import settings
+    from app.core.sales_forecast import request_plan
+    monkeypatch.setattr(settings, "GROQ_API_KEY_LLM", None)
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "")
+    monkeypatch.setattr(settings, "SARVAM_API_KEY", None)
+    assert asyncio.run(request_plan(payload())) is None
+
+
+def test_equivalent_labels_do_not_rescale_values():
+    raw = plan_dict()
+    raw["products"][0]["assumptions"]["active_buyers"]["unit"] = "households/month"
+    raw["products"][0]["assumptions"]["transactions_per_buyer"]["unit"] = "transactions/household/month"
+    raw["products"][0]["assumptions"]["selling_price"]["unit"] = "INR/litres"
+    result = calculate_forecast(ForecastPlan(**raw), payload())
+    assert result["annual_sales"]["base"] == 720000
+
+
+def test_service_can_reserve_all_capital_without_fabricating_equipment():
+    raw = plan_dict(); raw["non_machinery_budget_inr"]["value"] = 2_000_000
+    result = calculate_forecast(ForecastPlan(**raw), payload())
+    assert result["annual_sales"]["base"] == 720000
+    assert not result["selected_equipment"]
+
+
+def test_global_currency_scale_and_boolean_quantities_are_not_silently_accepted():
+    raw = plan_dict(); raw["non_machinery_budget_inr"]["unit"] = "lakh"
+    with pytest.raises(ValueError, match="Global assumptions"):
+        calculate_forecast(ForecastPlan(**raw), payload())
+    raw = plan_dict(); raw["availability"]["value"] = True
+    with pytest.raises(ValidationError):
+        ForecastPlan(**raw)
+
+
+def test_small_capacity_utilisation_triggers_review_not_sales_inflation():
+    raw = plan_dict(); raw["products"][0]["independent_capacity_per_month"] = [100000]*12
+    result = calculate_forecast(ForecastPlan(**raw), payload())
+    assert result["annual_sales"]["base"] == 720000
+    assert result["review_required"]
+    assert any("below 10%" in w for w in result["warnings"])

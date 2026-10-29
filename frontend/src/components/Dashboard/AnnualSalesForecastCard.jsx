@@ -29,6 +29,7 @@ export function AnnualSalesForecastCard({ forecast }) {
         ))}
       </div>
       <p className="text-xs text-slate-600"><TranslatedText text="Annual sales are the sum of twelve monthly forecasts. Prices and demand are estimates, not guaranteed sales. DSCR and expense formulas have not yet been revised." /></p>
+      {forecast.review_required && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Review required: capacity, budget feasibility or weak demand assumptions materially limit this forecast.</p>}
       {(forecast.selected_equipment || []).length > 0 && (
         <div className="space-y-2">
           <h3 className="font-semibold text-sm"><TranslatedText text="Suggested machinery configuration" /></h3>

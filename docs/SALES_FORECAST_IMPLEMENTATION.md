@@ -48,3 +48,31 @@ their existing 30% operating-income assumption remains pending a later change.
   the application. Population, business registrations and CPI do not measure sales.
 
 This document describes implementation scope, not verified market benchmarks.
+
+## Implemented behaviour
+
+- New wizard assessments default to estimated sales; manual mode remains available
+  and is the default for historical/API clients. Calendar start, channels,
+  customer group, local notes and operating schedule are persisted.
+- Groq and Sarvam requests use an explicit JSON schema, exact scenario names,
+  a nesting example and allowed catalogue IDs. Each provider gets at most one
+  contract correction; a 55-second overall provider deadline bounds the request.
+- Unknown source claims are discarded and labelled low-confidence hypotheses;
+  no unsupported citation is promoted to evidence. Redundant scalar metadata is
+  discarded; twelve-month arrays remain the calculation basis. Synonymous unit
+  labels do not change numeric scales, and incompatible units are rejected.
+- Capacity and budget constraints never manufacture sales. Zero capacity can
+  produce zero revenue. Negligible sales, very low utilisation and unfunded
+  machinery trigger review warnings, not automatic increases to sales.
+- Complete equipment bundles include catalogue optional items; a supplier must
+  confirm the process bottleneck, infrastructure compatibility and final quote.
+  Configuration selection is a deterministic budget heuristic, not a globally
+  optimal multi-product factory design. Missing equipment profiles use explicitly
+  assumed independent operational capacity and a review notice.
+- Forecasts persist to report JSON, project annual sales, overview and DPR
+  appendices. The existing DSCR, financing and expense formulas are unchanged;
+  updating their sales input can change their numerical outputs.
+- Offline forecast/report tests, frontend render tests and the production build
+  are checked. A fictional Sarvam manufacturing forecast exercised machinery
+  selection and scenario totals; no saved user report was sent or overwritten.
+  Groq rate limits were observed during synthetic checks.
