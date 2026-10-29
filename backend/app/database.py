@@ -790,6 +790,26 @@ class DatabaseManager:
 
         return 4.85
 
+    async def get_state_cpi_evidence(self, state_name: str) -> dict[str, Any]:
+        """Expose the actual geographic/time scope; fallback is never observed CPI."""
+        if self.pool:
+            try:
+                async with self.pool.acquire() as conn:
+                    row = await conn.fetchrow("""
+                        SELECT state, year, month, inflation FROM cpi_data
+                        WHERE (state ILIKE $1 OR state = 'All India')
+                          AND sector = 'Rural' AND division = 'CPI (General)'
+                        ORDER BY year DESC, month DESC LIMIT 1
+                    """, f"%{state_name.strip()}%")
+                    if row and row["inflation"] is not None:
+                        return {"value": float(row["inflation"]), "unit": "annual_percent",
+                                "state": row["state"], "year": row["year"], "month": row["month"],
+                                "source": "cpi_data", "status": "database_record"}
+            except Exception as exc:
+                logger.info("Forecast CPI evidence unavailable (%s)", type(exc).__name__)
+        return {"value": 4.85, "unit": "annual_percent", "state": state_name,
+                "year": None, "month": None, "source": "application_default", "status": "fallback"}
+
     async def get_weather_risk_score(self, state_name: str, district_name: str) -> float:
         coastal_riverine = ["West Bengal", "Kerala", "Assam", "Odisha", "Bihar", "Tamil Nadu", "Andhra Pradesh", "Goa"]
         arid_drought = ["Rajasthan", "Gujarat", "Haryana", "Punjab"]
@@ -1016,16 +1036,24 @@ class DatabaseManager:
 
     async def update_project_analysis(self, project_id: str, analysis_result: dict[str, Any]) -> Optional[dict[str, Any]]:
         now = datetime.now(timezone.utc).isoformat()
+        report = analysis_result.get("report", {})
+        forecast = report.get("sales_forecast") or {}
+        accepted_sales = (report.get("input_parameters", {}).get("annual_turnover_estimate")
+                          if forecast.get("status") == "provisional" else None)
         if project_id in self.in_memory_projects:
             self.in_memory_projects[project_id]["analysis_result"] = analysis_result
             self.in_memory_projects[project_id]["status"] = "analyzed"
             self.in_memory_projects[project_id]["updated_at"] = now
+            if accepted_sales is not None:
+                self.in_memory_projects[project_id]["annual_turnover_estimate"] = accepted_sales
 
         if self.sqlite:
             current = await self.get_project(project_id)
             if not current:
                 return None
             current["analysis_result"] = analysis_result
+            if accepted_sales is not None:
+                current["annual_turnover_estimate"] = accepted_sales
             current["status"] = "analyzed"
             current["updated_at"] = now
             self.in_memory_projects[project_id] = current
@@ -1042,12 +1070,16 @@ class DatabaseManager:
                     **analysis_result,
                     "_project": {key: value for key, value in current.items() if key not in {"analysis_result", "created_at", "updated_at", "enterprise_name", "project_cost"}},
                 }
+                if accepted_sales is not None:
+                    current["annual_turnover_estimate"] = accepted_sales
+                    storage_analysis["_project"]["annual_turnover_estimate"] = accepted_sales
                 async with self.pool.acquire() as conn:
                     await conn.execute("""
                         UPDATE projects
-                        SET analysis_result = $1, status = 'analyzed'
+                        SET analysis_result = $1, status = 'analyzed',
+                            annual_turnover_estimate = COALESCE($3, annual_turnover_estimate)
                         WHERE project_id = $2
-                    """, json.dumps(storage_analysis), project_id)
+                    """, json.dumps(storage_analysis), project_id, accepted_sales)
                 current["analysis_result"] = analysis_result
                 current["status"] = "analyzed"
                 self.in_memory_projects[project_id] = current

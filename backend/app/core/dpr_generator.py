@@ -188,6 +188,7 @@ class BankDPRDocument(BaseModel):
     section_6_swot_and_risk_matrix: dict[str, Any]
     section_7_statutory_checklist: list[StatutoryChecklistItem]
     tier_3_ai_synthesis: dict[str, Any]
+    sales_forecast: Optional[dict[str, Any]] = None
 
     def to_dict(self) -> dict[str, Any]:
         return self.model_dump(mode="json")
@@ -809,7 +810,8 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
     ])
     for d in s7:
         lines.append(f"| `{d.document_code}` | **{d.document_name}** | {d.category_requirement} | {d.issuing_authority} | {'**YES**' if d.is_mandatory else 'Optional'} | {d.notes} |")
-    return "\n".join(lines)
+    from app.core.sales_forecast_report import forecast_markdown
+    return "\n".join(lines) + forecast_markdown(dpr.sales_forecast)
 
 
 # ---------------------------------------------------------------------------
@@ -1334,7 +1336,8 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
 </body>
 </html>
 """
-    return html
+    from app.core.sales_forecast_report import forecast_html
+    return html.replace("</body>", forecast_html(doc.sales_forecast) + "</body>")
 
 
 if __name__ == "__main__":

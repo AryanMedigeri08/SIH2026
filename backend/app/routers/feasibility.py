@@ -6,6 +6,7 @@ and Data.gov.in 613 District Resource Amenities.
 
 from __future__ import annotations
 import logging
+import asyncio
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, Any
@@ -36,6 +37,8 @@ from app.core.auth_dependency import get_current_user, get_current_user_optional
 from app.core.translation_service import TranslationService
 from app.core.odop_matcher import match_odop
 from app.models.schemas import UserInput, FeasibilityReport
+from app.core.sales_forecast import generate_sales_forecast
+from app.core.sales_evidence import regional_evidence, registered_market_context
 
 router = APIRouter(prefix="/feasibility", tags=["Feasibility Analysis & DPR"])
 
@@ -109,7 +112,42 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         f"Total MSMEs: {msme_total:,}, District MSME Density: {dens.msme_density_per_10k:.2f}/10k | Est. Catchment Competitors: {comp.estimated_local_competitors}"
     )
 
-    # 2. Financial & Scheme Optimization (Tier 1)
+    # Sales assumptions are estimated before finance; no target DSCR or EMI is supplied.
+    sales_forecast = None
+    forecast_amenities = None
+    forecast_cpi = None
+    if input_data.sales_forecast_mode == "estimate":
+        try:
+            forecast_amenities = await asyncio.to_thread(
+                fetch_village_amenities, state_name=input_data.state_name,
+                district_name=input_data.district_name, village_name=input_data.village_name,
+                api_key=settings.DATA_GOV_IN_API_KEY, api_base_url=settings.AMENITIES_API_BASE_URL)
+            cpi_evidence = await db_manager.get_state_cpi_evidence(input_data.state_name)
+            if input_data.cpi_inflation_pct is not None:
+                cpi_evidence = {"value": input_data.cpi_inflation_pct, "unit": "annual_percent", "status": "user_override"}
+            forecast_cpi = cpi_evidence["value"]
+            registered = await registered_market_context(input_data)
+            odop_evidence = match_odop(state_name=input_data.state_name, district_name=input_data.district_name,
+                                       sector=input_data.sector, enterprise_name=input_data.enterprise_name)
+            evidence = regional_evidence(census_data, pop, msme_data, forecast_amenities, cpi_evidence, odop_evidence, registered)
+            sales_forecast = await generate_sales_forecast(input_data, evidence)
+            if sales_forecast["status"] == "provisional":
+                sales_forecast["entered_annual_sales_estimate"] = input_data.annual_turnover_estimate
+                updates = {"annual_turnover_estimate": sales_forecast["annual_sales"]["base"]}
+                products = sales_forecast["monthly_scenarios"]["base"][0]["products"]
+                if len({p["unit"] for p in products}) == 1:
+                    updates["expected_monthly_units"] = sum(
+                        sum(p["units_sold"] for p in m["products"])
+                        for m in sales_forecast["monthly_scenarios"]["base"]) / 12
+                input_data = input_data.model_copy(update=updates)
+        except Exception as exc:
+            logger.warning("Sales forecast preparation failed (%s); retaining entered estimate", type(exc).__name__)
+            sales_forecast = {"status": "manual_fallback", "source": "user_estimate_unvalidated",
+                              "annual_sales": {"base": input_data.annual_turnover_estimate},
+                              "warnings": ["Automatic forecast preparation failed. Entered sales are retained as an unvalidated estimate."],
+                              "monthly_scenarios": {}, "selected_equipment": []}
+
+    # 2. Financial & Scheme Optimization (existing formulas unchanged)
     wc = working_capital_estimate(input_data.annual_turnover_estimate, input_data.sector)
     schemes = rank_eligible_schemes(
         project_cost=input_data.project_cost,
@@ -151,13 +189,13 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     expected_units = input_data.expected_monthly_units or max(input_data.annual_turnover_estimate / 12 / 250, 50.0)
     
     # 4. Live CPI & Weather Risk Lookup
-    cpi_pct = input_data.cpi_inflation_pct if input_data.cpi_inflation_pct is not None else await db_manager.get_state_cpi_inflation(input_data.state_name)
+    cpi_pct = forecast_cpi if forecast_cpi is not None else (input_data.cpi_inflation_pct if input_data.cpi_inflation_pct is not None else await db_manager.get_state_cpi_inflation(input_data.state_name))
     pricing = compute_pricing(amort.monthly_emi, wc.monthly_working_capital_outlay, expected_units, cpi_pct)
 
     weather_score = input_data.weather_risk_score if input_data.weather_risk_score is not None else await db_manager.get_weather_risk_score(input_data.state_name, input_data.district_name)
 
     # 5. 613 Village Amenities API & Infrastructure Score
-    amenities = fetch_village_amenities(
+    amenities = forecast_amenities or fetch_village_amenities(
         state_name=input_data.state_name,
         district_name=input_data.district_name,
         village_name=input_data.village_name,
@@ -287,6 +325,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         odop_info=odop_alignment,
     )
 
+    dpr_doc.sales_forecast = sales_forecast
     report_id = f"REP-{uuid.uuid4().hex[:10].upper()}"
     now_iso = datetime.now(timezone.utc).isoformat()
     logger.info(f"📄 [TIER 4 DPR] 7-Section Bank Memorandum Compiled | Report ID: {report_id}")
@@ -387,6 +426,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         },
         swot_matrix=final_swot.to_dict(),
         pricing_recommendation=pricing.to_dict(),
+        sales_forecast=sales_forecast,
         executive_synthesis=synthesis.to_dict(),
         data_sources_used=data_sources_used,
         odop_alignment=odop_alignment,

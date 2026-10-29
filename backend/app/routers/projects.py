@@ -48,6 +48,9 @@ def _project_dict_to_user_input(p: dict[str, Any]) -> UserInput:
         language=p.get("language", "en"),
         additional_business_details=p.get("additional_business_details"),
         monthly_net_operating_income_override=p.get("monthly_net_operating_income_override"),
+        sales_forecast_mode=p.get("sales_forecast_mode", "manual"),
+        sales_context=p.get("sales_context") or {},
+        forecast_start_month=p.get("forecast_start_month"),
     )
 
 
@@ -68,6 +71,7 @@ async def create_project(
         "sector": project_in.sector,
         "investment_amount": project_in.investment_amount,
         "annual_turnover_estimate": project_in.annual_turnover_estimate,
+        **project_in.model_dump(mode="json", include={"sales_forecast_mode", "sales_context", "forecast_start_month"}),
         "state_name": project_in.state_name,
         "district_name": project_in.district_name,
         "block_name": project_in.block_name,
@@ -120,6 +124,7 @@ async def create_and_analyze_project(
         "sector": project_in.sector,
         "investment_amount": project_in.investment_amount,
         "annual_turnover_estimate": project_in.annual_turnover_estimate,
+        **project_in.model_dump(mode="json", include={"sales_forecast_mode", "sales_context", "forecast_start_month"}),
         "state_name": project_in.state_name,
         "district_name": project_in.district_name,
         "block_name": project_in.block_name,

@@ -175,11 +175,14 @@ missing channels and missing evidence. Do not silently adjust prices or demand t
 def build_payload(user_input, evidence):
     idea = " ".join(filter(None, [user_input.enterprise_name, user_input.additional_business_details]))
     options, version = candidates(idea, user_input.sector)
+    context = getattr(user_input, "sales_context", {})
+    if hasattr(context, "model_dump"):
+        context = context.model_dump()
     return {
         "business": {"idea": idea[:1500], "sector_hint": user_input.sector,
                      "location": {k: getattr(user_input, k) for k in ("state_name", "district_name", "block_name", "village_name")}},
         "user_constraints": {"project_budget_inr": user_input.project_cost,
-                             **getattr(user_input, "sales_context", {})},
+                             **context},
         "evidence": evidence, "machinery_options": options,
         "catalogue_version": version,
         "forecast_start_month": (getattr(user_input, "forecast_start_month", None) or date.today()).replace(day=1).isoformat(),

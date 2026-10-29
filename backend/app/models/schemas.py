@@ -3,7 +3,8 @@ schemas.py — Pydantic v2 Request & Response Data Schemas for Udyam Saathi REST
 """
 
 from __future__ import annotations
-from typing import Optional, Union, Any
+from typing import Optional, Union, Any, Literal
+from datetime import date
 from pydantic import BaseModel, Field
 
 
@@ -92,7 +93,22 @@ class VillageInfo(BaseModel):
 # ---------------------------------------------------------------------------
 # Feasibility Input & Output Schemas
 # ---------------------------------------------------------------------------
-class UserInput(BaseModel):
+class SalesContext(BaseModel):
+    target_customers: str = Field("", max_length=500)
+    sales_channels: str = Field("", max_length=500)
+    operating_days_per_month: int = Field(26, ge=1, le=31)
+    hours_per_day: float = Field(8, gt=0, le=24)
+    staff_count: Optional[int] = Field(None, ge=1, le=10000)
+    local_observations: str = Field("", max_length=1000, description="Unverified user notes, not authenticated sales records")
+
+
+class SalesSettings(BaseModel):
+    sales_forecast_mode: Literal["manual", "estimate"] = "manual"
+    sales_context: SalesContext = Field(default_factory=SalesContext)
+    forecast_start_month: Optional[date] = None
+
+
+class UserInput(SalesSettings):
     enterprise_name: str = Field("Micro Enterprise Unit", description="Commercial name of the enterprise")
     business_category: str = Field("manufacturing", description="manufacturing | service")
     sector: str = Field("dairy", description="dairy | food_processing | repair | apparel | fabrication | artisan_trades | general")
@@ -105,7 +121,7 @@ class UserInput(BaseModel):
     village_name: str = Field("N/A", description="Village Name")
     is_rural: bool = Field(True, description="True if rural, False if urban")
     project_cost: float = Field(..., gt=0, description="Total capital outlay in INR (₹)")
-    annual_turnover_estimate: float = Field(..., gt=0, description="Estimated annual gross sales/turnover in INR (₹)")
+    annual_turnover_estimate: float = Field(0, ge=0, description="Manual/fallback year-one gross sales in INR; estimate mode replaces this after validation")
     tenure_years: float = Field(5.0, gt=0, le=15, description="Requested bank loan repayment tenure in years")
     moratorium_months: int = Field(6, ge=0, le=36, description="Moratorium grace period in months")
     expected_monthly_units: Optional[float] = Field(None, description="Expected monthly production / service units")
@@ -130,6 +146,7 @@ class FeasibilityReport(BaseModel):
     risk_assessment: dict[str, Any]
     swot_matrix: dict[str, Any]
     pricing_recommendation: dict[str, Any]
+    sales_forecast: Optional[dict[str, Any]] = None
     executive_synthesis: dict[str, Any]
     data_sources_used: Optional[list[dict[str, Any]]] = Field(default_factory=list, description="Audit lineage of database tables, APIs and ML models queried")
     odop_alignment: Optional[dict[str, Any]] = Field(default=None, description="One District One Product (ODOP) alignment and PMFME/DPIIT cluster incentives")
@@ -250,7 +267,7 @@ def compute_business_status(analysis_result: Optional[dict[str, Any]]) -> Busine
     )
 
 
-class ProjectCreate(BaseModel):
+class ProjectCreate(SalesSettings):
     business_name: str
     business_category: str
     sector: str
@@ -281,9 +298,12 @@ class ProjectUpdate(BaseModel):
     language: Optional[str] = None
     additional_business_details: Optional[str] = None
     monthly_net_operating_income_override: Optional[float] = None
+    sales_forecast_mode: Optional[Literal["manual", "estimate"]] = None
+    sales_context: Optional[SalesContext] = None
+    forecast_start_month: Optional[date] = None
 
 
-class ProjectModel(BaseModel):
+class ProjectModel(SalesSettings):
     project_id: str
     user_id: str
     business_name: str
