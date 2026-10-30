@@ -1,0 +1,887 @@
+{
+  "business": {
+    "idea": "Illustrative Milk Pasteurisation and Home Delivery Fictional planning example. Buy raw milk, pasteurise and sell pasteurised milk by the litre. Offer recurring home delivery in 500 ml and 1 litre quantities plus occasional direct retail. Estimate these channels separately without counting the same purchases twice. A monthly active delivery customer can receive repeat deliveries: do not confuse monthly customer count with purchase frequency. No paneer, ghee, ice cream, cattle purchase or milk farming is proposed. No existing customers, confirmed orders, observed local prices or signed supply agreements have been provided.",
+    "sector_hint": "dairy",
+    "location": {
+      "state_name": "Karnataka",
+      "district_name": "Illustrative district",
+      "block_name": "Illustrative block",
+      "village_name": "Illustrative village"
+    }
+  },
+  "user_constraints": {
+    "project_budget_inr": 2000000.0,
+    "target_customers": "Households reachable by a local milk-delivery route and occasional local walk-in buyers.",
+    "sales_channels": "Recurring home delivery and direct retail; no wholesale contracts assumed.",
+    "operating_days_per_month": 26,
+    "hours_per_day": 8.0,
+    "staff_count": 2,
+    "local_observations": "No verified customer survey, selling-price observations or actual sales history. Customer uptake, quantities, prices and startup growth must be explicit low-confidence scenario assumptions."
+  },
+  "evidence": {
+    "demographics": {
+      "status": "scenario_assumption",
+      "source": "Fictional example inputs, not Census",
+      "population": 5000,
+      "households": 1000,
+      "reference_year": 2026,
+      "notice": "Illustrative total catchment only. These are not confirmed customers or an actual geographic lookup."
+    },
+    "district_msme": {
+      "status": "unavailable",
+      "source": "No district database query performed",
+      "total_msme": null,
+      "notice": "Do not invent a competitor count from absent data."
+    },
+    "registered_businesses": {
+      "status": "unavailable",
+      "source": "UDYAM retrieval not performed for fictional location",
+      "radius_km": 10,
+      "core_radius_km": 5,
+      "business_sample": [],
+      "notice": "An empty unqueried sample is not zero competitors. Informal businesses may also exist."
+    },
+    "amenities": {
+      "provenance": "scenario_assumption",
+      "source": "Fictional operating context",
+      "power_supply_hours_per_day": 18,
+      "has_all_weather_road": true,
+      "has_bank_or_atm_within_5km": null,
+      "has_broadband_internet": null,
+      "has_cold_storage_or_warehouse": false,
+      "notice": "Assumed road and power availability, not verified village amenities. No shared cold storage assumed; assess chilling and delivery constraints."
+    },
+    "cpi": {
+      "value": 4.85,
+      "unit": "annual_percent",
+      "status": "fallback",
+      "source": "Application default, not a current local CPI observation",
+      "year": null,
+      "month": null,
+      "notice": "Not a milk selling price, household income figure or measure of willingness to pay."
+    },
+    "odop": {
+      "status": "unavailable",
+      "source": "No ODOP match for fictional district",
+      "notice": "Do not claim dairy is an officially designated district product."
+    }
+  },
+  "machinery_options": [
+    {
+      "profile_id": "fa5e4fba9e3e",
+      "business_name": "Dairy Processing Unit (Milk Pasteurization, Paneer, Curd & Ghee)",
+      "capacity_reference": {
+        "quantity": 1000,
+        "unit": "litres",
+        "period": "day",
+        "material": "milk input",
+        "capacity_kind": "throughput"
+      },
+      "capacity_variants": [
+        {
+          "variant_id": "starter",
+          "capacity": {
+            "quantity": 100.0,
+            "unit": "litres",
+            "period": "day",
+            "material": "milk input",
+            "capacity_kind": "throughput"
+          },
+          "total_machinery_cost_inr": 483800,
+          "cost_source": "derived_catalogue_estimate"
+        },
+        {
+          "variant_id": "small",
+          "capacity": {
+            "quantity": 250.0,
+            "unit": "litres",
+            "period": "day",
+            "material": "milk input",
+            "capacity_kind": "throughput"
+          },
+          "total_machinery_cost_inr": 652100,
+          "cost_source": "derived_catalogue_estimate"
+        },
+        {
+          "variant_id": "medium",
+          "capacity": {
+            "quantity": 500.0,
+            "unit": "litres",
+            "period": "day",
+            "material": "milk input",
+            "capacity_kind": "throughput"
+          },
+          "total_machinery_cost_inr": 865100,
+          "cost_source": "derived_catalogue_estimate"
+        },
+        {
+          "variant_id": "reference",
+          "capacity": {
+            "quantity": 1000,
+            "unit": "litres",
+            "period": "day",
+            "material": "milk input",
+            "capacity_kind": "throughput"
+          },
+          "total_machinery_cost_inr": 1320000,
+          "cost_source": "machinery_catalogue"
+        },
+        {
+          "variant_id": "expanded",
+          "capacity": {
+            "quantity": 2000,
+            "unit": "litres",
+            "period": "day",
+            "material": "milk input",
+            "capacity_kind": "throughput"
+          },
+          "total_machinery_cost_inr": 2124200,
+          "cost_source": "derived_catalogue_estimate"
+        }
+      ],
+      "machinery_list": [
+        {
+          "machine_name": "Batch Milk Pasteurizer",
+          "technical_specs": "SS-304 jacketed, 500 L, 3 HP agitator, steam/electric",
+          "quantity": 2,
+          "power_hp": 3.0,
+          "estimated_cost_inr": 210000,
+          "is_mandatory": true
+        },
+        {
+          "machine_name": "Cream Separator",
+          "technical_specs": "1000 L/hr, SS-304, 2 HP",
+          "quantity": 1,
+          "power_hp": 2.0,
+          "estimated_cost_inr": 150000,
+          "is_mandatory": true
+        },
+        {
+          "machine_name": "Paneer Press & Cheese Vat",
+          "technical_specs": "SS-304, 200 L, hydraulic press",
+          "quantity": 1,
+          "power_hp": 1.0,
+          "estimated_cost_inr": 130000,
+          "is_mandatory": true
+        },
+        {
+          "machine_name": "Ghee Boiler / Kettle",
+          "technical_specs": "SS-304 steam jacketed, 100 L, tilting",
+          "quantity": 1,
+          "power_hp": 1.0,
+          "estimated_cost_inr": 125000,
+          "is_mandatory": false
+        },
+        {
+          "machine_name": "Cup/Pouch Filling & Sealing Machine",
+          "technical_specs": "Semi-auto, 200 ml-1 L, 1 HP, 1500 pcs/hr",
+          "quantity": 1,
+          "power_hp": 1.0,
+          "estimated_cost_inr": 175000,
+          "is_mandatory": true
+        },
+        {
+          "machine_name": "Chiller / Bulk Milk Cooler & Lactometer Set",
+          "technical_specs": "1000 L BMC, 5 HP compressor, lab test kit",
+          "quantity": 1,
+          "power_hp": 5.0,
+          "estimated_cost_inr": 320000,
+          "is_mandatory": true
+        }
+      ],
+      "variant_pricing": {
+        "source": "derived_catalogue_estimate",
+        "basis": "Reference machine price × (0.25 + 0.75 × capacity_ratio^0.65); fixed equipment retains its price; multiple identical machines use whole quantities.",
+        "fixed_cost_share": 0.25,
+        "scaling_exponent": 0.65,
+        "notice": "Indicative equipment estimates, not supplier quotations. Compact configurations and technical compatibility require supplier confirmation. Installation, premises and working capital are additional."
+      }
+    }
+  ],
+  "catalogue_version": "78de107e6ffca6005063e8861c2e36c428c43e2785d3d300234596dc19b4f297",
+  "forecast_start_month": "2026-11-01",
+  "known_data_gaps": [
+    "No independent market survey, actual sales, confirmed orders or verified local prices unless explicitly supplied.",
+    "UDYAM coverage is incomplete; CPI is not purchasing power or a product quote.",
+    "Raw-milk supplier availability, procurement cost, chilling arrangements and verified local milk selling prices are unknown.",
+    "This example was manually restricted to the relevant dairy profile. Supplier confirmation of the process and smaller configurations is still required.",
+    "Do not interpret occasional retail purchase frequency as subscription-delivery frequency; estimate each channel with its own buyer definition.",
+    "The 500 ml and 1 litre delivery sizes describe the proposed offer, not observed customer consumption."
+  ],
+  "output_schema": {
+    "$defs": {
+      "Assumption": {
+        "additionalProperties": false,
+        "properties": {
+          "unit": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "supplied_evidence",
+              "scenario_assumption"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "evidence_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Evidence Ref"
+          },
+          "confidence": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "reasoning": {
+            "maxLength": 1000,
+            "minLength": 12,
+            "title": "Reasoning",
+            "type": "string"
+          },
+          "value": {
+            "maximum": 1000000000000.0,
+            "minimum": 0,
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "unit",
+          "source_kind",
+          "confidence",
+          "reasoning",
+          "value"
+        ],
+        "title": "Assumption",
+        "type": "object"
+      },
+      "Product": {
+        "additionalProperties": false,
+        "properties": {
+          "product_id": {
+            "pattern": "^[a-z0-9_-]{1,50}$",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "channel": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Channel",
+            "type": "string"
+          },
+          "unit": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "customer_purchases",
+              "buyer_orders",
+              "service_visits",
+              "traffic_conversion",
+              "subscriptions",
+              "occupancy"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "method_reason": {
+            "maxLength": 1000,
+            "minLength": 12,
+            "title": "Method Reason",
+            "type": "string"
+          },
+          "buyer_definition": {
+            "maxLength": 300,
+            "minLength": 5,
+            "title": "Buyer Definition",
+            "type": "string"
+          },
+          "profile_id": {
+            "enum": [
+              null,
+              "fa5e4fba9e3e"
+            ]
+          },
+          "output_per_input": {
+            "$ref": "#/$defs/Assumption"
+          },
+          "independent_capacity_per_month": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 12,
+            "minItems": 12,
+            "title": "Independent Capacity Per Month",
+            "type": "array"
+          },
+          "capacity_basis": {
+            "$ref": "#/$defs/Source"
+          },
+          "assumptions": {
+            "additionalProperties": {
+              "$ref": "#/$defs/Source"
+            },
+            "title": "Assumptions",
+            "type": "object"
+          },
+          "scenarios": {
+            "$ref": "#/$defs/ScenarioSet"
+          }
+        },
+        "required": [
+          "product_id",
+          "name",
+          "channel",
+          "unit",
+          "method",
+          "method_reason",
+          "buyer_definition",
+          "profile_id",
+          "output_per_input",
+          "independent_capacity_per_month",
+          "capacity_basis",
+          "assumptions",
+          "scenarios"
+        ],
+        "title": "Product",
+        "type": "object"
+      },
+      "Scenario": {
+        "additionalProperties": false,
+        "properties": {
+          "drivers": {
+            "additionalProperties": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Drivers",
+            "type": "object"
+          },
+          "selling_prices": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 12,
+            "minItems": 12,
+            "title": "Selling Prices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "drivers",
+          "selling_prices"
+        ],
+        "title": "Scenario",
+        "type": "object"
+      },
+      "ScenarioSet": {
+        "additionalProperties": false,
+        "properties": {
+          "conservative": {
+            "$ref": "#/$defs/Scenario"
+          },
+          "base": {
+            "$ref": "#/$defs/Scenario"
+          },
+          "optimistic": {
+            "$ref": "#/$defs/Scenario"
+          }
+        },
+        "required": [
+          "conservative",
+          "base",
+          "optimistic"
+        ],
+        "title": "ScenarioSet",
+        "type": "object"
+      },
+      "Source": {
+        "additionalProperties": false,
+        "properties": {
+          "unit": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "supplied_evidence",
+              "scenario_assumption"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "evidence_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Evidence Ref"
+          },
+          "confidence": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "reasoning": {
+            "maxLength": 1000,
+            "minLength": 12,
+            "title": "Reasoning",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "source_kind",
+          "confidence",
+          "reasoning"
+        ],
+        "title": "Source",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "business_classification": {
+        "maxLength": 300,
+        "minLength": 3,
+        "title": "Business Classification",
+        "type": "string"
+      },
+      "operating_days": {
+        "items": {
+          "type": "integer"
+        },
+        "maxItems": 12,
+        "minItems": 12,
+        "title": "Operating Days",
+        "type": "array"
+      },
+      "hours_per_day": {
+        "$ref": "#/$defs/Assumption"
+      },
+      "availability": {
+        "$ref": "#/$defs/Assumption"
+      },
+      "non_machinery_budget_inr": {
+        "$ref": "#/$defs/Assumption",
+        "description": "Estimated amount REQUIRED for setup, installation, premises and working capital; not the total available project budget. Remaining money funds machinery. Do not copy the entire project budget when a machinery profile is selected."
+      },
+      "products": {
+        "items": {
+          "$ref": "#/$defs/Product"
+        },
+        "maxItems": 4,
+        "minItems": 1,
+        "title": "Products",
+        "type": "array"
+      },
+      "limitations": {
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 20,
+        "minItems": 1,
+        "title": "Limitations",
+        "type": "array"
+      }
+    },
+    "required": [
+      "business_classification",
+      "operating_days",
+      "hours_per_day",
+      "availability",
+      "non_machinery_budget_inr",
+      "products",
+      "limitations"
+    ],
+    "title": "ForecastPlan",
+    "type": "object"
+  },
+  "allowed_profile_ids": [
+    null,
+    "fa5e4fba9e3e"
+  ],
+  "output_shape_example": {
+    "business_classification": "Example business model; replace",
+    "operating_days": [
+      25,
+      25,
+      25,
+      25,
+      25,
+      25,
+      25,
+      25,
+      25,
+      25,
+      25,
+      25
+    ],
+    "hours_per_day": {
+      "value": 8,
+      "unit": "hours/day",
+      "source_kind": "scenario_assumption",
+      "evidence_ref": null,
+      "confidence": "low",
+      "reasoning": "Structure example only; replace with business-specific reasoning."
+    },
+    "availability": {
+      "value": 0.8,
+      "unit": "fraction",
+      "source_kind": "scenario_assumption",
+      "evidence_ref": null,
+      "confidence": "low",
+      "reasoning": "Structure example only; replace with business-specific reasoning."
+    },
+    "non_machinery_budget_inr": {
+      "value": 1,
+      "unit": "INR",
+      "source_kind": "scenario_assumption",
+      "evidence_ref": null,
+      "confidence": "low",
+      "reasoning": "Structure example only; replace with business-specific reasoning."
+    },
+    "limitations": [
+      "Structure example only, not evidence or numerical guidance."
+    ],
+    "products": [
+      {
+        "product_id": "example",
+        "name": "Example",
+        "channel": "Example channel",
+        "unit": "unit",
+        "method": "customer_purchases",
+        "method_reason": "Replace with actual business-specific method rationale.",
+        "buyer_definition": "Replace with the actual monthly active customer group.",
+        "profile_id": null,
+        "output_per_input": {
+          "value": 1,
+          "unit": "unit/unit",
+          "source_kind": "scenario_assumption",
+          "evidence_ref": null,
+          "confidence": "low",
+          "reasoning": "Structure example only; replace with business-specific reasoning."
+        },
+        "independent_capacity_per_month": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "capacity_basis": {
+          "unit": "unit/month",
+          "source_kind": "scenario_assumption",
+          "evidence_ref": null,
+          "confidence": "low",
+          "reasoning": "Structure example only; replace with business-specific reasoning."
+        },
+        "assumptions": {
+          "active_buyers": {
+            "unit": "buyers/month",
+            "source_kind": "scenario_assumption",
+            "evidence_ref": null,
+            "confidence": "low",
+            "reasoning": "Structure example only; replace with business-specific reasoning."
+          },
+          "transactions_per_buyer": {
+            "unit": "transactions/buyer/month",
+            "source_kind": "scenario_assumption",
+            "evidence_ref": null,
+            "confidence": "low",
+            "reasoning": "Structure example only; replace with business-specific reasoning."
+          },
+          "units_per_transaction": {
+            "unit": "unit/transaction",
+            "source_kind": "scenario_assumption",
+            "evidence_ref": null,
+            "confidence": "low",
+            "reasoning": "Structure example only; replace with business-specific reasoning."
+          },
+          "selling_price": {
+            "unit": "INR/unit",
+            "source_kind": "scenario_assumption",
+            "evidence_ref": null,
+            "confidence": "low",
+            "reasoning": "Structure example only; replace with business-specific reasoning."
+          }
+        },
+        "scenarios": {
+          "conservative": {
+            "drivers": {
+              "active_buyers": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "transactions_per_buyer": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "units_per_transaction": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ]
+            },
+            "selling_prices": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "base": {
+            "drivers": {
+              "active_buyers": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "transactions_per_buyer": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "units_per_transaction": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ]
+            },
+            "selling_prices": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          },
+          "optimistic": {
+            "drivers": {
+              "active_buyers": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "transactions_per_buyer": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "units_per_transaction": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ]
+            },
+            "selling_prices": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "driver_unit_contract": {
+    "active_buyers": "buyers/month",
+    "transactions_per_buyer": "transactions/buyer/month",
+    "units_per_transaction": "{unit}/transaction",
+    "orders_per_buyer": "orders/buyer/month",
+    "units_per_order": "{unit}/order",
+    "bookable_customers": "customers/month",
+    "visits_per_customer": "visits/customer/month",
+    "units_per_visit": "{unit}/visit",
+    "qualified_visits": "visits/month",
+    "conversion_rate": "orders/visit",
+    "active_subscribers": "subscribers/month",
+    "recognized_units_per_subscriber": "{unit}/subscriber/month",
+    "rentable_units": "inventory",
+    "available_periods": "periods/month",
+    "occupancy_rate": "fraction"
+  },
+  "demand_equations": {
+    "customer_purchases": [
+      "active_buyers",
+      "transactions_per_buyer",
+      "units_per_transaction"
+    ],
+    "buyer_orders": [
+      "active_buyers",
+      "orders_per_buyer",
+      "units_per_order"
+    ],
+    "service_visits": [
+      "bookable_customers",
+      "visits_per_customer",
+      "units_per_visit"
+    ],
+    "traffic_conversion": [
+      "qualified_visits",
+      "conversion_rate",
+      "units_per_order"
+    ],
+    "subscriptions": [
+      "active_subscribers",
+      "recognized_units_per_subscriber"
+    ],
+    "occupancy": [
+      "rentable_units",
+      "available_periods",
+      "occupancy_rate"
+    ]
+  }
+}
