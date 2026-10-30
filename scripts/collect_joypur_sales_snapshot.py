@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 from app.config import settings
 from app.core.sales_forecast import build_payload, SYSTEM_PROMPT
+from app.core.sales_catalogue import catalogue
 from app.core.odop_matcher import match_odop
 from app.models.schemas import UserInput
 
@@ -28,6 +29,21 @@ AMENITIES_ID = "423cdbbe-0a01-4396-a9d0-638a28e89b83"
 CPI_URL = "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2322244&lang=1&reg=3"
 DAIRY_URL = "https://banglardairy.com/api_bd/product_all"
 CENSUS_URL = "https://censusindia.gov.in/nada/index.php/catalog/6530"
+
+
+def comparison_machinery_options():
+    """Select the known dairy case directly, independently of generic ranking."""
+    rows, _ = catalogue()
+    matching = [row for row in rows if row["profile_id"] == "fa5e4fba9e3e"]
+    if len(matching) != 1 or len(matching[0]["capacity_variants"]) != 5:
+        raise ValueError("Expected the dairy catalogue profile with five capacity variants")
+    row = matching[0]
+    profile = {k: row[k] for k in ("profile_id", "business_name", "capacity_reference",
+                                   "machinery_list", "variant_pricing")}
+    profile["capacity_variants"] = [
+        {k: variant[k] for k in ("variant_id", "capacity", "total_machinery_cost_inr", "cost_source")}
+        for variant in row["capacity_variants"]]
+    return [profile]
 
 
 def serialise(value):
@@ -285,12 +301,9 @@ async def main():
             "operating_days_per_month": 26, "hours_per_day": 8, "staff_count": 2,
             "local_observations": "Budget, staffing, channels and schedule are proposed comparison-case inputs, not facts fetched from government datasets."})
     payload = build_payload(user, evidence)
-    payload["machinery_options"] = [p for p in payload["machinery_options"] if p["profile_id"] == "fa5e4fba9e3e"]
+    payload["machinery_options"] = comparison_machinery_options()
     payload["allowed_profile_ids"] = [None, "fa5e4fba9e3e"]
     payload["output_schema"]["$defs"]["Product"]["properties"]["profile_id"] = {"enum": payload["allowed_profile_ids"]}
-    for profile in payload["machinery_options"]:
-        profile["capacity_variants"] = [{k: v[k] for k in ("variant_id", "capacity", "total_machinery_cost_inr", "cost_source")}
-                                        for v in profile["capacity_variants"]]
     payload["snapshot"] = {"collected_at_utc": now, "location": "Jaypur/Joypur, Bankura, West Bengal; Census village 328046",
         "collection_mode": "fresh_public_API_requests_and_read_only_database_queries",
         "business_input_status": "proposed_case_inputs_not_observed_business_records",

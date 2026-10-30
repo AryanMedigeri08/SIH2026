@@ -1,10 +1,10 @@
 {
   "collected_at_utc": "2026-10-30T09:31:21.385382+00:00",
-  "payload_sha256": "bd2c9defb690d7290ed8226310e1ddf6375d69aa8e3eb48516e56f9151cb7583",
+  "payload_sha256": "b003c6459f77efd8d9af5c2deb0ecfe939d159928234e2e0bb473f187bcff8d6",
   "files": {
-    "data.json": "3fb2b80282c295c2eac8dd7522d02f5a4ffd3c90f7c0e035a501c5169248d3a4",
-    "messages.json": "934b601ff35eeefe88ff9e4fccb0ca71a8b7cb2c0eb8f5e26ecbc5df9e7b4e20",
-    "payload.json": "bd2c9defb690d7290ed8226310e1ddf6375d69aa8e3eb48516e56f9151cb7583",
+    "data.json": "800458887cdbdfb1939e82a4d3a22c87dbdf4ea8e9659bf5db545cb2cb28a98c",
+    "messages.json": "e9471cae56da0cc3c8472b45e159c2fadc3cc51d4b540a9dabc6481323989416",
+    "payload.json": "b003c6459f77efd8d9af5c2deb0ecfe939d159928234e2e0bb473f187bcff8d6",
     "raw_village_amenities.json": "d66abf9ac41ba1d01fa02d4fa8eae6323c15890f16b45aa916cea651ac1a6a08",
     "verified_cpi_publication.json": "d3c7f822eb4c65da4738655ae50ab7b96eb2c4baab1f8d1e455050afc7267d8e"
   },

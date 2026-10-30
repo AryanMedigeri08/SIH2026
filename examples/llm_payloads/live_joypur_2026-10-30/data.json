@@ -531,7 +531,138 @@
       "verified_raw_milk_procurement_price_inr_per_litre": null
     }
   },
-  "machinery_options": [],
+  "machinery_options": [
+    {
+      "profile_id": "fa5e4fba9e3e",
+      "business_name": "Dairy Processing Unit (Milk Pasteurization, Paneer, Curd & Ghee)",
+      "capacity_reference": {
+        "quantity": 1000,
+        "unit": "litres",
+        "period": "day",
+        "material": "milk input",
+        "capacity_kind": "throughput"
+      },
+      "machinery_list": [
+        {
+          "machine_name": "Batch Milk Pasteurizer",
+          "technical_specs": "SS-304 jacketed, 500 L, 3 HP agitator, steam/electric",
+          "quantity": 2,
+          "power_hp": 3.0,
+          "estimated_cost_inr": 210000,
+          "is_mandatory": true
+        },
+        {
+          "machine_name": "Cream Separator",
+          "technical_specs": "1000 L/hr, SS-304, 2 HP",
+          "quantity": 1,
+          "power_hp": 2.0,
+          "estimated_cost_inr": 150000,
+          "is_mandatory": true
+        },
+        {
+          "machine_name": "Paneer Press & Cheese Vat",
+          "technical_specs": "SS-304, 200 L, hydraulic press",
+          "quantity": 1,
+          "power_hp": 1.0,
+          "estimated_cost_inr": 130000,
+          "is_mandatory": true
+        },
+        {
+          "machine_name": "Ghee Boiler / Kettle",
+          "technical_specs": "SS-304 steam jacketed, 100 L, tilting",
+          "quantity": 1,
+          "power_hp": 1.0,
+          "estimated_cost_inr": 125000,
+          "is_mandatory": false
+        },
+        {
+          "machine_name": "Cup/Pouch Filling & Sealing Machine",
+          "technical_specs": "Semi-auto, 200 ml-1 L, 1 HP, 1500 pcs/hr",
+          "quantity": 1,
+          "power_hp": 1.0,
+          "estimated_cost_inr": 175000,
+          "is_mandatory": true
+        },
+        {
+          "machine_name": "Chiller / Bulk Milk Cooler & Lactometer Set",
+          "technical_specs": "1000 L BMC, 5 HP compressor, lab test kit",
+          "quantity": 1,
+          "power_hp": 5.0,
+          "estimated_cost_inr": 320000,
+          "is_mandatory": true
+        }
+      ],
+      "variant_pricing": {
+        "source": "derived_catalogue_estimate",
+        "basis": "Reference machine price × (0.25 + 0.75 × capacity_ratio^0.65); fixed equipment retains its price; multiple identical machines use whole quantities.",
+        "fixed_cost_share": 0.25,
+        "scaling_exponent": 0.65,
+        "notice": "Indicative equipment estimates, not supplier quotations. Compact configurations and technical compatibility require supplier confirmation. Installation, premises and working capital are additional."
+      },
+      "capacity_variants": [
+        {
+          "variant_id": "starter",
+          "capacity": {
+            "quantity": 100.0,
+            "unit": "litres",
+            "period": "day",
+            "material": "milk input",
+            "capacity_kind": "throughput"
+          },
+          "total_machinery_cost_inr": 483800,
+          "cost_source": "derived_catalogue_estimate"
+        },
+        {
+          "variant_id": "small",
+          "capacity": {
+            "quantity": 250.0,
+            "unit": "litres",
+            "period": "day",
+            "material": "milk input",
+            "capacity_kind": "throughput"
+          },
+          "total_machinery_cost_inr": 652100,
+          "cost_source": "derived_catalogue_estimate"
+        },
+        {
+          "variant_id": "medium",
+          "capacity": {
+            "quantity": 500.0,
+            "unit": "litres",
+            "period": "day",
+            "material": "milk input",
+            "capacity_kind": "throughput"
+          },
+          "total_machinery_cost_inr": 865100,
+          "cost_source": "derived_catalogue_estimate"
+        },
+        {
+          "variant_id": "reference",
+          "capacity": {
+            "quantity": 1000,
+            "unit": "litres",
+            "period": "day",
+            "material": "milk input",
+            "capacity_kind": "throughput"
+          },
+          "total_machinery_cost_inr": 1320000,
+          "cost_source": "machinery_catalogue"
+        },
+        {
+          "variant_id": "expanded",
+          "capacity": {
+            "quantity": 2000,
+            "unit": "litres",
+            "period": "day",
+            "material": "milk input",
+            "capacity_kind": "throughput"
+          },
+          "total_machinery_cost_inr": 2124200,
+          "cost_source": "derived_catalogue_estimate"
+        }
+      ]
+    }
+  ],
   "catalogue_version": "78de107e6ffca6005063e8861c2e36c428c43e2785d3d300234596dc19b4f297",
   "forecast_start_month": "2026-11-01",
   "known_data_gaps": [

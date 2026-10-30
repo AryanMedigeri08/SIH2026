@@ -47,7 +47,9 @@ called. No saved beneficiary reports or private user tables were queried.
   raw-milk procurement quote could be verified.
 - The existing ODOP registry and machinery catalogue are labelled local reference
   data. Machinery variants and prices are indicative estimates, not newly fetched
-  supplier quotations. The dairy candidate was explicitly filtered for this case.
+  supplier quotations. The dairy candidate and its five variants are explicitly
+  selected from the full catalogue for this controlled comparison, independently
+  of the application's generic keyword ranking.
 
 ## Proposed inputs, not fetched facts
 
