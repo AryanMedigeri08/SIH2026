@@ -1,0 +1,21 @@
+{
+  "status": "official_publication_verified_via_web",
+  "source_url": "https://static.pib.gov.in/WriteReadData/specificdocs/documents/2026/oct/doc_10157_20261012_15535501.pdf",
+  "publication_page_url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2322244&lang=1&reg=3",
+  "publisher": "Government of India, Ministry of Statistics and Programme Implementation / National Statistics Office",
+  "reference": "Annexure III, page 9, West Bengal row",
+  "verified_on": "2026-10-30",
+  "retrieval_method": "Official PDF opened through web tool; the six state-row values below were transcribed from its extracted text",
+  "reference_period": "2026-09",
+  "published_on": "2026-10-12",
+  "provisional": true,
+  "base_year": 2024,
+  "state": "West Bengal",
+  "rural_index": 109.31,
+  "urban_index": 107.99,
+  "combined_index": 108.73,
+  "rural_inflation_pct": 4.44,
+  "urban_inflation_pct": 3.53,
+  "combined_inflation_pct": 4.04,
+  "notice": "Historical monthly index released in October and verified now. October 2026 CPI is scheduled for 12 November 2026 and is not yet published. CPI is not a milk price or customer demand measurement. The Python HTTP request to the publication page returned 404; the web tool successfully retrieved the official PDF."
+}

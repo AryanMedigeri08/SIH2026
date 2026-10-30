@@ -1,0 +1,22 @@
+{
+  "collected_at_utc": "2026-10-30T09:31:21.385382+00:00",
+  "payload_sha256": "bd2c9defb690d7290ed8226310e1ddf6375d69aa8e3eb48516e56f9151cb7583",
+  "files": {
+    "data.json": "3fb2b80282c295c2eac8dd7522d02f5a4ffd3c90f7c0e035a501c5169248d3a4",
+    "messages.json": "934b601ff35eeefe88ff9e4fccb0ca71a8b7cb2c0eb8f5e26ecbc5df9e7b4e20",
+    "payload.json": "bd2c9defb690d7290ed8226310e1ddf6375d69aa8e3eb48516e56f9151cb7583",
+    "raw_village_amenities.json": "d66abf9ac41ba1d01fa02d4fa8eae6323c15890f16b45aa916cea651ac1a6a08",
+    "verified_cpi_publication.json": "d3c7f822eb4c65da4738655ae50ab7b96eb2c4baab1f8d1e455050afc7267d8e"
+  },
+  "source_urls": [
+    "https://censusindia.gov.in/nada/index.php/catalog/6530",
+    "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2322244&lang=1&reg=3",
+    "https://api.data.gov.in/resource/8b68ae56-84cf-4728-a0a6-1be11028dea7",
+    "https://api.data.gov.in/resource/423cdbbe-0a01-4396-a9d0-638a28e89b83",
+    "https://banglardairy.com/api_bd/product_all"
+  ],
+  "notes": [
+    "No LLM was called. Use this identical snapshot and system prompt across models.",
+    "No beneficiary records, authentication headers or configured secrets are exported."
+  ]
+}
