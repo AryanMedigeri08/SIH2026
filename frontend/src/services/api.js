@@ -393,6 +393,19 @@ export async function calculateFinancials(payload) {
   return null;
 }
 
+export async function fetchMachinerySchedule(sector, enterpriseName, budget, businessCategory) {
+  try {
+    const params = new URLSearchParams();
+    if (sector) params.append('sector', sector);
+    if (enterpriseName) params.append('enterprise_name', enterpriseName);
+    if (budget) params.append('allocated_budget', budget);
+    if (businessCategory) params.append('business_category', businessCategory);
+    const res = await fetch(`${API_BASE}/financial/machinery-schedule?${params.toString()}`);
+    if (res.ok) return await res.json();
+  } catch (e) {}
+  return null;
+}
+
 // --- Data Source & Schemes Catalog Endpoints ---
 export async function fetchDataSources() {
   try {

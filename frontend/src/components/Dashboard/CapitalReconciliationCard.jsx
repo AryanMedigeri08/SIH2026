@@ -1,8 +1,9 @@
-import React from 'react';
-import { Layers, CheckCircle2, DollarSign } from 'lucide-react';
+import React, { useState } from 'react';
+import { Layers, CheckCircle2, DollarSign, Cpu, ChevronDown, ChevronUp, Zap, ShieldCheck, Landmark } from 'lucide-react';
 import { TranslatedText } from '../TranslatedText';
 
 export function CapitalReconciliationCard({ inputData, financialData, schemeData }) {
+  const [showMachinery, setShowMachinery] = useState(false);
   const projectCost = Number(inputData?.project_cost) || 900000;
   const promoterMargin = financialData?.promoter_margin_amount || (projectCost * 0.10);
   
@@ -18,6 +19,12 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
 
   const totalMeans = promoterMargin + subsidyAmount + loanAmount;
   const isBalanced = Math.abs(totalMeans - projectCost) < 1.0;
+
+  const machSchedule = financialData?.machinery_schedule || inputData?.machinery_schedule || null;
+  const premiseType = financialData?.premise_details?.premise_type || inputData?.premise_type || "rented";
+  const monthlyRent = financialData?.premise_details?.monthly_rent !== undefined 
+    ? financialData.premise_details.monthly_rent 
+    : (inputData?.monthly_rent || (premiseType === "rented" ? 2500 : 0));
 
   return (
     <div className="glass-panel p-4 sm:p-6 bg-white shadow-card border border-slate-200">
@@ -104,6 +111,87 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
         </div>
 
       </div>
+
+      {/* Statutory Land Acquisition Exemption Note */}
+      <div className="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-start gap-2.5">
+        <ShieldCheck className="w-4 h-4 text-sovereign-700 shrink-0 mt-0.5" />
+        <div className="space-y-0.5 leading-relaxed">
+          <div className="font-bold text-slate-900 flex items-center gap-1.5">
+            <span><TranslatedText text="Statutory Compliance on Land & Premises:" /></span>
+            <span className="text-[10px] bg-slate-200 text-slate-800 font-mono px-1.5 py-0.2 rounded font-bold">
+              ₹0.00 Outlay (MSME Rule)
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-600">
+            {premiseType === "owned"
+              ? "Promoter holds verified title deed / Khatiyan for the operating worksite. Zero rent OPEX deducted; eligible for 15% Work Shed construction financing."
+              : premiseType === "panchayat"
+              ? "Promoter operates on a Gram Panchayat allotted commercial worksite. Zero commercial rent OPEX deducted under village resolution."
+              : `Operating premise held under minimum 3-5 year registered lease agreement. Budgeted rent (₹${Number(monthlyRent).toLocaleString('en-IN')}/mo) deducted as cash flow OPEX.`}
+          </p>
+        </div>
+      </div>
+
+      {/* Expandable Itemized Machinery BoQ Schedule */}
+      {machSchedule?.items?.length > 0 && (
+        <div className="mt-3 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setShowMachinery(!showMachinery)}
+            className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100/80 transition flex items-center justify-between text-xs font-bold text-slate-800"
+          >
+            <div className="flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-sovereign-700" />
+              <span><TranslatedText text="Itemized Plant, Machinery & Equipment Schedule" /> (55% CAPEX: ₹{Math.round(machinery).toLocaleString('en-IN')})</span>
+            </div>
+            <div className="flex items-center gap-2 text-sovereign-700">
+              <span className="text-[10px] font-mono font-semibold bg-white px-2 py-0.5 rounded border border-slate-200">
+                {machSchedule.items.length} <TranslatedText text="Machines" /> • {machSchedule.total_connected_load_kw || 4.5} kW
+              </span>
+              {showMachinery ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </div>
+          </button>
+
+          {showMachinery && (
+            <div className="p-3 border-t border-slate-200 overflow-x-auto text-xs">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[10px] text-slate-500 uppercase tracking-wider">
+                    <th className="py-1.5 px-2">Machine / Tool</th>
+                    <th className="py-1.5 px-2">Technical Specification</th>
+                    <th className="py-1.5 px-2 text-center">Qty</th>
+                    <th className="py-1.5 px-2">Power Load</th>
+                    <th className="py-1.5 px-2">Sourcing Channel</th>
+                    <th className="py-1.5 px-2 text-right">Cost (₹)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[11px]">
+                  {machSchedule.items.map((it, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50">
+                      <td className="py-1.5 px-2 font-bold text-slate-900">{it.item_name}</td>
+                      <td className="py-1.5 px-2 text-slate-600 text-[10px]">{it.specification}</td>
+                      <td className="py-1.5 px-2 text-center font-mono">{it.quantity || 1}</td>
+                      <td className="py-1.5 px-2 text-slate-500 font-mono text-[10px]">{it.power_specs || '-'}</td>
+                      <td className="py-1.5 px-2 text-sovereign-800 text-[10px]">{it.sourcing_channel || 'GeM / OEM'}</td>
+                      <td className="py-1.5 px-2 text-right font-mono font-bold text-emerald-700">
+                        ₹{Number(it.total_cost_inr || 0).toLocaleString('en-IN')}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-slate-50 font-bold text-slate-900 border-t border-slate-200">
+                    <td colSpan={5} className="py-1.5 px-2 text-[10px] uppercase">
+                      Total Allocated Plant & Machinery Budget (100% Balanced)
+                    </td>
+                    <td className="py-1.5 px-2 text-right font-mono text-emerald-800">
+                      ₹{Math.round(machinery).toLocaleString('en-IN')}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Grounded Data Source Lineage Tag */}
       <div className="text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 pt-3 mt-4 border-t border-slate-200">

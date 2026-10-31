@@ -16,7 +16,9 @@ logger = logging.getLogger("udyam_saathi.feasibility")
 
 from financial_calculator import (
     emi_with_moratorium, working_capital_estimate, compute_dscr, rank_eligible_schemes,
+    estimate_smart_turnover, SECTOR_ECONOMIC_PROFILES,
 )
+from machinery_engine import extract_contextual_machinery
 from market_analyzer import (
     project_population, estimate_tam, compute_msme_density, compute_competition_intensity,
 )
@@ -50,9 +52,24 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
       - Tier 3 (Executive Narrative): Sarvam AI (sarvam-105b-conversations) Multi-Lingual Synthesis
       - Tier 4 (Bank Memorandum): 7-Section Bank DPR Compilation
     """
+    # 0. Sizing Project Cost & Worksite Premises
+    if input_data.project_cost is None or input_data.project_cost <= 0:
+        if input_data.available_margin_capital and input_data.available_margin_capital > 0:
+            input_data.project_cost = input_data.available_margin_capital * 10.0
+        else:
+            input_data.project_cost = 500000.0
+
+    premise_type = (getattr(input_data, "premise_type", "rented") or "rented").lower()
+    monthly_rent = getattr(input_data, "monthly_rent", None)
+    if premise_type == "rented":
+        actual_rent = monthly_rent if (monthly_rent is not None and monthly_rent >= 0) else 2500.0
+    else:
+        actual_rent = 0.0
+
     logger.info(
         f"⚡ [PIPELINE START] Enterprise: '{input_data.enterprise_name}' | Sector: '{input_data.sector}' | "
-        f"Outlay: ₹{input_data.project_cost:,.0f} | Location: {input_data.village_name}, {input_data.district_name}, {input_data.state_name}"
+        f"Outlay: ₹{input_data.project_cost:,.0f} | Premise: {premise_type} (Rent: ₹{actual_rent:,.0f}/mo) | "
+        f"Location: {input_data.village_name}, {input_data.district_name}, {input_data.state_name}"
     )
 
     # 0. Geographic Coordinates Grounding (GPS or Village-level Gazetteer resolution)
@@ -97,6 +114,32 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         f"District: '{input_data.district_name}' -> Base Catchment Pop 2011: {base_pop:,}, Projected 2026: {pop.projected_population:,}, District Pop 2026: {dist_pop.projected_population:,}, TAM: ₹{tam.annual_tam:,.0f}"
     )
 
+    # Smart Turnover Auto-Sizing if not manually set or zero
+    if not input_data.annual_turnover_estimate or input_data.annual_turnover_estimate <= 0:
+        smart_to = estimate_smart_turnover(
+            project_cost=input_data.project_cost,
+            sector=input_data.sector,
+            capacity_factor=0.80,
+            monthly_rent=actual_rent,
+            local_catchment_tam=tam.annual_tam,
+        )
+        input_data.annual_turnover_estimate = smart_to.estimated_annual_sales
+        logger.info(
+            f"📈 [SMART TURNOVER] Auto-sized first-year sales: ₹{input_data.annual_turnover_estimate:,.2f} "
+            f"(TAM Share: {smart_to.market_share_of_tam_pct:.2f}%, Method: {smart_to.estimation_method})"
+        )
+
+    # Extract contextual commercial machinery & normalize to 55% allocation
+    machinery_budget = round(input_data.project_cost * 0.55, 2)
+    mach_schedule = extract_contextual_machinery(
+        enterprise_name=input_data.enterprise_name,
+        business_category=input_data.business_category,
+        sector=input_data.sector,
+        allocated_machinery_budget=machinery_budget,
+        additional_details=input_data.additional_business_details,
+        use_ai=True,
+    )
+
     msme_data = await db_manager.get_district_msme_stats(
         state_name=input_data.state_name,
         district_name=input_data.district_name,
@@ -127,7 +170,10 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     loan_principal = max(input_data.project_cost - top_scheme.subsidy_grant_amount - promoter_margin_val, 1.0)
     amort = emi_with_moratorium(loan_principal, top_scheme.effective_interest_rate_pct, input_data.tenure_years, input_data.moratorium_months)
 
-    monthly_noi = input_data.monthly_net_operating_income_override or (input_data.annual_turnover_estimate * 0.30 / 12)
+    sec_prof = SECTOR_ECONOMIC_PROFILES.get(input_data.sector.lower(), SECTOR_ECONOMIC_PROFILES["default"])
+    op_margin = sec_prof["operating_margin"]
+    gross_monthly_noi = (input_data.annual_turnover_estimate * op_margin) / 12.0
+    monthly_noi = input_data.monthly_net_operating_income_override or max(gross_monthly_noi - actual_rent, 0.0)
     dscr_res = compute_dscr(monthly_noi, amort.monthly_emi)
     subsidy_coverage_ratio = top_scheme.subsidy_grant_amount / input_data.project_cost if input_data.project_cost else 0.0
 
@@ -285,6 +331,9 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         ml_prediction=ml_pred,
         ai_synthesis=synthesis,
         odop_info=odop_alignment,
+        machinery_schedule=mach_schedule.to_dict(),
+        premise_type=premise_type,
+        monthly_rent=actual_rent,
     )
 
     report_id = f"REP-{uuid.uuid4().hex[:10].upper()}"
@@ -390,6 +439,12 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         executive_synthesis=synthesis.to_dict(),
         data_sources_used=data_sources_used,
         odop_alignment=odop_alignment,
+        machinery_schedule=mach_schedule.to_dict(),
+        premise_details={
+            "premise_type": premise_type,
+            "monthly_rent": actual_rent,
+            "annual_rent": actual_rent * 12.0,
+        },
         location={
             "latitude": resolved_lat,
             "longitude": resolved_lon,

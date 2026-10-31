@@ -105,7 +105,10 @@ class UserInput(BaseModel):
     village_name: str = Field("N/A", description="Village Name")
     is_rural: bool = Field(True, description="True if rural, False if urban")
     project_cost: float = Field(..., gt=0, description="Total capital outlay in INR (₹)")
-    annual_turnover_estimate: float = Field(..., gt=0, description="Estimated annual gross sales/turnover in INR (₹)")
+    annual_turnover_estimate: Optional[float] = Field(None, description="Estimated annual gross sales in INR (₹) - auto-sized if None or 0")
+    available_margin_capital: Optional[float] = Field(None, description="Available margin money / promoter equity in INR")
+    premise_type: str = Field("rented", description="Operating premise tenure: rented | owned | panchayat")
+    monthly_rent: Optional[float] = Field(None, ge=0, description="Monthly premise rent in INR if rented")
     tenure_years: float = Field(5.0, gt=0, le=15, description="Requested bank loan repayment tenure in years")
     moratorium_months: int = Field(6, ge=0, le=36, description="Moratorium grace period in months")
     expected_monthly_units: Optional[float] = Field(None, description="Expected monthly production / service units")
@@ -135,6 +138,8 @@ class FeasibilityReport(BaseModel):
     odop_alignment: Optional[dict[str, Any]] = Field(default=None, description="One District One Product (ODOP) alignment and PMFME/DPIIT cluster incentives")
     location: Optional[dict[str, Any]] = Field(default=None, description="Resolved geographic coordinates and locality info")
     ecosystem_graph: Optional[dict[str, Any]] = Field(default=None, description="Document 5 ecosystem graph data contract if pre-calculated")
+    machinery_schedule: Optional[dict[str, Any]] = Field(default=None, description="Itemized Plant, Machinery & Equipment Schedule")
+    premise_details: Optional[dict[str, Any]] = Field(default=None, description="Operating worksite premise details")
 
 
 class ODOPLookupResponse(BaseModel):
@@ -320,19 +325,23 @@ class ProjectModel(BaseModel):
 # Standalone Financial Calculator Schemas
 # ---------------------------------------------------------------------------
 class FinancialCalcRequest(BaseModel):
-    project_cost: float = Field(..., gt=0)
-    annual_turnover: float = Field(..., gt=0)
+    project_cost: Optional[float] = Field(None, description="Total capital outlay in INR (optional if margin given)")
+    available_margin_capital: Optional[float] = Field(None, description="Available margin money (10%)")
+    annual_turnover: Optional[float] = Field(None, description="Annual turnover (auto-sized if omitted)")
     sector: str = "dairy"
     business_category: str = "manufacturing"
     promoter_category: str = "general"
+    premise_type: str = "rented"
+    monthly_rent: Optional[float] = None
     is_rural: bool = True
     tenure_years: float = 5.0
-    interest_rate_pct: float = 11.0
+    interest_rate_pct: float = 8.0
     moratorium_months: int = 6
 
 
 class FinancialCalcResponse(BaseModel):
     project_cost: float
+    available_margin_capital: Optional[float] = None
     top_scheme_id: str
     top_scheme_name: str
     subsidy_grant_amount: float
@@ -343,7 +352,12 @@ class FinancialCalcResponse(BaseModel):
     working_capital_required: float
     dscr: float
     dscr_verdict: str
+    dscr_classification: Optional[str] = ""
     ranked_schemes: list[dict[str, Any]]
+    quarterly_installment: Optional[float] = None
+    quarterly_schedule: Optional[list[dict[str, Any]]] = None
+    smart_turnover_breakdown: Optional[dict[str, Any]] = None
+    machinery_schedule: Optional[dict[str, Any]] = None
 
 
 # ---------------------------------------------------------------------------

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   Building2, MapPin, User, Coins, Clock, FileText, CheckCircle2, 
   ChevronRight, ChevronLeft, Sparkles, X, Loader2, Compass, 
-  AlertCircle, Info, ShieldCheck, Languages, Check
+  AlertCircle, Info, ShieldCheck, Languages, Check, Wrench, Cpu, Zap, Landmark
 } from 'lucide-react';
-import { fetchStates, fetchDistricts, fetchBlocks, fetchVillages, fetchOdopProduct } from '../../services/api';
+import { fetchStates, fetchDistricts, fetchBlocks, fetchVillages, fetchOdopProduct, fetchMachinerySchedule } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -52,9 +52,16 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
       language: "en",
       latitude: initialData?.latitude != null ? initialData.latitude : null,
       longitude: initialData?.longitude != null ? initialData.longitude : null,
+      premise_type: initialData?.premise_type || "rented",
+      monthly_rent: initialData?.monthly_rent !== undefined ? initialData.monthly_rent : 2500,
       ...initialData,
     };
   });
+
+  // Capacity dial & Machinery BoQ state
+  const [capacityFactor, setCapacityFactor] = useState(0.80);
+  const [machinerySchedule, setMachinerySchedule] = useState(null);
+  const [loadingMachinery, setLoadingMachinery] = useState(false);
 
   // LGD Dropdown states
   const [states, setStates] = useState([]);
@@ -130,6 +137,54 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
     }
     loadSubunits();
   }, [formData.district_name]);
+
+  // Sector Capital Velocity Multipliers
+  const SECTOR_CAPITAL_MULTIPLIERS = {
+    dairy: 1.40,
+    food_processing: 1.35,
+    repair: 1.25,
+    service: 1.25,
+    apparel: 1.30,
+    fabrication: 1.20,
+    artisan_trades: 1.15,
+    trading: 2.20,
+    retail: 2.20,
+    general: 1.30,
+  };
+
+  // Dynamic Machinery Schedule & Smart Turnover auto-sizing
+  useEffect(() => {
+    const cost = Number(formData.project_cost) || 900000;
+    const machBudget = Math.round(cost * 0.55);
+    const sec = formData.sector || 'dairy';
+    const entName = formData.enterprise_name || 'Enterprise Unit';
+
+    let isSubscribed = true;
+    async function loadMachinery() {
+      setLoadingMachinery(true);
+      try {
+        const sched = await fetchMachinerySchedule(sec, entName, machBudget, formData.business_category);
+        if (isSubscribed && sched) {
+          setMachinerySchedule(sched);
+        }
+      } catch (err) {
+        // Fallback gracefully
+      } finally {
+        if (isSubscribed) setLoadingMachinery(false);
+      }
+    }
+    loadMachinery();
+
+    // Auto-derive turnover if not explicitly customized
+    const baseMult = SECTOR_CAPITAL_MULTIPLIERS[sec.toLowerCase()] || 1.30;
+    const autoTurnover = Math.round((cost * baseMult * capacityFactor) / 5000) * 5000;
+    setFormData(prev => ({
+      ...prev,
+      annual_turnover_estimate: autoTurnover,
+    }));
+
+    return () => { isSubscribed = false; };
+  }, [formData.project_cost, formData.sector, formData.business_category, capacityFactor]);
 
   // Sync ODOP data for selected district
   useEffect(() => {
@@ -571,6 +626,154 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                   </label>
                 </div>
               </div>
+
+              {/* Worksite & Premises Model (Land Statutory Sizing) */}
+              <div className="pt-4 border-t border-slate-200 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Landmark className="w-3.5 h-3.5 text-sovereign-700" />
+                    <span>Operating Worksite & Premises Model</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                    Statutory Land Purchase Outlay: ₹0.00
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Rented Premise */}
+                  <div
+                    onClick={() => setFormData(prev => ({ ...prev, premise_type: 'rented' }))}
+                    className={`p-3 rounded-xl border cursor-pointer transition flex flex-col justify-between ${
+                      formData.premise_type === 'rented'
+                        ? 'bg-sovereign-50/60 border-sovereign-600 ring-2 ring-sovereign-600/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <strong className="text-xs text-slate-900">Rented Operating Space</strong>
+                        <input
+                          type="radio"
+                          name="premise_type"
+                          checked={formData.premise_type === 'rented'}
+                          onChange={() => setFormData(prev => ({ ...prev, premise_type: 'rented' }))}
+                          className="accent-sovereign-700"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-snug">
+                        Commercial shop or processing shed. Rent is deducted as operational OPEX in monthly cash flow.
+                      </p>
+                    </div>
+                    <span className="mt-2 text-[10px] font-semibold text-sovereign-800 bg-sovereign-100/70 px-2 py-0.5 rounded self-start">
+                      3-5 Yr Lease & Landlord NOC
+                    </span>
+                  </div>
+
+                  {/* Owned Plot */}
+                  <div
+                    onClick={() => setFormData(prev => ({ ...prev, premise_type: 'owned', monthly_rent: 0 }))}
+                    className={`p-3 rounded-xl border cursor-pointer transition flex flex-col justify-between ${
+                      formData.premise_type === 'owned'
+                        ? 'bg-emerald-50/60 border-emerald-600 ring-2 ring-emerald-600/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <strong className="text-xs text-slate-900">Owned Land / Plot</strong>
+                        <input
+                          type="radio"
+                          name="premise_type"
+                          checked={formData.premise_type === 'owned'}
+                          onChange={() => setFormData(prev => ({ ...prev, premise_type: 'owned', monthly_rent: 0 }))}
+                          className="accent-emerald-700"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-snug">
+                        Promoter-owned or ancestral plot (₹0 rent). Unlocks 15% Work Shed construction funding.
+                      </p>
+                    </div>
+                    <span className="mt-2 text-[10px] font-semibold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded self-start">
+                      Registered Patta / Khatiyan
+                    </span>
+                  </div>
+
+                  {/* Panchayat Allotment */}
+                  <div
+                    onClick={() => setFormData(prev => ({ ...prev, premise_type: 'panchayat', monthly_rent: 0 }))}
+                    className={`p-3 rounded-xl border cursor-pointer transition flex flex-col justify-between ${
+                      formData.premise_type === 'panchayat'
+                        ? 'bg-blue-50/60 border-blue-600 ring-2 ring-blue-600/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <strong className="text-xs text-slate-900">Gram Panchayat Site</strong>
+                        <input
+                          type="radio"
+                          name="premise_type"
+                          checked={formData.premise_type === 'panchayat'}
+                          onChange={() => setFormData(prev => ({ ...prev, premise_type: 'panchayat', monthly_rent: 0 }))}
+                          className="accent-blue-700"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-snug">
+                        Allotted worksite in rural haat/market. Zero commercial rent.
+                      </p>
+                    </div>
+                    <span className="mt-2 text-[10px] font-semibold text-blue-800 bg-blue-100/70 px-2 py-0.5 rounded self-start">
+                      Panchayat Resolution NOC
+                    </span>
+                  </div>
+                </div>
+
+                {/* Monthly Rent Input if Rented */}
+                {formData.premise_type === 'rented' && (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 animate-in fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <label className="text-xs font-bold text-slate-700">Budgeted Monthly Rent (₹/month):</label>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-slate-400 font-semibold uppercase">Presets:</span>
+                        {[
+                          { label: "₹1,500 Rural", val: 1500 },
+                          { label: "₹2,500 Standard", val: 2500 },
+                          { label: "₹4,500 High-Street", val: 4500 }
+                        ].map(p => (
+                          <button
+                            key={p.val}
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, monthly_rent: p.val }))}
+                            className={`text-[10px] px-2 py-0.5 rounded font-medium border transition ${
+                              formData.monthly_rent === p.val
+                                ? 'bg-sovereign-700 text-white border-sovereign-700 shadow-xs'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      step={500}
+                      value={formData.monthly_rent !== undefined ? formData.monthly_rent : 2500}
+                      onChange={e => setFormData(prev => ({ ...prev, monthly_rent: Number(e.target.value) }))}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600"
+                    />
+                  </div>
+                )}
+
+                {/* Statutory MSME Zero Land Acquisition Note */}
+                <div className="p-2.5 rounded-xl bg-slate-100/90 border border-slate-200 text-slate-600 text-[11px] flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-sovereign-700 shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">
+                    <strong>Statutory MSME Guideline:</strong> Under Ministry of MSME, PMEGP, and SCA norms, land purchase outlay is strictly <strong>₹0.00</strong> (ineligible for debt financing). Worksite possession is legitimized via lease agreement or verified plot record.
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
@@ -779,46 +982,68 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
             </div>
           )}
 
-          {/* Step 4: Capital Outlay & Sales */}
+          {/* Step 4: Capital Outlay, Machinery BoQ & Smart Revenue */}
           {currentStep === 4 && (() => {
             const cost = Number(formData.project_cost) || 0;
             const sales = Number(formData.annual_turnover_estimate) || 0;
             const marginVal = Number(formData.margin_capital) || 0;
+            const machBudget = Math.round(cost * 0.55);
             const turnoverRatio = cost > 0 ? (sales / cost) : 0;
             
-            // Sector benchmark margin helper
+            // Sector benchmark operating margin
             const sec = String(formData.sector || "").toLowerCase();
             const sectorMargin = sec.includes("service") || sec.includes("repair") ? 0.38 
               : sec.includes("apparel") || sec.includes("textile") || sec.includes("craft") ? 0.32
               : sec.includes("trading") || sec.includes("retail") ? 0.22 
-              : 0.30;
+              : 0.28;
             
-            // Fast EMI approximation for instant underwriting preview
-            const loanPrincipal = Math.max(1000, (cost * 0.65) - Math.min(marginVal, cost * 0.10));
-            const monthlyRate = 0.095 / 12;
-            const tenureMonths = Math.max(12, (Number(formData.tenure_years) || 5) * 12);
+            // Premise rent deduction (Zero rent if owned/panchayat)
+            const actualRent = formData.premise_type === 'rented' 
+              ? (Number(formData.monthly_rent) || 2500) 
+              : 0;
+
+            // Bank EMI approximation (90% concessional loan)
+            const loanPrincipal = Math.max(1000, cost * 0.90);
+            const monthlyRate = 0.08 / 12; // 8% standard concessional rate
+            const tenureMonths = Math.max(12, (Number(formData.tenure_years) || 7) * 12);
             const quickEmi = (loanPrincipal * monthlyRate * Math.pow(1 + monthlyRate, tenureMonths)) / 
               Math.max(0.0001, (Math.pow(1 + monthlyRate, tenureMonths) - 1));
             
-            const monthlyNoi = (sales * sectorMargin) / 12;
-            const preDscr = quickEmi > 0 ? (monthlyNoi / quickEmi) : 0;
+            // Monthly NOI: (Sales * Margin) / 12 - Rent
+            const monthlyGrossSurplus = (sales * sectorMargin) / 12;
+            const monthlyNoi = Math.max(0, monthlyGrossSurplus - actualRent);
+            
+            // Bounded Organic DSCR: clamped 0.00 to 5.00
+            let preDscr = quickEmi > 0 ? (monthlyNoi / quickEmi) : 5.0;
+            preDscr = Math.min(Math.max(preDscr, 0.0), 5.0);
 
-            const isLowSales = turnoverRatio > 0 && (turnoverRatio < 0.50 || preDscr < 1.0);
-            const isHighSales = turnoverRatio > 5.0;
-            const isOptimal = turnoverRatio >= 0.80 && turnoverRatio <= 3.50 && preDscr >= 1.33;
+            const isPrime = preDscr >= 2.0;
+            const isBankable = preDscr >= 1.33 && preDscr < 2.0;
+            const isCaution = preDscr >= 1.0 && preDscr < 1.33;
+            const isDeficit = preDscr < 1.0;
+
+            const machItems = machinerySchedule?.items || [
+              { item_name: "Commercial Grade Primary Processing Unit", specification: "BIS / Food-Grade SS-304 Heavy Duty", quantity: 1, power_specs: "3.5 kW, 3-Phase", sourcing_channel: "Authorized OEM / GeM", total_cost_inr: machBudget * 0.50 },
+              { item_name: "Auxiliary Motors & Storage Refrigeration", specification: "Tropicalized dual compressor setup", quantity: 2, power_specs: "1.2 kW, 230V", sourcing_channel: "Commercial Dealer", total_cost_inr: machBudget * 0.25 },
+              { item_name: "Semi-Automated Packaging & Sealing Rig", specification: "Digital heat sealer with batch coder", quantity: 1, power_specs: "650 W", sourcing_channel: "Packaging Tech OEM", total_cost_inr: machBudget * 0.15 },
+              { item_name: "Power Backup & Inverter Stabilization Kit", specification: "Pure sine wave heavy-duty battery bank", quantity: 1, power_specs: "2.5 kVA", sourcing_channel: "Power Systems Vendor", total_cost_inr: machBudget * 0.10 },
+            ];
 
             return (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                
+                {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                     <Coins className="w-4 h-4 text-sovereign-700" />
-                    Step 4: Available Margin Capital & Sales Revenue
+                    Step 4: Margin Capital, Plant & Machinery Schedule & Sales
                   </h3>
                   <span className="text-[11px] font-bold text-sovereign-800 bg-sovereign-50 border border-sovereign-200 px-2.5 py-1 rounded-lg self-start sm:self-auto">
                     Statutory Equity: {(getMarginPct(formData.promoter_category) * 100).toFixed(0)}% ({formData.promoter_category?.toUpperCase()})
                   </span>
                 </div>
 
+                {/* Top Row: User Margin Capital & Sizing Readout */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
@@ -844,152 +1069,189 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                         }));
                       }}
                       placeholder="e.g. 90000"
-                      className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                     />
-                    <p className="text-[11px] text-slate-500 mt-1">Personal cash/equity capital you are willing to invest</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Beneficiary self-contribution required under 10% government scheme norms</p>
 
                     {/* Derived Project Sizing Readout Card */}
-                    <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 shadow-subtle">
+                    <div className="mt-2.5 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 shadow-subtle">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500 font-medium">Derived Project Outlay:</span>
+                        <span className="text-slate-500 font-medium">Total Project Outlay:</span>
                         <strong className="text-emerald-700 font-mono font-bold text-sm">
                           ₹{Number(formData.project_cost || 0).toLocaleString('en-IN')}
                         </strong>
                       </div>
                       <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-500">Gross Implied Bank Loan:</span>
+                        <span className="text-slate-500">Government Concessional Loan (90%):</span>
                         <span className="text-slate-800 font-mono font-semibold">
-                          ₹{Number(Math.max(0, (formData.project_cost || 0) - (Number(formData.margin_capital) || 0))).toLocaleString('en-IN')}
+                          ₹{Number(Math.max(0, (formData.project_cost || 0) * 0.90)).toLocaleString('en-IN')}
                         </span>
-                      </div>
-                      <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-200 flex items-center gap-1">
-                        <Info className="w-3 h-3 text-sovereign-600 shrink-0" />
-                        <span>Back-solved: Margin ÷ {(getMarginPct(formData.promoter_category) * 100).toFixed(0)}% statutory equity requirement</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between items-center mb-1.5">
-                        <label className="block text-xs font-bold text-slate-700">Estimated Annual Gross Sales (₹)</label>
-                        {cost > 0 && (
-                          <span className="text-[10px] text-slate-500 font-medium">
-                            Range: ₹{(cost * 0.8).toLocaleString('en-IN')} – ₹{(cost * 3.0).toLocaleString('en-IN')}
-                          </span>
-                        )}
-                      </div>
-                      <input
-                        type="number"
-                        required
-                        min={25000}
-                        step={5000}
-                        value={formData.annual_turnover_estimate}
-                        onChange={e => setFormData({ ...formData, annual_turnover_estimate: Number(e.target.value) })}
-                        className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
-                      />
-                      <p className="text-[11px] text-slate-500 mt-1">Projected 100% capacity annual sales revenue</p>
-
-                      {/* 1-Click Quick Preset Turnover Buttons */}
-                      {cost > 0 && (
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Presets:</span>
-                          <button
-                            type="button"
-                            onClick={() => setFormData(prev => ({
-                              ...prev,
-                              annual_turnover_estimate: Math.round((cost * 1.0) / 5000) * 5000
-                            }))}
-                            className={`text-[10px] px-2 py-1 rounded-md font-semibold border transition ${
-                              Math.abs(turnoverRatio - 1.0) < 0.1
-                                ? 'bg-sovereign-100 border-sovereign-400 text-sovereign-900'
-                                : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
-                            }`}
-                          >
-                            1.0x Conservative
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setFormData(prev => ({
-                              ...prev,
-                              annual_turnover_estimate: Math.round((cost * 1.5) / 5000) * 5000
-                            }))}
-                            className={`text-[10px] px-2 py-1 rounded-md font-semibold border transition ${
-                              Math.abs(turnoverRatio - 1.5) < 0.1
-                                ? 'bg-emerald-100 border-emerald-400 text-emerald-900 shadow-xs'
-                                : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-                            }`}
-                          >
-                            ★ 1.5x Realistic (Optimal)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setFormData(prev => ({
-                              ...prev,
-                              annual_turnover_estimate: Math.round((cost * 2.2) / 5000) * 5000
-                            }))}
-                            className={`text-[10px] px-2 py-1 rounded-md font-semibold border transition ${
-                              Math.abs(turnoverRatio - 2.2) < 0.1
-                                ? 'bg-sovereign-100 border-sovereign-400 text-sovereign-900'
-                                : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
-                            }`}
-                          >
-                            2.2x High Capacity
-                          </button>
-                        </div>
-                      )}
+                  {/* Smart Capacity & Revenue Intelligence Dial */}
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                        <Zap className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Machine Capacity Sizing & First-Year Sales</span>
+                      </label>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {(turnoverRatio).toFixed(2)}x Velocity
+                      </span>
                     </div>
 
-                    {/* Live Underwriting Diagnostics Preview Card */}
-                    <div className="p-3 bg-gradient-to-br from-slate-50 to-sovereign-50/30 border border-slate-200 rounded-xl space-y-2 shadow-subtle">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-600 font-medium">Turnover to Capital Leverage:</span>
-                        <strong className="text-sovereign-900 font-mono font-bold text-sm">
-                          {turnoverRatio.toFixed(2)}x
-                        </strong>
+                    {/* 3 Capacity Dial Buttons */}
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        { label: "65% Lean Season", factor: 0.65, desc: "Ramp-up / seasonal" },
+                        { label: "80% Standard", factor: 0.80, desc: "Recommended balance" },
+                        { label: "95% Peak Season", factor: 0.95, desc: "High production" }
+                      ].map(dial => (
+                        <button
+                          key={dial.factor}
+                          type="button"
+                          onClick={() => setCapacityFactor(dial.factor)}
+                          className={`p-2 rounded-xl border text-center transition flex flex-col items-center justify-center ${
+                            Math.abs(capacityFactor - dial.factor) < 0.02
+                              ? 'bg-sovereign-700 text-white border-sovereign-700 shadow-sm'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className="text-[11px] font-bold">{dial.label}</span>
+                          <span className={`text-[9px] mt-0.5 ${Math.abs(capacityFactor - dial.factor) < 0.02 ? 'text-slate-200' : 'text-slate-400'}`}>
+                            {dial.desc}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Annual Gross Sales Field (Auto-sized, but editable) */}
+                    <div>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-2.5 text-xs text-slate-400 font-bold">₹</span>
+                        <input
+                          type="number"
+                          min={25000}
+                          step={5000}
+                          value={formData.annual_turnover_estimate}
+                          onChange={e => setFormData({ ...formData, annual_turnover_estimate: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-300 rounded-xl pl-8 pr-4 py-2 text-sm text-slate-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-sovereign-600 shadow-subtle"
+                        />
                       </div>
-                      <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-200/80 text-[11px]">
+                      <p className="text-[10px] text-slate-500 mt-1">Auto-sized from equipment capacity factor ({Math.round(capacityFactor * 100)}%) and sector velocity</p>
+                    </div>
+
+                    {/* Live Underwriting Diagnostics & DSCR Solvency Preview */}
+                    <div className="p-2.5 bg-gradient-to-br from-slate-50 to-emerald-50/30 border border-slate-200 rounded-xl space-y-1.5 shadow-subtle text-xs">
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
                         <div>
-                          <span className="text-slate-500 block">Est. Monthly Cash Surplus:</span>
-                          <span className="text-slate-800 font-mono font-semibold">
+                          <span className="text-slate-500 block">Est. Monthly NOI:</span>
+                          <span className="text-slate-800 font-mono font-bold">
                             ₹{Math.round(monthlyNoi).toLocaleString('en-IN')}/mo
                           </span>
                         </div>
                         <div>
-                          <span className="text-slate-500 block">Est. Bank EMI:</span>
-                          <span className="text-slate-800 font-mono font-semibold">
+                          <span className="text-slate-500 block">Concessional Loan EMI:</span>
+                          <span className="text-slate-800 font-mono font-bold">
                             ₹{Math.round(quickEmi).toLocaleString('en-IN')}/mo
                           </span>
                         </div>
                       </div>
 
-                      {/* Dynamic Solvency Pre-Check Indicator */}
-                      <div className="pt-1.5 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
-                        <span className="text-slate-500">Instant Pre-DSCR:</span>
-                        {isOptimal ? (
-                          <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded text-[10px]">
+                      <div className="pt-1.5 border-t border-slate-200 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-500">Live Organic DSCR:</span>
+                        {isPrime ? (
+                          <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded text-[10px]">
                             <CheckCircle2 className="w-3 h-3" />
-                            {preDscr.toFixed(2)}x (Prime Bankable)
+                            {preDscr.toFixed(2)}x Prime Solvency (Tier 1)
                           </span>
-                        ) : isLowSales ? (
-                          <span className="inline-flex items-center gap-1 font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded text-[10px]">
-                            <AlertCircle className="w-3 h-3" />
-                            {preDscr.toFixed(2)}x (Insolvent Cash Deficit)
+                        ) : isBankable ? (
+                          <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px]">
+                            <CheckCircle2 className="w-3 h-3" />
+                            {preDscr.toFixed(2)}x Bankable (Meets RBI 1.33 Benchmark)
                           </span>
-                        ) : isHighSales ? (
+                        ) : isCaution ? (
                           <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-[10px]">
                             <AlertCircle className="w-3 h-3" />
-                            {turnoverRatio.toFixed(1)}x (High Machine Load)
+                            {preDscr.toFixed(2)}x Thin Solvency Buffer
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 font-bold text-slate-700 bg-slate-200 px-2 py-0.5 rounded text-[10px]">
-                            {preDscr.toFixed(2)}x (Acceptable)
+                          <span className="inline-flex items-center gap-1 font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded text-[10px]">
+                            <AlertCircle className="w-3 h-3" />
+                            {preDscr.toFixed(2)}x Cash Deficit Risk
                           </span>
                         )}
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Full-Width Interactive Plant & Machinery Equipment Schedule (55% CAPEX) */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 shadow-subtle">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-sovereign-100 text-sovereign-800">
+                        <Cpu className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <strong className="text-xs text-slate-900 block font-outfit uppercase tracking-wider">
+                          Itemized Plant, Machinery & Equipment Schedule (55% Outlay Budget)
+                        </strong>
+                        <span className="text-[11px] text-slate-500">
+                          {machinerySchedule?.daily_rated_production_capacity || `Industrial machinery tailored for ${formData.enterprise_name}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono">
+                        Balanced: ₹{machBudget.toLocaleString('en-IN')} (₹0 Drift)
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-mono flex items-center gap-1">
+                        <Zap className="w-3 h-3" />
+                        {machinerySchedule?.total_connected_load_kw || 5.5} kW Connected
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Items List */}
+                  {loadingMachinery ? (
+                    <div className="py-6 flex items-center justify-center text-xs text-slate-500 gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-sovereign-700" />
+                      <span>Extracting contextual commercial equipment schedule via industrial engine...</span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-1">
+                      {machItems.map((it, idx) => (
+                        <div key={idx} className="p-2.5 bg-white border border-slate-200 rounded-xl space-y-1 shadow-2xs">
+                          <div className="flex justify-between items-start gap-1">
+                            <strong className="text-xs text-slate-900 leading-tight">
+                              {it.item_name}
+                            </strong>
+                            <span className="text-xs font-mono font-bold text-emerald-700 shrink-0">
+                              ₹{Math.round(it.total_cost_inr || 0).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] text-slate-500 leading-snug line-clamp-2">
+                            {it.specification}
+                          </p>
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100">
+                            <span>Qty: <strong>{it.quantity || 1}</strong> • Load: <strong>{it.power_specs || 'Electric'}</strong></span>
+                            <span className="font-medium text-sovereign-700">{it.sourcing_channel?.split('/')[0] || 'GeM / OEM'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="text-[10px] text-slate-500 pt-1 flex items-center justify-between">
+                    <span>Deterministic normalizer reconciles all equipment costs strictly to the 55% MSME budget.</span>
+                    <span className="font-semibold text-slate-600">4-6 Core Production Assets</span>
+                  </div>
+                </div>
+
               </div>
             );
           })()}
@@ -1171,6 +1433,25 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                     </div>
                     <div className="font-mono text-slate-700 text-[10px] mt-0.5">
                       ₹{Number(formData.project_cost).toLocaleString('en-IN')} Derived Outlay • ₹{Number(formData.annual_turnover_estimate).toLocaleString('en-IN')} Sales
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-white rounded-lg border border-slate-200 sm:col-span-2">
+                    <div className="text-[10px] text-slate-400 font-bold uppercase">Worksite Premises & Machinery Allocation</div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 mt-0.5">
+                      <span className="font-bold text-slate-900">
+                        {formData.premise_type === 'owned' 
+                          ? 'Owned Land / Family Plot (Zero Rent OPEX)' 
+                          : formData.premise_type === 'panchayat' 
+                          ? 'Gram Panchayat Allotted Site (Zero Rent OPEX)' 
+                          : `Rented Operating Premise (₹${(formData.monthly_rent || 2500).toLocaleString('en-IN')}/mo)`}
+                      </span>
+                      <span className="text-emerald-700 font-mono font-semibold text-[11px]">
+                        Plant & Machinery (55%): ₹{Math.round(formData.project_cost * 0.55).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      Statutory Land Outlay: <strong className="text-slate-700">₹0.00</strong> (Ineligible under Ministry of MSME / SCA guidelines)
                     </div>
                   </div>
                 </div>

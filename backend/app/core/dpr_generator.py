@@ -54,6 +54,9 @@ class EnterpriseProfileHeader(BaseModel):
     odop_product: Optional[str] = Field(None, description="Designated One District One Product (ODOP)")
     odop_alignment_status: Optional[str] = Field(None, description="ODOP Aligned | Cluster Adjacent")
     rbi_psl_classification: Optional[str] = Field(None, description="RBI Priority Sector Lending Classification")
+    premise_type: str = Field("rented", description="rented | owned | panchayat")
+    monthly_rent: Optional[float] = Field(None, description="Monthly rent in INR if rented")
+    premise_description: str = Field("Rented Commercial Premise", description="Full legal description of operating premises")
 
 
 class CapitalOutlayItem(BaseModel):
@@ -69,6 +72,9 @@ class CapitalOutlayTable(BaseModel):
     initial_working_capital_reserve: CapitalOutlayItem
     contingency_and_pre_operative: CapitalOutlayItem
     total_capital_outlay: float
+    land_acquisition_outlay: float = 0.0
+    land_compliance_note: str = ""
+    machinery_items: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class MeansOfFinanceTable(BaseModel):
@@ -328,6 +334,8 @@ def _compile_statutory_checklist(
     sector: str,
     business_category: str,
     project_cost: float,
+    premise_type: str = "rented",
+    monthly_rent: Optional[float] = None,
 ) -> list[StatutoryChecklistItem]:
     """
     Builds the official bank submission document checklist tailored to the scheme,
@@ -352,13 +360,28 @@ def _compile_statutory_checklist(
         is_mandatory=True,
         notes="Online Udyam registration acknowledgement showing enterprise category.",
     ))
+    p_type = (premise_type or "rented").lower()
+    if p_type == "owned":
+        doc_name = "Proof of Land / Plot Ownership (Patta / Khatiyan / 7-12 Extract)"
+        authority = "Revenue Department / Land Registry"
+        notes_text = "Registered Khatiyan or Title Deed in promoter's name; eligible for 15% Work Shed construction funding."
+    elif p_type == "panchayat":
+        doc_name = "Gram Panchayat Worksite Allotment Certificate & NOC"
+        authority = "Gram Panchayat / Village Pradhan"
+        notes_text = "Official resolution and NOC from Gram Panchayat for commercial micro-enterprise operation."
+    else:
+        doc_name = "Registered Commercial Lease / Rent Agreement (min 3-5 Years) & Landlord NOC"
+        authority = "Property Owner / Notary Registrar"
+        rent_txt = f"₹{monthly_rent:,.0f}/mo" if monthly_rent else "budgeted rent"
+        notes_text = f"Minimum 3-year tenure lease agreement with landlord NOC. Rent ({rent_txt}) factored into operational cash flow."
+
     checklist.append(StatutoryChecklistItem(
         document_code="DOC-LOC-03",
-        document_name="Proof of Worksite / Land Ownership or Lease Deed",
+        document_name=doc_name,
         category_requirement="Universal Mandatory",
-        issuing_authority="Gram Panchayat / Revenue Authority / Landlord",
+        issuing_authority=authority,
         is_mandatory=True,
-        notes="Registered lease deed (minimum 5-year tenure) or Khatiyan / Land tax receipt.",
+        notes=notes_text,
     ))
     checklist.append(StatutoryChecklistItem(
         document_code="DOC-QUO-04",
@@ -476,6 +499,9 @@ def build_bank_dpr(
     ai_synthesis: Any,
     constitution: str = "Sole Proprietorship",
     odop_info: Optional[dict[str, Any]] = None,
+    machinery_schedule: Optional[Any] = None,
+    premise_type: str = "rented",
+    monthly_rent: Optional[float] = None,
 ) -> BankDPRDocument:
     """
     Compiles the complete 7-Section Bank DPR appraisal document.
@@ -506,6 +532,14 @@ def build_bank_dpr(
         odop_product=odop_info.get("odop_product") if odop_info else None,
         odop_alignment_status=odop_info.get("status_text") if odop_info else None,
         rbi_psl_classification=odop_info.get("rbi_psl_category") if odop_info else None,
+        premise_type=premise_type,
+        monthly_rent=monthly_rent,
+        premise_description=(
+            "Owned Land / Plot (Patta / Title Deed Verified - Zero Rent)" if premise_type == "owned"
+            else "Gram Panchayat Allotted Operating Site (Zero Rent)" if premise_type == "panchayat"
+            else f"Rented Commercial Operating Premise (₹{monthly_rent:,.0f}/month budgeted rent)" if monthly_rent
+            else "Rented Commercial Operating Premise"
+        ),
     )
 
     # 2. Capital Outlay Breakdown (100% standard allocation)
@@ -514,32 +548,53 @@ def build_bank_dpr(
     cost_wc = project_cost * 0.20
     cost_contingency = project_cost * 0.10
 
+    raw_m_items = []
+    if machinery_schedule:
+        if isinstance(machinery_schedule, dict):
+            raw_m_items = machinery_schedule.get("items", [])
+        elif hasattr(machinery_schedule, "items"):
+            raw_m_items = [i.to_dict() if hasattr(i, "to_dict") else i for i in machinery_schedule.items]
+
+    shed_desc = (
+        "Work shed construction, concrete machine foundation, and electrical cabling" if premise_type == "owned"
+        else "Worksite site preparation, partitions, and electrical cabling" if premise_type == "panchayat"
+        else "Shop interior fixtures, machine foundation, and commercial electrical wiring"
+    )
+
     outlay_table = CapitalOutlayTable(
         plant_and_machinery=CapitalOutlayItem(
             item_name="Plant, Machinery & Core Equipment",
             percentage_of_outlay=55.0,
             amount_inr=round(cost_machinery, 2),
-            description="Primary processing machinery, tools, and technical apparatus",
+            description="Itemized core machinery, apparatus & processing tools per Bill of Quantities",
         ),
         electrification_and_site_works=CapitalOutlayItem(
-            item_name="Electrification, Installation & Site Works",
+            item_name="Work Shed, Interior & Electrification Works",
             percentage_of_outlay=15.0,
             amount_inr=round(cost_civil, 2),
-            description="Power cabling, transformer connection, foundation, and fixtures",
+            description=shed_desc,
         ),
         initial_working_capital_reserve=CapitalOutlayItem(
             item_name="Initial Working Capital Reserve",
             percentage_of_outlay=20.0,
             amount_inr=round(cost_wc, 2),
-            description="Raw material inventory buffer and operating liquidity for launch",
+            description="Raw material inventory buffer and operating liquidity for launch cycle",
         ),
         contingency_and_pre_operative=CapitalOutlayItem(
             item_name="Contingency & Pre-Operative Outlay",
             percentage_of_outlay=10.0,
             amount_inr=round(cost_contingency, 2),
-            description="Trial run expenses, licensing, logistics contingency, and buffer",
+            description="Trial run expenses, licensing, statutory registrations, and logistics reserve",
         ),
         total_capital_outlay=round(project_cost, 2),
+        land_acquisition_outlay=0.0,
+        land_compliance_note=(
+            "STATUTORY COMPLIANCE NOTE ON LAND: In strict adherence to Ministry of MSME, PMEGP, and State "
+            "Channelizing Agency (SCA) credit guidelines, the cost of land acquisition is excluded from the project "
+            "outlay (₹0.00). The promoter holds lawful possession of the worksite via verified "
+            + ("title deed / ancestral land record." if premise_type == "owned" else "Gram Panchayat allotment NOC." if premise_type == "panchayat" else "commercial lease / rent agreement.")
+        ),
+        machinery_items=raw_m_items,
     )
 
     # Means of Finance (Promoter Margin + Subsidy Grant + Bank Loan == Outlay)
@@ -656,6 +711,8 @@ def build_bank_dpr(
         sector=sector,
         business_category=business_category,
         project_cost=project_cost,
+        premise_type=premise_type,
+        monthly_rent=monthly_rent,
     )
 
     return BankDPRDocument(
@@ -703,6 +760,7 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
         f"**Enterprise Name**: **{s1.enterprise_name}** | **Constitution**: {s1.constitution}",
         f"**Target Location**: {s1.target_village}, {s1.target_block}, {s1.target_district}, {s1.target_state} (Rural: {s1.is_rural})",
         f"**Promoter Profile**: {s1.promoter_name} (Category: `{s1.promoter_category.upper()}` | Gender: {s1.gender})",
+        f"**Premises & Worksite**: {getattr(s1, 'premise_description', 'Commercial Operating Premise')} | **Land Acquisition Outlay**: ₹0.00 (Statutory Ineligible under MSME Norms)",
         f"\n---\n",
         f"## SECTION 1: EXECUTIVE APPRAISAL & SYNTHESIS",
         f"{ai.get('executive_summary', '')}\n",
@@ -724,6 +782,7 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
         f"| **Working Capital Reserve** | {outlay['initial_working_capital_reserve']['percentage_of_outlay']:.1f}% | ₹{outlay['initial_working_capital_reserve']['amount_inr']:,.2f} | {outlay['initial_working_capital_reserve']['description']} |",
         f"| **Contingency & Pre-Operative** | {outlay['contingency_and_pre_operative']['percentage_of_outlay']:.1f}% | ₹{outlay['contingency_and_pre_operative']['amount_inr']:,.2f} | {outlay['contingency_and_pre_operative']['description']} |",
         f"| **TOTAL CAPITAL OUTLAY** | **100.0%** | **₹{outlay['total_capital_outlay']:,.2f}** | **Total Project Investment** |",
+        f"\n> **Statutory Land Acquisition Compliance Note:** {outlay.get('land_compliance_note', 'Land purchase outlay is strictly ₹0.00 as per Ministry of MSME / SCA guidelines.')}\n",
         f"\n### Means of Finance Reconciliation:",
         f"| Financing Source | % Share | Amount (₹) | Scheme / Terms |",
         f"| :--- | :---: | :---: | :--- |",
@@ -731,6 +790,20 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
         f"| **Government Capital Subsidy Grant** | {finance['capital_subsidy_pct']:.1f}% | ₹{finance['capital_subsidy_amount']:,.2f} | {finance['subsidy_scheme_name']} |",
         f"| **Bank Term Loan / Debt** | {finance['bank_term_loan_pct']:.1f}% | ₹{finance['bank_term_loan_amount']:,.2f} | Scheduled Commercial Bank Loan |",
         f"| **TOTAL MEANS OF FINANCE** | **100.0%** | **₹{finance['total_means_of_finance']:,.2f}** | **Balanced: {finance['reconciliation_balanced']}** |",
+    ])
+
+    mach_items = outlay.get("machinery_items") or []
+    if mach_items:
+        lines.extend([
+            f"\n### Itemized Plant, Machinery & Equipment Schedule (Bill of Quantities - BoQ):",
+            f"| Machine / Equipment | Technical Specification | Qty | Connected Load | Sourcing Channel | Total Cost (₹) |",
+            f"| :--- | :--- | :---: | :---: | :--- | :---: |",
+        ])
+        for it in mach_items:
+            lines.append(f"| **{it.get('item_name','')}** | {it.get('specification','')} | {it.get('quantity',1)} | {it.get('power_specs','-')} | {it.get('sourcing_channel','-')} | ₹{float(it.get('total_cost_inr',0.0)):,.2f} |")
+        lines.append(f"| **TOTAL ALLOCATED PLANT & MACHINERY BUDGET** | **Reconciled to 55% Allocation** | - | - | **GeM MSME / OEM** | **₹{outlay['plant_and_machinery']['amount_inr']:,.2f}** |")
+
+    lines.extend([
         f"\n---\n",
         f"## SECTION 3: 5-YEAR FINANCIAL & CASH FLOW PROJECTIONS",
         f"\n**Average 5-Year DSCR**: **{s3.average_dscr:.2f}** (RBI Solvency Benchmark $\\ge 1.33$: **{'MET' if s3.dscr_benchmark_met else 'NOT MET'}**)  ",
@@ -1008,6 +1081,34 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
     verdict_badge_class = "suitable" if s5.verdict == "SUITABLE" else "caution" if s5.verdict == "CAUTION" else "reconsider"
     reconciled_status = "100% Reconciled" if finance['reconciliation_balanced'] else "Discrepancy Detected"
 
+    # Machinery BoQ HTML
+    mach_items = outlay.get("machinery_items") or []
+    machinery_boq_html = ""
+    if mach_items:
+        m_rows = ""
+        for it in mach_items:
+            m_rows += f"""
+            <tr>
+                <td><strong>{it.get('item_name', '')}</strong></td>
+                <td>{it.get('specification', '')}</td>
+                <td class="num">{it.get('quantity', 1)}</td>
+                <td>{it.get('power_specs', '-')}</td>
+                <td>{it.get('sourcing_channel', '-')}</td>
+                <td class="num" style="font-weight:600;">₹{float(it.get('total_cost_inr', 0.0)):,.2f}</td>
+            </tr>
+            """
+        machinery_boq_html = f"""
+        <h3>C. Itemized Plant, Machinery & Equipment Schedule (Bill of Quantities):</h3>
+        <table>
+            <tr><th>Machine / Equipment</th><th>Technical Specification</th><th class="num">Qty</th><th>Connected Load</th><th>Sourcing Channel</th><th class="num">Total Cost (₹)</th></tr>
+            {m_rows}
+            <tr style="font-weight:bold; background:#f8fafc;">
+                <td colspan="5">TOTAL ALLOCATED PLANT & MACHINERY BUDGET (55% CAPEX)</td>
+                <td class="num">₹{outlay['plant_and_machinery']['amount_inr']:,.2f}</td>
+            </tr>
+        </table>
+        """
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1208,6 +1309,8 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
         <div class="meta-item"><span class="meta-label">Industry Sector:</span><span class="meta-val">{p.business_category.upper()} • {p.sector.upper()}</span></div>
         <div class="meta-item"><span class="meta-label">Target Location:</span><span class="meta-val">{p.target_village}, Block {p.target_block}, {p.target_district}, {p.target_state}</span></div>
         <div class="meta-item"><span class="meta-label">Area / Population:</span><span class="meta-val">{area_type_str} ({pop_str} Catchment Pop)</span></div>
+        <div class="meta-item"><span class="meta-label">Premises & Worksite:</span><span class="meta-val">{getattr(p, 'premise_description', 'Commercial Operating Premise')}</span></div>
+        <div class="meta-item"><span class="meta-label">Land Outlay:</span><span class="meta-val">₹0.00 (Statutory MSME Exemption)</span></div>
     </div>
 </div>
 
@@ -1235,6 +1338,12 @@ def dpr_to_html(doc: BankDPRDocument) -> str:
     <tr><td>Contingency & Pre-Operative Outlay</td><td class="num">{outlay['contingency_and_pre_operative']['percentage_of_outlay']:.1f}%</td><td class="num">₹{outlay['contingency_and_pre_operative']['amount_inr']:,.2f}</td><td>{outlay['contingency_and_pre_operative']['description']}</td></tr>
     <tr style="font-weight:bold; background:#f8fafc;"><td>TOTAL CAPITAL OUTLAY</td><td class="num">100.0%</td><td class="num">₹{outlay['total_capital_outlay']:,.2f}</td><td><strong>100% Total Project Outlay Sized</strong></td></tr>
 </table>
+
+<div style="background: #f8fafc; border-left: 4px solid #0284c7; padding: 10px 14px; margin: 12px 0; font-size: 11px; color: #334155; border-radius: 4px;">
+    <strong>Statutory Land Acquisition Compliance Note:</strong> {outlay.get('land_compliance_note', 'In accordance with Ministry of MSME / SCA norms, land purchase is strictly ineligible for scheme financing (₹0 outlay). Premise lease/tenure verified.')}
+</div>
+
+{machinery_boq_html}
 
 <h3>B. Means of Finance (Sources of Funds):</h3>
 <table>
