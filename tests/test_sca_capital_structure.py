@@ -72,3 +72,4 @@ def test_sca_capital_structure_surplus_equity():
     assert res.is_equity_deficit is False
     assert res.equity_gap == 0.0
     assert res.sca_soft_loan_eligible_amount == 0.0
+
