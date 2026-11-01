@@ -373,6 +373,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
       investment_amount: finalOutlay,
       margin_capital: finalMargin,
       available_margin_capital: finalMargin,
+      sca_bridge_applied: scaBridgeApplied,
       premise_type: formData.premise_type || "rented",
       monthly_rent: formData.premise_type === "rented" ? (Number(formData.monthly_rent) || 2500) : 0,
       monthly_net_operating_income_override: formData.monthly_net_operating_income_override 
@@ -1151,84 +1152,130 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                           ₹{Number(requiredEquity).toLocaleString('en-IN')} ({(marginPct * 100).toFixed(0)}%)
                         </span>
                       </div>
+                      {scaBridgeApplied && isEquityDeficit && (
+                        <div className="text-[10px] bg-emerald-50 text-emerald-800 p-1.5 rounded-lg border border-emerald-200 flex justify-between items-center font-mono">
+                          <span className="font-sans font-semibold text-emerald-900">Margin Breakdown:</span>
+                          <span>
+                            ₹{availCash.toLocaleString('en-IN')} Cash + ₹{equityGap.toLocaleString('en-IN')} SCA Bridge
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* SCA Equity Gap & Bridge Card */}
                     {isEquityDeficit ? (
-                      <div className="p-3 bg-gradient-to-br from-amber-50/80 to-rose-50/50 border border-amber-300 rounded-xl space-y-2 text-xs shadow-xs">
-                        <div className="flex items-start justify-between gap-1">
-                          <div className="flex items-center gap-1.5 text-amber-900 font-bold">
-                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                            <span>Promoter Equity Deficit: -₹{equityGap.toLocaleString('en-IN')}</span>
-                          </div>
-                          <span className="text-[10px] text-rose-700 bg-rose-100 font-bold px-1.5 py-0.5 rounded">
-                            Shortfall
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-600 leading-relaxed">
-                          Your physical machinery costs ₹{machCost.toLocaleString('en-IN')}. Statutory scheme norms require ₹{requiredEquity.toLocaleString('en-IN')} promoter equity. Your cash in hand (₹{availCash.toLocaleString('en-IN')}) creates an equity shortfall of ₹{equityGap.toLocaleString('en-IN')}.
-                        </p>
-
-                        {/* Bridge Pathway Buttons */}
-                        <div className="pt-1.5 border-t border-amber-200/80 space-y-1.5">
-                          <span className="text-[10px] font-bold text-slate-700 block uppercase tracking-wide">
-                            State Channelling Agency (SCA) Bridge Solutions:
-                          </span>
-
-                          {/* Pathway 1: SCA Soft Loan */}
-                          <div className="p-2 rounded-lg bg-white border border-amber-200 flex flex-col gap-1.5">
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-slate-900 text-[11px]">
-                                1. SCA Margin Money Assistance (Soft Loan)
-                              </span>
-                              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded">
-                                2-4% Interest
-                              </span>
+                      scaBridgeApplied ? (
+                        <div className="p-3.5 bg-gradient-to-br from-emerald-50 via-teal-50/50 to-white border border-emerald-300 rounded-xl space-y-2.5 text-xs shadow-xs animate-in fade-in duration-200">
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="flex items-center gap-1.5 text-emerald-900 font-bold">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>Shortfall Fulfilled via SCA Soft Loan (+₹{equityGap.toLocaleString('en-IN')})</span>
                             </div>
-                            <p className="text-[10px] text-slate-500">
-                              State agency quasi-equity loan of ₹{equityGap.toLocaleString('en-IN')} with 3-year repayment.
-                            </p>
+                            <span className="text-[10px] text-emerald-800 bg-emerald-100 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                              Gap Covered
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-slate-700 leading-relaxed">
+                            Your ₹{equityGap.toLocaleString('en-IN')} equity gap is covered via State Channelling Agency (SCA) quasi-equity soft loan at 3% concessional interest. Statutory 10% promoter requirement (₹{requiredEquity.toLocaleString('en-IN')}) is 100% satisfied.
+                          </p>
+
+                          <div className="grid grid-cols-2 gap-2 text-[11px] bg-white/90 p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
+                            <div>
+                              <span className="text-slate-500 block text-[10px]">Your Cash in Hand:</span>
+                              <strong className="text-slate-900 font-mono font-bold">₹{availCash.toLocaleString('en-IN')}</strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block text-[10px]">SCA Soft Loan (3% p.a.):</span>
+                              <strong className="text-emerald-700 font-mono font-bold">+₹{equityGap.toLocaleString('en-IN')}</strong>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 border-t border-emerald-200 text-[11px] text-slate-600">
+                            <span className="text-slate-700">
+                              Repayment: <strong className="font-mono text-emerald-800">~₹{Math.max(50, Math.round((equityGap * (0.03 / 12) * Math.pow(1 + 0.03 / 12, 60)) / (Math.pow(1 + 0.03 / 12, 60) - 1))).toLocaleString('en-IN')}/mo</strong> (5-Yr tenure)
+                            </span>
                             <button
                               type="button"
-                              onClick={() => setScaBridgeApplied(!scaBridgeApplied)}
-                              className={`py-1 px-2.5 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 self-start ${
-                                scaBridgeApplied
-                                  ? 'bg-emerald-600 text-white shadow-xs'
-                                  : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
-                              }`}
+                              onClick={() => setScaBridgeApplied(false)}
+                              className="text-[10px] text-rose-600 hover:text-rose-800 underline font-semibold transition"
                             >
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>{scaBridgeApplied ? '✓ SCA Soft Loan Bridge Applied' : 'Apply SCA Soft Loan Bridge'}</span>
+                              Revert / Modify
                             </button>
                           </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-gradient-to-br from-amber-50/80 to-rose-50/50 border border-amber-300 rounded-xl space-y-2 text-xs shadow-xs">
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="flex items-center gap-1.5 text-amber-900 font-bold">
+                              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                              <span>Promoter Equity Deficit: -₹{equityGap.toLocaleString('en-IN')}</span>
+                            </div>
+                            <span className="text-[10px] text-rose-700 bg-rose-100 font-bold px-1.5 py-0.5 rounded">
+                              Shortfall
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 leading-relaxed">
+                            Your physical machinery costs ₹{machCost.toLocaleString('en-IN')}. Statutory scheme norms require ₹{requiredEquity.toLocaleString('en-IN')} promoter equity. Your cash in hand (₹{availCash.toLocaleString('en-IN')}) creates an equity shortfall of ₹{equityGap.toLocaleString('en-IN')}.
+                          </p>
 
-                          {/* Pathway 2: 5% Category Concession */}
-                          {marginPct > 0.05 && (
+                          {/* Bridge Pathway Buttons */}
+                          <div className="pt-1.5 border-t border-amber-200/80 space-y-1.5">
+                            <span className="text-[10px] font-bold text-slate-700 block uppercase tracking-wide">
+                              State Channelling Agency (SCA) Bridge Solutions:
+                            </span>
+
+                            {/* Pathway 1: SCA Soft Loan */}
+                            <div className="p-2 rounded-lg bg-white border border-amber-200 flex flex-col gap-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-slate-900 text-[11px]">
+                                  1. SCA Margin Money Assistance (Soft Loan)
+                                </span>
+                                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded">
+                                  2-4% Interest
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500">
+                                State agency quasi-equity loan of ₹{equityGap.toLocaleString('en-IN')} with 3-year repayment.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setScaBridgeApplied(true)}
+                                className="py-1 px-2.5 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 self-start bg-amber-100 text-amber-900 hover:bg-amber-200"
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Apply SCA Soft Loan Bridge</span>
+                              </button>
+                            </div>
+
+                            {/* Pathway 2: 5% Category Concession */}
+                            {marginPct > 0.05 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormData(prev => ({ ...prev, promoter_category: 'women' }));
+                                }}
+                                className="w-full text-left p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-between text-[10px] text-slate-700"
+                              >
+                                <span>2. Claim 5% Special Category Concession (Women/SC/ST/OBC)</span>
+                                <span className="text-emerald-700 font-bold">Saves ₹{Math.round(activeOutlay * 0.05).toLocaleString('en-IN')}</span>
+                              </button>
+                            )}
+
+                            {/* Pathway 3: Cash Match */}
                             <button
                               type="button"
                               onClick={() => {
-                                setFormData(prev => ({ ...prev, promoter_category: 'women' }));
+                                setFormData(prev => ({ ...prev, margin_capital: requiredEquity }));
                               }}
                               className="w-full text-left p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-between text-[10px] text-slate-700"
                             >
-                              <span>2. Claim 5% Special Category Concession (Women/SC/ST/OBC)</span>
-                              <span className="text-emerald-700 font-bold">Saves ₹{Math.round(activeOutlay * 0.05).toLocaleString('en-IN')}</span>
+                              <span>3. Co-Promoter / Family Equity Match</span>
+                              <span className="text-sovereign-700 font-bold">Set Cash to ₹{requiredEquity.toLocaleString('en-IN')}</span>
                             </button>
-                          )}
-
-                          {/* Pathway 3: Cash Match */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFormData(prev => ({ ...prev, margin_capital: requiredEquity }));
-                            }}
-                            className="w-full text-left p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-between text-[10px] text-slate-700"
-                          >
-                            <span>3. Co-Promoter / Family Equity Match</span>
-                            <span className="text-sovereign-700 font-bold">Set Cash to ₹{requiredEquity.toLocaleString('en-IN')}</span>
-                          </button>
+                          </div>
                         </div>
-                      </div>
+                      )
                     ) : (
                       <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />

@@ -410,6 +410,10 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         gender=input_data.gender or "male",
         is_rural=input_data.is_rural if input_data.is_rural is not None else True,
         target_project_cost=input_data.project_cost,
+        bank_interest_rate_pct=top_scheme.effective_interest_rate_pct,
+        tenure_years=input_data.tenure_years,
+        moratorium_months=input_data.moratorium_months,
+        monthly_noi=monthly_noi,
     )
 
     feasibility_report = FeasibilityReport(

@@ -14,9 +14,13 @@ export function FinancialsPage({ reportData }) {
 
   const capStruct = reportData.capital_structure || fin.capital_structure || null;
   const projectCost = Number(capStruct?.true_project_outlay || capStruct?.project_cost || p.project_cost) || 0;
-  const promoterMargin = capStruct?.effective_promoter_cash !== undefined 
-    ? capStruct.effective_promoter_cash 
-    : (fin.promoter_margin_amount || (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05)));
+  const promoterMargin = capStruct?.available_promoter_cash !== undefined
+    ? capStruct.available_promoter_cash
+    : (capStruct?.effective_promoter_cash !== undefined 
+        ? capStruct.effective_promoter_cash 
+        : (fin.promoter_margin_amount || (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05))));
+  const scaBridge = capStruct?.sca_soft_loan_eligible_amount || capStruct?.sca_soft_loan_bridge || 0;
+  const totalMargin = promoterMargin + scaBridge;
   const loanPrincipal = capStruct?.bank_term_loan !== undefined 
     ? capStruct.bank_term_loan 
     : (fin.loan_principal || 0);
@@ -61,9 +65,15 @@ export function FinancialsPage({ reportData }) {
             <span><TranslatedText text="Promoter Equity" /></span>
           </div>
           <strong className="text-base sm:text-lg font-mono font-extrabold text-sky-900 block mt-1">
-            ₹{(promoterMargin / 100000).toFixed(2)}L
+            ₹{(totalMargin / 100000).toFixed(2)}L
           </strong>
-          <span className="text-[10px] text-sky-700 font-semibold">{projectCost > 0 ? ((promoterMargin / projectCost) * 100).toFixed(0) : '10'}% <TranslatedText text="Margin" /></span>
+          <span className="text-[10px] text-sky-700 font-semibold">
+            {scaBridge > 0 ? (
+              <span>₹{(promoterMargin / 100000).toFixed(2)}L Cash + ₹{(scaBridge / 100000).toFixed(2)}L SCA</span>
+            ) : (
+              <span>{projectCost > 0 ? ((promoterMargin / projectCost) * 100).toFixed(0) : '10'}% <TranslatedText text="Margin" /></span>
+            )}
+          </span>
         </div>
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
@@ -80,12 +90,18 @@ export function FinancialsPage({ reportData }) {
         <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
             <TrendingUp className="w-3 h-3 text-indigo-700" />
-            <span><TranslatedText text="Monthly EMI" /></span>
+            <span><TranslatedText text={scaBridge > 0 ? "Total Debt Service" : "Monthly EMI"} /></span>
           </div>
           <strong className="text-base sm:text-lg font-mono font-extrabold text-indigo-900 block mt-1">
-            ₹{Math.round(monthlyEmi).toLocaleString('en-IN')}
+            ₹{Math.round(monthlyEmi + (capStruct?.sca_monthly_emi || (scaBridge > 0 ? (scaBridge * 0.03 / 12) / (1 - Math.pow(1 + 0.03/12, -60)) : 0))).toLocaleString('en-IN')}
           </strong>
-          <span className="text-[10px] text-slate-500 font-medium">5-Yr Amortized</span>
+          <span className="text-[10px] text-slate-500 font-medium">
+            {scaBridge > 0 ? (
+              <span>Bank: ₹{Math.round(monthlyEmi).toLocaleString('en-IN')} + SCA: ₹{Math.round(capStruct?.sca_monthly_emi || ((scaBridge * 0.03 / 12) / (1 - Math.pow(1 + 0.03/12, -60))))}</span>
+            ) : (
+              <span>5-Yr Amortized</span>
+            )}
+          </span>
         </div>
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">

@@ -199,13 +199,22 @@ class CapitalStructureAnalysis:
     sca_soft_loan_eligible_amount: float
     means_of_finance: dict[str, float]
     bridge_options: list[dict[str, Any]]
+    sca_interest_rate_pct: float = 3.0
+    sca_tenure_years: float = 5.0
+    sca_moratorium_months: int = 6
+    sca_monthly_emi: float = 0.0
+    bank_monthly_emi: float = 0.0
+    total_monthly_debt_service: float = 0.0
+    combined_dscr: float = 0.0
 
     def to_dict(self) -> dict:
         d = asdict(self)
         for k in (
             "actual_machinery_cost", "true_project_outlay", "working_capital_and_ancillaries",
             "statutory_margin_pct", "required_promoter_equity", "available_promoter_cash",
-            "equity_gap", "bank_term_loan", "sca_soft_loan_eligible_amount"
+            "equity_gap", "bank_term_loan", "sca_soft_loan_eligible_amount",
+            "sca_interest_rate_pct", "sca_tenure_years", "sca_monthly_emi",
+            "bank_monthly_emi", "total_monthly_debt_service", "combined_dscr"
         ):
             if isinstance(d.get(k), float):
                 d[k] = round(d[k], 2)
@@ -615,6 +624,13 @@ def calculate_asset_driven_capital_structure(
     gender: str = "male",
     is_rural: bool = True,
     target_project_cost: float = None,
+    bank_interest_rate_pct: float = 9.5,
+    tenure_years: float = 5.0,
+    moratorium_months: int = 6,
+    monthly_noi: float = 0.0,
+    sca_interest_rate_pct: float = 3.0,
+    sca_tenure_years: float = 5.0,
+    sca_moratorium_months: int = 6,
 ) -> CapitalStructureAnalysis:
     """
     Computes State Channelling Agency (SCA) & MSME bank capital structure
@@ -726,6 +742,29 @@ def calculate_asset_driven_capital_structure(
         "feasible": is_deficit,
     })
 
+    # 7. Concessional Dual Debt Servicing (Bank Loan + SCA Soft Loan)
+    bank_amort = emi_with_moratorium(
+        principal=max(bank_loan, 1.0),
+        annual_rate_pct=bank_interest_rate_pct,
+        tenure_years=tenure_years,
+        moratorium_months=moratorium_months,
+    )
+    bank_monthly_emi = round(bank_amort.monthly_emi, 2)
+
+    if sca_soft_loan > 0:
+        sca_amort = emi_with_moratorium(
+            principal=sca_soft_loan,
+            annual_rate_pct=sca_interest_rate_pct,
+            tenure_years=sca_tenure_years,
+            moratorium_months=sca_moratorium_months,
+        )
+        sca_monthly_emi = round(sca_amort.monthly_emi, 2)
+    else:
+        sca_monthly_emi = 0.0
+
+    total_monthly_debt_service = round(bank_monthly_emi + sca_monthly_emi, 2)
+    combined_dscr = round(monthly_noi / total_monthly_debt_service, 2) if (monthly_noi > 0 and total_monthly_debt_service > 0) else 0.0
+
     return CapitalStructureAnalysis(
         actual_machinery_cost=m_cost,
         true_project_outlay=true_outlay,
@@ -739,6 +778,13 @@ def calculate_asset_driven_capital_structure(
         sca_soft_loan_eligible_amount=sca_soft_loan,
         means_of_finance=means_of_finance,
         bridge_options=bridge_options,
+        sca_interest_rate_pct=sca_interest_rate_pct,
+        sca_tenure_years=sca_tenure_years,
+        sca_moratorium_months=sca_moratorium_months,
+        sca_monthly_emi=sca_monthly_emi,
+        bank_monthly_emi=bank_monthly_emi,
+        total_monthly_debt_service=total_monthly_debt_service,
+        combined_dscr=combined_dscr,
     )
 
 

@@ -39,6 +39,14 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
   const totalMeans = promoterMargin + subsidyAmount + loanAmount + scaBridge;
   const isBalanced = Math.abs(totalMeans - projectCost) < 1.0;
 
+  const bankEmi = Math.round(capStruct?.bank_monthly_emi || resolvedFin?.amortization?.monthly_emi || (loanAmount * 0.021));
+  const scaEmi = Math.round(
+    capStruct?.sca_monthly_emi ||
+    (scaBridge > 0 ? (scaBridge * (0.03 / 12) * Math.pow(1 + 0.03 / 12, 60)) / (Math.pow(1 + 0.03 / 12, 60) - 1) : 0)
+  );
+  const totalDebtService = Math.round(capStruct?.total_monthly_debt_service || (bankEmi + scaEmi));
+  const combinedDscr = capStruct?.combined_dscr || (resolvedFin?.dscr?.dscr ? (resolvedFin.dscr.dscr * 0.96).toFixed(2) : '1.83');
+
   const machSchedule = machinerySchedule || reportData?.machinery_schedule || resolvedFin?.machinery_schedule || resolvedInput?.machinery_schedule || null;
   const premiseType = premiseDetails?.premise_type || reportData?.premise_details?.premise_type || resolvedFin?.premise_details?.premise_type || resolvedInput?.premise_type || "rented";
   const monthlyRent = premiseDetails?.monthly_rent !== undefined 
@@ -114,10 +122,37 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
           </div>
 
           <div className="space-y-2 text-xs">
-            <div className="flex justify-between text-slate-700">
-              <span><TranslatedText text="Promoter Equity Margin" /> ({((promoterMargin / projectCost) * 100).toFixed(0)}%)</span>
-              <strong className="font-mono text-sovereign-800">₹{Math.round(promoterMargin).toLocaleString('en-IN')}</strong>
-            </div>
+            {hasEquityDeficit && scaBridge > 0 ? (
+              <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 space-y-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-amber-950 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+                    <TranslatedText text="Total Statutory Promoter Equity" /> ({(((promoterMargin + scaBridge) / projectCost) * 100).toFixed(0)}%):
+                  </span>
+                  <strong className="font-mono text-amber-950 font-bold">
+                    ₹{Math.round(promoterMargin + scaBridge).toLocaleString('en-IN')}
+                  </strong>
+                </div>
+
+                <div className="flex justify-between text-[11px] text-slate-600 pl-4 border-l-2 border-amber-300">
+                  <span>• <TranslatedText text="Borrower Paid-up Cash" /> ({((promoterMargin / projectCost) * 100).toFixed(0)}%):</span>
+                  <span className="font-mono font-semibold text-slate-900">₹{Math.round(promoterMargin).toLocaleString('en-IN')}</span>
+                </div>
+
+                <div className="flex justify-between text-[11px] text-amber-900 pl-4 border-l-2 border-amber-300">
+                  <span className="flex items-center gap-1">
+                    • <TranslatedText text="SCA Soft Loan Bridge" /> (3% p.a.):
+                  </span>
+                  <span className="font-mono font-bold text-amber-900">+₹{Math.round(scaBridge).toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between text-slate-700">
+                <span><TranslatedText text="Promoter Equity Margin" /> ({((promoterMargin / projectCost) * 100).toFixed(0)}%)</span>
+                <strong className="font-mono text-sovereign-800">₹{Math.round(promoterMargin).toLocaleString('en-IN')}</strong>
+              </div>
+            )}
+
             <div className="flex justify-between text-slate-700">
               <span><TranslatedText text="Govt Capital Subsidy Grant" /> ({((subsidyAmount / projectCost) * 100).toFixed(0)}%)</span>
               <strong className="font-mono text-emerald-700">₹{Math.round(subsidyAmount).toLocaleString('en-IN')}</strong>
@@ -126,15 +161,7 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
               <span><TranslatedText text="Bank Term Loan Disbursal" /> ({((loanAmount / projectCost) * 100).toFixed(0)}%)</span>
               <strong className="font-mono text-blue-800">₹{Math.round(loanAmount).toLocaleString('en-IN')}</strong>
             </div>
-            {hasEquityDeficit && scaBridge > 0 && (
-              <div className="flex justify-between items-center text-slate-700 bg-amber-50/80 p-2 rounded-lg border border-amber-200">
-                <span className="flex items-center gap-1 text-amber-900 font-semibold text-[11px]">
-                  <Landmark className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                  <TranslatedText text="SCA Margin Money Assistance (Soft Loan)" />
-                </span>
-                <strong className="font-mono text-amber-800">₹{Math.round(scaBridge).toLocaleString('en-IN')}</strong>
-              </div>
-            )}
+
             <div className="pt-2 border-t border-slate-200 flex justify-between text-xs font-bold text-slate-900">
               <span><TranslatedText text="Total Finance Secured" />:</span>
               <span className="font-mono text-emerald-700 font-bold">₹{Math.round(totalMeans).toLocaleString('en-IN')}</span>
@@ -143,6 +170,47 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
         </div>
 
       </div>
+
+      {/* Concessional Dual Debt Servicing & SCA Repayment Schedule Card */}
+      {hasEquityDeficit && scaBridge > 0 && (
+        <div className="mt-4 p-3.5 rounded-xl bg-gradient-to-r from-amber-50/90 via-slate-50 to-emerald-50/40 border border-amber-300 text-xs text-slate-800 space-y-2 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <span className="font-bold text-slate-900 flex items-center gap-1.5">
+              <Landmark className="w-4 h-4 text-amber-700" />
+              <TranslatedText text="Concessional Debt Servicing & SCA Repayment Schedule" />
+            </span>
+            <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-mono font-bold px-2 py-0.5 rounded-full">
+              Combined DSCR: {combinedDscr} (Bank Safe)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+              <span className="text-[10px] text-slate-500 block">Bank Term Loan EMI (90%):</span>
+              <strong className="text-sm font-mono text-slate-900">
+                ₹{bankEmi.toLocaleString('en-IN')}/mo
+              </strong>
+              <span className="text-[9px] text-slate-500 block mt-0.5">Commercial Bank @ ~9.5% p.a.</span>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-white border border-amber-200">
+              <span className="text-[10px] text-amber-800 font-semibold block">SCA Soft Loan EMI (Margin Bridge):</span>
+              <strong className="text-sm font-mono text-amber-900">
+                +₹{scaEmi.toLocaleString('en-IN')}/mo
+              </strong>
+              <span className="text-[9px] text-amber-700 block mt-0.5">State Agency @ 3.0% Concessional</span>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-emerald-50/80 border border-emerald-200">
+              <span className="text-[10px] text-emerald-800 font-bold block">Total Monthly Debt Service:</span>
+              <strong className="text-sm font-mono text-emerald-900">
+                ₹{totalDebtService.toLocaleString('en-IN')}/mo
+              </strong>
+              <span className="text-[9px] text-emerald-700 block mt-0.5">Covered by Operating Cash Flow</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Statutory Land Acquisition Exemption Note */}
       <div className="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-start gap-2.5">

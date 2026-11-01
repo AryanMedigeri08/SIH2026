@@ -528,12 +528,18 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-amber-600">
           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-            <TranslatedText text="Monthly Net EMI" />
+            <TranslatedText text={(capStruct?.sca_soft_loan_eligible_amount || capStruct?.sca_soft_loan_bridge) > 0 ? "Total Debt Service" : "Monthly Net EMI"} />
           </div>
           <div className="text-base sm:text-lg font-outfit font-black text-amber-900 mt-1">
-            ₹{Math.round(emi).toLocaleString('en-IN')}
+            ₹{Math.round(emi + (capStruct?.sca_monthly_emi || 0)).toLocaleString('en-IN')}
           </div>
-          <div className="text-[10px] text-slate-500 mt-0.5">{p.tenure_years || 5}Y @ {topScheme.effective_interest_rate_pct || 11}%</div>
+          <div className="text-[10px] text-slate-500 mt-0.5">
+            {(capStruct?.sca_soft_loan_eligible_amount || capStruct?.sca_soft_loan_bridge) > 0 ? (
+              <span>Bank: ₹{Math.round(emi).toLocaleString('en-IN')} + SCA: ₹{Math.round(capStruct?.sca_monthly_emi || 0).toLocaleString('en-IN')}</span>
+            ) : (
+              <span>{p.tenure_years || 5}Y @ {topScheme.effective_interest_rate_pct || 11}%</span>
+            )}
+          </div>
         </div>
 
         <div className="glass-panel p-3.5 bg-white border border-slate-200 rounded-2xl shadow-card border-t-2 border-t-purple-600">
