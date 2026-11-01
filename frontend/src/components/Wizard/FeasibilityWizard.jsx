@@ -168,6 +168,10 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
         const sched = await fetchMachinerySchedule(sec, entName, machBudget, formData.business_category);
         if (isSubscribed && sched) {
           setMachinerySchedule(sched);
+          if (sched.total_machinery_cost_inr > 0 && sizingMode === 'asset_driven') {
+            const derivedOutlay = Math.round((sched.total_machinery_cost_inr / 0.55) / 1000) * 1000;
+            setFormData(prev => ({ ...prev, project_cost: derivedOutlay }));
+          }
         }
       } catch (err) {
         // Fallback gracefully
@@ -351,7 +355,13 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const finalOutlay = Number(formData.project_cost) || 900000;
+    const machCost = (machinerySchedule?.total_machinery_cost_inr && machinerySchedule.total_machinery_cost_inr > 0)
+      ? machinerySchedule.total_machinery_cost_inr
+      : Math.round((Number(formData.project_cost) || 900000) * 0.55);
+    const derivedOutlay = Math.round((machCost / 0.55) / 1000) * 1000;
+    const finalOutlay = (sizingMode === 'asset_driven' && derivedOutlay > 0)
+      ? derivedOutlay
+      : (Number(formData.project_cost) || 900000);
     const marginPct = getMarginPct(formData.promoter_category);
     const finalMargin = formData.margin_capital !== undefined && formData.margin_capital !== ""
       ? Number(formData.margin_capital)
@@ -1132,70 +1142,57 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 {/* Top Row: User Margin Capital & Sizing Readout */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2.5">
-                    {/* Explicit Total Project Outlay Input */}
+                    {/* Option B: Authoritative Statutory Project Outlay Card (Auto-Sized from Machinery BoQ) */}
+                    <div className="p-3.5 bg-gradient-to-br from-sovereign-50/70 via-slate-50 to-white border border-sovereign-200/90 rounded-2xl space-y-2 shadow-subtle">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <Layers className="w-3.5 h-3.5 text-sovereign-700" />
+                          <span>Total Project Outlay (Statutory Sizing)</span>
+                        </span>
+                        <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
+                          SCA Norm (P = M / 0.55)
+                        </span>
+                      </div>
+
+                      <div className="flex items-baseline justify-between pt-0.5">
+                        <strong className="text-xl sm:text-2xl font-mono font-extrabold text-sovereign-900">
+                          ₹{Number(activeOutlay).toLocaleString('en-IN')}
+                        </strong>
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          100% Capital Outlay
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/80 text-[11px]">
+                        <div className="p-2 rounded-lg bg-white border border-slate-200">
+                          <span className="text-[10px] text-slate-500 block">Plant & Machinery (55%):</span>
+                          <strong className="font-mono text-slate-900 text-xs">
+                            ₹{Number(machCost).toLocaleString('en-IN')}
+                          </strong>
+                        </div>
+                        <div className="p-2 rounded-lg bg-white border border-slate-200">
+                          <span className="text-[10px] text-slate-500 block">Concessional Loan ({(100 - marginPct * 100).toFixed(0)}%):</span>
+                          <strong className="font-mono text-slate-900 text-xs">
+                            ₹{Number(concessionalLoan).toLocaleString('en-IN')}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        Auto-sized from physical machinery schedule (₹{machCost.toLocaleString('en-IN')}). To scale this outlay, adjust the machine capacity dial on the right.
+                      </p>
+                    </div>
+
+                    {/* Single Clean Borrower Input: Available Cash in Hand */}
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
                         <span className="flex items-center gap-1.5">
-                          <Layers className="w-3.5 h-3.5 text-sovereign-700" />
-                          <span>Total Project Outlay (₹)</span>
+                          <Coins className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Available Cash in Hand (₹)</span>
                         </span>
-                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                          {sizingMode === 'asset_driven' ? 'Asset-Driven Norm' : 'Cash-Derived Outlay'}
+                        <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          Borrower Paid-up Cash
                         </span>
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        min={50000}
-                        max={50000000}
-                        step={10000}
-                        value={formData.project_cost !== undefined ? formData.project_cost : activeOutlay}
-                        onChange={e => {
-                          const rawVal = e.target.value;
-                          const newCost = rawVal === "" ? "" : Number(rawVal);
-                          setFormData(prev => ({
-                            ...prev,
-                            project_cost: newCost,
-                          }));
-                        }}
-                        placeholder="e.g. 1000000"
-                        className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
-                      />
-                      {/* Quick Outlay Presets */}
-                      <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                        <span className="text-[10px] text-slate-400 font-medium mr-0.5">Quick Outlay:</span>
-                        {[
-                          { label: "₹5L", val: 500000 },
-                          { label: "₹8L", val: 800000 },
-                          { label: "₹10L", val: 1000000 },
-                          { label: "₹15L", val: 1500000 },
-                          { label: "₹25L", val: 2500000 },
-                        ].map(preset => (
-                          <button
-                            key={preset.val}
-                            type="button"
-                            onClick={() => {
-                              setFormData(prev => ({
-                                ...prev,
-                                project_cost: preset.val,
-                              }));
-                            }}
-                            className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition border ${
-                              Number(formData.project_cost) === preset.val
-                                ? 'bg-sovereign-800 text-white border-sovereign-800 shadow-2xs'
-                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                            }`}
-                          >
-                            {preset.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                        <span>Available Cash in Hand (₹)</span>
-                        <span className="text-[10px] text-emerald-600 font-semibold">Borrower Paid-up Cash</span>
                       </label>
                       <input
                         type="number"
@@ -1206,55 +1203,18 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                         onChange={e => {
                           const rawVal = e.target.value;
                           const margin = rawVal === "" ? "" : Number(rawVal);
-                          const numMargin = Number(margin) || 0;
-                          if (sizingMode === 'cash_constrained') {
-                            const derivedCost = marginPct > 0 ? Math.round(numMargin / marginPct) : numMargin * 10;
-                            setFormData(prev => ({
-                              ...prev,
-                              margin_capital: margin,
-                              project_cost: derivedCost,
-                            }));
-                          } else {
-                            setFormData(prev => ({
-                              ...prev,
-                              margin_capital: margin,
-                            }));
-                          }
+                          setFormData(prev => ({
+                            ...prev,
+                            margin_capital: margin,
+                            project_cost: activeOutlay,
+                          }));
                         }}
-                        placeholder="e.g. 90000"
+                        placeholder="e.g. 40000"
                         className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
                       />
                       <p className="text-[10px] text-slate-500 mt-1">
-                        Current funds available for statutory equity (Required: ₹{requiredEquity.toLocaleString('en-IN')})
+                        Current funds available for equity (Required {(marginPct * 100).toFixed(0)}% Margin: ₹{requiredEquity.toLocaleString('en-IN')})
                       </p>
-                    </div>
-
-                    {/* Derived Project Sizing Readout Card */}
-                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 shadow-subtle">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500 font-medium">True Project Outlay (P = M / 0.55):</span>
-                        <strong className="text-emerald-700 font-mono font-bold text-sm">
-                          ₹{Number(activeOutlay).toLocaleString('en-IN')}
-                        </strong>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-500">Plant & Machinery Budget (55%):</span>
-                        <span className="text-slate-800 font-mono font-semibold">
-                          ₹{Number(machBudget).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-500">Bank Concessional Loan ({(100 - marginPct * 100).toFixed(0)}%):</span>
-                        <span className="text-slate-800 font-mono font-semibold">
-                          ₹{Number(concessionalLoan).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px] pt-1 border-t border-slate-200">
-                        <span className="text-slate-500">Statutory Margin Requirement:</span>
-                        <span className="text-slate-900 font-mono font-bold">
-                          ₹{Number(requiredEquity).toLocaleString('en-IN')} ({(marginPct * 100).toFixed(0)}%)
-                        </span>
-                      </div>
                     </div>
 
                     {/* SCA Equity Gap & Bridge Card */}
