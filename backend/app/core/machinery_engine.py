@@ -688,6 +688,16 @@ def extract_contextual_machinery(
         )
 
     groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not groq_api_key:
+        try:
+            from app.config import settings
+            groq_api_key = (settings.GROQ_API_KEY or "").strip()
+        except Exception:
+            try:
+                from backend.app.config import settings
+                groq_api_key = (settings.GROQ_API_KEY or "").strip()
+            except Exception:
+                pass
 
     if not use_ai or not groq_api_key:
         return _get_offline_catalog_schedule(sector, allocated_budget, enterprise_name)
@@ -695,7 +705,7 @@ def extract_contextual_machinery(
     try:
         from groq import Groq
 
-        client = Groq(api_key=groq_api_key, max_retries=0, timeout=7.0)
+        client = Groq(api_key=groq_api_key, max_retries=1, timeout=15.0)
 
         system_prompt = (
             "You are a Senior Industrial Plant & Machinery Appraisal Engineer for the Ministry of MSME and NSIC.\n"
@@ -707,7 +717,7 @@ def extract_contextual_machinery(
             '  "items": [\n'
             "    {\n"
             '      "item_name": "<Specific commercial machine name>",\n'
-            '      "specification": "<Technical specification, capacity, grade, food-grade/BIS standards>",\n'
+            '      "specification": "<Concise technical specification, under 25 words, capacity, grade, food-grade/BIS standards>",\n'
             '      "quantity": <integer>,\n'
             '      "cost_share_pct": <float percentage of machinery budget, e.g. 35.0>,\n'
             '      "power_specs": "<e.g. 2.5 kW, 230V Single Phase or 3-Phase>",\n'
@@ -733,7 +743,7 @@ def extract_contextual_machinery(
             ],
             model=MACHINERY_LLM_MODEL,
             temperature=0.2,
-            max_tokens=1500,
+            max_tokens=3000,
             response_format={"type": "json_object"},
         )
 
