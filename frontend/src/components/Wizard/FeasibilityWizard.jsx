@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Building2, MapPin, User, Coins, Clock, FileText, CheckCircle2, 
   ChevronRight, ChevronLeft, Sparkles, X, Loader2, Compass, 
-  AlertCircle, Info, ShieldCheck, Languages, Check, Wrench, Cpu, Zap, Landmark
+  AlertCircle, Info, ShieldCheck, Languages, Check, Wrench, Cpu, Zap, Landmark, RotateCcw
 } from 'lucide-react';
 import { fetchStates, fetchDistricts, fetchBlocks, fetchVillages, fetchOdopProduct, fetchMachinerySchedule } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -990,8 +990,12 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
             const machBudget = Math.round(cost * 0.55);
             const turnoverRatio = cost > 0 ? (sales / cost) : 0;
             
-            // Sector benchmark operating margin
+            // Sector benchmark operating margin & capital multipliers
             const sec = String(formData.sector || "").toLowerCase();
+            const baseSectorMult = SECTOR_CAPITAL_MULTIPLIERS[sec] || 1.30;
+            const benchmarkTurnover = Math.round((cost * baseSectorMult * 0.80) / 5000) * 5000;
+            const currentDialTurnover = Math.round((cost * baseSectorMult * capacityFactor) / 5000) * 5000;
+            const isOverridden = Math.abs(sales - currentDialTurnover) > 2500;
             const sectorMargin = sec.includes("service") || sec.includes("repair") ? 0.38 
               : sec.includes("apparel") || sec.includes("textile") || sec.includes("craft") ? 0.32
               : sec.includes("trading") || sec.includes("retail") ? 0.22 
@@ -1097,9 +1101,25 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                         <Zap className="w-3.5 h-3.5 text-amber-600" />
                         <span>Machine Capacity Sizing & First-Year Sales</span>
                       </label>
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        {(turnoverRatio).toFixed(2)}x Velocity
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {isOverridden && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCapacityFactor(0.80);
+                              setFormData(prev => ({ ...prev, annual_turnover_estimate: benchmarkTurnover }));
+                            }}
+                            className="text-[10px] text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 transition shadow-xs"
+                            title="Reset to 80% standard machine capacity benchmark"
+                          >
+                            <RotateCcw className="w-2.5 h-2.5 text-amber-700" />
+                            <span>Reset (₹{benchmarkTurnover.toLocaleString('en-IN')})</span>
+                          </button>
+                        )}
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {(turnoverRatio).toFixed(2)}x Velocity
+                        </span>
+                      </div>
                     </div>
 
                     {/* 3 Capacity Dial Buttons */}
@@ -1112,7 +1132,11 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                         <button
                           key={dial.factor}
                           type="button"
-                          onClick={() => setCapacityFactor(dial.factor)}
+                          onClick={() => {
+                            setCapacityFactor(dial.factor);
+                            const newTurnover = Math.round((cost * baseSectorMult * dial.factor) / 5000) * 5000;
+                            setFormData(prev => ({ ...prev, annual_turnover_estimate: newTurnover }));
+                          }}
                           className={`p-2 rounded-xl border text-center transition flex flex-col items-center justify-center ${
                             Math.abs(capacityFactor - dial.factor) < 0.02
                               ? 'bg-sovereign-700 text-white border-sovereign-700 shadow-sm'
@@ -1127,7 +1151,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                       ))}
                     </div>
 
-                    {/* Annual Gross Sales Field (Auto-sized, but editable) */}
+                    {/* Annual Gross Sales Field (Auto-sized with Smart Guardrails & Custom Override) */}
                     <div>
                       <div className="relative">
                         <span className="absolute left-3.5 top-2.5 text-xs text-slate-400 font-bold">₹</span>
@@ -1137,10 +1161,62 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                           step={5000}
                           value={formData.annual_turnover_estimate}
                           onChange={e => setFormData({ ...formData, annual_turnover_estimate: Number(e.target.value) })}
-                          className="w-full bg-white border border-slate-300 rounded-xl pl-8 pr-4 py-2 text-sm text-slate-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-sovereign-600 shadow-subtle"
+                          className={`w-full bg-white border rounded-xl pl-8 pr-4 py-2 text-sm text-slate-900 font-mono font-bold focus:outline-none focus:ring-2 shadow-subtle ${
+                            isDeficit
+                              ? 'border-rose-400 focus:ring-rose-500'
+                              : isCaution
+                              ? 'border-amber-400 focus:ring-amber-500'
+                              : 'border-slate-300 focus:ring-sovereign-600'
+                          }`}
                         />
                       </div>
-                      <p className="text-[10px] text-slate-500 mt-1">Auto-sized from equipment capacity factor ({Math.round(capacityFactor * 100)}%) and sector velocity</p>
+
+                      {/* Intelligent Guardrails & Guidance Badges */}
+                      <div className="mt-1.5 space-y-1">
+                        {isDeficit ? (
+                          <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-[10px] flex items-start gap-1.5 animate-in fade-in">
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                            <div>
+                              <strong className="font-bold">Debt Service Deficit:</strong> At ₹{sales.toLocaleString('en-IN')} annual sales, est. monthly NOI (₹{Math.round(monthlyNoi).toLocaleString('en-IN')}) is below the monthly loan EMI (₹{Math.round(quickEmi).toLocaleString('en-IN')}). Credit officers will reject applications with cash flow deficits (DSCR {preDscr.toFixed(2)}x &lt; 1.00x).
+                            </div>
+                          </div>
+                        ) : isCaution ? (
+                          <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[10px] flex items-start gap-1.5 animate-in fade-in">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                              <strong className="font-bold">Tight Solvency Buffer:</strong> DSCR is {preDscr.toFixed(2)}x (below RBI's 1.33x commercial benchmark). Lenders may require higher margin equity or proof of additional sales channels.
+                            </div>
+                          </div>
+                        ) : turnoverRatio > 2.8 ? (
+                          <div className="p-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-[10px] flex items-start gap-1.5 animate-in fade-in">
+                            <Info className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+                            <div>
+                              <strong className="font-bold">High Capital Velocity ({turnoverRatio.toFixed(1)}x):</strong> Projected sales exceed typical single-shift machine throughput. Banks will request advance B2B purchase orders or sub-contracting records to corroborate Year 1 volume.
+                            </div>
+                          </div>
+                        ) : isOverridden ? (
+                          <div className="p-1.5 rounded-lg bg-emerald-50/70 border border-emerald-200 text-emerald-800 text-[10px] flex items-center justify-between animate-in fade-in">
+                            <span className="flex items-center gap-1 font-medium">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                              Custom sales input is bankable (DSCR {preDscr.toFixed(2)}x meets RBI credit benchmark).
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCapacityFactor(0.80);
+                                setFormData(prev => ({ ...prev, annual_turnover_estimate: benchmarkTurnover }));
+                              }}
+                              className="text-emerald-900 font-bold hover:underline shrink-0 ml-2"
+                            >
+                              Reset to Auto
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-slate-500">
+                            Auto-sized from equipment capacity factor ({Math.round(capacityFactor * 100)}%) and sector velocity ({baseSectorMult.toFixed(2)}x)
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     {/* Live Underwriting Diagnostics & DSCR Solvency Preview */}
