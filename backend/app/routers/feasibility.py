@@ -16,7 +16,7 @@ logger = logging.getLogger("udyam_saathi.feasibility")
 
 from financial_calculator import (
     emi_with_moratorium, working_capital_estimate, compute_dscr, rank_eligible_schemes,
-    estimate_smart_turnover, SECTOR_ECONOMIC_PROFILES,
+    estimate_smart_turnover, calculate_asset_driven_capital_structure, SECTOR_ECONOMIC_PROFILES,
 )
 from machinery_engine import extract_contextual_machinery
 from market_analyzer import (
@@ -451,6 +451,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         data_sources_used=data_sources_used,
         odop_alignment=odop_alignment,
         machinery_schedule=mach_schedule.to_dict(),
+        capital_structure=cap_struct.to_dict(),
         premise_details={
             "premise_type": premise_type,
             "monthly_rent": actual_rent,
