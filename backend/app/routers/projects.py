@@ -29,6 +29,15 @@ router = APIRouter(prefix="/projects", tags=["Project State Persistence & Multi-
 
 def _project_dict_to_user_input(p: dict[str, Any]) -> UserInput:
     """Helper to convert project dict into UserInput for pipeline execution."""
+    cost = float(p.get("project_cost") or p.get("investment_amount") or 500000.0)
+    avail_margin = p.get("available_margin_capital") or p.get("margin_capital")
+    if avail_margin is not None:
+        avail_margin = float(avail_margin)
+    prem_type = p.get("premise_type", "rented")
+    m_rent = p.get("monthly_rent")
+    if m_rent is not None:
+        m_rent = float(m_rent)
+
     return UserInput(
         enterprise_name=p.get("business_name") or p.get("enterprise_name", "Enterprise"),
         business_category=p.get("business_category", "manufacturing"),
@@ -41,8 +50,11 @@ def _project_dict_to_user_input(p: dict[str, Any]) -> UserInput:
         block_name=p.get("block_name", "Joypur"),
         village_name=p.get("village_name", "Joypur"),
         is_rural=p.get("is_rural", True),
-        project_cost=float(p.get("investment_amount") or p.get("project_cost", 500000.0)),
+        project_cost=cost,
         annual_turnover_estimate=float(p.get("annual_turnover_estimate", 600000.0)),
+        available_margin_capital=avail_margin,
+        premise_type=prem_type,
+        monthly_rent=m_rent,
         tenure_years=float(p.get("tenure_years", 5.0)),
         moratorium_months=int(p.get("moratorium_months", 6)),
         language=p.get("language", "en"),
@@ -67,6 +79,10 @@ async def create_project(
         "business_category": project_in.business_category,
         "sector": project_in.sector,
         "investment_amount": project_in.investment_amount,
+        "project_cost": project_in.project_cost or project_in.investment_amount,
+        "available_margin_capital": project_in.available_margin_capital,
+        "premise_type": project_in.premise_type or "rented",
+        "monthly_rent": project_in.monthly_rent,
         "annual_turnover_estimate": project_in.annual_turnover_estimate,
         "state_name": project_in.state_name,
         "district_name": project_in.district_name,
@@ -119,6 +135,10 @@ async def create_and_analyze_project(
         "business_category": project_in.business_category,
         "sector": project_in.sector,
         "investment_amount": project_in.investment_amount,
+        "project_cost": project_in.project_cost or project_in.investment_amount,
+        "available_margin_capital": project_in.available_margin_capital,
+        "premise_type": project_in.premise_type or "rented",
+        "monthly_rent": project_in.monthly_rent,
         "annual_turnover_estimate": project_in.annual_turnover_estimate,
         "state_name": project_in.state_name,
         "district_name": project_in.district_name,

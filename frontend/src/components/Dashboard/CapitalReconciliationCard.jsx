@@ -2,29 +2,52 @@ import React, { useState } from 'react';
 import { Layers, CheckCircle2, DollarSign, Cpu, ChevronDown, ChevronUp, Zap, ShieldCheck, Landmark } from 'lucide-react';
 import { TranslatedText } from '../TranslatedText';
 
-export function CapitalReconciliationCard({ inputData, financialData, schemeData }) {
+export function CapitalReconciliationCard({ inputData, financialData, schemeData, reportData, capitalStructure, machinerySchedule, premiseDetails }) {
   const [showMachinery, setShowMachinery] = useState(false);
-  const projectCost = Number(inputData?.project_cost) || 900000;
-  const promoterMargin = financialData?.promoter_margin_amount || (projectCost * 0.10);
+
+  // Unified resolution from reportData or direct props
+  const capStruct = capitalStructure || reportData?.capital_structure || financialData?.capital_structure || null;
+  const resolvedInput = inputData || reportData?.input_parameters || {};
+  const resolvedFin = financialData || reportData?.financial_analysis || {};
+  const resolvedSchemes = schemeData || reportData?.scheme_optimization || [];
+
+  const projectCost = Number(capStruct?.true_project_outlay || capStruct?.project_cost || resolvedInput?.project_cost || reportData?.input_parameters?.project_cost) || 900000;
+  const promoterMargin = capStruct?.available_promoter_cash !== undefined 
+    ? capStruct.available_promoter_cash 
+    : (capStruct?.effective_promoter_cash !== undefined 
+        ? capStruct.effective_promoter_cash 
+        : (resolvedFin?.promoter_margin_amount || (projectCost * 0.10)));
   
-  const topScheme = schemeData?.find(s => s.eligible) || schemeData?.[0] || {};
-  const subsidyAmount = topScheme.subsidy_grant_amount || 0;
-  const loanAmount = Math.max(projectCost - subsidyAmount - promoterMargin, 0);
+  const topScheme = resolvedSchemes?.find(s => s.eligible) || resolvedSchemes?.[0] || {};
+  const subsidyAmount = capStruct?.subsidy_grant_amount !== undefined 
+    ? capStruct.subsidy_grant_amount 
+    : (topScheme.subsidy_grant_amount || 0);
+
+  const loanAmount = capStruct?.bank_term_loan !== undefined 
+    ? capStruct.bank_term_loan 
+    : Math.max(projectCost - subsidyAmount - promoterMargin, 0);
+
+  const scaBridge = capStruct?.sca_soft_loan_eligible_amount || capStruct?.sca_soft_loan_bridge || 0;
+  const hasEquityDeficit = capStruct?.is_equity_deficit || capStruct?.has_equity_deficit || false;
 
   // Balanced outlay breakdown
-  const machinery = projectCost * 0.55;
-  const civil = projectCost * 0.20;
-  const workingCap = projectCost * 0.15;
-  const contingency = projectCost * 0.10;
+  const machinery = capStruct?.actual_machinery_cost || capStruct?.plant_and_machinery || (projectCost * 0.55);
+  const civil = capStruct?.civil_and_shed || (projectCost * 0.20);
+  const workingCap = capStruct?.working_capital || (projectCost * 0.15);
+  const contingency = capStruct?.pre_operative_contingency || (projectCost * 0.10);
 
-  const totalMeans = promoterMargin + subsidyAmount + loanAmount;
+  const totalMeans = promoterMargin + subsidyAmount + loanAmount + scaBridge;
   const isBalanced = Math.abs(totalMeans - projectCost) < 1.0;
 
-  const machSchedule = financialData?.machinery_schedule || inputData?.machinery_schedule || null;
-  const premiseType = financialData?.premise_details?.premise_type || inputData?.premise_type || "rented";
-  const monthlyRent = financialData?.premise_details?.monthly_rent !== undefined 
-    ? financialData.premise_details.monthly_rent 
-    : (inputData?.monthly_rent || (premiseType === "rented" ? 2500 : 0));
+  const machSchedule = machinerySchedule || reportData?.machinery_schedule || resolvedFin?.machinery_schedule || resolvedInput?.machinery_schedule || null;
+  const premiseType = premiseDetails?.premise_type || reportData?.premise_details?.premise_type || resolvedFin?.premise_details?.premise_type || resolvedInput?.premise_type || "rented";
+  const monthlyRent = premiseDetails?.monthly_rent !== undefined 
+    ? premiseDetails.monthly_rent 
+    : (reportData?.premise_details?.monthly_rent !== undefined 
+        ? reportData.premise_details.monthly_rent 
+        : (resolvedFin?.premise_details?.monthly_rent !== undefined 
+            ? resolvedFin.premise_details.monthly_rent 
+            : (resolvedInput?.monthly_rent || (premiseType === "rented" ? 2500 : 0))));
 
   return (
     <div className="glass-panel p-4 sm:p-6 bg-white shadow-card border border-slate-200">
@@ -103,6 +126,15 @@ export function CapitalReconciliationCard({ inputData, financialData, schemeData
               <span><TranslatedText text="Bank Term Loan Disbursal" /> ({((loanAmount / projectCost) * 100).toFixed(0)}%)</span>
               <strong className="font-mono text-blue-800">₹{Math.round(loanAmount).toLocaleString('en-IN')}</strong>
             </div>
+            {hasEquityDeficit && scaBridge > 0 && (
+              <div className="flex justify-between items-center text-slate-700 bg-amber-50/80 p-2 rounded-lg border border-amber-200">
+                <span className="flex items-center gap-1 text-amber-900 font-semibold text-[11px]">
+                  <Landmark className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                  <TranslatedText text="SCA Margin Money Assistance (Soft Loan)" />
+                </span>
+                <strong className="font-mono text-amber-800">₹{Math.round(scaBridge).toLocaleString('en-IN')}</strong>
+              </div>
+            )}
             <div className="pt-2 border-t border-slate-200 flex justify-between text-xs font-bold text-slate-900">
               <span><TranslatedText text="Total Finance Secured" />:</span>
               <span className="font-mono text-emerald-700 font-bold">₹{Math.round(totalMeans).toLocaleString('en-IN')}</span>

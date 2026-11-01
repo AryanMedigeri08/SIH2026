@@ -184,7 +184,7 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
           </div>
 
           {/* Capital Outlay & Means of Finance Reconciliation (10% Margin vs 90% Loan) */}
-          <CapitalReconciliationCard inputData={p} financialData={fin} schemeData={schemes} />
+          <CapitalReconciliationCard reportData={reportData} inputData={p} financialData={fin} schemeData={schemes} />
 
           {/* Matched Government Schemes & Grants */}
           <SchemeLeaderboardCard schemes={schemes} />
@@ -214,7 +214,7 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
           <ExecutiveNarrativeCard synthesisData={synth} />
 
           {/* Capital Outlay & Means of Finance Reconciliation */}
-          <CapitalReconciliationCard inputData={p} financialData={fin} schemeData={schemes} />
+          <CapitalReconciliationCard reportData={reportData} inputData={p} financialData={fin} schemeData={schemes} />
 
           {/* Government Scheme Comparison Chart & Leaderboard */}
           <div className="space-y-6">

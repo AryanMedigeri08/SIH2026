@@ -12,9 +12,14 @@ export function FinancialsPage({ reportData }) {
   const schemes = reportData.scheme_optimization || [];
   const pricing = reportData.pricing_recommendation || {};
 
-  const projectCost = Number(p.project_cost) || 0;
-  const promoterMargin = fin.promoter_margin_amount || (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05));
-  const loanPrincipal = fin.loan_principal || 0;
+  const capStruct = reportData.capital_structure || fin.capital_structure || null;
+  const projectCost = Number(capStruct?.true_project_outlay || capStruct?.project_cost || p.project_cost) || 0;
+  const promoterMargin = capStruct?.effective_promoter_cash !== undefined 
+    ? capStruct.effective_promoter_cash 
+    : (fin.promoter_margin_amount || (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05)));
+  const loanPrincipal = capStruct?.bank_term_loan !== undefined 
+    ? capStruct.bank_term_loan 
+    : (fin.loan_principal || 0);
   const monthlyEmi = fin.amortization?.monthly_emi || 0;
   const annualNetProfit = fin.annual_net_profit || 0;
   const roiPct = fin.roi_pct || 0;
@@ -109,7 +114,7 @@ export function FinancialsPage({ reportData }) {
       </div>
 
       {/* Capital Reconciliation Card */}
-      <CapitalReconciliationCard inputData={p} financialData={fin} schemeData={schemes} />
+      <CapitalReconciliationCard reportData={reportData} inputData={p} financialData={fin} schemeData={schemes} />
 
 
       {/* 5-Year Amortization Schedule & Financial Horizon */}

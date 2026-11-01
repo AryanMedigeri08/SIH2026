@@ -351,8 +351,20 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const finalOutlay = Number(formData.project_cost) || 900000;
+    const marginPct = getMarginPct(formData.promoter_category);
+    const finalMargin = formData.margin_capital !== undefined && formData.margin_capital !== ""
+      ? Number(formData.margin_capital)
+      : Math.round(finalOutlay * marginPct);
+
     const submissionPayload = {
       ...formData,
+      project_cost: finalOutlay,
+      investment_amount: finalOutlay,
+      margin_capital: finalMargin,
+      available_margin_capital: finalMargin,
+      premise_type: formData.premise_type || "rented",
+      monthly_rent: formData.premise_type === "rented" ? (Number(formData.monthly_rent) || 2500) : 0,
       monthly_net_operating_income_override: formData.monthly_net_operating_income_override 
         ? Number(formData.monthly_net_operating_income_override) 
         : undefined,
@@ -948,13 +960,13 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                     onChange={e => {
                       const newCat = e.target.value;
                       const newMarginPct = getMarginPct(newCat);
-                      const currentMargin = Number(formData.margin_capital) || Math.round((Number(formData.project_cost) || 900000) * getMarginPct(formData.promoter_category));
-                      const derivedCost = newMarginPct > 0 ? Math.round(currentMargin / newMarginPct) : currentMargin * 10;
+                      const currentCost = Number(formData.project_cost) || 900000;
+                      const newMargin = Math.round(currentCost * newMarginPct);
                       setFormData(prev => ({
                         ...prev,
                         promoter_category: newCat,
-                        margin_capital: currentMargin,
-                        project_cost: derivedCost,
+                        margin_capital: newMargin,
+                        project_cost: currentCost,
                       }));
                     }}
                     className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
@@ -1120,6 +1132,66 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 {/* Top Row: User Margin Capital & Sizing Readout */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2.5">
+                    {/* Explicit Total Project Outlay Input */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Layers className="w-3.5 h-3.5 text-sovereign-700" />
+                          <span>Total Project Outlay (₹)</span>
+                        </span>
+                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          {sizingMode === 'asset_driven' ? 'Asset-Driven Norm' : 'Cash-Derived Outlay'}
+                        </span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min={50000}
+                        max={50000000}
+                        step={10000}
+                        value={formData.project_cost !== undefined ? formData.project_cost : activeOutlay}
+                        onChange={e => {
+                          const rawVal = e.target.value;
+                          const newCost = rawVal === "" ? "" : Number(rawVal);
+                          setFormData(prev => ({
+                            ...prev,
+                            project_cost: newCost,
+                          }));
+                        }}
+                        placeholder="e.g. 1000000"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
+                      />
+                      {/* Quick Outlay Presets */}
+                      <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                        <span className="text-[10px] text-slate-400 font-medium mr-0.5">Quick Outlay:</span>
+                        {[
+                          { label: "₹5L", val: 500000 },
+                          { label: "₹8L", val: 800000 },
+                          { label: "₹10L", val: 1000000 },
+                          { label: "₹15L", val: 1500000 },
+                          { label: "₹25L", val: 2500000 },
+                        ].map(preset => (
+                          <button
+                            key={preset.val}
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                project_cost: preset.val,
+                              }));
+                            }}
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition border ${
+                              Number(formData.project_cost) === preset.val
+                                ? 'bg-sovereign-800 text-white border-sovereign-800 shadow-2xs'
+                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
                         <span>Available Cash in Hand (₹)</span>
@@ -1164,6 +1236,12 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                         <strong className="text-emerald-700 font-mono font-bold text-sm">
                           ₹{Number(activeOutlay).toLocaleString('en-IN')}
                         </strong>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-500">Plant & Machinery Budget (55%):</span>
+                        <span className="text-slate-800 font-mono font-semibold">
+                          ₹{Number(machBudget).toLocaleString('en-IN')}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center text-[11px]">
                         <span className="text-slate-500">Bank Concessional Loan ({(100 - marginPct * 100).toFixed(0)}%):</span>

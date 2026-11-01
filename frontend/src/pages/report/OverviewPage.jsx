@@ -31,6 +31,7 @@ import {
 import { useBusiness } from '../../context/BusinessContext';
 import { BusinessStatusPill } from '../../components/BusinessSwitcher';
 import { TranslatedText } from '../../components/TranslatedText';
+import { CapitalReconciliationCard } from '../../components/Dashboard/CapitalReconciliationCard';
 import { useViewMode } from '../../context/ViewModeContext';
 
 export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
@@ -74,11 +75,12 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
   const pricing = reportData.pricing_recommendation || {};
   const demographics = reportData.market_demographics || {};
 
+  const capStruct = reportData.capital_structure || fin.capital_structure || null;
   const topScheme = schemes.find(s => s.eligible) || schemes[0] || {};
-  const projectCost = p.project_cost || activeBusiness?.investment_amount || 0;
-  const subsidyAmount = topScheme.subsidy_grant_amount || 0;
+  const projectCost = Number(capStruct?.true_project_outlay || capStruct?.project_cost || p.project_cost || activeBusiness?.investment_amount) || 0;
+  const subsidyAmount = capStruct?.subsidy_grant_amount !== undefined ? capStruct.subsidy_grant_amount : (topScheme.subsidy_grant_amount || 0);
   const subsidyPct = projectCost > 0 ? (subsidyAmount / projectCost) * 100 : 0;
-  const loanPrincipal = fin.loan_principal || Math.max(projectCost - subsidyAmount - (projectCost * 0.05), 0);
+  const loanPrincipal = capStruct?.bank_term_loan !== undefined ? capStruct.bank_term_loan : (fin.loan_principal || Math.max(projectCost - subsidyAmount - (projectCost * 0.05), 0));
   const emi = fin.amortization?.monthly_emi || 0;
   const dscr = fin.dscr?.dscr ?? 1.33;
   const annualTurnover = p.annual_turnover_estimate || activeBusiness?.annual_turnover_estimate || 0;
@@ -617,6 +619,14 @@ export function OverviewPage({ reportData, onOpenDpr, onOpenWizard }) {
 
       {/* Alternative Enterprise Recommendations (Rendered exclusively when Verdict === RECONSIDER) */}
       <AlternativeOpportunitiesCard reportData={reportData} onOpenWizard={onOpenWizard} />
+
+      {/* Capital Outlay & Means of Finance Reconciliation with Itemized Machinery Schedule */}
+      <CapitalReconciliationCard 
+        reportData={reportData} 
+        inputData={p} 
+        financialData={fin} 
+        schemeData={schemes} 
+      />
 
       {/* Row 2: Appraisal Module Cards Grid with Colored Accents */}
       <div>

@@ -189,11 +189,24 @@ export const BusinessProvider = ({ children }) => {
         setLanguage("en");
       }
 
+      const outlay = Number(formData.project_cost) || 900000;
+      const marginVal = formData.available_margin_capital !== undefined 
+        ? Number(formData.available_margin_capital) 
+        : (formData.margin_capital !== undefined ? Number(formData.margin_capital) : undefined);
+      const premType = formData.premise_type || "rented";
+      const mRent = premType === "rented" 
+        ? (formData.monthly_rent !== undefined ? Number(formData.monthly_rent) : 2500) 
+        : 0;
+
       const projectPayload = {
         business_name: formData.enterprise_name,
         business_category: formData.business_category || "manufacturing",
         sector: formData.sector || "general",
-        investment_amount: Number(formData.project_cost),
+        investment_amount: outlay,
+        project_cost: outlay,
+        available_margin_capital: marginVal,
+        premise_type: premType,
+        monthly_rent: mRent,
         annual_turnover_estimate: Number(formData.annual_turnover_estimate),
         state_name: formData.state_name,
         district_name: formData.district_name,
@@ -230,6 +243,11 @@ export const BusinessProvider = ({ children }) => {
         // Fallback for demo unauthenticated flow
         const rep = await generateFeasibility({
           ...formData,
+          project_cost: outlay,
+          investment_amount: outlay,
+          available_margin_capital: marginVal,
+          premise_type: premType,
+          monthly_rent: mRent,
           language: "en",
         });
         setReportData(rep);

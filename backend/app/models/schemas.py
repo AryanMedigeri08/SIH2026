@@ -261,7 +261,11 @@ class ProjectCreate(BaseModel):
     business_category: str
     sector: str
     investment_amount: float
+    project_cost: Optional[float] = None
     annual_turnover_estimate: float
+    available_margin_capital: Optional[float] = None
+    premise_type: Optional[str] = "rented"
+    monthly_rent: Optional[float] = None
     state_name: str
     district_name: str
     block_name: str = "N/A"
@@ -281,7 +285,11 @@ class ProjectCreate(BaseModel):
 class ProjectUpdate(BaseModel):
     business_name: Optional[str] = None
     investment_amount: Optional[float] = None
+    project_cost: Optional[float] = None
     annual_turnover_estimate: Optional[float] = None
+    available_margin_capital: Optional[float] = None
+    premise_type: Optional[str] = None
+    monthly_rent: Optional[float] = None
     tenure_years: Optional[float] = None
     moratorium_months: Optional[int] = None
     language: Optional[str] = None
@@ -296,7 +304,11 @@ class ProjectModel(BaseModel):
     business_category: str
     sector: str
     investment_amount: float
+    project_cost: Optional[float] = None
     annual_turnover_estimate: float
+    available_margin_capital: Optional[float] = None
+    premise_type: Optional[str] = "rented"
+    monthly_rent: Optional[float] = None
     state_name: str
     district_name: str
     block_name: str

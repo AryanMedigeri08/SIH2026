@@ -436,6 +436,13 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
             "roi_pct": roi_pct,
             "break_even_pct": break_even_pct,
             "cpi_inflation_pct": cpi_pct,
+            "capital_structure": cap_struct.to_dict(),
+            "machinery_schedule": mach_schedule.to_dict(),
+            "premise_details": {
+                "premise_type": premise_type,
+                "monthly_rent": actual_rent,
+                "annual_rent": actual_rent * 12.0,
+            },
         },
         scheme_optimization=[s.to_dict() for s in schemes[:5]],
         ml_viability=ml_pred.to_dict(),

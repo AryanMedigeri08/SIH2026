@@ -66,11 +66,16 @@ export function GovernmentSchemesPage({ reportData }) {
   const schemes = reportData.scheme_optimization || [];
   const topScheme = schemes.find(s => s.eligible) || schemes[0] || {};
   
-  const projectCost = p.project_cost || 0;
-  const subsidyAmount = topScheme.subsidy_grant_amount || 0;
+  const capStruct = reportData.capital_structure || fin.capital_structure || null;
+  const projectCost = Number(capStruct?.true_project_outlay || capStruct?.project_cost || p.project_cost) || 0;
+  const subsidyAmount = capStruct?.subsidy_grant_amount !== undefined ? capStruct.subsidy_grant_amount : (topScheme.subsidy_grant_amount || 0);
   const subsidyPct = projectCost > 0 ? ((subsidyAmount / projectCost) * 100).toFixed(0) : '0';
-  const promoterMargin = fin.promoter_margin_amount || (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05));
-  const termLoan = fin.loan_principal || Math.max(projectCost - subsidyAmount - promoterMargin, 0);
+  const promoterMargin = capStruct?.effective_promoter_cash !== undefined 
+    ? capStruct.effective_promoter_cash 
+    : (fin.promoter_margin_amount || (projectCost * (p.promoter_category === 'general' ? 0.10 : 0.05)));
+  const termLoan = capStruct?.bank_term_loan !== undefined 
+    ? capStruct.bank_term_loan 
+    : (fin.loan_principal || Math.max(projectCost - subsidyAmount - promoterMargin, 0));
   const dscr = fin.dscr?.dscr ?? 1.33;
   const districtLower = (p.district_name || '').toLowerCase();
   const sectorLower = (p.sector || '').toLowerCase();

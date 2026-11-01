@@ -855,6 +855,10 @@ class DatabaseManager:
         user_id = project_dict.get("user_id", "guest_user")
         analysis_result = project_dict.get("analysis_result", None)
 
+        avail_margin = project_dict.get("available_margin_capital") or project_dict.get("margin_capital")
+        prem_type = project_dict.get("premise_type", "rented")
+        m_rent = project_dict.get("monthly_rent")
+
         record = {
             **project_dict,
             "project_id": project_id,
@@ -865,6 +869,9 @@ class DatabaseManager:
             "sector": project_dict.get("sector", "general"),
             "project_cost": investment_amount,
             "investment_amount": investment_amount,
+            "available_margin_capital": float(avail_margin) if avail_margin is not None else None,
+            "premise_type": prem_type,
+            "monthly_rent": float(m_rent) if m_rent is not None else (2500.0 if prem_type == "rented" else 0.0),
             "annual_turnover_estimate": annual_turnover,
             "state_name": state_name,
             "district_name": district_name,
