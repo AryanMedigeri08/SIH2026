@@ -10,14 +10,14 @@ from fastapi import APIRouter, HTTPException, Query
 try:
     from app.core.financial_calculator import (
         emi_with_moratorium, working_capital_estimate, compute_dscr, compute_bounded_dscr,
-        rank_eligible_schemes, estimate_smart_turnover, calculate_quarterly_amortization,
+        rank_eligible_schemes, estimate_smart_turnover, calculate_quarterly_amortization, calculate_asset_driven_capital_structure,
     )
     from app.core.machinery_engine import extract_contextual_machinery
     from app.models.schemas import FinancialCalcRequest, FinancialCalcResponse
 except ImportError:
     from backend.app.core.financial_calculator import (
         emi_with_moratorium, working_capital_estimate, compute_dscr, compute_bounded_dscr,
-        rank_eligible_schemes, estimate_smart_turnover, calculate_quarterly_amortization,
+        rank_eligible_schemes, estimate_smart_turnover, calculate_quarterly_amortization, calculate_asset_driven_capital_structure,
     )
     from backend.app.core.machinery_engine import extract_contextual_machinery
     from backend.app.models.schemas import FinancialCalcRequest, FinancialCalcResponse
@@ -129,6 +129,16 @@ async def calculate_financial_summary(req: FinancialCalcRequest):
             use_ai=False,  # instant response for standalone calculator
         )
 
+        # 7. Asset-Driven Capital Structure & SCA Equity Bridge Analysis
+        cap_struct = calculate_asset_driven_capital_structure(
+            machinery_cost=machinery_budget,
+            available_promoter_cash=margin_capital,
+            promoter_category=getattr(req, "promoter_category", "general") or "general",
+            gender=getattr(req, "gender", "male") or "male",
+            is_rural=getattr(req, "is_rural", True) if getattr(req, "is_rural", None) is not None else True,
+            target_project_cost=project_cost,
+        )
+
         return FinancialCalcResponse(
             project_cost=round(project_cost, 2),
             available_margin_capital=round(margin_capital, 2),
@@ -148,6 +158,7 @@ async def calculate_financial_summary(req: FinancialCalcRequest):
             quarterly_schedule=[e.to_dict() for e in q_amort.schedule],
             smart_turnover_breakdown=smart_turnover.to_dict(),
             machinery_schedule=machinery_sched.to_dict(),
+            capital_structure=cap_struct.to_dict(),
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -176,5 +187,29 @@ async def get_machinery_for_enterprise(
             use_ai=True,
         )
         return sched.to_dict()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/capital-structure")
+async def get_capital_structure(
+    machinery_cost: float = Query(..., gt=0, description="Plant & Machinery Cost in INR"),
+    available_promoter_cash: float = Query(0.0, ge=0, description="Available promoter cash in INR"),
+    promoter_category: str = Query("general", description="Category: general | special | sc | st | obc | women"),
+    gender: str = Query("male", description="Gender: male | female"),
+    is_rural: bool = Query(True, description="Whether enterprise is in a rural area"),
+):
+    """
+    Computes statutory capital structure and SCA equity gap analysis
+    anchored on actual physical machinery BoQ outlay (M / 0.55 = True Outlay).
+    """
+    try:
+        cs = calculate_asset_driven_capital_structure(
+            machinery_cost=machinery_cost,
+            available_promoter_cash=available_promoter_cash,
+            promoter_category=promoter_category,
+            gender=gender,
+            is_rural=is_rural,
+        )
+        return cs.to_dict()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -332,6 +332,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         ai_synthesis=synthesis,
         odop_info=odop_alignment,
         machinery_schedule=mach_schedule.to_dict(),
+        available_margin_capital=input_data.available_margin_capital,
         premise_type=premise_type,
         monthly_rent=actual_rent,
     )
@@ -400,6 +401,16 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         "status": "Cluster Aligned" if odop_alignment.get("is_aligned") else "Queried OK",
         "attribution": f"District: {odop_alignment.get('district_name')}, Product: {odop_alignment.get('odop_product')} ({odop_alignment.get('status_text')})",
     })
+
+    # Asset-Driven Capital Structure & SCA Equity Gap Analysis
+    cap_struct = calculate_asset_driven_capital_structure(
+        machinery_cost=mach_schedule.total_machinery_cost_inr,
+        available_promoter_cash=input_data.available_margin_capital or promoter_margin_val,
+        promoter_category=input_data.promoter_category or "general",
+        gender=input_data.gender or "male",
+        is_rural=input_data.is_rural if input_data.is_rural is not None else True,
+        target_project_cost=input_data.project_cost,
+    )
 
     feasibility_report = FeasibilityReport(
         report_id=report_id,

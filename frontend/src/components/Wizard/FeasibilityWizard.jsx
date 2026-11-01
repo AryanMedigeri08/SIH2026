@@ -62,6 +62,8 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
   const [capacityFactor, setCapacityFactor] = useState(0.80);
   const [machinerySchedule, setMachinerySchedule] = useState(null);
   const [loadingMachinery, setLoadingMachinery] = useState(false);
+  const [sizingMode, setSizingMode] = useState('asset_driven'); // 'asset_driven' | 'cash_constrained'
+  const [scaBridgeApplied, setScaBridgeApplied] = useState(false);
 
   // LGD Dropdown states
   const [states, setStates] = useState([]);
@@ -984,11 +986,28 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
 
           {/* Step 4: Capital Outlay, Machinery BoQ & Smart Revenue */}
           {currentStep === 4 && (() => {
-            const cost = Number(formData.project_cost) || 0;
+            const cost = Number(formData.project_cost) || 900000;
             const sales = Number(formData.annual_turnover_estimate) || 0;
-            const marginVal = Number(formData.margin_capital) || 0;
-            const machBudget = Math.round(cost * 0.55);
-            const turnoverRatio = cost > 0 ? (sales / cost) : 0;
+            const marginPct = getMarginPct(formData.promoter_category);
+            const availCash = formData.margin_capital !== undefined && formData.margin_capital !== ""
+              ? Number(formData.margin_capital)
+              : Math.round(cost * marginPct);
+
+            // Asset-Driven Sizing: True Machinery Cost dictates Total Project Outlay (P = M / 0.55)
+            const machCost = (machinerySchedule?.total_machinery_cost_inr && machinerySchedule.total_machinery_cost_inr > 0)
+              ? machinerySchedule.total_machinery_cost_inr
+              : Math.round(cost * 0.55);
+
+            const assetDrivenOutlay = Math.round((machCost / 0.55) / 1000) * 1000;
+            const activeOutlay = sizingMode === 'asset_driven' ? assetDrivenOutlay : cost;
+            const machBudget = Math.round(activeOutlay * 0.55);
+            const turnoverRatio = activeOutlay > 0 ? (sales / activeOutlay) : 0;
+
+            // Statutory Equity & SCA Equity Deficit
+            const requiredEquity = Math.round(activeOutlay * marginPct);
+            const equityGap = Math.max(0, Math.round(requiredEquity - availCash));
+            const isEquityDeficit = equityGap > 0;
+            const concessionalLoan = Math.round(activeOutlay * (1.0 - marginPct));
             
             // Sector benchmark operating margin & capital multipliers
             const sec = String(formData.sector || "").toLowerCase();
@@ -1047,51 +1066,203 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                   </span>
                 </div>
 
+                {/* Financing Mechanics Mode Selector (Asset-Driven vs Cash-Constrained) */}
+                <div className="p-3 bg-slate-100/90 border border-slate-200 rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-sovereign-100 text-sovereign-800 shrink-0">
+                      <Landmark className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block">SCA Project Sizing Mechanics</span>
+                      <span className="text-[10px] text-slate-500">
+                        {sizingMode === 'asset_driven' 
+                          ? 'Asset-Driven: Machinery cost dictates total outlay (M / 0.55 = Outlay)' 
+                          : 'Cash-Constrained: Project outlay is capped by cash in hand'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSizingMode('asset_driven');
+                        setFormData(prev => ({ ...prev, project_cost: assetDrivenOutlay }));
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 ${
+                        sizingMode === 'asset_driven'
+                          ? 'bg-sovereign-700 text-white shadow-xs'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <ShieldCheck className="w-3 h-3" />
+                      <span>Asset-Driven (SCA Norm)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSizingMode('cash_constrained');
+                        const costFromCash = marginPct > 0 ? Math.round(availCash / marginPct) : availCash * 10;
+                        setFormData(prev => ({ ...prev, project_cost: costFromCash }));
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 ${
+                        sizingMode === 'cash_constrained'
+                          ? 'bg-sovereign-700 text-white shadow-xs'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Coins className="w-3 h-3" />
+                      <span>Cash-Constrained</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Top Row: User Margin Capital & Sizing Readout */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                      <span>Available Margin Capital (₹)</span>
-                      <span className="text-[10px] text-emerald-600 font-semibold">User Equity Input</span>
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min={2500}
-                      step={2500}
-                      value={formData.margin_capital !== undefined ? formData.margin_capital : ""}
-                      onChange={e => {
-                        const rawVal = e.target.value;
-                        const margin = rawVal === "" ? "" : Number(rawVal);
-                        const numMargin = Number(margin) || 0;
-                        const marginPct = getMarginPct(formData.promoter_category);
-                        const derivedCost = marginPct > 0 ? Math.round(numMargin / marginPct) : numMargin * 10;
-                        setFormData(prev => ({
-                          ...prev,
-                          margin_capital: margin,
-                          project_cost: derivedCost,
-                        }));
-                      }}
-                      placeholder="e.g. 90000"
-                      className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
-                    />
-                    <p className="text-[11px] text-slate-500 mt-1">Beneficiary self-contribution required under 10% government scheme norms</p>
+                  <div className="space-y-2.5">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span>Available Cash in Hand (₹)</span>
+                        <span className="text-[10px] text-emerald-600 font-semibold">Borrower Paid-up Cash</span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min={2500}
+                        step={2500}
+                        value={formData.margin_capital !== undefined ? formData.margin_capital : ""}
+                        onChange={e => {
+                          const rawVal = e.target.value;
+                          const margin = rawVal === "" ? "" : Number(rawVal);
+                          const numMargin = Number(margin) || 0;
+                          if (sizingMode === 'cash_constrained') {
+                            const derivedCost = marginPct > 0 ? Math.round(numMargin / marginPct) : numMargin * 10;
+                            setFormData(prev => ({
+                              ...prev,
+                              margin_capital: margin,
+                              project_cost: derivedCost,
+                            }));
+                          } else {
+                            setFormData(prev => ({
+                              ...prev,
+                              margin_capital: margin,
+                            }));
+                          }
+                        }}
+                        placeholder="e.g. 90000"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
+                      />
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Current funds available for statutory equity (Required: ₹{requiredEquity.toLocaleString('en-IN')})
+                      </p>
+                    </div>
 
                     {/* Derived Project Sizing Readout Card */}
-                    <div className="mt-2.5 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 shadow-subtle">
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 shadow-subtle">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500 font-medium">Total Project Outlay:</span>
+                        <span className="text-slate-500 font-medium">True Project Outlay (P = M / 0.55):</span>
                         <strong className="text-emerald-700 font-mono font-bold text-sm">
-                          ₹{Number(formData.project_cost || 0).toLocaleString('en-IN')}
+                          ₹{Number(activeOutlay).toLocaleString('en-IN')}
                         </strong>
                       </div>
                       <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-slate-500">Government Concessional Loan (90%):</span>
+                        <span className="text-slate-500">Bank Concessional Loan ({(100 - marginPct * 100).toFixed(0)}%):</span>
                         <span className="text-slate-800 font-mono font-semibold">
-                          ₹{Number(Math.max(0, (formData.project_cost || 0) * 0.90)).toLocaleString('en-IN')}
+                          ₹{Number(concessionalLoan).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px] pt-1 border-t border-slate-200">
+                        <span className="text-slate-500">Statutory Margin Requirement:</span>
+                        <span className="text-slate-900 font-mono font-bold">
+                          ₹{Number(requiredEquity).toLocaleString('en-IN')} ({(marginPct * 100).toFixed(0)}%)
                         </span>
                       </div>
                     </div>
+
+                    {/* SCA Equity Gap & Bridge Card */}
+                    {isEquityDeficit ? (
+                      <div className="p-3 bg-gradient-to-br from-amber-50/80 to-rose-50/50 border border-amber-300 rounded-xl space-y-2 text-xs shadow-xs">
+                        <div className="flex items-start justify-between gap-1">
+                          <div className="flex items-center gap-1.5 text-amber-900 font-bold">
+                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span>Promoter Equity Deficit: -₹{equityGap.toLocaleString('en-IN')}</span>
+                          </div>
+                          <span className="text-[10px] text-rose-700 bg-rose-100 font-bold px-1.5 py-0.5 rounded">
+                            Shortfall
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                          Your physical machinery costs ₹{machCost.toLocaleString('en-IN')}. Statutory scheme norms require ₹{requiredEquity.toLocaleString('en-IN')} promoter equity. Your cash in hand (₹{availCash.toLocaleString('en-IN')}) creates an equity shortfall of ₹{equityGap.toLocaleString('en-IN')}.
+                        </p>
+
+                        {/* Bridge Pathway Buttons */}
+                        <div className="pt-1.5 border-t border-amber-200/80 space-y-1.5">
+                          <span className="text-[10px] font-bold text-slate-700 block uppercase tracking-wide">
+                            State Channelling Agency (SCA) Bridge Solutions:
+                          </span>
+
+                          {/* Pathway 1: SCA Soft Loan */}
+                          <div className="p-2 rounded-lg bg-white border border-amber-200 flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-slate-900 text-[11px]">
+                                1. SCA Margin Money Assistance (Soft Loan)
+                              </span>
+                              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded">
+                                2-4% Interest
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500">
+                              State agency quasi-equity loan of ₹{equityGap.toLocaleString('en-IN')} with 3-year repayment.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setScaBridgeApplied(!scaBridgeApplied)}
+                              className={`py-1 px-2.5 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 self-start ${
+                                scaBridgeApplied
+                                  ? 'bg-emerald-600 text-white shadow-xs'
+                                  : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                              }`}
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>{scaBridgeApplied ? '✓ SCA Soft Loan Bridge Applied' : 'Apply SCA Soft Loan Bridge'}</span>
+                            </button>
+                          </div>
+
+                          {/* Pathway 2: 5% Category Concession */}
+                          {marginPct > 0.05 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData(prev => ({ ...prev, promoter_category: 'women' }));
+                              }}
+                              className="w-full text-left p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-between text-[10px] text-slate-700"
+                            >
+                              <span>2. Claim 5% Special Category Concession (Women/SC/ST/OBC)</span>
+                              <span className="text-emerald-700 font-bold">Saves ₹{Math.round(activeOutlay * 0.05).toLocaleString('en-IN')}</span>
+                            </button>
+                          )}
+
+                          {/* Pathway 3: Cash Match */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, margin_capital: requiredEquity }));
+                            }}
+                            className="w-full text-left p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-between text-[10px] text-slate-700"
+                          >
+                            <span>3. Co-Promoter / Family Equity Match</span>
+                            <span className="text-sovereign-700 font-bold">Set Cash to ₹{requiredEquity.toLocaleString('en-IN')}</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>
+                          <strong>100% Equity Solvent:</strong> Cash in hand (₹{availCash.toLocaleString('en-IN')}) covers the statutory {(marginPct * 100).toFixed(0)}% margin requirement (₹{requiredEquity.toLocaleString('en-IN')}).
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Smart Capacity & Revenue Intelligence Dial */}

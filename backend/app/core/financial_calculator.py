@@ -186,6 +186,33 @@ class QuarterlyAmortizationResult:
 
 
 @dataclass
+class CapitalStructureAnalysis:
+    actual_machinery_cost: float
+    true_project_outlay: float
+    working_capital_and_ancillaries: float
+    statutory_margin_pct: float
+    required_promoter_equity: float
+    available_promoter_cash: float
+    equity_gap: float
+    is_equity_deficit: bool
+    bank_term_loan: float
+    sca_soft_loan_eligible_amount: float
+    means_of_finance: dict[str, float]
+    bridge_options: list[dict[str, Any]]
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        for k in (
+            "actual_machinery_cost", "true_project_outlay", "working_capital_and_ancillaries",
+            "statutory_margin_pct", "required_promoter_equity", "available_promoter_cash",
+            "equity_gap", "bank_term_loan", "sca_soft_loan_eligible_amount"
+        ):
+            if isinstance(d.get(k), float):
+                d[k] = round(d[k], 2)
+        return d
+
+
+@dataclass
 class SchemeRanking:
     rank: int
     scheme_id: str
@@ -578,6 +605,140 @@ def calculate_quarterly_amortization(
         total_interest_payable=total_interest,
         total_repayment=total_repayment,
         schedule=schedule,
+    )
+
+
+def calculate_asset_driven_capital_structure(
+    machinery_cost: float,
+    available_promoter_cash: float,
+    promoter_category: str = "general",
+    gender: str = "male",
+    is_rural: bool = True,
+    target_project_cost: float = None,
+) -> CapitalStructureAnalysis:
+    """
+    Computes State Channelling Agency (SCA) & MSME bank capital structure
+    anchored on real physical machinery BoQ outlay (M / 0.55 = True Outlay).
+    Identifies statutory equity deficits and formulates 4 bankable bridge pathways.
+    """
+    m_cost = round(float(machinery_cost), 2)
+    avail_cash = max(0.0, round(float(available_promoter_cash), 2))
+    cat_lower = (promoter_category or "general").strip().lower()
+    gender_lower = (gender or "male").strip().lower()
+
+    # Determine statutory promoter margin percentage
+    # Special Category (Women, SC, ST, OBC, Minority, PH, Artisan) = 5% (0.05)
+    # General Male = 10% (0.10)
+    is_special_category = (
+        cat_lower in ("sc", "st", "obc", "minority", "ph", "artisan", "women", "special")
+        or gender_lower in ("female", "woman", "transgender")
+    )
+    margin_pct = 0.05 if is_special_category else 0.10
+
+    # 1. True Total Project Outlay (Asset-Driven Anchor: P = M / 0.55)
+    if m_cost > 0:
+        raw_outlay = m_cost / 0.55
+        # Round to nearest 1,000 for realistic banking schedules
+        true_outlay = round(raw_outlay / 1000.0) * 1000.0
+    elif target_project_cost and target_project_cost > 0:
+        true_outlay = round(float(target_project_cost), 2)
+        m_cost = round(true_outlay * 0.55, 2)
+    else:
+        true_outlay = 500000.0
+        m_cost = 275000.0
+
+    working_capital_and_ancillaries = round(true_outlay - m_cost, 2)
+
+    # 2. Statutory Equity Requirements
+    required_equity = round(true_outlay * margin_pct, 2)
+    raw_diff = round(required_equity - avail_cash, 2)
+    equity_gap = max(0.0, raw_diff)
+    is_deficit = equity_gap > 0.0
+
+    # 3. Bank Concessional Term Loan (typically 90% or 95%)
+    bank_loan = round(true_outlay * (1.0 - margin_pct), 2)
+
+    # 4. SCA Margin Money Assistance (Soft Loan)
+    # State Channelling Agencies (NSFDC, NBCFDC, NMDFC) can fund up to 100% of the promoter margin shortfall
+    sca_soft_loan = equity_gap if is_deficit else 0.0
+
+    # 5. Means of Finance Breakdown
+    means_of_finance = {
+        "promoter_cash_contribution": avail_cash if is_deficit else required_equity,
+        "sca_margin_soft_loan": sca_soft_loan,
+        "bank_term_loan": bank_loan,
+        "total_financing": true_outlay,
+    }
+
+    # 6. Formulate 4 Actionable Bankable Bridge Pathways
+    bridge_options = []
+
+    # Pathway 1: SCA Margin Assistance Soft Loan
+    bridge_options.append({
+        "pathway_id": "sca_margin_assistance",
+        "title": "SCA Margin Money Assistance (Soft Loan)",
+        "provider": "State Channelling Agency (NSFDC / NBCFDC / NMDFC / State Corp)",
+        "description": "Quasi-equity soft loan at concessional 2%–4% simple interest with a 3-5 year repayment term to fund the margin gap without diluting ownership.",
+        "amount_inr": sca_soft_loan,
+        "action_label": "Apply for SCA Margin Assistance",
+        "feasible": is_deficit,
+    })
+
+    # Pathway 2: Statutory 5% Category Concession
+    general_margin = round(true_outlay * 0.10, 2)
+    special_margin = round(true_outlay * 0.05, 2)
+    concession_savings = round(general_margin - special_margin, 2)
+    new_gap_at_5pct = max(0.0, round(special_margin - avail_cash, 2))
+
+    bridge_options.append({
+        "pathway_id": "category_concession",
+        "title": "Claim 5% Statutory Margin Concession",
+        "provider": "Ministry of MSME / PMEGP / State Agency Norms",
+        "description": f"Eligible for Women, SC, ST, OBC, Minority, or Rural Artisans. Slashes promoter equity requirement from 10% (INR {general_margin:,.0f}) to 5% (INR {special_margin:,.0f}), saving INR {concession_savings:,.0f} and leaving only INR {new_gap_at_5pct:,.0f} deficit.",
+        "amount_inr": concession_savings,
+        "action_label": "Verify 5% Category Eligibility",
+        "already_applied": is_special_category,
+        "feasible": not is_special_category,
+    })
+
+    # Pathway 3: Phased Modular Sizing (Starter Kit)
+    starter_outlay = round((avail_cash / margin_pct) / 5000.0) * 5000.0 if margin_pct > 0 else avail_cash * 10
+    starter_machinery = round(starter_outlay * 0.55, 2)
+    bridge_options.append({
+        "pathway_id": "phased_starter_kit",
+        "title": "Asset-Phased Modular Sizing (Year 1 Starter)",
+        "provider": "Internal Retained Earnings Architecture",
+        "description": f"Downscale Year 1 equipment to INR {starter_machinery:,.0f} (Total Outlay: INR {starter_outlay:,.0f}), fitting your current INR {avail_cash:,.0f} cash with 0% deficit. Schedule Phase 2 expansion for Year 3 using operating profits.",
+        "starter_project_outlay": starter_outlay,
+        "starter_machinery_budget": starter_machinery,
+        "action_label": "Switch to Modular Starter Capacity",
+        "feasible": is_deficit and starter_outlay > 0,
+    })
+
+    # Pathway 4: Partner / Family Equity Induction
+    bridge_options.append({
+        "pathway_id": "partner_equity",
+        "title": "Co-Promoter / Family Equity Infusion",
+        "provider": "Private Partnership Capital",
+        "description": f"Introduce a family member or co-promoter to contribute the remaining INR {equity_gap:,.0f} as statutory partner equity, securing full 100% bank appraisal.",
+        "amount_inr": equity_gap if is_deficit else 0.0,
+        "action_label": "Add Co-Promoter Equity",
+        "feasible": is_deficit,
+    })
+
+    return CapitalStructureAnalysis(
+        actual_machinery_cost=m_cost,
+        true_project_outlay=true_outlay,
+        working_capital_and_ancillaries=working_capital_and_ancillaries,
+        statutory_margin_pct=margin_pct,
+        required_promoter_equity=required_equity,
+        available_promoter_cash=avail_cash,
+        equity_gap=equity_gap,
+        is_equity_deficit=is_deficit,
+        bank_term_loan=bank_loan,
+        sca_soft_loan_eligible_amount=sca_soft_loan,
+        means_of_finance=means_of_finance,
+        bridge_options=bridge_options,
     )
 
 

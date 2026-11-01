@@ -140,6 +140,7 @@ class FeasibilityReport(BaseModel):
     ecosystem_graph: Optional[dict[str, Any]] = Field(default=None, description="Document 5 ecosystem graph data contract if pre-calculated")
     machinery_schedule: Optional[dict[str, Any]] = Field(default=None, description="Itemized Plant, Machinery & Equipment Schedule")
     premise_details: Optional[dict[str, Any]] = Field(default=None, description="Operating worksite premise details")
+    capital_structure: Optional[dict[str, Any]] = Field(default=None, description="SCA & Bank Capital Structure and Equity Gap Analysis")
 
 
 class ODOPLookupResponse(BaseModel):
@@ -358,6 +359,7 @@ class FinancialCalcResponse(BaseModel):
     quarterly_schedule: Optional[list[dict[str, Any]]] = None
     smart_turnover_breakdown: Optional[dict[str, Any]] = None
     machinery_schedule: Optional[dict[str, Any]] = None
+    capital_structure: Optional[dict[str, Any]] = None
 
 
 # ---------------------------------------------------------------------------

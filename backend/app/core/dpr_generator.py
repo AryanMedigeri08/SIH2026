@@ -87,6 +87,11 @@ class MeansOfFinanceTable(BaseModel):
     bank_term_loan_pct: float
     total_means_of_finance: float
     reconciliation_balanced: bool = True
+    promoter_cash_available: Optional[float] = None
+    promoter_equity_gap: Optional[float] = None
+    sca_margin_assistance_amount: Optional[float] = None
+    sca_scheme_name: Optional[str] = None
+    sca_bridge_note: Optional[str] = None
 
 
 class FinancialProjectionYear(BaseModel):
@@ -502,6 +507,7 @@ def build_bank_dpr(
     machinery_schedule: Optional[Any] = None,
     premise_type: str = "rented",
     monthly_rent: Optional[float] = None,
+    available_margin_capital: Optional[float] = None,
 ) -> BankDPRDocument:
     """
     Compiles the complete 7-Section Bank DPR appraisal document.
@@ -608,6 +614,10 @@ def build_bank_dpr(
     bank_loan_amt = max(project_cost - subsidy_amt - promoter_margin_amt, 0.0)
     bank_loan_pct = (bank_loan_amt / project_cost * 100) if project_cost > 0 else 0.0
 
+    # SCA Equity Gap & Margin Bridge
+    cash_avail = round(float(available_margin_capital), 2) if available_margin_capital is not None else None
+    equity_gap = round(promoter_margin_amt - cash_avail, 2) if (cash_avail is not None and cash_avail < promoter_margin_amt) else 0.0
+
     means_of_finance = MeansOfFinanceTable(
         promoter_margin_amount=round(promoter_margin_amt, 2),
         promoter_margin_pct=round(promoter_pct, 1),
@@ -618,6 +628,11 @@ def build_bank_dpr(
         bank_term_loan_pct=round(bank_loan_pct, 1),
         total_means_of_finance=round(promoter_margin_amt + subsidy_amt + bank_loan_amt, 2),
         reconciliation_balanced=abs((promoter_margin_amt + subsidy_amt + bank_loan_amt) - project_cost) < 1.0,
+        promoter_cash_available=cash_avail,
+        promoter_equity_gap=equity_gap if equity_gap > 0 else None,
+        sca_margin_assistance_amount=equity_gap if equity_gap > 0 else None,
+        sca_scheme_name="State Channelling Agency (SCA) Margin Money Assistance Soft Loan" if equity_gap > 0 else None,
+        sca_bridge_note=f"Statutory equity gap of INR {equity_gap:,.2f} bridged via SCA Concessional Margin Money Assistance (Soft Loan at 2-4% p.a.)." if equity_gap > 0 else None,
     )
 
     # 3. 5-Year Cash Flow Projections
@@ -786,7 +801,14 @@ def dpr_to_printable_markdown(dpr: BankDPRDocument) -> str:
         f"\n### Means of Finance Reconciliation:",
         f"| Financing Source | % Share | Amount (₹) | Scheme / Terms |",
         f"| :--- | :---: | :---: | :--- |",
-        f"| **Promoter Margin Contribution** | {finance['promoter_margin_pct']:.1f}% | ₹{finance['promoter_margin_amount']:,.2f} | Own equity funds |",
+        *(
+            [
+                f"| **Promoter Cash In Hand** | {(finance['promoter_cash_available'] / finance['total_means_of_finance'] * 100):.1f}% | ₹{finance['promoter_cash_available']:,.2f} | Direct Paid-up Equity |",
+                f"| **SCA Margin Assistance (Soft Loan)** | {(finance['sca_margin_assistance_amount'] / finance['total_means_of_finance'] * 100):.1f}% | ₹{finance['sca_margin_assistance_amount']:,.2f} | {finance.get('sca_scheme_name','State Agency Quasi-Equity')} |",
+            ]
+            if finance.get('sca_margin_assistance_amount') and finance.get('promoter_cash_available') is not None
+            else [f"| **Promoter Margin Contribution** | {finance['promoter_margin_pct']:.1f}% | ₹{finance['promoter_margin_amount']:,.2f} | Own equity funds |"]
+        ),
         f"| **Government Capital Subsidy Grant** | {finance['capital_subsidy_pct']:.1f}% | ₹{finance['capital_subsidy_amount']:,.2f} | {finance['subsidy_scheme_name']} |",
         f"| **Bank Term Loan / Debt** | {finance['bank_term_loan_pct']:.1f}% | ₹{finance['bank_term_loan_amount']:,.2f} | Scheduled Commercial Bank Loan |",
         f"| **TOTAL MEANS OF FINANCE** | **100.0%** | **₹{finance['total_means_of_finance']:,.2f}** | **Balanced: {finance['reconciliation_balanced']}** |",
