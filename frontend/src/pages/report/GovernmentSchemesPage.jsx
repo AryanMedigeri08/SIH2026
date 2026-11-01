@@ -55,6 +55,26 @@ const STATUTORY_SCHEME_SPECS = [
     collateral: "100% Collateral-free government guarantee",
     portal: "https://pmvishwakarma.gov.in/",
   },
+  {
+    scheme_id: "SCA Micro Finance",
+    name: "SCA Margin Money Micro Finance Scheme",
+    ministry: "State Channelling Agency (SCA) / NSFDC / NBCFDC / NMDFC",
+    max_cost: "Up to ₹1.40 Lakh (Max loan ₹1.25 Lakh)",
+    subsidy_slabs: "Concessional 6.5% p.a. fixed interest (3 Years Repayment • 3 Months Moratorium)",
+    promoter_margin: "Flat 10% (Max ₹14,000)",
+    collateral: "100% Collateral-free concessional micro-credit",
+    portal: "https://nsfdc.nic.in/",
+  },
+  {
+    scheme_id: "SCA Term Loan",
+    name: "SCA Margin Money Term Loan Scheme",
+    ministry: "State Channelling Agency (SCA) / Ministry of Social Justice",
+    max_cost: "₹1.40 Lakh to ₹50.00 Lakh (Max loan ₹45.00 Lakh)",
+    subsidy_slabs: "Concessional 8.0% p.a. fixed interest (7 Years Repayment • 6 Months Moratorium)",
+    promoter_margin: "10% (5% for Special Categories)",
+    collateral: "SCA quasi-equity refinance & bank term guarantee",
+    portal: "https://nsfdc.nic.in/",
+  },
 ];
 
 export function GovernmentSchemesPage({ reportData }) {

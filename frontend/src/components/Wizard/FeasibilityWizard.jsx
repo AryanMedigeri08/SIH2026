@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Building2, MapPin, User, Coins, Clock, FileText, CheckCircle2, 
   ChevronRight, ChevronLeft, Sparkles, X, Loader2, Compass, 
-  AlertCircle, Info, ShieldCheck, Languages, Check, Wrench, Cpu, Zap, Landmark, RotateCcw
+  AlertCircle, Info, ShieldCheck, Languages, Check, Wrench, Cpu, Zap, Landmark, RotateCcw, Sliders
 } from 'lucide-react';
 import { fetchStates, fetchDistricts, fetchBlocks, fetchVillages, fetchOdopProduct, fetchMachinerySchedule } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -64,6 +64,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
   const [loadingMachinery, setLoadingMachinery] = useState(false);
   const [sizingMode, setSizingMode] = useState('asset_driven'); // 'asset_driven' | 'cash_constrained'
   const [scaBridgeApplied, setScaBridgeApplied] = useState(false);
+  const [showCustomTenure, setShowCustomTenure] = useState(false);
 
   // LGD Dropdown states
   const [states, setStates] = useState([]);
@@ -367,6 +368,10 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
       ? Number(formData.margin_capital)
       : Math.round(finalOutlay * marginPct);
 
+    const isMicro = finalOutlay <= 140000;
+    const finalTenure = showCustomTenure ? (Number(formData.tenure_years) || (isMicro ? 3 : 7)) : (isMicro ? 3 : 7);
+    const finalMoratorium = showCustomTenure ? (Number(formData.moratorium_months) || (isMicro ? 3 : 6)) : (isMicro ? 3 : 6);
+
     const submissionPayload = {
       ...formData,
       project_cost: finalOutlay,
@@ -374,6 +379,8 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
       margin_capital: finalMargin,
       available_margin_capital: finalMargin,
       sca_bridge_applied: scaBridgeApplied,
+      tenure_years: finalTenure,
+      moratorium_months: finalMoratorium,
       premise_type: formData.premise_type || "rented",
       monthly_rent: formData.premise_type === "rented" ? (Number(formData.monthly_rent) || 2500) : 0,
       monthly_net_operating_income_override: formData.monthly_net_operating_income_override 
@@ -1524,44 +1531,126 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
             );
           })()}
 
-          {/* Step 5: Loan Terms & Moratorium */}
-          {currentStep === 5 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-sovereign-700" />
-                Step 5: Commercial Bank Loan Repayment & Grace Terms
-              </h3>
+          {/* Step 5: Statutory Scheme Repayment & Grace Terms */}
+          {currentStep === 5 && (() => {
+            const currentOutlay = Number(formData.project_cost) || 900000;
+            const isMicro = currentOutlay <= 140000;
+            const statutoryTenure = isMicro ? 3 : 7;
+            const statutoryMoratorium = isMicro ? 3 : 6;
+            const statutoryRate = isMicro ? 6.5 : 8.0;
+            const statutoryMaxLoan = isMicro ? 125000 : 4500000;
+            const statutorySchemeName = isMicro 
+              ? "SCA Micro Finance Scheme (MFS)" 
+              : "SCA Term Loan Scheme (TLS)";
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Requested Repayment Tenure (Years)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={15}
-                    step={0.5}
-                    value={formData.tenure_years}
-                    onChange={e => setFormData({ ...formData, tenure_years: Number(e.target.value) })}
-                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
-                  />
-                  <p className="text-[11px] text-slate-500 mt-1">Standard MSME bank term loan tenure: 5 to 7 years</p>
+            return (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-sovereign-700" />
+                    Step 5: Statutory Credit Tier & Repayment Terms
+                  </h3>
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    Statutory Auto-Tiering Active
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Moratorium Grace Period (Months)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={24}
-                    value={formData.moratorium_months}
-                    onChange={e => setFormData({ ...formData, moratorium_months: Number(e.target.value) })}
-                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
-                  />
-                  <p className="text-[11px] text-slate-500 mt-1">Repayment begins after operational stabilization</p>
+                {/* Statutory Scheme Card */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-sovereign-50/80 via-white to-emerald-50/30 border border-sovereign-200/90 shadow-subtle space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <Landmark className="w-4 h-4 text-sovereign-700" />
+                      <span>{statutorySchemeName}</span>
+                    </span>
+                    <span className="text-xs font-bold font-mono text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
+                      {statutoryRate}% p.a. Concessional Rate
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                    {isMicro
+                      ? "For small units costing up to ₹1.40 Lakh, statutory State Channelling Agency (SCA) norms mandate a 3-year repayment term with a 3-month operational moratorium at 6.5% interest."
+                      : "For enterprise projects between ₹1.40 Lakh and ₹50.00 Lakh, statutory State Channelling Agency (SCA) norms mandate a 7-year repayment term with a 6-month operational moratorium at 8.0% interest."}
+                  </p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                      <span className="text-[10px] text-slate-500 block">Statutory Tenure:</span>
+                      <strong className="font-mono text-sm text-slate-900">{statutoryTenure} Years</strong>
+                      <span className="text-[9px] text-slate-400 block">{statutoryTenure * 12} Monthly EMIs</span>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                      <span className="text-[10px] text-slate-500 block">Moratorium Grace:</span>
+                      <strong className="font-mono text-sm text-emerald-700">{statutoryMoratorium} Months</strong>
+                      <span className="text-[9px] text-slate-400 block">Zero Principal Outflow</span>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                      <span className="text-[10px] text-slate-500 block">Max Concessional Loan:</span>
+                      <strong className="font-mono text-sm text-blue-800">
+                        ₹{(statutoryMaxLoan / 100000).toFixed(2)}L
+                      </strong>
+                      <span className="text-[9px] text-slate-400 block">Up to 90% Project Cost</span>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                      <span className="text-[10px] text-slate-500 block">Interest Benchmark:</span>
+                      <strong className="font-mono text-sm text-sovereign-800">{statutoryRate}% p.a.</strong>
+                      <span className="text-[9px] text-slate-400 block">SCA Refinanced</span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Optional Customization Accordion */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomTenure(!showCustomTenure)}
+                    className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition flex items-center justify-between text-xs font-semibold text-slate-700"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Advanced Override: Customize Repayment Terms (Optional)</span>
+                    </span>
+                    <span className="text-[11px] text-sovereign-700 font-bold">{showCustomTenure ? "Hide Customization" : "Modify Terms"}</span>
+                  </button>
+
+                  {showCustomTenure && (
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1.5">Repayment Tenure (Years)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={15}
+                          step={0.5}
+                          value={formData.tenure_years}
+                          onChange={e => setFormData({ ...formData, tenure_years: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1">Recommended: {statutoryTenure} Years under SCA guidelines</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1.5">Moratorium Grace Period (Months)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={24}
+                          value={formData.moratorium_months}
+                          onChange={e => setFormData({ ...formData, moratorium_months: Number(e.target.value) })}
+                          className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle"
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1">Recommended: {statutoryMoratorium} Months for operational ramp-up</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Step 6: Supplementary Business Context & Operational Overrides (NEW STEP) */}
           {currentStep === 6 && (

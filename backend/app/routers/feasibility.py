@@ -153,6 +153,14 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     )
 
     # 2. Financial & Scheme Optimization (Tier 1)
+    # Statutory Scheme Tiering (Micro Finance ≤ ₹1.40L vs Term Loan > ₹1.40L)
+    if input_data.project_cost <= 140000.0:
+        input_data.tenure_years = 3.0
+        input_data.moratorium_months = 3
+    elif not input_data.tenure_years or input_data.tenure_years <= 0:
+        input_data.tenure_years = 7.0
+        input_data.moratorium_months = 6
+
     wc = working_capital_estimate(input_data.annual_turnover_estimate, input_data.sector)
     schemes = rank_eligible_schemes(
         project_cost=input_data.project_cost,

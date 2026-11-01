@@ -238,11 +238,15 @@ class SchemeRanking:
     benefit_type: str = "CAPITAL_GRANT"  # "CAPITAL_GRANT" | "INTEREST_SUBVENTION" | "CONCESSIONAL_CREDIT" | "INELIGIBLE"
     interest_savings_amount: float = 0.0
     benefit_summary: str = ""
+    tenure_years: float = 5.0
+    moratorium_months: int = 6
+    monthly_emi: float = 0.0
 
     def to_dict(self) -> dict:
         d = asdict(self)
-        for k in ("subsidy_grant_amount", "effective_interest_rate_pct", "total_interest_payable", "net_financial_benefit", "interest_savings_amount"):
-            d[k] = round(d[k], 2)
+        for k in ("subsidy_grant_amount", "effective_interest_rate_pct", "total_interest_payable", "net_financial_benefit", "interest_savings_amount", "monthly_emi"):
+            if isinstance(d.get(k), float):
+                d[k] = round(d[k], 2)
         return d
 
 
@@ -891,18 +895,31 @@ def rank_eligible_schemes(
             )
             loan_principal = max(project_cost - actual_subsidy - (project_cost * promoter_pct), 0.0)
 
-        # --- total interest payable over tenure under this scheme ---
+        # Statutory loan principal caps (e.g. ₹1.25L for SCA Micro Finance, ₹45.00L for SCA Term Loan)
+        if s.get("scheme_id") == "MARGIN_MONEY_MICRO_FINANCE":
+            loan_principal = min(loan_principal, 125000.0)
+        elif s.get("scheme_id") == "MARGIN_MONEY_TERM_LOAN":
+            loan_principal = min(loan_principal, 4500000.0)
+
+        # Scheme-specific statutory tenure and moratorium
+        scheme_tenure = float(s.get("default_tenure_years") or tenure_years)
+        scheme_moratorium = int(s.get("default_moratorium_months") if s.get("default_moratorium_months") is not None else moratorium_months)
+
+        # --- total interest payable and monthly EMI over tenure under this scheme ---
         total_interest = 0.0
         base_interest = 0.0
+        scheme_monthly_emi = 0.0
         if loan_principal > 0:
             try:
-                amort = emi_with_moratorium(loan_principal, eff_rate, tenure_years, moratorium_months)
+                amort = emi_with_moratorium(loan_principal, eff_rate, scheme_tenure, scheme_moratorium)
                 total_interest = amort.total_interest_payable
+                scheme_monthly_emi = round(amort.monthly_emi, 2)
             except ValueError:
                 total_interest = 0.0
+                scheme_monthly_emi = 0.0
             
             try:
-                base_amort = emi_with_moratorium(loan_principal, default_bank_interest_rate_pct, tenure_years, moratorium_months)
+                base_amort = emi_with_moratorium(loan_principal, default_bank_interest_rate_pct, scheme_tenure, scheme_moratorium)
                 base_interest = base_amort.total_interest_payable
             except ValueError:
                 base_interest = total_interest
@@ -945,6 +962,9 @@ def rank_eligible_schemes(
                 benefit_type=benefit_type,
                 interest_savings_amount=interest_savings,
                 benefit_summary=benefit_summary,
+                tenure_years=scheme_tenure,
+                moratorium_months=scheme_moratorium,
+                monthly_emi=scheme_monthly_emi,
             )
         )
 
