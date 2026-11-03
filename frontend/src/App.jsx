@@ -161,6 +161,7 @@ export function AppContent() {
   const { language } = useLanguage();
 
   const isAuthOrLanding = ['/', '/landing', '/login', '/register'].includes(location.pathname);
+  const isMiraOnboarding = ['/wizard', '/new-assessment'].includes(location.pathname);
 
   // Health check on app start
   useEffect(() => {
@@ -266,7 +267,7 @@ export function AppContent() {
       navigate('/dashboard');
       return created;
     } catch (err) {
-      alert(`Enterprise appraisal error: ${err.message}`);
+      if (formData?.onboarding_revision == null) alert(`Enterprise appraisal error: ${err.message}`);
       throw err;
     } finally {
       setIsGenerating(false);
@@ -291,6 +292,7 @@ export function AppContent() {
       {/* Top Navbar with Persistent Chatbot button & Multi-Business Switcher */}
       <Navbar
         health={health}
+          onboarding={isMiraOnboarding}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
       />
 
@@ -633,10 +635,10 @@ export function AppContent() {
       />
 
       {/* Persistent Movable Desktop AI Chatbot Window */}
-      <FloatingChatWindow />
+        {!isMiraOnboarding && <FloatingChatWindow />}
 
       {/* Lightweight Siri Voice Agent Widget */}
-      <VoiceAgentWindow />
+        {!isMiraOnboarding && <VoiceAgentWindow />}
 
     </div>
   );

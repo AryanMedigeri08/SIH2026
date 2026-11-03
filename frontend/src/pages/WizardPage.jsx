@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FeasibilityWizard } from '../components/Wizard/FeasibilityWizard';
+import { MiraOnboarding } from '../components/Wizard/MiraOnboarding';
 import { Sparkles, ArrowLeft } from 'lucide-react';
 import { PITCH_CASES } from '../data/pitchCases';
 import { useLanguage } from '../context/LanguageContext';
@@ -8,23 +9,15 @@ import { useAuth } from '../context/AuthContext';
 
 export function WizardPage({ onWizardSubmit, isLoading }) {
   const navigate = useNavigate();
-  const { isDemoMode } = useAuth();
+  const { isDemoMode, firebaseUser } = useAuth();
   const [selectedTemplateIndex, setSelectedTemplateIndex] = useState(0);
-  const { language, setLanguage, t } = useLanguage();
-
-  // Automatically reset active language to English when starting a fresh enterprise analysis
-  useEffect(() => {
-    if (language !== "en") {
-      setLanguage("en");
-    }
-  }, []);
+  const [useLegacy, setUseLegacy] = useState(false);
+  const { language, t } = useLanguage();
 
   const handleSubmit = async (formData) => {
-    if (language !== "en") {
-      setLanguage("en");
-    }
-    await onWizardSubmit({ ...formData, language: "en" });
+    const created = await onWizardSubmit({ ...formData, language });
     navigate('/dashboard');
+    return created;
   };
 
   const initialData = isDemoMode && PITCH_CASES[selectedTemplateIndex]
@@ -33,6 +26,9 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {!useLegacy && <MiraOnboarding key={firebaseUser?.uid} onSubmit={handleSubmit} isSubmitting={isLoading} />}
+      <button className="mira-secondary" onClick={() => setUseLegacy(!useLegacy)}>{useLegacy ? 'Return to Mira' : 'Open detailed appraisal form'}</button>
+      {useLegacy && <>
       
       {/* Top Banner Header */}
       <div className="glass-panel p-6 border-l-4 border-sovereign-800 bg-white shadow-card border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -87,6 +83,7 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
         />
       </div>
 
+      </>}
     </div>
   );
 }

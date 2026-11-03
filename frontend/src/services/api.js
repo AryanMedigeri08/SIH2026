@@ -23,6 +23,9 @@ async function authFetch(url, token, options = {}) {
       const errJson = await res.json();
       errorDetail = errJson.detail || errJson.message || errorDetail;
     } catch (_) {}
+    if (typeof errorDetail !== 'string') {
+      errorDetail = Array.isArray(errorDetail) ? errorDetail.map(item => item.msg || 'Invalid input').join('; ') : 'Please check your input.';
+    }
     const error = new Error(errorDetail);
     error.status = res.status;
     if (res.status === 401 && (errorDetail.includes('revoked') || errorDetail.includes('expired') || errorDetail.includes('Invalid or expired'))) {
@@ -39,6 +42,21 @@ async function authFetch(url, token, options = {}) {
   }
   return await res.text();
 }
+
+export const onboardingApi = {
+  session: (token, language = 'en') => authFetch(`${API_BASE}/onboarding/session?language=${language}`, token),
+  turn: (token, payload) => authFetch(`${API_BASE}/onboarding/turn`, token, { method: 'POST', body: JSON.stringify(payload) }),
+  locationOptions: (token, level, parent, search = '') => {
+    const params = new URLSearchParams({ search });
+    if (parent != null) params.set('parent', parent);
+    return authFetch(`${API_BASE}/onboarding/locations/${level}?${params}`, token);
+  },
+  chooseLocation: (token, payload) => authFetch(`${API_BASE}/onboarding/location`, token, { method: 'PUT', body: JSON.stringify(payload) }),
+  detectLocation: (token, payload) => authFetch(`${API_BASE}/onboarding/location/detect`, token, { method: 'POST', body: JSON.stringify(payload) }),
+  reportInput: (token, revision) => authFetch(`${API_BASE}/onboarding/report-input`, token, { method: 'POST', body: JSON.stringify({ revision }) }),
+  complete: (token, revision, language = 'en') => authFetch(`${API_BASE}/onboarding/complete`, token, { method: 'POST', body: JSON.stringify({ revision, language }) }),
+  newSession: (token, revision) => authFetch(`${API_BASE}/onboarding/new-session`, token, { method: 'POST', body: JSON.stringify({ revision }) }),
+};
 
 export async function checkHealth() {
   try {
@@ -536,8 +554,8 @@ export const chatApi = {
 
   async transcribeAudio(audioBlob, language = '') {
     const formData = new FormData();
-    const isWav = audioBlob.type?.includes('wav');
-    formData.append('file', audioBlob, isWav ? 'wake_word.wav' : 'wake_word.webm');
+    const extension = audioBlob.type?.includes('wav') ? 'wav' : audioBlob.type?.includes('mp4') ? 'm4a' : audioBlob.type?.includes('ogg') ? 'ogg' : 'webm';
+    formData.append('file', audioBlob, `recording.${extension}`);
     formData.append('language', language || '');
     const res = await fetch(`${API_BASE}/chat/stt`, {
       method: 'POST',

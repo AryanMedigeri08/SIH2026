@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from "react";
+import { MiraRegistrationGuide } from "../components/MiraRegistrationGuide";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useBusiness } from "../context/BusinessContext";
@@ -35,7 +36,7 @@ export const LoginPage = () => {
 
   const resolveTargetRoute = async (authSession) => {
     const explicitFrom = location.state?.from?.pathname;
-    if (explicitFrom && explicitFrom !== "/login" && explicitFrom !== "/register" && explicitFrom !== "/wizard") {
+    if (explicitFrom && explicitFrom !== "/login" && explicitFrom !== "/register") {
       return explicitFrom;
     }
 
@@ -162,6 +163,7 @@ export const LoginPage = () => {
           )}
 
           {/* Email / Password Form */}
+          <MiraRegistrationGuide signIn />
           <form className="space-y-4" onSubmit={handleEmailLogin}>
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">

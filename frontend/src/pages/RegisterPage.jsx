@@ -9,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { useBusiness } from "../context/BusinessContext";
 import { LanguageSelector } from "../components/LanguageSelector";
 import { useLanguage } from "../context/LanguageContext";
+import { MiraRegistrationGuide } from "../components/MiraRegistrationGuide";
 import {
   Lock,
   Mail,
@@ -27,6 +28,7 @@ export const RegisterPage = () => {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [gender, setGender] = useState("Unspecified");
+  const [category, setCategory] = useState("");
   const [phone, setPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState(null);
@@ -54,6 +56,7 @@ export const RegisterPage = () => {
       await registerWithEmail(email.trim(), password, {
         name: name.trim(),
         gender,
+        promoter_category: category || null,
         phone: phone.trim() || null,
       });
       navigate("/wizard", { replace: true });
@@ -166,6 +169,7 @@ export const RegisterPage = () => {
             </div>
           )}
 
+          <MiraRegistrationGuide name={name} gender={gender} category={category} onName={setName} onGender={setGender} onCategory={setCategory} />
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Section 1: Security & Identity */}
             <div>
@@ -260,6 +264,13 @@ export const RegisterPage = () => {
                 </div>
               </div>
 
+              <label className="block text-sm font-medium text-slate-700 mt-3.5">Caste / category for relevant scheme assessment
+                <select className="mira-input mt-1" value={category} onChange={event => setCategory(event.target.value)}>
+                  <option value="">Choose now or discuss with Mira after sign-in</option>
+                  {['general', 'sc', 'st', 'obc', 'minority', 'ph', 'artisan', 'women', 'women_shg'].map(value => <option key={value} value={value}>{value.replaceAll('_', ' ').toUpperCase()}</option>)}
+                </select>
+                <span className="text-xs font-normal block mt-1">Used only for relevant eligibility and contribution rules. You can correct this later.</span>
+              </label>
               <div className="mt-3.5">
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Mobile / Phone Number (Optional)
@@ -283,7 +294,7 @@ export const RegisterPage = () => {
             <div className="p-3 rounded-xl bg-sovereign-50 border border-sovereign-200 text-xs text-sovereign-900 flex items-center gap-2 font-medium">
               <Sparkles className="w-4 h-4 text-sovereign-700 shrink-0" />
               <span>
-                Enterprise parameters & supplementary context are entered in the 7-Step Feasibility Wizard next.
+                Mira will help you confirm your business location and assess your idea next. You can speak or type.
               </span>
             </div>
 

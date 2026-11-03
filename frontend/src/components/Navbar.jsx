@@ -10,7 +10,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { ChatbotNavButton } from './Chat/ChatbotNavButton';
 import { PersonaSwitcher } from './PersonaSwitcher';
 
-export function Navbar({ health, onToggleMobileSidebar }) {
+export function Navbar({ health, onToggleMobileSidebar, onboarding = false }) {
   const isHealthy = health?.status === 'healthy';
   const { isAuthenticated, userProfile, logout } = useAuth();
   const { t } = useLanguage();
@@ -73,7 +73,7 @@ export function Navbar({ health, onToggleMobileSidebar }) {
           <PersonaSwitcher compact />
 
           {/* Persistent AI Chatbot Navigation Button */}
-          <ChatbotNavButton />
+          {!onboarding && <ChatbotNavButton />}
 
           {/* Live System Status Pill (Telemetry) - visible on xl+ */}
           <Link 

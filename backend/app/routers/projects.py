@@ -30,7 +30,7 @@ router = APIRouter(prefix="/projects", tags=["Project State Persistence & Multi-
 def _project_dict_to_user_input(p: dict[str, Any]) -> UserInput:
     """Helper to convert project dict into UserInput for pipeline execution."""
     cost = float(p.get("project_cost") or p.get("investment_amount") or 500000.0)
-    avail_margin = p.get("available_margin_capital") or p.get("margin_capital")
+    avail_margin = p.get("available_margin_capital") if p.get("project_cost_components") else (p.get("available_margin_capital") or p.get("margin_capital"))
     if avail_margin is not None:
         avail_margin = float(avail_margin)
     prem_type = p.get("premise_type", "rented")
@@ -51,6 +51,11 @@ def _project_dict_to_user_input(p: dict[str, Any]) -> UserInput:
         village_name=p.get("village_name", "Joypur"),
         is_rural=p.get("is_rural", True),
         project_cost=cost,
+        project_cost_components=p.get("project_cost_components"),
+        financing_choice=p.get("financing_choice"),
+        odop_preference=p.get("odop_preference"),
+        latitude=p.get("latitude"), longitude=p.get("longitude"),
+        expected_monthly_units=p.get("expected_monthly_units"),
         annual_turnover_estimate=float(p.get("annual_turnover_estimate", 600000.0)),
         available_margin_capital=avail_margin,
         premise_type=prem_type,
@@ -80,6 +85,11 @@ async def create_project(
         "sector": project_in.sector,
         "investment_amount": project_in.investment_amount,
         "project_cost": project_in.project_cost or project_in.investment_amount,
+        "project_cost_components": project_in.project_cost_components.model_dump(exclude_none=True) if project_in.project_cost_components else None,
+        "financing_choice": project_in.financing_choice,
+        "odop_preference": project_in.odop_preference,
+        "latitude": project_in.latitude, "longitude": project_in.longitude,
+        "expected_monthly_units": project_in.expected_monthly_units,
         "available_margin_capital": project_in.available_margin_capital,
         "premise_type": project_in.premise_type or "rented",
         "monthly_rent": project_in.monthly_rent,
@@ -121,6 +131,10 @@ async def create_and_analyze_project(
     project_in: ProjectCreate,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
+    return await analyze_new_project(project_in, current_user)
+
+
+async def analyze_new_project(project_in: ProjectCreate, current_user: AuthenticatedUser, *, project_id: str | None = None):
     """
     Atomic creation and analysis endpoint:
     1. Persists the project draft under current_user.uid.
@@ -136,6 +150,11 @@ async def create_and_analyze_project(
         "sector": project_in.sector,
         "investment_amount": project_in.investment_amount,
         "project_cost": project_in.project_cost or project_in.investment_amount,
+        "project_cost_components": project_in.project_cost_components.model_dump(exclude_none=True) if project_in.project_cost_components else None,
+        "financing_choice": project_in.financing_choice,
+        "odop_preference": project_in.odop_preference,
+        "latitude": project_in.latitude, "longitude": project_in.longitude,
+        "expected_monthly_units": project_in.expected_monthly_units,
         "available_margin_capital": project_in.available_margin_capital,
         "premise_type": project_in.premise_type or "rented",
         "monthly_rent": project_in.monthly_rent,
@@ -156,6 +175,8 @@ async def create_and_analyze_project(
         "status": "draft",
         "analysis_result": None,
     }
+    if project_id is not None:
+        project_dict["project_id"] = project_id
     record = await db_manager.create_project(project_dict)
 
     user_input = _project_dict_to_user_input(record)

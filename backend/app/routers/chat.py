@@ -13,14 +13,14 @@ from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
 from pydantic import BaseModel, Field
 
 try:
-    from app.core.chat_service import chat_service
+    from app.core.chat_service import chat_service, LANGUAGE_NAMES
     from app.core.audio_chat_service import audio_chat_service, normalize_lang
     from app.core.bhashini_client import bhashini_client
     from app.core import sarvam_client
     from app.config import settings
     from app.core.action_registry import ACTION_REGISTRY_SCHEMA
 except ImportError:
-    from backend.app.core.chat_service import chat_service
+    from backend.app.core.chat_service import chat_service, LANGUAGE_NAMES
     from backend.app.core.audio_chat_service import audio_chat_service, normalize_lang
     from backend.app.core.bhashini_client import bhashini_client
     from backend.app.core import sarvam_client
@@ -242,7 +242,7 @@ async def generate_speech(payload: TtsRequest):
     Attempts Bhashini TTS first for native Indic voices, falls back to gTTS.
     """
     try:
-        logger.info("🔊 [TTS ROUTER] Request: \"%s\" (lang=%s)", payload.text[:50], payload.language)
+        logger.info("🔊 [TTS ROUTER] Request (%d characters, lang=%s)", len(payload.text), payload.language)
         result = await audio_chat_service.text_to_speech_v2(
             text=payload.text,
             language=payload.language or "en",
@@ -289,11 +289,11 @@ async def transcribe_audio_file(
                 )
                 if transcript and transcript.strip():
                     stt_latency = round(time.perf_counter() - start_time, 3)
-                    lang_name = chat_service.LANGUAGE_NAMES.get(norm_lang, norm_lang.capitalize())
+                    lang_name = LANGUAGE_NAMES.get(norm_lang, norm_lang.capitalize())
                     logger.info(
-                        "[🇮🇳 BHASHINI ASR] Speech Transcribed (/stt %s): \"%s\" | ⏱️ %dms",
+                        "[🇮🇳 BHASHINI ASR] Speech transcribed (/stt %s): %d characters | ⏱️ %dms",
                         norm_lang,
-                        transcript if len(transcript) <= 70 else transcript[:67] + "...",
+                        len(transcript),
                         int(stt_latency * 1000),
                     )
                     return {

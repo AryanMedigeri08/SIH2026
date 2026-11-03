@@ -3,8 +3,9 @@ schemas.py — Pydantic v2 Request & Response Data Schemas for Udyam Saathi REST
 """
 
 from __future__ import annotations
-from typing import Optional, Union, Any
-from pydantic import BaseModel, Field
+from typing import Optional, Union, Any, Literal
+from pydantic import BaseModel, Field, model_validator
+from .onboarding import CostItems
 
 
 # ---------------------------------------------------------------------------
@@ -25,7 +26,8 @@ class HealthStatus(BaseModel):
 # ---------------------------------------------------------------------------
 class UserRegisterRequest(BaseModel):
     name: str = Field(..., min_length=1, description="Full Name of Entrepreneur")
-    gender: Optional[str] = Field("Unspecified", description="Male | Female | Other | Unspecified")
+    gender: Optional[str] = Field(None, description="Male | Female | Other | Unspecified")
+    promoter_category: Optional[str] = Field(None, pattern="^(general|sc|st|obc|minority|ph|artisan|women|women_shg)$")
     phone: Optional[str] = Field(None, description="Mobile / Contact number")
     additional_business_details: Optional[str] = Field(None, max_length=1000, description="Optional free-text context for AI narrative")
 
@@ -33,6 +35,7 @@ class UserRegisterRequest(BaseModel):
 class UserUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1)
     gender: Optional[str] = None
+    promoter_category: Optional[str] = Field(None, pattern="^(general|sc|st|obc|minority|ph|artisan|women|women_shg)$")
     phone: Optional[str] = None
     additional_business_details: Optional[str] = Field(None, max_length=1000)
     preferred_language: Optional[str] = Field(None, pattern="^(en|hi|mr|ta|te|kn)$")
@@ -43,6 +46,7 @@ class UserProfileResponse(BaseModel):
     name: str
     email: str
     gender: Optional[str] = "Unspecified"
+    promoter_category: Optional[str] = None
     auth_provider: str = "email"
     phone: Optional[str] = None
     additional_business_details: Optional[str] = None
@@ -105,6 +109,9 @@ class UserInput(BaseModel):
     village_name: str = Field("N/A", description="Village Name")
     is_rural: bool = Field(True, description="True if rural, False if urban")
     project_cost: float = Field(..., gt=0, description="Total capital outlay in INR (₹)")
+    project_cost_components: Optional[CostItems] = None
+    financing_choice: Optional[Literal["normal", "sca", "self"]] = None
+    odop_preference: Optional[Literal["explore", "keep", "reject"]] = None
     annual_turnover_estimate: Optional[float] = Field(None, description="Estimated annual gross sales in INR (₹) - auto-sized if None or 0")
     available_margin_capital: Optional[float] = Field(None, description="Available margin money / promoter equity in INR")
     premise_type: str = Field("rented", description="Operating premise tenure: rented | owned | panchayat")
@@ -120,6 +127,20 @@ class UserInput(BaseModel):
     language: str = Field("en", description="Target language: en | hi | mr | ta | te | kn")
     latitude: Optional[float] = Field(None, description="Target GPS latitude if auto-detected or mapped")
     longitude: Optional[float] = Field(None, description="Target GPS longitude if auto-detected or mapped")
+
+    @model_validator(mode="after")
+    def validate_confirmed_costs(self):
+        if self.project_cost_components is not None:
+            from ..core.financial_calculator import confirmed_project_outlay
+            import math
+            total = confirmed_project_outlay(self.project_cost_components.model_dump(exclude_none=True))
+            if abs(total - self.project_cost) > 0.01:
+                raise ValueError("Project outlay must equal its confirmed cost components")
+            if self.available_margin_capital is None or not math.isfinite(self.available_margin_capital) or self.available_margin_capital < 0:
+                raise ValueError("Confirm your own contribution, including zero")
+            if self.premise_type in ("rented", "shared") and (self.monthly_rent is None or not math.isfinite(self.monthly_rent)):
+                raise ValueError("Confirm the monthly rent or shared facility fee before calculating")
+        return self
 
 
 class FeasibilityReport(BaseModel):
@@ -141,6 +162,7 @@ class FeasibilityReport(BaseModel):
     machinery_schedule: Optional[dict[str, Any]] = Field(default=None, description="Itemized Plant, Machinery & Equipment Schedule")
     premise_details: Optional[dict[str, Any]] = Field(default=None, description="Operating worksite premise details")
     capital_structure: Optional[dict[str, Any]] = Field(default=None, description="SCA & Bank Capital Structure and Equity Gap Analysis")
+    financing_selection: Optional[dict[str, Any]] = None
 
 
 class ODOPLookupResponse(BaseModel):
@@ -262,6 +284,12 @@ class ProjectCreate(BaseModel):
     sector: str
     investment_amount: float
     project_cost: Optional[float] = None
+    project_cost_components: Optional[CostItems] = None
+    financing_choice: Optional[Literal["normal", "sca", "self"]] = None
+    odop_preference: Optional[Literal["explore", "keep", "reject"]] = None
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    expected_monthly_units: Optional[float] = Field(None, gt=0)
     annual_turnover_estimate: float
     available_margin_capital: Optional[float] = None
     premise_type: Optional[str] = "rented"
@@ -286,6 +314,8 @@ class ProjectUpdate(BaseModel):
     business_name: Optional[str] = None
     investment_amount: Optional[float] = None
     project_cost: Optional[float] = None
+    project_cost_components: Optional[CostItems] = None
+    financing_choice: Optional[Literal["normal", "sca", "self"]] = None
     annual_turnover_estimate: Optional[float] = None
     available_margin_capital: Optional[float] = None
     premise_type: Optional[str] = None
@@ -305,6 +335,12 @@ class ProjectModel(BaseModel):
     sector: str
     investment_amount: float
     project_cost: Optional[float] = None
+    project_cost_components: Optional[CostItems] = None
+    financing_choice: Optional[Literal["normal", "sca", "self"]] = None
+    odop_preference: Optional[Literal["explore", "keep", "reject"]] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    expected_monthly_units: Optional[float] = None
     annual_turnover_estimate: float
     available_margin_capital: Optional[float] = None
     premise_type: Optional[str] = "rented"

@@ -108,6 +108,7 @@ class DatabaseManager:
         self.in_memory_users: dict[str, dict[str, Any]] = {}
         self.in_memory_projects: dict[str, dict[str, Any]] = {}
         self.in_memory_reports: dict[str, dict[str, Any]] = {}
+        self.in_memory_onboarding: dict[str, dict[str, Any]] = {}
 
         # Default guest user for testing / offline fallback
         self.in_memory_users["guest_user"] = {
@@ -162,10 +163,13 @@ class DatabaseManager:
             CREATE INDEX IF NOT EXISTS idx_projects_user_id_sqlite ON projects(user_id);
             CREATE TABLE IF NOT EXISTS feasibility_reports (report_id TEXT PRIMARY KEY, user_id TEXT, payload TEXT NOT NULL, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS revoked_sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, revoked_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS onboarding_sessions (user_id TEXT PRIMARY KEY REFERENCES users(firebase_uid) ON DELETE CASCADE, revision INTEGER NOT NULL, payload TEXT NOT NULL);
         """)
         existing_columns = {row[1] for row in self.sqlite.execute("PRAGMA table_info(users)")}
         if "language" not in existing_columns:
             self.sqlite.execute("ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'en'")
+        if "promoter_category" not in existing_columns:
+            self.sqlite.execute("ALTER TABLE users ADD COLUMN promoter_category TEXT")
         self.sqlite.commit()
         logger.info("DATABASE_URL not set; using durable SQLite fallback at %s.", db_path)
 
@@ -187,6 +191,11 @@ class DatabaseManager:
                 """)
 
                 # Ensure default guest / demo user exists for foreign key references
+                await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS gender TEXT")
+                await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS promoter_category TEXT")
+                await conn.execute("""CREATE TABLE IF NOT EXISTS onboarding_sessions (
+                    user_id TEXT PRIMARY KEY REFERENCES users(firebase_uid) ON DELETE CASCADE,
+                    revision INTEGER NOT NULL, payload JSONB NOT NULL)""")
                 try:
                     await conn.execute("""
                         INSERT INTO users (firebase_uid, name, email, language)
@@ -283,18 +292,21 @@ class DatabaseManager:
         firebase_uid: str,
         email: str,
         name: str,
-        gender: Optional[str] = "Unspecified",
+        gender: Optional[str] = None,
         auth_provider: str = "email",
         phone: Optional[str] = None,
         additional_business_details: Optional[str] = None,
         language: Optional[str] = None,
+        promoter_category: Optional[str] = None,
     ) -> dict[str, Any]:
         now = datetime.now(timezone.utc).isoformat()
+        await self.get_user(firebase_uid)
         user_record = {
             "firebase_uid": firebase_uid,
             "email": email,
             "name": name,
             "gender": gender or "Unspecified",
+            "promoter_category": promoter_category,
             "auth_provider": auth_provider,
             "phone": phone,
             "additional_business_details": additional_business_details,
@@ -314,6 +326,12 @@ class DatabaseManager:
                 user_record["additional_business_details"] = existing["additional_business_details"]
             if not language and existing.get("language"):
                 user_record["language"] = existing["language"]
+            if promoter_category is None:
+                user_record["promoter_category"] = existing.get("promoter_category")
+            if gender is None:
+                user_record["gender"] = existing.get("gender") or "Unspecified"
+            if email == f"{firebase_uid}@udyam.gov.in":
+                user_record["email"] = existing.get("email", email)
 
         self.in_memory_users[firebase_uid] = user_record
 
@@ -323,7 +341,8 @@ class DatabaseManager:
                 user_record["created_at"] = existing["created_at"]
             self.sqlite.execute("INSERT INTO users (firebase_uid, email, name, gender, auth_provider, phone, additional_business_details, language, created_at, updated_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(firebase_uid) DO UPDATE SET email=excluded.email, name=excluded.name, gender=excluded.gender, auth_provider=excluded.auth_provider, phone=COALESCE(excluded.phone, users.phone), additional_business_details=COALESCE(excluded.additional_business_details, users.additional_business_details), language=COALESCE(excluded.language, users.language), updated_at=excluded.updated_at, last_login_at=excluded.last_login_at", (firebase_uid, user_record["email"], user_record["name"], user_record["gender"], user_record["auth_provider"], user_record["phone"], user_record["additional_business_details"], user_record["language"], user_record["created_at"], now, now))
             self.sqlite.commit()
-            return user_record
+            await self.update_user(firebase_uid, {"promoter_category": promoter_category} if promoter_category is not None else {})
+            return await self.get_user(firebase_uid)
 
         if self.pool:
             try:
@@ -332,15 +351,17 @@ class DatabaseManager:
                     # persistence layer compatible with it instead of relying
                     # on uncommitted, process-only fallbacks or migrations.
                     row = await conn.fetchrow("""
-                        INSERT INTO users (firebase_uid, name, email, phone, language, created_at)
-                        VALUES ($1, $2, $3, $4, COALESCE($5, 'en'), NOW())
+                        INSERT INTO users (firebase_uid, name, email, phone, language, gender, promoter_category, created_at)
+                        VALUES ($1, $2, $3, $4, COALESCE($5, 'en'), $6, $7, NOW())
                         ON CONFLICT (firebase_uid) DO UPDATE SET
                             name = COALESCE(NULLIF(EXCLUDED.name, ''), users.name),
                             email = EXCLUDED.email,
                             phone = COALESCE(EXCLUDED.phone, users.phone),
-                            language = COALESCE(EXCLUDED.language, users.language)
+                            language = COALESCE(EXCLUDED.language, users.language),
+                            gender = COALESCE(EXCLUDED.gender, users.gender),
+                            promoter_category = COALESCE(EXCLUDED.promoter_category, users.promoter_category)
                         RETURNING *;
-                    """, firebase_uid, name, email, phone, language)
+                    """, firebase_uid, name, user_record["email"], phone, language, gender, promoter_category)
                     if row:
                         rec = dict(row)
                         for k in ("created_at", "updated_at", "last_login_at"):
@@ -378,7 +399,7 @@ class DatabaseManager:
 
     async def update_user(self, firebase_uid: str, fields: dict[str, Any]) -> Optional[dict[str, Any]]:
         now = datetime.now(timezone.utc).isoformat()
-        allowed_fields = {"name", "phone", "language"}
+        allowed_fields = {"name", "phone", "language", "gender", "promoter_category"}
         fields = {key: value for key, value in fields.items() if key in allowed_fields}
         if firebase_uid in self.in_memory_users:
             self.in_memory_users[firebase_uid].update(fields)
@@ -420,6 +441,10 @@ class DatabaseManager:
         return self.in_memory_users.get(firebase_uid)
 
     async def delete_user(self, firebase_uid: str) -> bool:
+        self.in_memory_onboarding.pop(firebase_uid, None)
+        if self.sqlite:
+            self.sqlite.execute("DELETE FROM users WHERE firebase_uid = ?", (firebase_uid,))
+            self.sqlite.commit()
         if firebase_uid in self.in_memory_users:
             del self.in_memory_users[firebase_uid]
         # Remove projects of this user
@@ -663,6 +688,40 @@ class DatabaseManager:
             {"id": 3, "village_code": dist_id * 100 + 3, "village_name": f"Gram {district_name or 'Shivpur'}", "district_code": dist_id, "pincode": "722140"},
         ]
 
+    # --- Conversation drafts: durable, owner-scoped, optimistic concurrency ---
+    async def get_onboarding(self, user_id: str) -> Optional[dict]:
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                payload = await conn.fetchval("SELECT payload FROM onboarding_sessions WHERE user_id=$1", user_id)
+            return json.loads(payload) if isinstance(payload, str) else payload
+        if self.sqlite:
+            row = self.sqlite.execute("SELECT payload FROM onboarding_sessions WHERE user_id=?", (user_id,)).fetchone()
+            return json.loads(row[0]) if row else None
+        payload = self.in_memory_onboarding.get(user_id)
+        return json.loads(json.dumps(payload)) if payload else None
+
+    async def save_onboarding(self, user_id: str, state: dict, expected_revision: Optional[int] = None) -> bool:
+        payload = json.dumps(state, ensure_ascii=False)
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                if expected_revision is None:
+                    row = await conn.fetchval("INSERT INTO onboarding_sessions (user_id,revision,payload) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING RETURNING revision", user_id, state["revision"], payload)
+                else:
+                    row = await conn.fetchval("UPDATE onboarding_sessions SET revision=$2,payload=$3 WHERE user_id=$1 AND revision=$4 RETURNING revision", user_id, state["revision"], payload, expected_revision)
+            return row is not None
+        if self.sqlite:
+            if expected_revision is None:
+                cursor = self.sqlite.execute("INSERT OR IGNORE INTO onboarding_sessions (user_id,revision,payload) VALUES (?,?,?)", (user_id, state["revision"], payload))
+            else:
+                cursor = self.sqlite.execute("UPDATE onboarding_sessions SET revision=?,payload=? WHERE user_id=? AND revision=?", (state["revision"], payload, user_id, expected_revision))
+            self.sqlite.commit()
+            return cursor.rowcount == 1
+        current = self.in_memory_onboarding.get(user_id)
+        if (expected_revision is None and current) or (expected_revision is not None and (not current or current["revision"] != expected_revision)):
+            return False
+        self.in_memory_onboarding[user_id] = json.loads(payload)
+        return True
+
     # --- Live Census, MSME, CPI & Weather Query Resolvers ---
     async def get_census_demographics(
         self,
@@ -855,7 +914,7 @@ class DatabaseManager:
         user_id = project_dict.get("user_id", "guest_user")
         analysis_result = project_dict.get("analysis_result", None)
 
-        avail_margin = project_dict.get("available_margin_capital") or project_dict.get("margin_capital")
+        avail_margin = project_dict.get("available_margin_capital") if project_dict.get("project_cost_components") else (project_dict.get("available_margin_capital") or project_dict.get("margin_capital"))
         prem_type = project_dict.get("premise_type", "rented")
         m_rent = project_dict.get("monthly_rent")
 

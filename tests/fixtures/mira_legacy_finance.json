@@ -1,0 +1,620 @@
+{
+  "source_commit": "a978a80003fc372c34c4782a9398199f4e396ccf",
+  "cases": [
+    {
+      "input": {
+        "machinery_cost": 1200000,
+        "available_promoter_cash": 90000,
+        "promoter_category": "general"
+      },
+      "capital": {
+        "actual_machinery_cost": 1200000.0,
+        "true_project_outlay": 2182000.0,
+        "working_capital_and_ancillaries": 982000.0,
+        "statutory_margin_pct": 0.1,
+        "required_promoter_equity": 218200.0,
+        "available_promoter_cash": 90000.0,
+        "equity_gap": 128200.0,
+        "is_equity_deficit": true,
+        "bank_term_loan": 1963800.0,
+        "sca_soft_loan_eligible_amount": 128200.0,
+        "means_of_finance": {
+          "promoter_cash_contribution": 90000.0,
+          "sca_margin_soft_loan": 128200.0,
+          "bank_term_loan": 1963800.0,
+          "total_financing": 2182000.0
+        },
+        "sca_interest_rate_pct": 3.0,
+        "sca_tenure_years": 5.0,
+        "sca_moratorium_months": 6,
+        "sca_monthly_emi": 2540.89,
+        "bank_monthly_emi": 44833.82,
+        "total_monthly_debt_service": 47374.71,
+        "combined_dscr": 0.0
+      },
+      "emi": {
+        "principal": 1200000,
+        "annual_rate_pct": 9.5,
+        "tenure_years": 5,
+        "moratorium_months": 6,
+        "repayment_months": 54,
+        "monthly_emi": 27396.16,
+        "moratorium_interest": 57000.0,
+        "total_interest_payable": 336392.65,
+        "total_repayment": 1536392.65
+      },
+      "working_capital": {
+        "sector": "dairy",
+        "annual_turnover": 1200000,
+        "turnover_ratio_months": 1.0,
+        "working_capital_required": 100000.0,
+        "monthly_working_capital_outlay": 100000.0
+      },
+      "schemes": [
+        {
+          "scheme_id": "PMFME",
+          "rank": 1,
+          "eligible": true,
+          "subsidy_grant_amount": 420000.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 216031.4091848114,
+          "net_financial_benefit": 203968.5908151886
+        },
+        {
+          "scheme_id": "PMEGP",
+          "rank": 2,
+          "eligible": true,
+          "subsidy_grant_amount": 300000.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 255309.8472184136,
+          "net_financial_benefit": 44690.152781586396
+        },
+        {
+          "scheme_id": "NABARD_AHIDF",
+          "rank": 3,
+          "eligible": true,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 8.0,
+          "total_interest_payable": 252796.4371901371,
+          "net_financial_benefit": -152086.93207785534
+        },
+        {
+          "scheme_id": "MARGIN_MONEY_TERM_LOAN",
+          "rank": 4,
+          "eligible": true,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 8.0,
+          "total_interest_payable": 351743.35587277915,
+          "net_financial_benefit": -207625.67767052283
+        },
+        {
+          "scheme_id": "MUDRA_TARUN_PLUS",
+          "rank": 5,
+          "eligible": true,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 392784.38033602084,
+          "net_financial_benefit": -392784.38033602084
+        },
+        {
+          "scheme_id": "MUDRA_SHISHU",
+          "rank": 6,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 392784.38033602084,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "MUDRA_KISHORE",
+          "rank": 7,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 392784.38033602084,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "MUDRA_TARUN",
+          "rank": 8,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 392784.38033602084,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "STANDUP_INDIA",
+          "rank": 9,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 333866.7232856178,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "PM_VISHWAKARMA",
+          "rank": 10,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 5.0,
+          "total_interest_payable": 172546.0099990929,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "DAY_NRLM",
+          "rank": 11,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 7.000000000000001,
+          "total_interest_payable": 244374.04993161652,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "MARGIN_MONEY_MICRO_FINANCE",
+          "rank": 12,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 6.5,
+          "total_interest_payable": 13873.116794347006,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NSFDC_MSY",
+          "rank": 13,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 4.0,
+          "total_interest_payable": 84317.0461720794,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NSFDC_TERM_LOAN",
+          "rank": 14,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 8.0,
+          "total_interest_payable": 351743.35587277915,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NBCFDC_MICRO_FINANCE",
+          "rank": 15,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 12.0,
+          "total_interest_payable": 312742.39697475685,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NHFDC_SELF_EMPLOYMENT",
+          "rank": 16,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 7.000000000000001,
+          "total_interest_payable": 454332.1019673997,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NMDFC_TERM_LOAN",
+          "rank": 17,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 6.0,
+          "total_interest_payable": 223056.7237332291,
+          "net_financial_benefit": -999999.0
+        }
+      ]
+    },
+    {
+      "input": {
+        "machinery_cost": 300000,
+        "available_promoter_cash": 0,
+        "promoter_category": "sc"
+      },
+      "capital": {
+        "actual_machinery_cost": 300000.0,
+        "true_project_outlay": 545000.0,
+        "working_capital_and_ancillaries": 245000.0,
+        "statutory_margin_pct": 0.05,
+        "required_promoter_equity": 27250.0,
+        "available_promoter_cash": 0.0,
+        "equity_gap": 27250.0,
+        "is_equity_deficit": true,
+        "bank_term_loan": 517750.0,
+        "sca_soft_loan_eligible_amount": 27250.0,
+        "means_of_finance": {
+          "promoter_cash_contribution": 0.0,
+          "sca_margin_soft_loan": 27250.0,
+          "bank_term_loan": 517750.0,
+          "total_financing": 545000.0
+        },
+        "sca_interest_rate_pct": 3.0,
+        "sca_tenure_years": 5.0,
+        "sca_moratorium_months": 6,
+        "sca_monthly_emi": 540.09,
+        "bank_monthly_emi": 11820.3,
+        "total_monthly_debt_service": 12360.39,
+        "combined_dscr": 0.0
+      },
+      "emi": {
+        "principal": 300000,
+        "annual_rate_pct": 9.5,
+        "tenure_years": 5,
+        "moratorium_months": 6,
+        "repayment_months": 54,
+        "monthly_emi": 6849.04,
+        "moratorium_interest": 14250.0,
+        "total_interest_payable": 84098.16,
+        "total_repayment": 384098.16
+      },
+      "working_capital": {
+        "sector": "dairy",
+        "annual_turnover": 300000,
+        "turnover_ratio_months": 1.0,
+        "working_capital_required": 25000.0,
+        "monthly_working_capital_outlay": 25000.0
+      },
+      "schemes": [
+        {
+          "scheme_id": "PMFME",
+          "rank": 1,
+          "eligible": true,
+          "subsidy_grant_amount": 105000.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 54007.85229620285,
+          "net_financial_benefit": 50992.14770379715
+        },
+        {
+          "scheme_id": "PMEGP",
+          "rank": 2,
+          "eligible": true,
+          "subsidy_grant_amount": 105000.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 58917.657050403155,
+          "net_financial_benefit": 46082.342949596845
+        },
+        {
+          "scheme_id": "DAY_NRLM",
+          "rank": 3,
+          "eligible": true,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 7.000000000000001,
+          "total_interest_payable": 61093.51248290413,
+          "net_financial_benefit": -23990.92988180305
+        },
+        {
+          "scheme_id": "NABARD_AHIDF",
+          "rank": 4,
+          "eligible": true,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 8.0,
+          "total_interest_payable": 63199.109297534276,
+          "net_financial_benefit": -38021.733019463834
+        },
+        {
+          "scheme_id": "MARGIN_MONEY_TERM_LOAN",
+          "rank": 5,
+          "eligible": true,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 8.0,
+          "total_interest_payable": 87935.83896819479,
+          "net_financial_benefit": -51906.41941763071
+        },
+        {
+          "scheme_id": "NSFDC_TERM_LOAN",
+          "rank": 6,
+          "eligible": true,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 8.0,
+          "total_interest_payable": 87935.83896819479,
+          "net_financial_benefit": -51906.41941763071
+        },
+        {
+          "scheme_id": "MUDRA_KISHORE",
+          "rank": 7,
+          "eligible": true,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 98196.09508400521,
+          "net_financial_benefit": -98196.09508400521
+        },
+        {
+          "scheme_id": "MUDRA_SHISHU",
+          "rank": 8,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 98196.09508400521,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "MUDRA_TARUN",
+          "rank": 9,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 98196.09508400521,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "MUDRA_TARUN_PLUS",
+          "rank": 10,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 98196.09508400521,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "STANDUP_INDIA",
+          "rank": 11,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 83466.68082140444,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "PM_VISHWAKARMA",
+          "rank": 12,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 5.0,
+          "total_interest_payable": 43136.502499773225,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "MARGIN_MONEY_MICRO_FINANCE",
+          "rank": 13,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 6.5,
+          "total_interest_payable": 13873.116794347006,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NSFDC_MSY",
+          "rank": 14,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 4.0,
+          "total_interest_payable": 21079.26154301985,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NBCFDC_MICRO_FINANCE",
+          "rank": 15,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 12.0,
+          "total_interest_payable": 78185.59924368921,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NHFDC_SELF_EMPLOYMENT",
+          "rank": 16,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 7.000000000000001,
+          "total_interest_payable": 113583.02549184993,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NMDFC_TERM_LOAN",
+          "rank": 17,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 6.0,
+          "total_interest_payable": 55764.180933307274,
+          "net_financial_benefit": -999999.0
+        }
+      ]
+    },
+    {
+      "input": {
+        "machinery_cost": 750000,
+        "available_promoter_cash": 200000,
+        "promoter_category": "obc"
+      },
+      "capital": {
+        "actual_machinery_cost": 750000.0,
+        "true_project_outlay": 1364000.0,
+        "working_capital_and_ancillaries": 614000.0,
+        "statutory_margin_pct": 0.05,
+        "required_promoter_equity": 68200.0,
+        "available_promoter_cash": 200000.0,
+        "equity_gap": 0.0,
+        "is_equity_deficit": false,
+        "bank_term_loan": 1295800.0,
+        "sca_soft_loan_eligible_amount": 0.0,
+        "means_of_finance": {
+          "promoter_cash_contribution": 68200.0,
+          "sca_margin_soft_loan": 0.0,
+          "bank_term_loan": 1295800.0,
+          "total_financing": 1364000.0
+        },
+        "sca_interest_rate_pct": 3.0,
+        "sca_tenure_years": 5.0,
+        "sca_moratorium_months": 6,
+        "sca_monthly_emi": 0.0,
+        "bank_monthly_emi": 29583.29,
+        "total_monthly_debt_service": 29583.29,
+        "combined_dscr": 0.0
+      },
+      "emi": {
+        "principal": 750000,
+        "annual_rate_pct": 9.5,
+        "tenure_years": 5,
+        "moratorium_months": 6,
+        "repayment_months": 54,
+        "monthly_emi": 17122.6,
+        "moratorium_interest": 35625.0,
+        "total_interest_payable": 210245.4,
+        "total_repayment": 960245.4
+      },
+      "working_capital": {
+        "sector": "dairy",
+        "annual_turnover": 750000,
+        "turnover_ratio_months": 1.0,
+        "working_capital_required": 62500.0,
+        "monthly_working_capital_outlay": 62500.0
+      },
+      "schemes": [
+        {
+          "scheme_id": "PMFME",
+          "rank": 1,
+          "eligible": true,
+          "subsidy_grant_amount": 262500.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 135019.63074050716,
+          "net_financial_benefit": 127480.36925949284
+        },
+        {
+          "scheme_id": "PMEGP",
+          "rank": 2,
+          "eligible": true,
+          "subsidy_grant_amount": 262500.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 147294.1426260078,
+          "net_financial_benefit": 115205.85737399221
+        },
+        {
+          "scheme_id": "DAY_NRLM",
+          "rank": 3,
+          "eligible": true,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 7.000000000000001,
+          "total_interest_payable": 152733.7812072602,
+          "net_financial_benefit": -59977.324704507366
+        },
+        {
+          "scheme_id": "NABARD_AHIDF",
+          "rank": 4,
+          "eligible": true,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 8.0,
+          "total_interest_payable": 157997.77324383555,
+          "net_financial_benefit": -95054.33254865941
+        },
+        {
+          "scheme_id": "MARGIN_MONEY_TERM_LOAN",
+          "rank": 5,
+          "eligible": true,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 8.0,
+          "total_interest_payable": 219839.59742048674,
+          "net_financial_benefit": -129766.04854407604
+        },
+        {
+          "scheme_id": "MUDRA_TARUN",
+          "rank": 6,
+          "eligible": true,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 245490.23771001305,
+          "net_financial_benefit": -245490.23771001305
+        },
+        {
+          "scheme_id": "MUDRA_SHISHU",
+          "rank": 7,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 245490.23771001305,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "MUDRA_KISHORE",
+          "rank": 8,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 245490.23771001305,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "MUDRA_TARUN_PLUS",
+          "rank": 9,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 245490.23771001305,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "STANDUP_INDIA",
+          "rank": 10,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 11.0,
+          "total_interest_payable": 208666.70205351105,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "PM_VISHWAKARMA",
+          "rank": 11,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 5.0,
+          "total_interest_payable": 107841.25624943303,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "MARGIN_MONEY_MICRO_FINANCE",
+          "rank": 12,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 6.5,
+          "total_interest_payable": 13873.116794347006,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NSFDC_MSY",
+          "rank": 13,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 4.0,
+          "total_interest_payable": 52698.153857549536,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NSFDC_TERM_LOAN",
+          "rank": 14,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 8.0,
+          "total_interest_payable": 219839.59742048674,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NBCFDC_MICRO_FINANCE",
+          "rank": 15,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 12.0,
+          "total_interest_payable": 195463.99810922286,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NHFDC_SELF_EMPLOYMENT",
+          "rank": 16,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 7.000000000000001,
+          "total_interest_payable": 283957.56372962473,
+          "net_financial_benefit": -999999.0
+        },
+        {
+          "scheme_id": "NMDFC_TERM_LOAN",
+          "rank": 17,
+          "eligible": false,
+          "subsidy_grant_amount": 0.0,
+          "effective_interest_rate_pct": 6.0,
+          "total_interest_payable": 139410.45233326824,
+          "net_financial_benefit": -999999.0
+        }
+      ]
+    }
+  ]
+}

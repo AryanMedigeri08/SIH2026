@@ -61,7 +61,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
 
     premise_type = (getattr(input_data, "premise_type", "rented") or "rented").lower()
     monthly_rent = getattr(input_data, "monthly_rent", None)
-    if premise_type == "rented":
+    if premise_type in ("rented", "shared"):
         actual_rent = monthly_rent if (monthly_rent is not None and monthly_rent >= 0) else 2500.0
     else:
         actual_rent = 0.0
@@ -130,15 +130,22 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         )
 
     # Extract contextual commercial machinery & normalize to 55% allocation
-    machinery_budget = round(input_data.project_cost * 0.55, 2)
-    mach_schedule = extract_contextual_machinery(
-        enterprise_name=input_data.enterprise_name,
-        business_category=input_data.business_category,
-        sector=input_data.sector,
-        allocated_machinery_budget=machinery_budget,
-        additional_details=input_data.additional_business_details,
-        use_ai=True,
-    )
+    confirmed_costs = input_data.project_cost_components.model_dump(exclude_none=True) if input_data.project_cost_components else None
+    machinery_budget = confirmed_costs.get("equipment", 0) if confirmed_costs is not None else round(input_data.project_cost * 0.55, 2)
+    if confirmed_costs is not None and machinery_budget == 0:
+        from app.core.machinery_engine import MachinerySchedule
+        mach_schedule = MachinerySchedule(items=[], total_machinery_cost_inr=0, total_connected_load_kw=0,
+            daily_rated_production_capacity="No equipment cost included in confirmed inputs",
+            generation_source="USER_CONFIRMED_COMPONENTS", is_fallback=False)
+    else:
+        mach_schedule = extract_contextual_machinery(
+            enterprise_name=input_data.enterprise_name,
+            business_category=input_data.business_category,
+            sector=input_data.sector,
+            allocated_machinery_budget=machinery_budget,
+            additional_details=input_data.additional_business_details,
+            use_ai=confirmed_costs is None,
+        )
 
     msme_data = await db_manager.get_district_msme_stats(
         state_name=input_data.state_name,
@@ -308,6 +315,13 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         sector=input_data.sector,
         enterprise_name=input_data.enterprise_name,
     )
+    if input_data.odop_preference == "reject":
+        odop_alignment = {
+            "has_odop_record": odop_alignment.get("has_odop_record", False), "is_aligned": False,
+            "district_name": input_data.district_name, "state_name": input_data.state_name,
+            "status_text": "Not selected", "preference": "reject",
+            "action_recommendation": "The entrepreneur chose to continue without ODOP alignment.",
+        }
 
     # 9. Bank DPR Assembly (Tier 4)
     dpr_doc = build_bank_dpr(
@@ -343,6 +357,8 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         available_margin_capital=input_data.available_margin_capital,
         premise_type=premise_type,
         monthly_rent=actual_rent,
+        confirmed_costs=confirmed_costs,
+        financing_choice=input_data.financing_choice,
     )
 
     report_id = f"REP-{uuid.uuid4().hex[:10].upper()}"
@@ -413,7 +429,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     # Asset-Driven Capital Structure & SCA Equity Gap Analysis
     cap_struct = calculate_asset_driven_capital_structure(
         machinery_cost=mach_schedule.total_machinery_cost_inr,
-        available_promoter_cash=input_data.available_margin_capital or promoter_margin_val,
+        available_promoter_cash=input_data.available_margin_capital if confirmed_costs is not None else (input_data.available_margin_capital or promoter_margin_val),
         promoter_category=input_data.promoter_category or "general",
         gender=input_data.gender or "male",
         is_rural=input_data.is_rural if input_data.is_rural is not None else True,
@@ -422,7 +438,28 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         tenure_years=input_data.tenure_years,
         moratorium_months=input_data.moratorium_months,
         monthly_noi=monthly_noi,
+        confirmed_project_cost=input_data.project_cost if confirmed_costs is not None else None,
     )
+
+    financing_selection = None
+    if input_data.financing_choice:
+        own_cash = input_data.available_margin_capital
+        funding_need = max(input_data.project_cost - own_cash, 0) if own_cash is not None else None
+        financing_selection = {
+            "choice": input_data.financing_choice, "status": "requested_exploration",
+            "personal_contribution": own_cash, "remaining_funding_need": funding_need,
+            "project_cost_components": confirmed_costs,
+            "notice": "The selected path records the entrepreneur's preference. The existing scheme-based appraisal below is a separate candidate scenario; no loan, subsidy or SCA assistance has been approved or automatically applied.",
+        }
+        if input_data.financing_choice == "normal" and funding_need:
+            financing_selection["normal_loan_reference"] = emi_with_moratorium(
+                funding_need, top_scheme.effective_interest_rate_pct, input_data.tenure_years, input_data.moratorium_months).to_dict()
+        if input_data.financing_choice == "sca":
+            financing_selection["sca_reference"] = {
+                "equity_gap": cap_struct.equity_gap, "candidate_amount": cap_struct.sca_soft_loan_eligible_amount,
+                "rate_pct": cap_struct.sca_interest_rate_pct, "tenure_years": cap_struct.sca_tenure_years,
+                "moratorium_months": cap_struct.sca_moratorium_months, "monthly_emi": cap_struct.sca_monthly_emi,
+            }
 
     feasibility_report = FeasibilityReport(
         report_id=report_id,
@@ -471,6 +508,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         odop_alignment=odop_alignment,
         machinery_schedule=mach_schedule.to_dict(),
         capital_structure=cap_struct.to_dict(),
+        financing_selection=financing_selection,
         premise_details={
             "premise_type": premise_type,
             "monthly_rent": actual_rent,

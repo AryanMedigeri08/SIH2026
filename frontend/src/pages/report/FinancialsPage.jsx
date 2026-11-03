@@ -31,6 +31,11 @@ export function FinancialsPage({ reportData }) {
 
   return (
     <div className="space-y-6">
+      {reportData.financing_selection && <div className="rounded-2xl border border-sovereign-200 bg-sovereign-50 p-4 space-y-2">
+        <h2 className="font-bold">Your selected financing exploration: {({ normal: 'normal bank loan', sca: 'SCA margin assistance', self: 'own funds' })[reportData.financing_selection.choice]}</h2>
+        <p className="text-sm">Own contribution: ₹{Number(reportData.financing_selection.personal_contribution || 0).toLocaleString('en-IN')} · Remaining funding need: ₹{Number(reportData.financing_selection.remaining_funding_need || 0).toLocaleString('en-IN')}</p>
+        <p className="text-xs text-slate-600">{reportData.financing_selection.notice}</p>
+      </div>}
       
       {/* Header Banner */}
       <div className="glass-panel p-4 sm:p-6 border-l-4 border-sovereign-800 bg-gradient-to-r from-white via-sovereign-50/20 to-white shadow-card border border-slate-200/90">

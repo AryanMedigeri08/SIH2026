@@ -80,7 +80,13 @@ export const AuthProvider = ({ children }) => {
             const profile = await authApi.syncSession(parsed.token);
             setUserProfile(profile);
           } catch (e) {
-            setUserProfile({
+            if (e.status === 401) {
+              localStorage.removeItem(LOCAL_SESSION_KEY);
+              setFirebaseUser(null);
+              setToken(null);
+              setUserProfile(null);
+              setIsDemoMode(false);
+            } else setUserProfile({
               firebase_uid: parsed.uid,
               name: parsed.name,
               email: parsed.email,
@@ -150,9 +156,19 @@ export const AuthProvider = ({ children }) => {
     const displayName = name || profileData.name || cleanEmail.split("@")[0] || "Entrepreneur";
 
     const devUser = createSovereignUser(uid, cleanEmail, displayName, devToken);
+    // The server decides whether unsigned evaluator access is enabled.
+    // Do not publish or cache an authenticated state until it accepts the session.
+    const profile = await authApi.registerProfile(devToken, {
+      name: displayName,
+      gender: profileData.gender || null,
+      promoter_category: profileData.promoter_category || null,
+      phone: profileData.phone || null,
+      additional_business_details: profileData.additional_business_details || null,
+    });
     setFirebaseUser(devUser);
     setToken(devToken);
     setIsDemoMode(isDemo);
+    setUserProfile(profile);
 
     localStorage.setItem(
       LOCAL_SESSION_KEY,
@@ -165,22 +181,7 @@ export const AuthProvider = ({ children }) => {
       })
     );
 
-    // Sync or Register profile with backend
-    try {
-      const profile = await authApi.registerProfile(devToken, {
-        name: displayName,
-        gender: profileData.gender || "Unspecified",
-        phone: profileData.phone || null,
-        additional_business_details: profileData.additional_business_details || null,
-      });
-      setUserProfile(profile);
-      return { user: devUser, profile, token: devToken };
-    } catch (e) {
-      // If already registered, call syncSession
-      const profile = await authApi.syncSession(devToken);
-      setUserProfile(profile);
-      return { user: devUser, profile, token: devToken };
-    }
+    return { user: devUser, profile, token: devToken };
   };
 
   // Email & Password Registration Flow
@@ -200,6 +201,7 @@ export const AuthProvider = ({ children }) => {
       const profile = await authApi.registerProfile(idToken, {
         name: profileData.name || cred.user.email?.split("@")[0] || "Entrepreneur",
         gender: profileData.gender || "Unspecified",
+        promoter_category: profileData.promoter_category || null,
         phone: profileData.phone || null,
         additional_business_details: profileData.additional_business_details || null,
       });

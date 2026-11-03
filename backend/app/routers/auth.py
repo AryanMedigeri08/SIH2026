@@ -34,7 +34,8 @@ async def register_user_profile(
         firebase_uid=current_user.uid,
         email=email,
         name=name,
-        gender=reg_in.gender or "Unspecified",
+        gender=reg_in.gender,
+        promoter_category=reg_in.promoter_category,
         auth_provider=current_user.auth_provider,
         phone=reg_in.phone,
         additional_business_details=reg_in.additional_business_details,
@@ -46,6 +47,7 @@ async def register_user_profile(
         name=user_record["name"],
         email=user_record["email"],
         gender=user_record.get("gender", "Unspecified"),
+        promoter_category=user_record.get("promoter_category"),
         auth_provider=user_record.get("auth_provider", "email"),
         phone=user_record.get("phone"),
         additional_business_details=user_record.get("additional_business_details"),
@@ -75,6 +77,7 @@ async def sync_user_session(
         email=email,
         name=name,
         gender=existing.get("gender", "Unspecified") if existing else "Unspecified",
+        promoter_category=existing.get("promoter_category") if existing else None,
         auth_provider=current_user.auth_provider,
         phone=existing.get("phone") if existing else None,
         additional_business_details=existing.get("additional_business_details") if existing else None,
@@ -87,6 +90,7 @@ async def sync_user_session(
         name=user_record["name"],
         email=user_record["email"],
         gender=user_record.get("gender", "Unspecified"),
+        promoter_category=user_record.get("promoter_category"),
         auth_provider=user_record.get("auth_provider", "email"),
         phone=user_record.get("phone"),
         additional_business_details=user_record.get("additional_business_details"),
@@ -121,6 +125,7 @@ async def get_my_profile(
         name=user_record["name"],
         email=user_record["email"],
         gender=user_record.get("gender", "Unspecified"),
+        promoter_category=user_record.get("promoter_category"),
         auth_provider=user_record.get("auth_provider", "email"),
         phone=user_record.get("phone"),
         additional_business_details=user_record.get("additional_business_details"),
@@ -145,6 +150,8 @@ async def update_my_profile(
         fields_to_update["name"] = update_in.name.strip()
     if update_in.gender is not None:
         fields_to_update["gender"] = update_in.gender
+    if update_in.promoter_category is not None:
+        fields_to_update["promoter_category"] = update_in.promoter_category
     if update_in.phone is not None:
         fields_to_update["phone"] = update_in.phone
     if update_in.additional_business_details is not None:
@@ -162,6 +169,7 @@ async def update_my_profile(
         name=updated["name"],
         email=updated["email"],
         gender=updated.get("gender", "Unspecified"),
+        promoter_category=updated.get("promoter_category"),
         auth_provider=updated.get("auth_provider", "email"),
         phone=updated.get("phone"),
         additional_business_details=updated.get("additional_business_details"),

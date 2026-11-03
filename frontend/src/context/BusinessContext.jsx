@@ -7,14 +7,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./AuthContext";
 import { useLanguage } from "./LanguageContext";
-import { projectsApi, generateFeasibility } from "../services/api";
+import { onboardingApi, projectsApi, generateFeasibility } from "../services/api";
 
 const BusinessContext = createContext(null);
 const ACTIVE_BIZ_KEY_PREFIX = "udyam_saathi_active_biz_";
 
 export const BusinessProvider = ({ children }) => {
   const { token, isAuthenticated, userProfile } = useAuth();
-  const { language: globalLanguage, setLanguage } = useLanguage();
+  const { language: globalLanguage } = useLanguage();
 
   const [businesses, setBusinesses] = useState([]);
   const [activeBusiness, setActiveBusiness] = useState(null);
@@ -184,22 +184,22 @@ export const BusinessProvider = ({ children }) => {
   // Create New Business and Persist
   const createAndSaveBusiness = useCallback(
     async (formData) => {
-      // Automatically reset active UI language to English for new enterprise analysis
-      if (setLanguage && globalLanguage !== "en") {
-        setLanguage("en");
-      }
-
       const outlay = Number(formData.project_cost) || 900000;
       const marginVal = formData.available_margin_capital !== undefined 
         ? Number(formData.available_margin_capital) 
         : (formData.margin_capital !== undefined ? Number(formData.margin_capital) : undefined);
       const premType = formData.premise_type || "rented";
-      const mRent = premType === "rented" 
+      const mRent = ["rented", "shared"].includes(premType)
         ? (formData.monthly_rent !== undefined ? Number(formData.monthly_rent) : 2500) 
         : 0;
 
       const projectPayload = {
         business_name: formData.enterprise_name,
+        project_cost_components: formData.project_cost_components || null,
+        financing_choice: formData.financing_choice || null,
+        latitude: formData.latitude ?? null,
+        longitude: formData.longitude ?? null,
+        expected_monthly_units: formData.expected_monthly_units ?? null,
         business_category: formData.business_category || "manufacturing",
         sector: formData.sector || "general",
         investment_amount: outlay,
@@ -218,7 +218,7 @@ export const BusinessProvider = ({ children }) => {
         is_rural: formData.is_rural ?? true,
         tenure_years: Number(formData.tenure_years || 5.0),
         moratorium_months: Number(formData.moratorium_months || 6),
-        language: "en",
+        language: formData.language || globalLanguage || "en",
         additional_business_details: formData.additional_business_details || null,
         monthly_net_operating_income_override: formData.monthly_net_operating_income_override
           ? Number(formData.monthly_net_operating_income_override)
@@ -227,7 +227,9 @@ export const BusinessProvider = ({ children }) => {
 
       if (token) {
         // Authenticated creation and analysis
-        const createdProject = await projectsApi.createAndAnalyze(token, projectPayload);
+        const createdProject = formData.onboarding_revision != null
+          ? await onboardingApi.complete(token, formData.onboarding_revision, projectPayload.language)
+          : await projectsApi.createAndAnalyze(token, projectPayload);
         setBusinesses((prev) => [createdProject, ...prev.filter((p) => p.project_id !== createdProject.project_id)]);
         setActiveBusiness(createdProject);
         try {
@@ -248,7 +250,7 @@ export const BusinessProvider = ({ children }) => {
           available_margin_capital: marginVal,
           premise_type: premType,
           monthly_rent: mRent,
-          language: "en",
+          language: formData.language || globalLanguage || "en",
         });
         setReportData(rep);
         return {
@@ -260,7 +262,7 @@ export const BusinessProvider = ({ children }) => {
         };
       }
     },
-    [token, userProfile, getStorageKey, globalLanguage, setLanguage]
+    [token, userProfile, getStorageKey, globalLanguage]
   );
 
   // Delete Business

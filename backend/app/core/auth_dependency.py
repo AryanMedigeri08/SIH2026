@@ -11,9 +11,11 @@ from fastapi import Header, HTTPException, status
 from pydantic import BaseModel
 
 try:
+    from app.config import settings
     from app.core.firebase_admin_client import firebase_auth
     from app.database import db_manager
 except ImportError:
+    from backend.app.config import settings
     from backend.app.core.firebase_admin_client import firebase_auth
     from backend.app.database import db_manager
 
@@ -59,6 +61,12 @@ def _verify_token_claims(token: str) -> dict[str, Any]:
     """
     # 1. Test Harness Token Format: test-token-<uid>:<email>
     if token.startswith("test-token-") or token.startswith("mock-token-"):
+        if not settings.ALLOW_TEST_AUTH:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Evaluator sign-in is disabled here. Sign in with your Firebase account.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         token_body = token.replace("test-token-", "").replace("mock-token-", "")
         uid = token_body.split(":")[0] if ":" in token_body else token_body
         email = token_body.split(":")[1] if ":" in token_body else f"{uid}@example.com"

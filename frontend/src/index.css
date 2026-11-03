@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .mira-primary { @apply inline-flex items-center gap-2 rounded-xl bg-sovereign-800 px-4 py-3 text-sm font-semibold text-white hover:bg-sovereign-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sovereign-600 disabled:opacity-50; }
+  .mira-secondary { @apply inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sovereign-600 disabled:opacity-50; }
+  .mira-input { @apply block w-full rounded-xl border border-slate-300 bg-white p-3 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 disabled:opacity-50; }
+}
+
 /* Prevent horizontal scrollbar at the page level on all devices */
 html, body {
   overflow-x: hidden;

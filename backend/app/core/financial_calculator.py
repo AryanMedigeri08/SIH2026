@@ -635,6 +635,7 @@ def calculate_asset_driven_capital_structure(
     sca_interest_rate_pct: float = 3.0,
     sca_tenure_years: float = 5.0,
     sca_moratorium_months: int = 6,
+    confirmed_project_cost: Optional[float] = None,
 ) -> CapitalStructureAnalysis:
     """
     Computes State Channelling Agency (SCA) & MSME bank capital structure
@@ -656,7 +657,13 @@ def calculate_asset_driven_capital_structure(
     margin_pct = 0.05 if is_special_category else 0.10
 
     # 1. True Total Project Outlay (Asset-Driven Anchor: P = M / 0.55)
-    if m_cost > 0:
+    if confirmed_project_cost is not None:
+        if not math.isfinite(confirmed_project_cost) or confirmed_project_cost <= 0:
+            raise ValueError("Confirmed project cost must be a finite positive amount")
+        if m_cost > confirmed_project_cost:
+            raise ValueError("Equipment cost cannot exceed confirmed project cost")
+        true_outlay = round(float(confirmed_project_cost), 2)
+    elif m_cost > 0:
         raw_outlay = m_cost / 0.55
         # Round to nearest 1,000 for realistic banking schedules
         true_outlay = round(raw_outlay / 1000.0) * 1000.0
@@ -790,6 +797,23 @@ def calculate_asset_driven_capital_structure(
         total_monthly_debt_service=total_monthly_debt_service,
         combined_dscr=combined_dscr,
     )
+
+
+def confirmed_project_outlay(cost_items: dict[str, float]) -> float:
+    """Sum user-confirmed applicable costs; no sector percentages or LLM prices.
+
+    Land acquisition and recurring rent are intentionally absent, in line with
+    the existing DPR's land exclusion and operating-rent treatment.
+    """
+    allowed = {"equipment", "premises_setup", "inventory", "working_capital", "other"}
+    if not cost_items or set(cost_items) - allowed:
+        raise ValueError("Provide applicable setup cost components")
+    if any(not math.isfinite(float(v)) or float(v) < 0 for v in cost_items.values()):
+        raise ValueError("Costs must be finite non-negative amounts")
+    total_cents = sum(round(float(v) * 100) for v in cost_items.values())
+    if total_cents <= 0 or total_cents > 1000000000000:
+        raise ValueError("Total outlay must be positive and within the supported range")
+    return total_cents / 100.0
 
 
 def _category_is_special(promoter_category: str) -> bool:

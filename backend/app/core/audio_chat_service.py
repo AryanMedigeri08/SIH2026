@@ -613,9 +613,9 @@ class AudioChatService:
                 detected_lang = romanized_lang
 
         logger.info(
-            "[🤖 GROQ WHISPER] Speech Transcribed (%s): \"%s\" | ⏱️ %dms",
+            "[🤖 GROQ WHISPER] Speech transcribed (%s): %d characters | ⏱️ %dms",
             norm_lang,
-            transcript if len(transcript) <= 70 else transcript[:67] + "...",
+            len(transcript),
             int(stt_latency * 1000),
         )
 

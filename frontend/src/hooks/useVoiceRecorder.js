@@ -40,6 +40,8 @@ export function useVoiceRecorder({
   const hasSpokenRef = useRef(false);
   const silenceStartRef = useRef(null);
   const isCancelledRef = useRef(false);
+  const isStartingRef = useRef(false);
+  const mountedRef = useRef(true);
   const startTimeRef = useRef(0);
   const speechStartedRef = useRef(false);
 
@@ -102,6 +104,8 @@ export function useVoiceRecorder({
 
   // Start recording with dynamic VAD
   const startRecording = useCallback(async () => {
+    if (isStartingRef.current || (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive')) return;
+    isStartingRef.current = true;
     setError(null);
     isCancelledRef.current = false;
     hasSpokenRef.current = false;
@@ -118,6 +122,10 @@ export function useVoiceRecorder({
           autoGainControl: true,
         },
       });
+      if (!mountedRef.current || isCancelledRef.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
       streamRef.current = stream;
 
       // Audio Context for VAD, Volume Visualizer, and native 16kHz WAV recording
@@ -291,12 +299,17 @@ export function useVoiceRecorder({
       setError(err.message || 'Microphone access denied. Please grant permission in your browser.');
       setIsRecording(false);
       cleanupAudio();
+    } finally {
+      isStartingRef.current = false;
     }
   }, [minSpeechThreshold, silenceThresholdMs, maxDurationMs, onRecordingComplete, stopRecording, cleanupAudio]);
 
   // Clean up on component unmount
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
+      isCancelledRef.current = true;
       cleanupAudio();
     };
   }, [cleanupAudio]);

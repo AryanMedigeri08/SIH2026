@@ -210,6 +210,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # Mount API v2 Routers
+from app.routers.onboarding import router as onboarding_router
+app.include_router(onboarding_router, prefix=settings.API_V2_STR)
 app.include_router(auth_router, prefix=settings.API_V2_STR)
 app.include_router(locations_router, prefix=settings.API_V2_STR)
 app.include_router(financial_router, prefix=settings.API_V2_STR)

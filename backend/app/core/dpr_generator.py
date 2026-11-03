@@ -217,6 +217,7 @@ def _compute_5yr_projections(
     sector: str,
     cpi_inflation_pct: float,
     unit_price_floor: float,
+    confirmed_equipment_cost: Optional[float] = None,
 ) -> FiveYearFinancialHorizon:
     """
     Computes a deterministic 5-Year Cash Flow Projection using standard Scheduled
@@ -227,7 +228,7 @@ def _compute_5yr_projections(
       - Loan Amortization: Equal principal repayment over tenure
     """
     capacity_slabs = [0.60, 0.70, 0.80, 0.85, 0.90]
-    plant_machinery_cost = project_cost * 0.55
+    plant_machinery_cost = confirmed_equipment_cost if confirmed_equipment_cost is not None else project_cost * 0.55
     depreciation_rate = 0.15
 
     # Sector cost assumptions (% of revenue at 100% capacity)
@@ -374,6 +375,18 @@ def _compile_statutory_checklist(
         doc_name = "Gram Panchayat Worksite Allotment Certificate & NOC"
         authority = "Gram Panchayat / Village Pradhan"
         notes_text = "Official resolution and NOC from Gram Panchayat for commercial micro-enterprise operation."
+    elif p_type == "shared":
+        doc_name = "Shared Facility Access Agreement"
+        authority = "Facility Operator"
+        notes_text = "Confirm authorized use, hours, utilities, capacity and agreed facility fees."
+    elif p_type == "purchase":
+        doc_name = "Premises Purchase and Title Verification"
+        authority = "Property Owner / Land Registry"
+        notes_text = "Verify lawful acquisition and intended use separately. Land acquisition cost is excluded from this outlay."
+    elif p_type == "mobile":
+        doc_name = "Operating Arrangements and Applicable Permits"
+        authority = "Relevant Local Authority"
+        notes_text = "Confirm permitted operating locations, equipment storage and mobile service arrangements."
     else:
         doc_name = "Registered Commercial Lease / Rent Agreement (min 3-5 Years) & Landlord NOC"
         authority = "Property Owner / Notary Registrar"
@@ -508,6 +521,8 @@ def build_bank_dpr(
     premise_type: str = "rented",
     monthly_rent: Optional[float] = None,
     available_margin_capital: Optional[float] = None,
+    confirmed_costs: Optional[dict[str, float]] = None,
+    financing_choice: Optional[str] = None,
 ) -> BankDPRDocument:
     """
     Compiles the complete 7-Section Bank DPR appraisal document.
@@ -543,6 +558,9 @@ def build_bank_dpr(
         premise_description=(
             "Owned Land / Plot (Patta / Title Deed Verified - Zero Rent)" if premise_type == "owned"
             else "Gram Panchayat Allotted Operating Site (Zero Rent)" if premise_type == "panchayat"
+            else f"Shared Facility (₹{(monthly_rent or 0):,.0f}/month confirmed fee)" if premise_type == "shared"
+            else "Premises to Be Purchased (Land Acquisition Excluded)" if premise_type == "purchase"
+            else "No Fixed Operating Premises" if premise_type == "mobile"
             else f"Rented Commercial Operating Premise (₹{monthly_rent:,.0f}/month budgeted rent)" if monthly_rent
             else "Rented Commercial Operating Premise"
         ),
@@ -553,6 +571,14 @@ def build_bank_dpr(
     cost_civil = project_cost * 0.15
     cost_wc = project_cost * 0.20
     cost_contingency = project_cost * 0.10
+    if confirmed_costs is not None:
+        cost_machinery = confirmed_costs.get("equipment", 0)
+        cost_civil = confirmed_costs.get("premises_setup", 0)
+        cost_wc = confirmed_costs.get("inventory", 0) + confirmed_costs.get("working_capital", 0)
+        cost_contingency = confirmed_costs.get("other", 0)
+        if abs(cost_machinery + cost_civil + cost_wc + cost_contingency - project_cost) > 0.01:
+            raise ValueError("Confirmed cost components must reconcile to project outlay")
+    component_pct = lambda amount, legacy: round(amount / project_cost * 100, 4) if confirmed_costs is not None else legacy
 
     raw_m_items = []
     if machinery_schedule:
@@ -569,26 +595,26 @@ def build_bank_dpr(
 
     outlay_table = CapitalOutlayTable(
         plant_and_machinery=CapitalOutlayItem(
-            item_name="Plant, Machinery & Core Equipment",
-            percentage_of_outlay=55.0,
+            item_name="Equipment, Tools & Fixtures" if confirmed_costs is not None else "Plant, Machinery & Core Equipment",
+            percentage_of_outlay=component_pct(cost_machinery, 55.0),
             amount_inr=round(cost_machinery, 2),
             description="Itemized core machinery, apparatus & processing tools per Bill of Quantities",
         ),
         electrification_and_site_works=CapitalOutlayItem(
             item_name="Work Shed, Interior & Electrification Works",
-            percentage_of_outlay=15.0,
+            percentage_of_outlay=component_pct(cost_civil, 15.0),
             amount_inr=round(cost_civil, 2),
             description=shed_desc,
         ),
         initial_working_capital_reserve=CapitalOutlayItem(
             item_name="Initial Working Capital Reserve",
-            percentage_of_outlay=20.0,
+            percentage_of_outlay=component_pct(cost_wc, 20.0),
             amount_inr=round(cost_wc, 2),
             description="Raw material inventory buffer and operating liquidity for launch cycle",
         ),
         contingency_and_pre_operative=CapitalOutlayItem(
             item_name="Contingency & Pre-Operative Outlay",
-            percentage_of_outlay=10.0,
+            percentage_of_outlay=component_pct(cost_contingency, 10.0),
             amount_inr=round(cost_contingency, 2),
             description="Trial run expenses, licensing, statutory registrations, and logistics reserve",
         ),
@@ -599,7 +625,7 @@ def build_bank_dpr(
             "Channelizing Agency (SCA) credit guidelines, the cost of land acquisition is excluded from the project "
             "outlay (₹0.00). The promoter holds lawful possession of the worksite via verified "
             + ("title deed / ancestral land record." if premise_type == "owned" else "Gram Panchayat allotment NOC." if premise_type == "panchayat" else "commercial lease / rent agreement.")
-        ),
+        ) if confirmed_costs is None else "Land acquisition is excluded under the existing appraisal model. Verify lawful use of the chosen premises and any relevant permissions before applying.",
         machinery_items=raw_m_items,
     )
 
@@ -630,9 +656,9 @@ def build_bank_dpr(
         reconciliation_balanced=abs((promoter_margin_amt + subsidy_amt + bank_loan_amt) - project_cost) < 1.0,
         promoter_cash_available=cash_avail,
         promoter_equity_gap=equity_gap if equity_gap > 0 else None,
-        sca_margin_assistance_amount=equity_gap if equity_gap > 0 else None,
-        sca_scheme_name="State Channelling Agency (SCA) Margin Money Assistance Soft Loan" if equity_gap > 0 else None,
-        sca_bridge_note=f"Statutory equity gap of INR {equity_gap:,.2f} bridged via SCA Concessional Margin Money Assistance (Soft Loan at 2-4% p.a.)." if equity_gap > 0 else None,
+        sca_margin_assistance_amount=equity_gap if equity_gap > 0 and financing_choice is None else None,
+        sca_scheme_name="State Channelling Agency (SCA) Margin Money Assistance Soft Loan" if equity_gap > 0 and financing_choice is None else None,
+        sca_bridge_note=f"Statutory equity gap of INR {equity_gap:,.2f} bridged via SCA Concessional Margin Money Assistance (Soft Loan at 2-4% p.a.)." if equity_gap > 0 and financing_choice is None else None,
     )
 
     # 3. 5-Year Cash Flow Projections
@@ -646,6 +672,7 @@ def build_bank_dpr(
         sector=sector,
         cpi_inflation_pct=pricing_result.cpi_inflation_pct,
         unit_price_floor=pricing_result.cpi_adjusted_unit_price_floor,
+        confirmed_equipment_cost=cost_machinery if confirmed_costs is not None else None,
     )
 
     # 4. Scheme Optimization Table (Top 5)
@@ -736,6 +763,7 @@ def build_bank_dpr(
         section_1_header_and_profile=profile,
         section_2_capital_outlay_and_finance={
             "capital_outlay": outlay_table.model_dump(),
+            **({"requested_financing_preference": financing_choice} if financing_choice else {}),
             "means_of_finance": means_of_finance.model_dump(),
         },
         section_3_financial_projections=projections,
