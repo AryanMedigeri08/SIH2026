@@ -5,8 +5,20 @@ import { authenticatedSession } from './authenticatedSession.js';
 import { destinationAfterSignIn } from './authNavigation.js';
 import { canonicalAuthOrigin } from '../../vite.config.js';
 import { getDevicePosition } from './deviceLocation.js';
+import { speechTokens,wordAtBoundary,wordAtPlayback } from './spokenWords.js';
 
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('spoken word cues preserve Indic text and native character boundaries',()=>{
+  const text='आपका पूरा नाम क्या है?';
+  assert.equal(speechTokens(text).map(token=>token.text).join(''),text);
+  assert.equal(wordAtBoundary(text,text.indexOf('नाम')),2);
+  assert.equal(wordAtPlayback(text,0,5),0);assert.equal(wordAtPlayback(text,5,5),4);
+  assert.equal(wordAtPlayback(text,1,NaN),-1);
+});
+test('secure verification prompts can speak without opening the microphone',async()=>{
+  const f=fixture();f.loop.update({field:'otp',key:'otp',prompt:'Enter the SMS code',enabled:true,autoListen:false});await tick();
+  assert.equal(f.events.some(event=>event[0]==='listen'),false);f.loop.dispose();
+});
 test('device location retries a timed-out GPS reading with balanced accuracy',async()=>{
   let calls=0;const value=await getDevicePosition({getCurrentPosition(success,error,options){calls++;if(calls===1){assert.equal(options.enableHighAccuracy,true);error({code:3});}else{assert.equal(options.enableHighAccuracy,false);success({coords:{latitude:18.5,longitude:73.9,accuracy:5000}});}}});
   assert.equal(calls,2);assert.equal(value.accuracy,5000);

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMiraSpeech } from './useMiraSpeech';
 import { VoiceConversation } from '../services/voiceConversation';
 
-export function useMiraConversation({language,token,prompt,questionKey,field,enabled,busy,onAnswer}) {
+export function useMiraConversation({language,token,prompt,questionKey,field,enabled,busy,onAnswer,autoListen=true}) {
   const [status,setStatus]=useState('paused');
   const [error,setError]=useState('');
   const [paused,setPaused]=useState(false);
@@ -16,11 +16,12 @@ export function useMiraConversation({language,token,prompt,questionKey,field,ena
     stop:()=>{transport.current.stopSpeaking();transport.current.cancelRecording();},
     answer:text=>answer.current(text),status:setStatus,error:setError,paused:()=>setPaused(true),
   });
-  useEffect(()=>{loop.current.update({key:questionKey,field,prompt,enabled:enabled&&!paused,busy});},[questionKey,field,prompt,enabled,paused,busy,language]);
+  useEffect(()=>{loop.current.update({key:questionKey,field,prompt,enabled:enabled&&!paused,busy,autoListen});},[questionKey,field,prompt,enabled,paused,busy,language,autoListen]);
   useEffect(()=>()=>loop.current.dispose(),[]);
-  const resume=()=>{setError('');setPaused(false);loop.current.activeKey=null;loop.current.failures=0;loop.current.update({key:questionKey,field,prompt,enabled,busy});};
+  const resume=()=>{setError('');setPaused(false);loop.current.activeKey=null;loop.current.failures=0;loop.current.update({key:questionKey,field,prompt,enabled,busy,autoListen});};
   const pause=()=>{setPaused(true);loop.current.update({key:questionKey,field,prompt,enabled:false,busy});};
   const repeat=()=>{loop.current.cancel();resume();};
   return {status,error:error||speech.speechError,paused,resume,pause,repeat,speaking:speech.speaking,isRecording:speech.isRecording,transcribing:speech.transcribing,
+    audioLoading:speech.audioLoading,spokenText:speech.spokenText,activeWordIndex:speech.activeWordIndex,speechTiming:speech.speechTiming,volume:speech.volume,
     stopSpeaking:()=>loop.current.cancel(),speak:repeat};
 }

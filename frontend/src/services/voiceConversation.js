@@ -1,8 +1,8 @@
 export class VoiceConversation {
   constructor(io) { this.io=io; this.generation=0; this.enabled=false; this.busy=false; this.processing=false; this.failures=0; this.status='paused'; }
-  update({key,field,prompt,enabled,busy=false}) {
+  update({key,field,prompt,enabled,busy=false,autoListen=true}) {
     if (field!==this.field) this.failures=0;
-    this.field=field; this.question={key,prompt}; this.enabled=enabled; this.busy=busy;
+    this.field=field; this.question={key,prompt}; this.enabled=enabled; this.busy=busy;this.autoListen=autoListen;
     if (!enabled||busy) { this.cancel(); return; }
     if (!this.processing&&this.activeKey!==key) this.run();
   }
@@ -15,6 +15,7 @@ export class VoiceConversation {
     try { spoken=await this.io.speak(this.question.prompt); } catch (_) { if(id===this.generation)this.pause('Audio could not play. Resume or type your answer.'); return; }
     if(id!==this.generation||!this.enabled||this.busy)return;
     if(!spoken){this.pause('Audio could not play. Resume the conversation or type your answer.');return;}
+    if(!this.autoListen){this.state('paused');return;}
     this.state('listening');
     let listening;
     try { listening=await this.io.listen(); } catch (_) { listening=false; }
