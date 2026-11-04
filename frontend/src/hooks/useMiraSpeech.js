@@ -18,7 +18,7 @@ export function useMiraSpeech({ language='en',token,onTranscript,onFailure,onSil
     cancelAnimationFrame(progressFrame.current);progressFrame.current=null;activeWord.current=-1;
     generation.current++;audio.current?.pause();audio.current=null;
     pending.current?.(false);pending.current=null;window.speechSynthesis?.cancel();
-    if(mounted.current){setSpeaking(false);setAudioLoading(false);setActiveWordIndex(-1);setSpokenText('');}
+    if(mounted.current){setSpeaking(false);setTranscribing(false);setAudioLoading(false);setActiveWordIndex(-1);setSpokenText('');}
   },[]);
   const recorder=useVoiceRecorder({silenceThresholdMs:2000,initialSilenceMs,onSilence:()=>callbacks.current.onSilence?.(),
     onRecordingComplete:async blob=>{
