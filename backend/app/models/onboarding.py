@@ -54,7 +54,7 @@ class Turn(BaseModel):
     text: str = Field("", max_length=3000)
     updates: Facts | None = None
     action: Literal["answer", "repeat", "explain", "pause", "resume", "confirm_change", "discard_change",
-                    "confirm_location", "change_location", "confirm_business", "alternatives", "suggest_names", "confirm_estimate", "confirm_rent", "accept_regional_risk", "explore_alternatives"] = "answer"
+                    "confirm_location", "change_location", "confirm_business", "alternatives", "suggest_names", "confirm_estimate", "confirm_rent", "accept_regional_risk", "explore_alternatives", "align_odop"] = "answer"
     correction: bool = False
     source: Literal["text", "voice", "control"] = "text"
     language: Literal["en", "hi", "mr", "ta", "te", "kn"] = "en"
@@ -67,7 +67,7 @@ class LocationSelection(BaseModel):
     district_code: int
     block_code: int
     village_code: int
-    # Only accepted if the LGD row has no authoritative area flag (legacy verification).
+    # Legacy clients may send this; the server no longer uses user-selected area status.
     verified_is_rural: bool | None = None
     language: Literal["en", "hi", "mr", "ta", "te", "kn"] = "en"
 

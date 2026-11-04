@@ -62,11 +62,18 @@ class FixtureLocation:
     async def select(self, selection):
         if selection.block_code != selection.district_code * 10 or selection.village_code != selection.block_code * 10:
             raise ValueError("Invalid test hierarchy")
-        return {"state_code": selection.state_code, "district_code": selection.district_code, "block_code": selection.block_code,
+        result = {"state_code": selection.state_code, "district_code": selection.district_code, "block_code": selection.block_code,
                 "village_code": selection.village_code, "state_name": "Maharashtra" if selection.state_code == 27 else "Karnataka",
                 "district_name": "Pune" if selection.state_code == 27 else "Mysuru", "block_name": "Test development block",
-                "village_name": "Test village (synthetic fixture)", "is_rural": True, "area_source": "SYNTHETIC_TEST_FIXTURE",
+                "village_name": "Test village (synthetic fixture)", "is_rural": selection.state_code==27, "area_source": "SYNTHETIC_TEST_FIXTURE",
                 "latitude": None, "longitude": None}
+        from app.core.area_classification import classify_area
+        result['area_classification'] = classify_area(result,[{'total_population':7000,'main_workers':2000,
+            'main_cultivators':500,'main_agri_labourers':100}],{'available':True,'source':'SYNTHETIC_TEST_FIXTURE',
+            'indicators':{'road':True,'banking':True,'internet':True,'market_or_storage':False,'power_hours':20}})
+        result['area_classification']['source']='SYNTHETIC_TEST_FIXTURE'
+        result['area_classification']['local_body_type']='Synthetic fixture — not live village evidence'
+        return result
     async def detect(self, _):
         raise ValueError("GPS disabled in the isolated test fixture. Choose the synthetic business location below.")
 
@@ -79,6 +86,23 @@ async def region(state):
 api.OnboardingLocation = FixtureLocation
 engine.regional_assessment = region
 engine.find_district_odop = lambda *_: None
+
+# Optional isolated visual fixture; never touches real account or location data.
+if '--area-demo' in sys.argv:
+    original_upsert = db_manager.upsert_user
+    async def area_demo_user(*args, **kwargs):
+        profile = await original_upsert(*args, **kwargs)
+        if kwargs.get('auth_provider') == 'evaluator' and not await db_manager.get_onboarding(profile['firebase_uid']):
+            profile = await db_manager.update_user(profile['firebase_uid'], {'name':'Synthetic demo user','gender':'Female',
+                'promoter_category':'obc','phone':'+919999999999','email':'demo@example.com'})
+            from app.models.onboarding import new_session, LocationSelection
+            state = new_session(profile)
+            state['experience'] = 'adaptive'
+            state['location'] = await FixtureLocation(None).select(LocationSelection(revision=0,state_code=27,district_code=490,block_code=4900,village_code=49000))
+            await engine.advance(state)
+            await db_manager.save_onboarding(profile['firebase_uid'],state)
+        return profile
+    db_manager.upsert_user = area_demo_user
 
 # The imported voice onboarding uses the existing public location dropdown API.
 async def fixture_states(**_):

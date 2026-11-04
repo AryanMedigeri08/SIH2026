@@ -4,8 +4,16 @@ import { VoiceConversation } from './voiceConversation.js';
 import { authenticatedSession } from './authenticatedSession.js';
 import { destinationAfterSignIn } from './authNavigation.js';
 import { canonicalAuthOrigin } from '../../vite.config.js';
+import { getDevicePosition } from './deviceLocation.js';
 
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('device location retries a timed-out GPS reading with balanced accuracy',async()=>{
+  let calls=0;const value=await getDevicePosition({getCurrentPosition(success,error,options){calls++;if(calls===1){assert.equal(options.enableHighAccuracy,true);error({code:3});}else{assert.equal(options.enableHighAccuracy,false);success({coords:{latitude:18.5,longitude:73.9,accuracy:5000}});}}});
+  assert.equal(calls,2);assert.equal(value.accuracy,5000);
+});
+test('denied location permissions do not cause repeated permission requests',async()=>{
+  let calls=0;await assert.rejects(()=>getDevicePosition({getCurrentPosition(_,error){calls++;error({code:1});}}),/blocked/);assert.equal(calls,1);
+});
 function fixture(answer=async()=>({valid:true}),extra={}){
   const events=[];
   const loop=new VoiceConversation({speak:async text=>{events.push(['speak',text]);return true;},listen:async()=>{events.push(['listen']);return true;},stop:()=>events.push(['stop']),status:value=>events.push(['state',value]),answer,error:message=>events.push(['error',message]),...extra});

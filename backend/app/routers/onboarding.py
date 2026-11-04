@@ -147,6 +147,8 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
         "change my location": "change_location", "change business location": "change_location"})
     if action == "answer" and lower in controls:
         action = controls[lower]
+    if action == 'answer' and current == 'odop_explore' and lower in ('align','align my business','use this odop product','ओडीओपी से जोड़ें','ओडीओपीशी जोडा','odop உடன் இணைக்கவும்','ఓడీఓపీతో అనుసంధానించండి','ಒಡಿಒಪಿಗೆ ಹೊಂದಿಸಿ'):
+        action = 'align_odop'
     if action == "answer" and lower in ("yes", "correct", "confirm", "that's right", "हाँ", "हां", "हो", "ஆம்", "అవును", "ಹೌದು"):
         action = {"location_confirmation": "confirm_location", "business_confirmation": "confirm_business", "pending_changes": "confirm_change", "cost_proposal": "confirm_estimate", "rent_amount": "confirm_rent"}.get(current, action)
     if action == "answer" and lower in ("no", "incorrect", "नहीं", "नाही", "இல்லை", "కాదు", "ಇಲ್ಲ") and current == "location_confirmation":
@@ -183,6 +185,12 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
         if not state["classification"] or not all(value(state, k) for k in required):
             raise HTTPException(422, "Please clarify the activity, products, requirements and capacity first.")
         state["business_confirmed"] = True
+    elif action == 'align_odop':
+        if current != 'odop_explore' or not state.get('odop'):
+            raise HTTPException(422, 'Please review the district ODOP product before choosing alignment.')
+        product = state['odop']['product']
+        apply_valid_answers(state, {'idea':f'I want to start a business using {product}', 'idea_status':'known', 'odop_preference':'explore'}, turn.source, correction=True)
+        state['odop_explained'] = True
     elif action == 'confirm_estimate':
         proposal = state.get('cost_proposal')
         if state.get('experience') != 'adaptive' or current != 'cost_proposal' or not proposal:
@@ -237,7 +245,7 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
             updates, ambiguities, model = {}, [], "local"
         if current == "odop_explore" and updates.get("odop_preference") in ("keep", "reject"):
             state["odop_explained"] = True
-        apply_valid_answers(state, updates, turn.source, correction=turn.correction)
+        apply_valid_answers(state, updates, turn.source, correction=turn.correction or (current=='odop_explore' and updates.get('odop_preference') in ('keep','reject')))
         state["understanding_source"] = model
         if ambiguities:
             # Essential missing facts remain missing; clarification cannot override a prerequisite.

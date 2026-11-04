@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LanguageGate } from './components/LanguageGate';
+import { CurrentLocationCard } from './components/CurrentLocationCard';
 import { BrowserRouter, Navigate, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar/Sidebar';
@@ -281,7 +282,7 @@ export function AppContent() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/landing" element={<Navigate to="/" replace />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/register" element={<LanguageGate><RegisterPage /></LanguageGate>} />
       </Routes>
     );
   }
@@ -339,6 +340,7 @@ export function AppContent() {
                   <MobileReportTabs reportId={reportData?.report_id} />
                 )}
 
+              {location.pathname==='/dashboard'&&isAuthenticated&&<CurrentLocationCard onOpenWizard={()=>navigate('/wizard')}/>}
               <Routes>
               {/* Protected Overview & Core Synthesis Dashboard */}
               <Route
@@ -662,7 +664,7 @@ export function App() {
           <ViewModeProvider>
             <BusinessProvider>
               <ChatProvider>
-                <LanguageGate><AppContent /></LanguageGate>
+                <AppContent />
               </ChatProvider>
             </BusinessProvider>
           </ViewModeProvider>

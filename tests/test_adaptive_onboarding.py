@@ -152,6 +152,34 @@ def test_correction_invalidates_costs_and_regional_decision(conversation):
     assert state['next']['field'] == 'scale'
 
 
+def test_odop_waits_for_explicit_choice_and_alignment_restarts_business_clarification(conversation,monkeypatch):
+    client,_,state=conversation
+    monkeypatch.setattr(engine,'find_district_odop',lambda *_:{'matched_state_name':'Maharashtra','matched_district_name':'Pune','odop_product':'Food products','matching_sectors':['food_processing']})
+    state=define_business(client,state)
+    assert state['next']['field']=='odop_preference'
+    state=answer(client,state,text='not sure what that means')
+    assert state['next']['field']=='odop_preference'
+    assert client.get('/api/v2/onboarding/session?experience=adaptive').json()['state']['next']['field']=='odop_preference'
+    state=answer(client,state,updates={'odop_preference':'explore'})
+    assert state['next']['field']=='odop_explore'
+    state=answer(client,state,action='align_odop')
+    assert 'Food products' in engine.value(state,'idea')
+    assert engine.value(state,'products') is None and state['assessment'] is None
+    assert state['next']['field']=='activity'
+
+
+def test_keeping_original_idea_after_odop_exploration_is_one_decision(conversation,monkeypatch):
+    client,_,state=conversation
+    monkeypatch.setattr(engine,'find_district_odop',lambda *_:{'matched_state_name':'Maharashtra','matched_district_name':'Pune','odop_product':'Food products','matching_sectors':['food_processing']})
+    state=define_business(client,state)
+    idea=engine.value(state,'idea')
+    state=answer(client,state,updates={'odop_preference':'explore'})
+    state=answer(client,state,text='keep my original idea')
+    assert engine.value(state,'odop_preference')=='keep'
+    assert engine.value(state,'idea')==idea and not state['pending_changes']
+    assert state['next']['field']=='premises'
+
+
 def test_poor_regional_result_offers_an_actual_change_of_path(conversation, monkeypatch):
     client, _, state = conversation
     async def saturated(state):

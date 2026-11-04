@@ -428,9 +428,9 @@ def test_hierarchy_validation_and_area_verification_fallback():
         run(service.select(selected.model_copy(update={'block_code': 999})))
     del row['is_rural']
     result = run(service.select(selected))
-    assert result['is_rural'] is None and result['area_source'] == 'verification_required'
+    assert result['is_rural'] is None and result['area_source'] == 'classification_unavailable'
     result = run(service.select(selected.model_copy(update={'verified_is_rural': False})))
-    assert result['is_rural'] is False and result['area_source'] == 'legacy_user_verification'
+    assert result['is_rural'] is None  # User selection cannot manufacture official classification.
     # An authoritative flag always wins over a client override.
     row['is_rural'] = True
     assert run(service.select(selected.model_copy(update={'verified_is_rural': False})))['is_rural'] is True
@@ -440,8 +440,8 @@ def test_location_offline_and_inaccurate_gps_never_fabricate():
     service = OnboardingLocation(types.SimpleNamespace(pool=None))
     with pytest.raises(LocationUnavailable):
         run(service.options('blocks', 123))
-    with pytest.raises(ValueError, match='kilometre'):
-        run(service.detect(GPSRequest(revision=0, latitude=18, longitude=73, accuracy=5000)))
+    with pytest.raises(ValueError, match='imprecise'):
+        run(service.detect(GPSRequest(revision=0, latitude=18, longitude=73, accuracy=150000)))
 
 
 def test_gps_candidate_requires_unique_lgd_join_and_is_not_confirmed(client, monkeypatch):
@@ -453,7 +453,7 @@ def test_gps_candidate_requires_unique_lgd_join_and_is_not_confirmed(client, mon
     conn = FakeConnection(location)
     candidates = [{'state_code': 27, 'district_code': 490, 'development_block_code': 123, 'village_code': 456}]
     async def fetch(sql, *args):
-        assert args == ('Maharashtra', 'Pune', 'Example')
+        assert args == ('maharashtra', ['pune'], ['example'])
         return candidates
     conn.fetch = fetch
     service = OnboardingLocation(types.SimpleNamespace(pool=FakePool(conn)))
@@ -468,7 +468,7 @@ def test_gps_candidate_requires_unique_lgd_join_and_is_not_confirmed(client, mon
     assert not result['location_confirmed'] and result['next']['field'] == 'location_confirmation'
     assert 'house_number' not in str(result['physical_location']) and 'latitude' not in result['physical_location']
     result = api_turn(client, result, action='change_location')
-    candidates.append(candidates[0].copy())
+    candidates.append({**candidates[0], 'village_code':457})
     gps['revision'] = result['revision']
     result = client.post('/api/v2/onboarding/location/detect', json=gps).json()['state']
     assert result['location'] is None and not result['location_confirmed']

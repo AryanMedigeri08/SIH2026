@@ -3,10 +3,13 @@ import { Link } from 'react-router-dom';
 import { Mic, Square, Send, Volume2, VolumeX, Pause, Play, RefreshCw, Pencil, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage, LANGUAGES } from '../context/LanguageContext';
-import { onboardingApi } from '../services/api';
+import { onboardingApi,authApi } from '../services/api';
 import { useMiraConversation } from '../hooks/useMiraConversation';
 import { TranslatedText as T } from '../components/TranslatedText';
 import { BusinessLocationPicker } from '../components/Wizard/BusinessLocationPicker';
+import { getDevicePosition } from '../services/deviceLocation';
+import { ProfileDetailsForm } from '../components/ProfileDetailsForm';
+import { AreaClassificationSummary } from '../components/AreaClassificationSummary';
 
 const money = value => `₹${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 const labels = { personal: 'My own savings', total: 'Total setup budget', borrowing: 'Money I expect to borrow',
@@ -14,6 +17,8 @@ const labels = { personal: 'My own savings', total: 'Total setup budget', borrow
   explore: 'Explore ODOP', keep: 'Keep my idea', reject: 'Skip ODOP', owned: 'Own / family space', rented: 'Rent a space', shared: 'Shared space', mobile: 'No fixed premises',
   increase: 'Increase my investment', normal: 'Normal bank loan', sca: 'Explore SCA assistance', self: 'Use my own funds', monthly: 'Per month', annual: 'Per year', Unspecified: 'Prefer not to say' };
 const numeric = new Set(['budget', 'personal_contribution', 'rent_amount']);
+const personalFields=['name','gender','promoter_category','phone','email'];
+const profileValues=profile=>Object.fromEntries(personalFields.map(key=>[key,key==='gender'&&profile?.gender==='Unspecified'&&!profile?.promoter_category?'':profile?.[key]||'']));
 const reviewLabels = { idea: 'Business idea', products: 'Products or services',
   activity: 'Business activity', scale: 'Planned capacity', premises: 'Work premises', rent_amount: 'Rent or shared-space fee', rent_period: 'Rent period',
   budget: 'Stated budget', budget_kind: 'Budget means', personal_contribution: 'Your own funds', project_cost: 'Setup estimate', enterprise_name: 'Enterprise name', financing_choice: 'Funding choice' };
@@ -23,7 +28,7 @@ const choices = { gender: ['Male', 'Female', 'Other', 'Unspecified'], promoter_c
   activity: ['manufacture', 'process', 'retail', 'distribute', 'service'], budget_kind: ['personal', 'total', 'borrowing'], premises: ['owned', 'rented', 'shared', 'mobile'], rent_period: ['monthly', 'annual'] };
 
 export function OnboardingPage({ onWizardSubmit, isLoading }) {
-  const { token, firebaseUser } = useAuth();
+  const { token, firebaseUser, userProfile, refreshProfile } = useAuth();
   const { language, setLanguage } = useLanguage();
   const [started, setStarted] = useState(() => !!sessionStorage.getItem('udyam_mira_language_selected'));
   const [state, setState] = useState(null);
@@ -34,6 +39,8 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
   const [error, setError] = useState('');
   const [voice, setVoice] = useState(true);
   const [speechAllowed, setSpeechAllowed] = useState(true);
+  const [profileForm,setProfileForm]=useState(()=>profileValues(userProfile));
+  const [profileErrors,setProfileErrors]=useState({});
   const [manualLocation, setManualLocation] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
@@ -69,12 +76,26 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
     requestRef.current = payload;
     try {
       const result = await onboardingApi.turn(token,payload); accept(result); requestRef.current = null;
+      if(personalFields.includes(stateRef.current?.next?.field)||personalFields.some(key=>Object.hasOwn(options.updates||{},key))||personalFields.includes(state?.next?.field)){
+        try {const profile=await refreshProfile();if(alive.current)setProfileForm(previous=>({...previous,...Object.fromEntries(Object.entries(profileValues(profile)).filter(([,value])=>value))}));}catch(_){}
+      }
       setInput(''); setEdit(''); setCosts(null);
       return {valid:result.accepted !== false};
     } catch (err) { setError(err.message); if(options.source === 'voice') throw err; return {valid:false}; }
     finally { flight.current = false; setBusy(false); }
   };
   sendRef.current = send;
+  const saveProfile=async event=>{
+    event.preventDefault();if(flight.current)return;
+    speech.pause();flight.current=true;setBusy(true);setError('');
+    let checked;
+    try {
+      checked=await authApi.validateRegistration({...profileForm,language});setProfileErrors(checked.errors||{});
+      if(!checked.valid)setReply(checked.reply);
+    }catch(err){setError(err.message);}
+    finally{flight.current=false;setBusy(false);}
+    if(checked?.valid)await send({text:'',updates:checked.values,source:'control'});
+  };
   const detect = async () => {
     if (gpsAttempted.current || !stateRef.current || flight.current) return;
     gpsAttempted.current = true;
@@ -94,13 +115,11 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
       sessionStorage.removeItem('mira-registration-gps');
       if (captured && Date.now() - captured.captured_at < 180000) return usePosition(captured);
     } catch (_) {}
-    if (!navigator.geolocation) { setManualLocation(true); return; }
     setBusy(true);
-    navigator.geolocation.getCurrentPosition(position => usePosition(position.coords), () => {
-      if (alive.current) { setBusy(false); setManualLocation(true); setError('Location could not be detected. Choose your business location below.'); }
-    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+    try { await usePosition(await getDevicePosition()); }
+    catch(err) { if(alive.current){setBusy(false);setManualLocation(true);setError(err.message);} }
   };
-  useEffect(() => { if (state?.next?.field === 'location' && !manualLocation) detect(); }, [state?.next?.field]);
+  useEffect(() => { if (state?.next?.field === 'location' && !manualLocation && !busy && !isLoading) detect(); }, [state?.next?.field,manualLocation,busy,isLoading]);
   const finish = async () => {
     if (flight.current || !state || isLoading) return;
     flight.current = true; setBusy(true); setError(''); speech.stopSpeaking();
@@ -110,6 +129,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
     finally { flight.current = false; setBusy(false); }
   };
   const current = state?.next;
+  const profileStep=personalFields.includes(current?.field);
   const locked = busy || isLoading || speech.transcribing;
   const locationStep = current && ['location', 'area_verification'].includes(current.field);
   const assessment = state?.assessment;
@@ -128,7 +148,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
   return <main className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-sky-50 text-slate-900">
     <header className="sticky top-0 z-20 border-b bg-white/95 backdrop-blur px-4 py-3"><div className="max-w-3xl mx-auto flex items-center gap-3">
       <img src="/mira-avatar.png" alt="Mira" className="w-12 h-12 rounded-full object-cover" />
-      <div className="flex-1"><h1 className="font-bold">Mira · Your business guide</h1><p className="text-xs text-slate-500">{locked ? 'Checking your answer…' : 'Your progress is saved'}</p></div>
+      <div className="flex-1"><h1 className="font-bold">Mira · Your business guide</h1><p className="text-xs text-slate-500">{locationStep&&busy?'Finding your location…':locked ? 'Checking your answer…' : 'Your progress is saved'}</p></div>
       <button type="button" aria-label="Toggle spoken guidance" aria-pressed={voice} className="p-3 rounded-full bg-violet-50" onClick={() => setVoice(!voice)}>{voice ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
       <button type="button" className="p-3" aria-label={state?.paused ? 'Resume' : 'Pause and save'} disabled={locked} onClick={() => send({action:state?.paused ? 'resume' : 'pause', text:''})}>{state?.paused ? <Play size={19} /> : <Pause size={19} />}</button>
     </div></header>
@@ -142,16 +162,22 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
         {!speechAllowed && <button className="mira-secondary mt-3" disabled={locked} onClick={reload}><T text="Reload saved progress" /></button>}
         <div className="mt-4 flex gap-4 text-xs text-slate-500"><button onClick={() => speech.speak(reply)} disabled={!reply}><T text="Listen again" /></button><button disabled={locked || !state} onClick={() => send({action:'explain', text:''})}><T text="Explain this" /></button></div>
       </section>
+      {profileStep&&<section className="rounded-3xl border bg-white p-4 sm:p-6"><ProfileDetailsForm values={profileForm} activeField={current.field} errors={profileErrors} disabled={locked} onChange={(key,value)=>{speech.pause();setProfileForm(previous=>({...previous,[key]:value}));setProfileErrors(previous=>({...previous,[key]:null}));}} onSubmit={saveProfile}/></section>}
       {state?.location && <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm flex items-start justify-between gap-3"><div><strong>{state.location.village_name}</strong><p className="text-slate-500">{state.location.block_name}, {state.location.district_name}, {state.location.state_name}</p></div>
         <button className="text-violet-800 font-semibold" disabled={locked} onClick={() => { setManualLocation(true); send({action:'change_location',text:''}); }}>Change</button></div>}
       {locationStep && (manualLocation || current.field === 'area_verification') && <BusinessLocationPicker token={token} state={state} language={language} disabled={locked} onError={setError} onResult={accept} />}
+      {state?.location&&current?.field!=='area_verification'&&<AreaClassificationSummary location={state.location}/>}
+      {state?.physical_location && !state?.location && <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4 text-sm"><strong><T text="Device location found"/></strong><p>{[state.physical_location.locality_hint,state.physical_location.district_hint,state.physical_location.state_name].filter(Boolean).join(', ')}</p><p className="text-xs text-slate-600 mt-1"><T text="Confirm the business address using the selections above."/></p></div>}
+      {state?.odop?.product && <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-2" aria-label="District ODOP alignment"><strong>One District One Product (ODOP)</strong><p className="font-medium">{state.odop.product}</p><p className="text-sm"><T text={state.odop.aligned?'Your business sector matches the district product. Product and scheme eligibility still need checking.':'You can explore a business connection to this district product, or keep your original idea.'}/></p>
+        {current?.field==='odop_explore'&&<button disabled={locked} className="mira-primary" onClick={()=>send({action:'align_odop',text:''})}><T text="Plan a business using this ODOP product"/></button>}
+      </section>}
       {!state?.paused && current && <>
         {['location_confirmation','business_confirmation','pending_changes'].includes(current.field) && <div className="flex flex-wrap gap-3">
           <button className="mira-primary" disabled={locked} onClick={() => send({action:current.action,text:''})}><Check size={18} /><T text="Yes, that’s right" /></button>
           {current.field === 'location_confirmation' && <button className="mira-secondary" disabled={locked} onClick={() => {setManualLocation(true);send({action:'change_location',text:''});}}><T text="Choose a different place" /></button>}
           {current.field === 'pending_changes' && <button className="mira-secondary" disabled={locked} onClick={() => send({action:'discard_change',text:''})}>Keep previous answer</button>}
         </div>}
-        {current.choices?.length > 0 && <div className="flex flex-wrap gap-3">{current.choices.map(choice => <button key={String(choice)} disabled={locked} className="mira-secondary" onClick={() => send({text:'',updates:{[current.field]:choice}})}><T text={labels[choice] || String(choice).toUpperCase()} /></button>)}</div>}
+        {!profileStep && current.choices?.length > 0 && <div className="flex flex-wrap gap-3">{current.choices.map(choice => <button key={String(choice)} disabled={locked} className="mira-secondary" onClick={() => send({text:'',updates:{[current.field]:choice}})}><T text={labels[choice] || String(choice).toUpperCase()} /></button>)}</div>}
         {current.field === 'regional_review' && <div className="flex flex-wrap gap-3"><button disabled={locked} className="mira-primary" onClick={() => send({action:'explore_alternatives',text:''})}><T text="Explore other ideas" /></button><button disabled={locked} className="mira-secondary" onClick={() => send({action:'accept_regional_risk',text:''})}><T text="Continue with these risks" /></button></div>}
         {current.field === 'rent_amount' && state.rent_proposal != null && <button className="mira-secondary" disabled={locked} onClick={() => send({action:'confirm_rent',text:''})}>Use {money(state.rent_proposal)} per month for planning</button>}
         {current.field === 'cost_proposal' && state.cost_proposal && <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 space-y-3">
@@ -180,13 +206,13 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
       </section>}
       {current?.field === 'ready' && <button type="button" className="mira-secondary" disabled={locked} onClick={() => setCosts({...state.fields.cost_items?.value})}>Change setup cost estimates</button>}
       {current?.field === 'ready' && <button className="mira-primary w-full justify-center py-4" disabled={locked} onClick={finish}><T text="Generate my feasibility report" /></button>}
-      {current?.field === 'complete' && <div className="flex flex-wrap gap-3"><Link to="/dashboard" className="mira-primary">Open my saved business report</Link><button className="mira-secondary" disabled={locked} onClick={async () => {setBusy(true);try {accept(await onboardingApi.newSession(token,state.revision));}catch(err){setError(err.message);}finally{setBusy(false);}}}>Start another business plan</button></div>}
+      {current?.field === 'complete' && <div className="flex flex-wrap gap-3"><Link to="/dashboard" className="mira-primary">Open my saved business report</Link><button className="mira-secondary" disabled={locked} onClick={async () => {gpsAttempted.current=false;setManualLocation(false);setBusy(true);try {accept(await onboardingApi.newSession(token,state.revision));}catch(err){setError(err.message);}finally{setBusy(false);}}}>Start another business plan</button></div>}
       {speech.speechError && <p role="status" className="text-sm text-amber-800">{speech.speechError}</p>}
     </div>
     {current && current.field !== 'complete' && <footer className="fixed bottom-0 inset-x-0 border-t bg-white/95 backdrop-blur p-3 z-30"><form className="max-w-3xl mx-auto flex items-end gap-2" onSubmit={event=>{event.preventDefault();send();}}>
       <button type="button" className={`shrink-0 rounded-full p-4 ${speech.isRecording?'bg-rose-600 text-white':'bg-violet-900 text-white'}`} disabled={locked || state.paused} aria-label={speech.paused?'Resume conversation':'Pause listening'} onClick={speech.paused?speech.resume:speech.pause}>{speech.isRecording?<Square size={23}/>:<Mic size={23}/>}</button>
-      <textarea aria-label="Your answer to Mira" placeholder="Speak or type your answer…" rows={1} className="flex-1 min-w-0 rounded-2xl border p-3 text-base" value={input} onChange={e=>setInput(e.target.value)} disabled={locked || state.paused} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(input.trim())send();}}}/>
-      <button className="rounded-full bg-violet-900 text-white p-4" aria-label="Send answer" disabled={locked || !input.trim() || state.paused}><Send size={22}/></button>
+      {!profileStep&&<><textarea aria-label="Your answer to Mira" placeholder="Speak or type your answer…" rows={1} className="flex-1 min-w-0 rounded-2xl border p-3 text-base" value={input} onChange={e=>setInput(e.target.value)} disabled={locked || state.paused} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(input.trim())send();}}}/>
+      <button className="rounded-full bg-violet-900 text-white p-4" aria-label="Send answer" disabled={locked || !input.trim() || state.paused}><Send size={22}/></button></>}
     </form><p className="text-center text-xs text-slate-500 mt-2">{speech.isRecording?'Listening · tap stop when done':speech.transcribing?'Understanding your recording…':speech.speaking?'Mira is speaking · tap the mic to interrupt':speech.paused?'Conversation paused · resume or type your answer':'The microphone opens automatically after Mira finishes.'}</p></footer>}
   </main>;
 }

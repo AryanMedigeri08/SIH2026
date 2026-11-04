@@ -57,6 +57,7 @@ def invalidate(state, changed, *, clear_confirmed_inputs=True):
             state["fields"].pop(key, None)
         state["odop_explained"] = False
         state["odop_offered"] = False
+        state['fields'].pop('odop_preference', None)
     affected = set(changed)
     progress = True
     while progress:
@@ -335,7 +336,7 @@ def next_question(state):
         return question("location", "Let’s find where you want to establish your business. You can use your current location or choose another place.")
     loc = state["location"]
     if loc.get("is_rural") is None:
-        return question("area_verification", "The directory has no area classification for this place. Please verify rural or urban status using the existing area confirmation control.", explanation="The original application requires manual verification here. I will not guess a subsidy classification.")
+        return question("area_verification", "I found the place, but some area-classification data is unavailable. Retry the automatic data check or choose the correct village.", explanation="Official area status governs scheme calculations. Missing records are not replaced by a user-selected Rural/Urban answer.")
     if not state["location_confirmed"]:
         return question("location_confirmation", f"Your village is {loc['village_name']}, development block {loc['block_name']}, district {loc['district_name']}, {loc['state_name']}. The area status is {'rural' if loc['is_rural'] else 'urban or semi-urban'}. Is this where you want to establish your business?", action="confirm_location")
     if not v("idea_status") and not v("idea"):
@@ -359,7 +360,7 @@ def next_question(state):
     if not state["classification"]:
         return question("idea", "I need to understand the main activity more clearly. What will you do for your customers, and what will they pay for?")
     # ODOP is offered while shaping the idea, not as an end-of-flow requirement.
-    if state.get("odop") and not v("odop_preference") and not state.get("odop_offered"):
+    if state.get("odop") and not v("odop_preference"):
         odop = state["odop"]
         return question("odop_preference", f"Our district ODOP record lists {odop['product']}. Would you like to explore a connection, keep your original idea, or skip ODOP?", ("explore", "keep", "reject"), "ODOP is optional. Alignment does not establish scheme eligibility or require changing your idea.")
     if state.get("odop") and v("odop_preference") == "explore" and not state.get("odop_explained"):

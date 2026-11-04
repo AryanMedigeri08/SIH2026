@@ -62,6 +62,32 @@ class RegistrationAnswer(BaseModel):
     language: Literal['en','hi','mr','ta','te','kn'] = 'en'
 
 
+class RegistrationProfileAnswers(BaseModel):
+    name: str = Field('', max_length=120)
+    gender: str = Field('', max_length=80)
+    promoter_category: str = Field('', max_length=80)
+    phone: str = Field('', max_length=150)
+    email: str = Field('', max_length=254)
+    language: Literal['en','hi','mr','ta','te','kn'] = 'en'
+
+
+@router.post('/registration/profile')
+async def validate_registration_profile(profile: RegistrationProfileAnswers):
+    """Validate the whole form before sending an OTP; no unauthenticated storage."""
+    from app.core.profile_conversation import parse_answer, prompt, PROFILE_FIELDS, RETRY
+    values, errors = {}, {}
+    for field in PROFILE_FIELDS:
+        text = getattr(profile, field).strip()
+        parsed = parse_answer(field, text or ('skip' if field == 'email' else ''))
+        if parsed:
+            values.update(parsed)
+        else:
+            errors[field] = prompt(field, profile.language)
+    missing = next(iter(errors), None)
+    return JSONResponse(content={'valid':not errors, 'values':values, 'errors':errors, 'next_field':missing,
+        'reply':RETRY[profile.language] + ' ' + errors[missing] if missing else ''}, headers={'Cache-Control':'no-store'})
+
+
 @router.post('/registration/answer')
 async def registration_answer(answer: RegistrationAnswer):
     # Unverified registration values are validated, not stored or logged. The

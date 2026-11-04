@@ -144,12 +144,12 @@ def fallback_extract(text: str, question: str | None) -> dict:
             updates["rent_period"] = "annual"
     if question == "premises_suitable" and lower in ("yes", "suitable", "no", "not suitable"):
         updates["premises_suitable"] = lower in ("yes", "suitable")
-    if question == "odop_preference":
-        if re.search(r"no|reject|not interested", lower):
+    if question in ("odop_preference", "odop_explore"):
+        if re.search(r"\b(?:no|reject|not interested|skip)\b", lower):
             updates["odop_preference"] = "reject"
-        elif re.search(r"keep|original|continue", lower):
+        elif re.search(r"\b(?:keep|original|continue)\b", lower):
             updates["odop_preference"] = "keep"
-        elif re.search(r"yes|explore|interested", lower):
+        elif re.search(r"\b(?:yes|explore|interested|align)\b", lower):
             updates["odop_preference"] = "explore"
     if question == "gender":
         updates["gender"] = {"male": "Male", "female": "Female", "other": "Other", "prefer not to say": "Unspecified"}.get(lower)

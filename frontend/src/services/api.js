@@ -44,6 +44,7 @@ async function authFetch(url, token, options = {}) {
 }
 
 export const onboardingApi = {
+  currentLocation: (token, gps) => authFetch(`${API_BASE}/locations/detect`, token, {method:'POST', body:JSON.stringify({revision:0,...gps})}),
   session: (token, language = 'en', experience = 'strict') => authFetch(`${API_BASE}/onboarding/session?language=${language}&experience=${experience}`, token),
   turn: (token, payload) => authFetch(`${API_BASE}/onboarding/turn`, token, { method: 'POST', body: JSON.stringify(payload) }),
   locationOptions: (token, level, parent, search = '') => {
@@ -93,6 +94,7 @@ export async function checkHealth() {
 export const authApi = {
   createEvaluator: () => authFetch(`${API_BASE}/auth/evaluator`, null, { method: 'POST' }),
   registrationAnswer: payload => authFetch(`${API_BASE}/auth/registration/answer`, null, { method: 'POST', body: JSON.stringify(payload) }),
+  validateRegistration: payload => authFetch(`${API_BASE}/auth/registration/profile`, null, { method: 'POST', body: JSON.stringify(payload) }),
   async registerProfile(token, profileData) {
     return await authFetch(`${API_BASE}/auth/register`, token, {
       method: 'POST',

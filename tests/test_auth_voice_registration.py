@@ -97,6 +97,17 @@ def test_registration_sequence_validation_repeat_and_correction(client):
     assert corrected['values'] == {'name':'Asha Rao'} and corrected['next_field'] == 'phone'
 
 
+def test_single_registration_form_validates_all_fields_and_optional_email(client):
+    http, _ = client
+    form={'name':'Asha Patil','gender':'Female','promoter_category':'obc','phone':'98765 43210','email':''}
+    result=http.post('/api/v2/auth/registration/profile',json=form).json()
+    assert result['valid'] is True and not result['errors']
+    assert result['values']['phone']=='+919876543210' and result['values']['email_status']=='skipped'
+    result=http.post('/api/v2/auth/registration/profile',json={**form,'gender':'','phone':'123','email':'invalid'}).json()
+    assert result['valid'] is False and set(result['errors'])=={'gender','phone','email'}
+    assert result['next_field']=='gender'
+
+
 @pytest.mark.parametrize('language,category,number', [
     ('hi','ओबीसी','नौ आठ सात छह पांच चार तीन दो एक शून्य'),
     ('mr','एससी','नऊ आठ सात सहा पाच चार तीन दोन एक शून्य'),

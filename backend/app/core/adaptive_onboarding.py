@@ -90,9 +90,9 @@ def next_question(state):
     if not loc:
         return q('location', 'Let’s find your business location. I can use your device location, or you can choose it below.')
     if loc.get('is_rural') is None:
-        return q('area_verification', 'I found the place, but the available official records do not establish rural or urban status. Please verify the status below; I will not guess it.')
+        return q('area_verification', 'I found the place. Its area classification is being checked from official records and village indicators. Some required data is unavailable; retry the data check or choose the correct village below.')
     if not state['location_confirmed']:
-        return q('location_confirmation', f"I found {loc['village_name']}, {loc['block_name']}, {loc['district_name']}, {loc['state_name']}. "
+        return q('location_confirmation', ('Your device location is approximate. Please check the address carefully. ' if loc.get('approximate') else '') + f"I found {loc['village_name']}, {loc['block_name']}, {loc['district_name']}, {loc['state_name']}. "
             f"The recorded area type is {'rural' if loc['is_rural'] else 'urban or semi-urban'}. Is this where you will run the business?", action='confirm_location')
     if not v('idea') and v('idea_status') != 'explore':
         return q('idea', 'What business do you have in mind? Tell me what you want to make, sell or provide. If you have no idea yet, tell me your budget and I will help you explore.')
@@ -120,7 +120,7 @@ def next_question(state):
     if state['regional'].get('recommendation') in ('SATURATED_MARKET', 'CONSTRAINED_MARKET', 'NOT_RECOMMENDED') and not state.get('regional_risk_accepted'):
         return q('regional_review', 'The regional evidence raises market or operating concerns for this idea. Would you like to explore other ideas, or continue reviewing this one with those risks?', action='accept_regional_risk')
     odop = state.get('odop')
-    if odop and not v('odop_preference') and not state.get('odop_offered'):
+    if odop and not v('odop_preference'):
         return q('odop_preference', f"Your district ODOP product is {odop['product']}. Shall we explore a useful connection, or keep your idea as it is?", ('explore', 'keep', 'reject'))
     if odop and v('odop_preference') == 'explore' and not state.get('odop_explained'):
         return q('odop_explore', f"The district record lists {odop['product']}. " +

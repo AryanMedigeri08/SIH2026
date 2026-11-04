@@ -4,12 +4,36 @@ locations.py — REST API Router for LGD 6-Tier Administrative Location Hierarch
 
 from __future__ import annotations
 from typing import Optional
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
+from fastapi.responses import JSONResponse
+from app.core.auth_dependency import AuthenticatedUser, get_current_user
+from app.models.onboarding import GPSRequest
 
 from app.database import db_manager
 from app.models.schemas import StateInfo, DistrictInfo, BlockInfo, VillageInfo, ODOPLookupResponse
 
 router = APIRouter(prefix="/locations", tags=["LGD Location Hierarchy"])
+
+
+@router.post('/detect')
+async def current_device_location(gps: GPSRequest, user: AuthenticatedUser = Depends(get_current_user)):
+    """Display current location without replacing an enterprise's confirmed address."""
+    from app.core.onboarding_location import OnboardingLocation, place_name
+    from app.core.odop_matcher import find_district_odop
+    try:
+        physical, candidate = await OnboardingLocation(db_manager).detect(gps)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(503, 'Address lookup is temporarily unavailable. Retry or choose your business location.') from exc
+    state = (candidate or {}).get('state_name') or physical.get('state_name')
+    district = (candidate or {}).get('district_name') or physical.get('district_hint')
+    record = find_district_odop(state, district) if state and district else None
+    if record and (place_name(record.get('matched_state_name'))!=place_name(state) or place_name(record.get('matched_district_name'))!=place_name(district)):
+        record = None
+    return JSONResponse(content={'physical_location':physical,'location':candidate,
+        'odop':{'product':record.get('odop_product'),'matching_sectors':record.get('matching_sectors',[])} if record else None},
+        headers={'Cache-Control':'no-store'})
 
 
 @router.get("/states", response_model=list[StateInfo])
