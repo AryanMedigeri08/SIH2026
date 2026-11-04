@@ -69,6 +69,15 @@ test('interruption while speech is pending never starts an obsolete microphone',
   let finish;const f=fixture(undefined,{speak:()=>new Promise(resolve=>{finish=resolve;})});f.update();f.loop.update({field:'name',key:'name',prompt:'name',enabled:false});finish(true);await tick();
   assert.equal(f.events.some(e=>e[0]==='listen'),false);
 });
+test('typing keeps speech and microphone disabled across questions until explicit resume',async()=>{
+  const f=fixture();f.update();await tick();
+  f.loop.update({field:'name',key:'name',prompt:'name question',enabled:false});
+  const stoppedAt=f.events.length;
+  f.loop.update({field:'gender',key:'gender',prompt:'gender question',enabled:false});await tick();
+  assert.equal(f.events.slice(stoppedAt).some(event=>['speak','listen'].includes(event[0])),false);
+  f.loop.update({field:'gender',key:'gender',prompt:'gender question',enabled:true});await tick();
+  assert.deepEqual(f.events.filter(event=>['speak','listen'].includes(event[0])).slice(-2),[['speak','gender question'],['listen']]);f.loop.dispose();
+});
 test('duplicate recognition callbacks cannot save the same field twice',async()=>{
   let resolve,calls=0;const f=fixture(()=>{calls++;return new Promise(done=>{resolve=done;});});f.update();await tick();
   const first=f.loop.answer('Asha');await f.loop.answer('Asha');assert.equal(calls,1);resolve({valid:true});await first;f.loop.dispose();
