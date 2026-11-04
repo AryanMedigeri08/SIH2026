@@ -1,0 +1,25 @@
+.orb-container {
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.orb-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+
+.orb-fallback { position: absolute; inset: 17%; border-radius: 50%; border: 3px solid #73dcff; box-shadow: 0 0 26px #9c43fe, inset 0 0 28px #4cc2e9; background: radial-gradient(circle, #10149922 30%, #9c43fe55 75%, transparent); animation: orb-fallback-breathe var(--orb-period, 3s) ease-in-out infinite; }
+.mira-orb { width: 100%; height: 100%; transition: opacity .3s ease; }
+.mira-orb[data-state="thinking"] { --orb-period: 1.1s; }
+.mira-orb[data-state="speaking"] { --orb-period: 1.6s; }
+.mira-orb[data-state="listening"] { --orb-period: 2.4s; }
+.mira-orb[data-state="paused"] { opacity: .45; --orb-period: 6s; }
+@keyframes orb-fallback-breathe { 50% { transform: scale(1.07) rotate(8deg); filter: hue-rotate(25deg); } }
+@media (prefers-reduced-motion: reduce) { .orb-fallback { animation: none; } }
