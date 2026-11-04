@@ -6,7 +6,7 @@ import './miraExperience.css';
 
 export function GuidedRegistrationPanel({language,prompt,speech,mode,onMicrophone,onTyping,children}) {
   const copy=miraCopy(language);
-  const status=mode==='text'?'paused':speech.transcribing||speech.audioLoading?'thinking':speech.speaking?'speaking':speech.isRecording?'listening':speech.paused?'paused':'idle';
+  const status=speech.transcribing||speech.audioLoading?'thinking':speech.speaking?'speaking':mode==='text'?'paused':speech.isRecording?'listening':speech.paused?'paused':'idle';
   return <div className="guided-registration">
     <aside className="registration-guide"><img className="registration-mira-photo" src="/mira-avatar.png" alt="Mira"/>
       <div className="registration-guide-caption"><span className="registration-eyebrow">Mira</span><MiraTranscript text={prompt} speech={speech}/>

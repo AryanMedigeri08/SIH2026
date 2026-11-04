@@ -24,6 +24,7 @@ export function RegisterPage(){
   const [sequence,setSequence]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(''),[mode,setMode]=useState('voice');
   const [confirmation,setConfirmation]=useState(null),[code,setCode]=useState('');
   const verifier=useRef(null),flight=useRef(false),attemptedCode=useRef(''),alive=useRef(true),confirmed=useRef(new Set()),codeInput=useRef(null);
+  const announcedStep=useRef(null);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;verifier.current?.clear();};},[]);
   useEffect(()=>{if(field)setReply(profilePrompt(language,field));},[language]);
   useEffect(()=>{if(confirmation)codeInput.current?.focus();},[confirmation]);
@@ -60,8 +61,13 @@ export function RegisterPage(){
     finally{flight.current=false;if(alive.current)setBusy(false);}
   };
   const conversation=useMiraConversation({language,prompt,questionKey:`${phase}:${field}:${sequence}:${language}:${!!confirmation}`,field,
-    enabled:mode==='voice'&&(phase==='profile'||!!confirmation),autoListen:phase==='profile',busy,
+    enabled:phase==='profile'||!!confirmation,autoListen:phase==='profile'&&mode==='voice',busy,
     onAnswer:text=>submitField(field,text,'voice')});
+  useEffect(()=>{
+    const key=`${phase}:${field}:${sequence}:${language}:${!!confirmation}`;
+    if(mode==='voice'){announcedStep.current=key;return;}
+    if(!busy&&(phase==='profile'||confirmation)&&announcedStep.current!==key){announcedStep.current=key;conversation.resume();}
+  },[phase,field,sequence,language,confirmation,busy]);
   const type=()=>{setMode('text');conversation.pause();};
   const microphone=()=>{if(mode==='voice'&&!conversation.paused){type();}else{setMode('voice');conversation.resume();}};
   const change=(key,value)=>{
@@ -98,7 +104,7 @@ export function RegisterPage(){
         <div className="registration-secondary-actions"><button type="button" disabled={busy} onClick={()=>{setCode('');attemptedCode.current='';setConfirmation(null);verifier.current?.clear();verifier.current=null;sendCode(draft);}}>{copy.resend}</button><button type="button" disabled={busy} onClick={edit}>{copy.edit}</button></div>
       </section>}
       <div id="phone-recaptcha"/>
-      {(error||conversation.error)&&<p role="alert" className="registration-error">{error||copy.connection}</p>}
+      {(error||(mode==='voice'&&conversation.error))&&<p role="alert" className="registration-error">{error||copy.connection}</p>}
       <div className="registration-secondary-actions"><button disabled={busy} onClick={()=>enter(loginWithGoogle)}>{copy.google}</button><button disabled={busy} onClick={()=>enter(loginAsDemo)}>{copy.evaluator}</button></div>
       <Link to="/login" className="registration-back-link">{copy.signIn}</Link>
     </GuidedRegistrationPanel>
