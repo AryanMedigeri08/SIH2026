@@ -165,6 +165,12 @@ def test_ambiguous_demographics_do_not_advance():
     assert parse_answer('promoter_category', 'SC or ST') is None
 
 
+def test_selectable_registration_buttons_accept_explicit_enum_values():
+    for category in ('general','sc','st','obc','minority','ph','artisan','women','women_shg'):
+        assert parse_answer('promoter_category',category)=={'promoter_category':category}
+    assert parse_answer('gender','Unspecified')=={'gender':'Unspecified'}
+
+
 def test_native_correction_preserves_later_answers_and_requires_confirmation(client):
     http, db = client
     _, uid = evaluator(http)

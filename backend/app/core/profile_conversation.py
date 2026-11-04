@@ -56,10 +56,15 @@ def parse_answer(field, text):
         if 2 <= len(name) <= 120 and any(c.isalpha() for c in name) and not any(c.isdigit() for c in name) and lower not in {'hello','hi','yes','no','repeat','not sure'}:
             return {'name': name}
     elif field == 'gender':
+        explicit = next((value for value in GENDERS if lower == value.casefold()), None)
+        if explicit:
+            return {'gender':explicit}
         matches = [value for value, aliases in GENDERS.items() if any(contains(lower, term) for term in aliases)]
         if len(matches) == 1:
             return {'gender': matches[0]}
     elif field == 'promoter_category':
+        if lower in CATEGORIES:
+            return {'promoter_category':lower}
         matches = [value for value, aliases in CATEGORIES.items() if any(contains(lower, term) for term in aliases)]
         if len(matches) == 1:
             return {'promoter_category': matches[0]}
