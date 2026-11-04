@@ -6,8 +6,16 @@ import { destinationAfterSignIn } from './authNavigation.js';
 import { canonicalAuthOrigin } from '../../vite.config.js';
 import { getDevicePosition } from './deviceLocation.js';
 import { speechTokens,wordAtBoundary,wordAtPlayback } from './spokenWords.js';
+import { registrationAnswerState } from './progressiveRegistration.js';
 
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('progressive registration advances only confirmed fields and remembers optional email skip',()=>{
+  const form={name:'',gender:'',promoter_category:'',phone:'',email:''};
+  let state=registrationAnswerState(form,new Set(),{values:{name:'Asha'}});assert.equal(state.next,'gender');
+  for(const [key,value] of [['gender','Female'],['promoter_category','obc'],['phone','+919876543210']])state=registrationAnswerState(state.form,state.confirmed,{values:{[key]:value}});
+  assert.equal(state.next,'email');state=registrationAnswerState(state.form,state.confirmed,{values:{email_status:'skipped'}});assert.equal(state.next,null);
+  state.confirmed.delete('name');state=registrationAnswerState(state.form,state.confirmed,{values:{name:'Asha Rao'}});assert.equal(state.next,null);assert.equal(state.form.name,'Asha Rao');
+});
 test('spoken word cues preserve Indic text and native character boundaries',()=>{
   const text='आपका पूरा नाम क्या है?';
   assert.equal(speechTokens(text).map(token=>token.text).join(''),text);

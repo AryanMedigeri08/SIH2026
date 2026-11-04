@@ -13,7 +13,7 @@ export function GuidedRegistrationPanel({language,prompt,speech,mode,onMicrophon
         <p className="registration-status" role="status">{copy[status]}</p>
         <div className="registration-guide-actions"><button type="button" aria-label={copy.microphone} title={copy.microphone} onClick={onMicrophone}><Mic size={20}/></button>
           <button type="button" aria-label={copy.type} title={copy.type} onClick={onTyping}><Keyboard size={20}/></button>
-          <button type="button" aria-label={copy.repeat} title={copy.repeat} onClick={speech.repeat}><RotateCcw size={18}/></button></div>
+          {mode==='voice'&&<button type="button" aria-label={copy.repeat} title={copy.repeat} onClick={speech.repeat}><RotateCcw size={18}/></button>}</div>
       </div>
     </aside>
     <div className="registration-form-panel">{children}</div>
