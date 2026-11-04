@@ -104,7 +104,7 @@ export function RegisterPage(){
         <div className="registration-secondary-actions"><button type="button" disabled={busy} onClick={()=>{setCode('');attemptedCode.current='';setConfirmation(null);verifier.current?.clear();verifier.current=null;sendCode(draft);}}>{copy.resend}</button><button type="button" disabled={busy} onClick={edit}>{copy.edit}</button></div>
       </section>}
       <div id="phone-recaptcha"/>
-      {(error||(mode==='voice'&&conversation.error))&&<p role="alert" className="registration-error">{error||copy.connection}</p>}
+      {(error||(mode==='voice'&&conversation.error))&&<p role="alert" className="registration-error">{error||copy.voiceRecovery}</p>}
       <div className="registration-secondary-actions"><button disabled={busy} onClick={()=>enter(loginWithGoogle)}>{copy.google}</button><button disabled={busy} onClick={()=>enter(loginAsDemo)}>{copy.evaluator}</button></div>
       <Link to="/login" className="registration-back-link">{copy.signIn}</Link>
     </GuidedRegistrationPanel>

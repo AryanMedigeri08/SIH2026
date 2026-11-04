@@ -12,7 +12,7 @@ export function OrbOnboardingShell({language,prompt,speech,busy,inputMode,input,
     <div className="orb-onboarding-status" role="status"><span className={`orb-status-dot orb-status-dot--${phase}`}/>{copy[phase]}</div>
     <div className="orb-onboarding-visual"><MiraOrb state={phase} volume={speech.volume}/></div>
     <div className="orb-onboarding-caption"><MiraTranscript text={prompt} speech={speech} dark/>{actions}</div>
-    {(error||(inputMode==='voice'&&speech.error))&&<div role="alert" className="orb-onboarding-error">{error||copy.connection}<button onClick={onRetry} type="button">{copy.retry}</button></div>}
+    {(error||(inputMode==='voice'&&speech.error))&&<div role="alert" className="orb-onboarding-error">{error||copy.voiceRecovery}<button onClick={onRetry} type="button">{copy.retry}</button></div>}
     <footer className="orb-onboarding-controls"><div className="orb-control-row">
       <button className={`orb-control orb-control--mic ${phase==='listening'?'is-listening':''}`} type="button" aria-label={copy.microphone} aria-pressed={inputMode==='voice'&&!speech.paused} title={copy.microphone} onClick={onMicrophone}><Mic size={25}/></button>
       {inputMode==='text'?<form onSubmit={event=>{event.preventDefault();if(input.trim())onSend();}} className="orb-text-form"><input autoFocus aria-label={copy.placeholder} placeholder={copy.placeholder} value={input} onFocus={onTyping} onChange={event=>{onTyping();onInput(event.target.value);}} disabled={busy}/><button className="orb-control" disabled={busy||!input.trim()} aria-label={copy.send}><Send size={21}/></button></form>
