@@ -282,6 +282,7 @@ def client(monkeypatch, tmp_path):
         CREATE TABLE users(firebase_uid TEXT PRIMARY KEY,email TEXT,name TEXT,gender TEXT,promoter_category TEXT,auth_provider TEXT,phone TEXT,additional_business_details TEXT,language TEXT,created_at TEXT,updated_at TEXT,last_login_at TEXT);
         CREATE TABLE onboarding_sessions(user_id TEXT PRIMARY KEY REFERENCES users(firebase_uid) ON DELETE CASCADE,revision INTEGER,payload TEXT);
         CREATE TABLE revoked_sessions(token_hash TEXT PRIMARY KEY,user_id TEXT,revoked_at TEXT);
+        CREATE TABLE evaluator_sessions(token_hash TEXT PRIMARY KEY,user_id TEXT REFERENCES users(firebase_uid) ON DELETE CASCADE,expires_at REAL);
         CREATE TABLE projects(project_id TEXT PRIMARY KEY,user_id TEXT,payload TEXT,created_at TEXT,updated_at TEXT);
         CREATE TABLE feasibility_reports(report_id TEXT PRIMARY KEY,user_id TEXT,payload TEXT,created_at TEXT);
     ''')

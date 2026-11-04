@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
-  const [showLineage, setShowLineage] = useState(true);
+  const [showLineage, setShowLineage] = useState(false);
   const { isBeneficiary } = useViewMode();
 
   if (!reportData) {
@@ -44,17 +44,17 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
             <BarChart3 className="w-8 h-8 text-sovereign-800" />
           </div>
           <h3 className="text-xl font-bold font-outfit text-slate-900">
-            No Active Feasibility Assessment
+            Let’s plan your business
           </h3>
           <p className="text-xs text-slate-600 leading-relaxed font-medium">
-            Click any of the Quick-Start Benchmark Scenarios above, or launch the 7-Step Feasibility Wizard to generate an instant bank-ready credit appraisal.
+            Tell Mira what you want to do. She will help you check the location, costs and funding, one question at a time.
           </p>
           <button
             onClick={onOpenWizard}
             className="inline-flex items-center gap-2 text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-5 py-2.5 rounded-xl shadow-sm transition"
           >
             <Sparkles className="w-4 h-4" />
-            Launch Feasibility Wizard
+            Talk to Mira
           </button>
         </div>
       </div>
@@ -101,13 +101,13 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
               <MapPin className="w-3.5 h-3.5 text-sovereign-700" />
               {p.village_name || 'Village'}, {p.district_name || 'District'}, {p.state_name || 'State'}
             </span>
-            <span>•</span>
+            {!isBeneficiary && <><span>•</span>
             <span className="flex items-center gap-1.5 font-medium">
               <User className="w-3.5 h-3.5 text-slate-600" />
               Promoter: <strong className="text-slate-900">{p.promoter_name || 'Promoter'}</strong> ({(p.promoter_category || 'general').toUpperCase()})
             </span>
             <span>•</span>
-            <span>Report ID: <code className="font-mono text-sovereign-800 font-bold">{reportData.report_id}</code></span>
+            <span>Report ID: <code className="font-mono text-sovereign-800 font-bold">{reportData.report_id}</code></span></>}
           </div>
         </div>
 
@@ -116,7 +116,7 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
           className="flex items-center justify-center gap-2 text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-5 py-3 rounded-xl shadow-sm transition shrink-0"
         >
           <FileText className="w-4 h-4" />
-          <span>View Official 7-Section Bank DPR</span>
+          <span>View my business report</span>
         </button>
       </div>
 
@@ -177,20 +177,21 @@ export function Dashboard({ reportData, onOpenDpr, onOpenWizard }) {
       {/* BENEFICIARY MODE: Focused exclusively on practical enterprise launch & financing */}
       {isBeneficiary ? (
         <>
-          {/* Business Operations Toolkit: Product Pricing & Village Marketing */}
+          <details className="rounded-2xl border bg-white p-4"><summary className="font-semibold cursor-pointer">Selling prices and reaching customers</summary>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <ProductPricingCard reportData={reportData} pricingData={pricing} />
             <VillageMarketingCard reportData={reportData} />
           </div>
+          </details>
 
           {/* Capital Outlay & Means of Finance Reconciliation (10% Margin vs 90% Loan) */}
           <CapitalReconciliationCard reportData={reportData} inputData={p} financialData={fin} schemeData={schemes} />
 
           {/* Matched Government Schemes & Grants */}
-          <SchemeLeaderboardCard schemes={schemes} />
+          <details className="rounded-2xl border bg-white p-4"><summary className="font-semibold cursor-pointer">Government support options</summary><SchemeLeaderboardCard schemes={schemes} /></details>
 
           {/* What to Bring to the Bank: Mandatory Document Checklist */}
-          <StatutoryChecklistCard />
+          <details className="rounded-2xl border bg-white p-4"><summary className="font-semibold cursor-pointer">Documents to take to the bank</summary><StatutoryChecklistCard /></details>
 
           {/* Plain-Language Regional Executive Summary */}
           <ExecutiveNarrativeCard synthesisData={synth} />

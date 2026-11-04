@@ -8,6 +8,7 @@ import re
 import time
 import uuid
 from datetime import datetime, timezone
+from copy import deepcopy
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -72,19 +73,56 @@ async def save(user, state, revision):
 async def response(state, language="en", reply=None):
     # Translated presentation never replaces canonical state or financial amounts.
     text = reply or state["next"]["text"]
+    if state.get('experience') == 'adaptive' and state['next']['field'] in ('name','gender','promoter_category','phone','email'):
+        from app.core.profile_conversation import prompt
+        text = prompt(state['next']['field'], language)
+        if state.get('last_input_valid') is False:
+            from app.core.profile_conversation import RETRY
+            text = RETRY[language] + ' ' + text
+        return _adaptive_response(state, text, language)
+    speech_allowed = True
     if language != "en":
+        original = text
         try:
             from app.core.translation_service import TranslationService
             translated = await TranslationService.get_instance().translate_text(text, language)
             text = translated.get("translated_text") or text
+            speech_allowed = text != original and translated.get('provider') not in ('identity', 'noop', 'deterministic_fallback')
         except Exception:
-            pass
-    return {"state": state, "reply": text, "language": language}
+            speech_allowed = False
+        if not speech_allowed:
+            text = {'hi':'इस प्रश्न का अनुवाद उपलब्ध नहीं है। कृपया थोड़ी देर बाद सहेजी प्रगति फिर खोलें।',
+                'mr':'या प्रश्नाचे भाषांतर उपलब्ध नाही. थोड्या वेळाने जतन केलेली प्रगती पुन्हा उघडा.',
+                'ta':'இந்தக் கேள்வியின் மொழிபெயர்ப்பு கிடைக்கவில்லை. சிறிது நேரத்திற்குப் பிறகு சேமித்த உரையாடலை மீண்டும் திறக்கவும்.',
+                'te':'ఈ ప్రశ్న అనువాదం అందుబాటులో లేదు. కొద్దిసేపటి తర్వాత సేవ్ చేసిన సంభాషణను మళ్లీ తెరవండి.',
+                'kn':'ಈ ಪ್ರಶ್ನೆಯ ಅನುವಾದ ಲಭ್ಯವಿಲ್ಲ. ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಉಳಿಸಿದ ಸಂಭಾಷಣೆಯನ್ನು ಮತ್ತೆ ತೆರೆಯಿರಿ.'}[language]
+    result = _adaptive_response(state, text, language)
+    result['speech_allowed'] = speech_allowed
+    return result
+
+
+def _adaptive_response(state, text, language):
+    visible = state
+    if state.get('experience') == 'adaptive':
+        visible = deepcopy(state)
+        for key in ('name','gender','promoter_category','phone','email'):
+            if key in visible['fields']:
+                visible['fields'][key] = {'provided':True, 'redacted':True}
+            if key in visible.get('pending_changes', {}):
+                visible['pending_changes'][key] = '[profile correction]'
+    return {'state':visible, 'reply':text, 'language':language, 'accepted':state.get('last_input_valid', True)}
 
 
 @router.get("/session")
-async def get_session(language: str = Query("en", pattern="^(en|hi|mr|ta|te|kn)$"), user: AuthenticatedUser = Depends(get_current_user)):
-    return await response(await load(user), language)
+async def get_session(language: str = Query("en", pattern="^(en|hi|mr|ta|te|kn)$"), experience: Literal['strict', 'adaptive'] = 'strict', user: AuthenticatedUser = Depends(get_current_user)):
+    state = await load(user)
+    if experience == 'adaptive' and state.get('experience') != 'adaptive' and not state.get('completed_project_id'):
+        check_editable(state)
+        revision = state['revision']
+        state['experience'] = 'adaptive'
+        await advance(state)
+        await save(user, state, revision)
+    return await response(state, language)
 
 
 @router.post("/turn")
@@ -94,7 +132,8 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
         return await response(state, turn.language)
     check_revision(state, turn.revision)
     check_editable(state)
-    profile_before = {k: value(state, k) for k in ("name", "gender", "promoter_category")}
+    profile_before = {k: value(state, k) for k in ("name", "gender", "promoter_category", "phone", "email")}
+    state['last_input_valid'] = True
     text = turn.text.strip()
     action = turn.action
     current = state["next"]["field"]
@@ -109,7 +148,7 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
     if action == "answer" and lower in controls:
         action = controls[lower]
     if action == "answer" and lower in ("yes", "correct", "confirm", "that's right", "हाँ", "हां", "हो", "ஆம்", "అవును", "ಹೌದು"):
-        action = {"location_confirmation": "confirm_location", "business_confirmation": "confirm_business", "pending_changes": "confirm_change"}.get(current, action)
+        action = {"location_confirmation": "confirm_location", "business_confirmation": "confirm_business", "pending_changes": "confirm_change", "cost_proposal": "confirm_estimate", "rent_amount": "confirm_rent"}.get(current, action)
     if action == "answer" and lower in ("no", "incorrect", "नहीं", "नाही", "இல்லை", "కాదు", "ಇಲ್ಲ") and current == "location_confirmation":
         action = "change_location"
     elif action == "answer" and lower in ("no", "keep the old answer", "नहीं", "नाही", "இல்லை", "కాదు", "ಇಲ್ಲ") and current == "pending_changes":
@@ -140,9 +179,31 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
             raise HTTPException(422, "Please verify the business location and area classification first.")
         state["location_confirmed"] = True
     elif action == "confirm_business":
-        if not state["classification"] or not all(value(state, k) for k in ("products", "activity", "operations", "scale")):
+        required = ('products', 'activity', 'scale') if state.get('experience') == 'adaptive' else ('products', 'activity', 'operations', 'scale')
+        if not state["classification"] or not all(value(state, k) for k in required):
             raise HTTPException(422, "Please clarify the activity, products, requirements and capacity first.")
         state["business_confirmed"] = True
+    elif action == 'confirm_estimate':
+        proposal = state.get('cost_proposal')
+        if state.get('experience') != 'adaptive' or current != 'cost_proposal' or not proposal:
+            raise HTTPException(422, 'There is no current setup estimate to confirm.')
+        apply_valid_answers(state, {'cost_items': proposal['items'], 'cost_basis': proposal['basis']}, 'confirmed_catalogue_estimate')
+        if not value(state, 'operations'):
+            from app.core.onboarding import record
+            record(state, 'operations', ', '.join(m['item_name'] for m in proposal['equipment']['items']) or 'Indicative setup; equipment still to verify', 'confirmed_catalogue_estimate')
+    elif action == 'confirm_rent':
+        if state.get('experience') != 'adaptive' or current != 'rent_amount' or state.get('rent_proposal') is None:
+            raise HTTPException(422, 'Tell Mira the rent amount and whether it is monthly or annual.')
+        apply_valid_answers(state, {'rent_amount': state['rent_proposal'], 'rent_period': 'monthly'}, 'confirmed_rent_planning_estimate')
+    elif action == 'accept_regional_risk':
+        if current != 'regional_review':
+            raise HTTPException(422, 'There is no regional risk decision awaiting review.')
+        state['regional_risk_accepted'] = True
+    elif action == 'explore_alternatives':
+        for key in ('idea', 'products', 'activity', 'operations', 'scale', 'cost_items', 'project_cost', 'cost_basis', 'enterprise_name'):
+            state['fields'].pop(key, None)
+        invalidate(state, {'idea'})
+        apply_valid_answers(state, {'idea_status': 'explore'}, turn.source, correction=True)
     elif action == "alternatives":
         state["rejected"] = list(set(state["rejected"] + [r["id"] for r in state["recommendations"]]))
         apply_valid_answers(state, {"idea_status": "explore"}, turn.source, correction=True)
@@ -155,11 +216,20 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
         selected = next((r for r in state["recommendations"] if r["id"] == turn.recommendation_id), None) if turn.recommendation_id else (state["recommendations"][index] if 0 <= index < len(state["recommendations"]) else None)
         if not selected:
             raise HTTPException(422, "That recommendation has changed. Please choose from the current list.")
-        apply_valid_answers(state, {"idea": selected["idea"], "idea_status": "known"}, turn.source, correction=True)
+        chosen = {"idea": selected["idea"], "idea_status": "known"}
+        if state.get('experience') == 'adaptive':
+            from app.core.opportunity_matcher import SECTOR_CATALOG
+            entry = next((item for item in SECTOR_CATALOG if item['sector_id'] == selected['id']), None)
+            if entry:
+                chosen.update(products=entry['enterprise_name'], activity='manufacture' if entry['business_category'] == 'manufacturing' else 'service')
+        apply_valid_answers(state, chosen, turn.source, correction=True)
     else:
         state.pop("language_ambiguities", None)
         if turn.updates:
             updates = turn.updates.model_dump(exclude_none=True)
+            if state.get('experience') == 'adaptive' and turn.correction and updates.get('cost_items'):
+                from app.core.financial_calculator import confirmed_project_outlay
+                updates['project_cost'] = confirmed_project_outlay({**(value(state, 'cost_items') or {}), **updates['cost_items']})
             ambiguities, model = [], "structured_control"
         elif text:
             updates, ambiguities, model = await understand(text, state)
@@ -173,11 +243,16 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
             # Essential missing facts remain missing; clarification cannot override a prerequisite.
             state["language_ambiguities"] = ambiguities
         if text and not updates:
+            state['last_input_valid'] = False
             reply = "I haven’t changed your answers because I’m not sure I understood. " + state["next"]["text"]
     await advance(state)
+    if state.get('experience') == 'adaptive' and state.get('regional_announcement'):
+        notice = state.pop('regional_announcement')
+        reply = notice + '\n\n' + state['next']['text']
     if text or turn.updates:
         # Authentication credentials are never sent to this endpoint. Do not echo profile demographics into the transcript.
-        profile_turn = current in ("name", "gender", "promoter_category") or bool(re.search(r"\bmy (?:caste|gender|name)\b", text, re.I))
+        from app.core.profile_conversation import parse_correction
+        profile_turn = current in ("name", "gender", "promoter_category", "phone", "email") or bool(parse_correction(text)) or bool(re.search(r"\bmy (?:caste|gender|name|phone|email)\b", text, re.I))
         state["history"].append({"role": "user", "text": "Profile detail updated" if profile_turn else text or "Answer selected", "source": turn.source})
     state["history"].append({"role": "assistant", "text": reply or state["next"]["text"]})
     state["history"] = state["history"][-80:]
@@ -267,7 +342,9 @@ async def restart(command: Revision, user: AuthenticatedUser = Depends(get_curre
     if time.time() - old.get("submission_started_at", 0) < 300:
         raise HTTPException(409, "Wait for the current report to finish first.")
     state = new_session(await db_manager.get_user(user.uid) or {})
-    for key in ("name", "gender", "promoter_category"):
+    if old.get('experience') == 'adaptive':
+        state['experience'] = 'adaptive'
+    for key in ("name", "gender", "promoter_category", "phone", "email", "email_status"):
         if key in old["fields"]:
             state["fields"][key] = old["fields"][key]
     state["location"] = old["location"]

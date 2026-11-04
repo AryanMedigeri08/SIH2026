@@ -25,18 +25,20 @@ class HealthStatus(BaseModel):
 # User Authentication & Profile Schemas
 # ---------------------------------------------------------------------------
 class UserRegisterRequest(BaseModel):
-    name: str = Field(..., min_length=1, description="Full Name of Entrepreneur")
-    gender: Optional[str] = Field(None, description="Male | Female | Other | Unspecified")
+    email_status: Optional[Literal['provided', 'skipped']] = None
+    email: Optional[str] = Field(None, max_length=254, pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+    name: str = Field(..., min_length=1, max_length=120, description="Full Name of Entrepreneur")
+    gender: Optional[Literal['Male','Female','Other','Unspecified']] = None
     promoter_category: Optional[str] = Field(None, pattern="^(general|sc|st|obc|minority|ph|artisan|women|women_shg)$")
-    phone: Optional[str] = Field(None, description="Mobile / Contact number")
+    phone: Optional[str] = Field(None, pattern=r'^\+91[6-9]\d{9}$', description="Mobile / Contact number")
     additional_business_details: Optional[str] = Field(None, max_length=1000, description="Optional free-text context for AI narrative")
 
 
 class UserUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1)
-    gender: Optional[str] = None
+    gender: Optional[Literal['Male','Female','Other','Unspecified']] = None
     promoter_category: Optional[str] = Field(None, pattern="^(general|sc|st|obc|minority|ph|artisan|women|women_shg)$")
-    phone: Optional[str] = None
+    phone: Optional[str] = Field(None, pattern=r'^\+91[6-9]\d{9}$')
     additional_business_details: Optional[str] = Field(None, max_length=1000)
     preferred_language: Optional[str] = Field(None, pattern="^(en|hi|mr|ta|te|kn)$")
 
@@ -44,7 +46,7 @@ class UserUpdateRequest(BaseModel):
 class UserProfileResponse(BaseModel):
     firebase_uid: str
     name: str
-    email: str
+    email: Optional[str] = None
     gender: Optional[str] = "Unspecified"
     promoter_category: Optional[str] = None
     auth_provider: str = "email"

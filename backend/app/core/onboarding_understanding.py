@@ -172,6 +172,14 @@ def fallback_extract(text: str, question: str | None) -> dict:
 
 async def understand(text: str, state: dict) -> tuple[dict, list[str], str]:
     question = (state.get("next") or {}).get("field")
+    if state.get('experience') == 'adaptive':
+        from app.core.profile_conversation import parse_correction
+        corrected = parse_correction(text)
+        if corrected:
+            return corrected, [], 'validated_profile_correction'
+    if state.get('experience') == 'adaptive' and question in ('name','gender','promoter_category','phone','email'):
+        from app.core.profile_conversation import parse_answer
+        return parse_answer(question, text) or {}, [], 'validated_profile_answer'
     fallback = fallback_extract(text, question)
     # Profile fields never go to a general-purpose model.
     if question in ("name", "gender", "promoter_category") or re.search(r"\bmy (?:caste|gender|name)\b", text, re.I):
@@ -182,12 +190,12 @@ async def understand(text: str, state: dict) -> tuple[dict, list[str], str]:
         return fallback, [], "offline"
     full_schema = Facts.model_json_schema()
     schema = full_schema["properties"]
-    schema = {k: v for k, v in schema.items() if k not in ("name", "gender", "promoter_category")}
+    schema = {k: v for k, v in schema.items() if k not in ("name", "gender", "promoter_category", "phone", "email", "email_status")}
     tool = {"type": "function", "function": {"name": "record_user_facts", "description": "Extract only explicit facts in the latest user statement.", "parameters": {
         "type": "object", "$defs": full_schema.get("$defs", {}), "properties": {"updates": {"type": "object", "properties": schema, "additionalProperties": False},
             "evidence": {"type": "object", "additionalProperties": {"type": "string"}},
             "ambiguities": {"type": "array", "items": {"type": "string"}}}, "required": ["updates", "evidence", "ambiguities"]}}}
-    known = {k: v["value"] for k, v in state["fields"].items() if k not in ("name", "gender", "promoter_category")}
+    known = {k: v["value"] for k, v in state["fields"].items() if k not in ("name", "gender", "promoter_category", "phone", "email", "email_status")}
     prompt = ("You are Mira's language understanding layer for rural Indian entrepreneurs. Use record_user_facts. "
               "Extract ALL explicitly stated facts, including multiple answers and corrections, in any supported Indian language. "
               "Each update MUST include a verbatim evidence substring from the latest user message. No guesses. "

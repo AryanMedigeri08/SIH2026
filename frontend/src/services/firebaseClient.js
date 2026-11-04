@@ -6,13 +6,14 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   getAuth,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithPopup, signInWithRedirect, getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
   getIdToken,
   updateProfile as updateFirebaseProfile,
+  RecaptchaVerifier, signInWithPhoneNumber, signInWithCustomToken, signInAnonymously,
 } from "firebase/auth";
 
 const firebaseConfig = {
@@ -36,11 +37,12 @@ export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
 export {
-  signInWithPopup,
+  signInWithPopup, signInWithRedirect, getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
   getIdToken,
   updateFirebaseProfile,
+  RecaptchaVerifier, signInWithPhoneNumber, signInWithCustomToken, signInAnonymously,
 };

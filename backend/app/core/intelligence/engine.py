@@ -65,7 +65,7 @@ class MarketOpportunityEngine:
         village: str = "",
         target_lat: Optional[float] = None,
         target_lon: Optional[float] = None,
-        business_intent: str = "dairy",
+        business_intent: str | BusinessIntent = "dairy",
         radius_km: float = 10.0,
         core_radius_km: float = 5.0,
         pincode: Optional[str] = None,
@@ -82,7 +82,7 @@ class MarketOpportunityEngine:
         village_clean = village.strip() if village else ""
 
         # Step 1: Resolve business intent
-        intent = resolve_business_intent(business_intent)
+        intent = business_intent if isinstance(business_intent, BusinessIntent) else resolve_business_intent(business_intent)
 
         logger.info(
             f"[OPPORTUNITY ENGINE] Analyzing {intent.display_name} in "

@@ -40,6 +40,7 @@ async def lifespan(_):
         CREATE TABLE users(firebase_uid TEXT PRIMARY KEY,email TEXT,name TEXT,gender TEXT,promoter_category TEXT,auth_provider TEXT,phone TEXT,additional_business_details TEXT,language TEXT,created_at TEXT,updated_at TEXT,last_login_at TEXT);
         CREATE TABLE onboarding_sessions(user_id TEXT PRIMARY KEY REFERENCES users(firebase_uid) ON DELETE CASCADE,revision INTEGER,payload TEXT);
         CREATE TABLE revoked_sessions(token_hash TEXT PRIMARY KEY,user_id TEXT,revoked_at TEXT);
+        CREATE TABLE evaluator_sessions(token_hash TEXT PRIMARY KEY,user_id TEXT,expires_at REAL);
         CREATE TABLE projects(project_id TEXT PRIMARY KEY,user_id TEXT,payload TEXT,created_at TEXT,updated_at TEXT);
         CREATE TABLE feasibility_reports(report_id TEXT PRIMARY KEY,user_id TEXT,payload TEXT,created_at TEXT);
     ''')
@@ -78,15 +79,36 @@ async def region(state):
 api.OnboardingLocation = FixtureLocation
 engine.regional_assessment = region
 engine.find_district_odop = lambda *_: None
+
+# The imported voice onboarding uses the existing public location dropdown API.
+async def fixture_states(**_):
+    return [{"state_code": 27, "state_name": "Maharashtra", "state_or_ut": "State"},
+            {"state_code": 29, "state_name": "Karnataka", "state_or_ut": "State"}]
+
+async def fixture_districts(**kwargs):
+    is_maharashtra = kwargs.get("state_name") == "Maharashtra" or kwargs.get("state_code") == 27
+    return [{"district_code": 490 if is_maharashtra else 540,
+             "district_name": "Pune" if is_maharashtra else "Mysuru", "state_code": 27 if is_maharashtra else 29}]
+
+async def fixture_blocks(**_):
+    return [{"development_block_code": 4900, "development_block_name": "Test development block", "district_code": 490}]
+
+async def fixture_villages(**_):
+    return [{"village_code": 49000, "village_name": "Test village (synthetic fixture)", "district_code": 490}]
+
+db_manager.get_states = fixture_states
+db_manager.get_districts = fixture_districts
+db_manager.get_blocks = fixture_blocks
+db_manager.get_villages = fixture_villages
 app.router.lifespan_context = lifespan
 
-async def disabled_speech(**kwargs):
-    from fastapi import HTTPException
-    raise HTTPException(503, "Live speech providers are disabled in this isolated preview. Type your answer to continue.")
-
-for route in app.routes:
-    if getattr(route, "path", "") in ("/api/v2/chat/stt", "/api/v2/chat/tts", "/api/v2/chat/audio", "/api/v2/chat/voice", "/api/v2/chat/voice-agent"):
-        route.dependant.call = disabled_speech
+@app.middleware("http")
+async def disabled_speech(request, call_next):
+    # Intercept before routing, including FastAPI's nested included routers.
+    if request.url.path in ("/api/v2/chat/stt", "/api/v2/chat/tts", "/api/v2/chat/audio", "/api/v2/chat/voice", "/api/v2/chat/voice-agent"):
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=503, content={"detail": "Live speech providers are disabled in this isolated preview. Type your answer to continue."})
+    return await call_next(request)
 
 if __name__ == "__main__":
     import uvicorn

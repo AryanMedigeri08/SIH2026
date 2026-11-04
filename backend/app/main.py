@@ -197,13 +197,26 @@ async def health_check():
 
 
 # Global Exception Handler
+@app.middleware('http')
+async def private_response_headers(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith((f'{settings.API_V2_STR}/auth', f'{settings.API_V2_STR}/onboarding')):
+        response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.exception_handler(RuntimeError)
+async def storage_exception_handler(request: Request, exc: RuntimeError):
+    return JSONResponse(status_code=503, content={"detail":"The service could not save or load your data. Please retry when connected."})
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "error": "Internal Server Error",
-            "message": str(exc),
+            "message": "The request could not be completed. Please try again.",
             "path": request.url.path,
         },
     )
@@ -212,6 +225,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Mount API v2 Routers
 from app.routers.onboarding import router as onboarding_router
 app.include_router(onboarding_router, prefix=settings.API_V2_STR)
+from app.routers.passkeys import router as passkeys_router
+app.include_router(passkeys_router, prefix=settings.API_V2_STR)
 app.include_router(auth_router, prefix=settings.API_V2_STR)
 app.include_router(locations_router, prefix=settings.API_V2_STR)
 app.include_router(financial_router, prefix=settings.API_V2_STR)

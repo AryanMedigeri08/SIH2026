@@ -4,6 +4,14 @@ auth.py — REST API Router for User Authentication, Firebase Session Sync, and 
 
 from __future__ import annotations
 import logging
+import re
+import secrets
+import time
+import uuid
+from collections import defaultdict, deque
+from fastapi import Request
+from pydantic import BaseModel, Field
+from typing import Literal
 from typing import Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from fastapi.responses import JSONResponse
@@ -16,6 +24,62 @@ from app.core.firebase_admin_client import firebase_auth
 logger = logging.getLogger("udyam_saathi.routers.auth")
 
 router = APIRouter(prefix="/auth", tags=["User Authentication & Profile"])
+_evaluator_requests = defaultdict(deque)
+
+
+def profile_email(record):
+    email = record.get('email')
+    return None if not email or email.endswith('@evaluator.invalid') or email == f"{record['firebase_uid']}@udyam.gov.in" else email
+
+
+@router.post('/evaluator', status_code=201)
+async def create_evaluator_session(request: Request):
+    """Issue a scoped, expiring identity; never accepts a client-chosen user ID."""
+    now = time.time()
+    ip = request.client.host if request.client else 'unknown'
+    recent = _evaluator_requests[ip]
+    while recent and recent[0] < now - 60:
+        recent.popleft()
+    if len(recent) >= 10:
+        raise HTTPException(429, 'Please wait a minute before starting another evaluator session.')
+    recent.append(now)
+    uid = 'eval_' + uuid.uuid4().hex
+    token = 'ev1_' + secrets.token_urlsafe(32)
+    expires = now + 8 * 60 * 60
+    try:
+        await db_manager.upsert_user(uid, f'{uid}@evaluator.invalid', '', auth_provider='evaluator')
+        await db_manager.save_evaluator_session(token_fingerprint(token), uid, expires)
+    except Exception as exc:
+        logger.warning('Evaluator session initialization failed (%s)', type(exc).__name__)
+        raise HTTPException(503, 'The evaluator session could not be saved. Please retry.') from exc
+    return JSONResponse(status_code=201, content={'token':token, 'expires_at':expires, 'is_evaluator':True},
+        headers={'Cache-Control':'no-store'})
+
+
+class RegistrationAnswer(BaseModel):
+    field: Literal['name','gender','promoter_category','phone','email']
+    text: str = Field(max_length=500)
+    language: Literal['en','hi','mr','ta','te','kn'] = 'en'
+
+
+@router.post('/registration/answer')
+async def registration_answer(answer: RegistrationAnswer):
+    # Unverified registration values are validated, not stored or logged. The
+    # existing authenticated register endpoint persists them after phone OTP.
+    from app.core.profile_conversation import parse_answer, parse_correction, prompt, PROFILE_FIELDS, RETRY
+    lower = answer.text.casefold().strip(' .!।')
+    if lower in ('repeat','say that again','दोहराएं','पुन्हा सांगा','மீண்டும் சொல்லுங்கள்','మళ్ళీ చెప్పండి','ಮತ್ತೆ ಹೇಳಿ'):
+        return {'valid':True, 'field':answer.field, 'values':{}, 'next_field':answer.field, 'reply':prompt(answer.field, answer.language)}
+    values = parse_correction(answer.text)
+    if values:
+        return {'valid':True,'values':values,'next_field':answer.field,'reply':prompt(answer.field,answer.language)}
+    parsed = parse_answer(answer.field, answer.text)
+    if not parsed:
+        return {'valid':False, 'field':answer.field, 'reply':RETRY[answer.language] + ' ' + prompt(answer.field, answer.language)}
+    next_index = PROFILE_FIELDS.index(answer.field) + 1
+    next_field = PROFILE_FIELDS[next_index] if next_index < len(PROFILE_FIELDS) else None
+    return JSONResponse(content={'valid':True, 'field':answer.field, 'values':parsed, 'next_field':next_field,
+        'reply':prompt(next_field, answer.language) if next_field else ''}, headers={'Cache-Control':'no-store'})
 
 
 @router.post("/register", response_model=UserProfileResponse, status_code=status.HTTP_201_CREATED)
@@ -27,7 +91,7 @@ async def register_user_profile(
     Creates or updates the user's PostgreSQL profile row after client-side Firebase account registration.
     Idempotent upsert keyed by current_user.uid.
     """
-    email = current_user.email or f"{current_user.uid}@udyam.gov.in"
+    email = current_user.email or reg_in.email or f"{current_user.uid}@udyam.gov.in"
     name = reg_in.name.strip() or current_user.name or email.split("@")[0]
 
     user_record = await db_manager.upsert_user(
@@ -37,15 +101,22 @@ async def register_user_profile(
         gender=reg_in.gender,
         promoter_category=reg_in.promoter_category,
         auth_provider=current_user.auth_provider,
-        phone=reg_in.phone,
+        phone=current_user.phone_number or reg_in.phone,
         additional_business_details=reg_in.additional_business_details,
     )
 
+    if reg_in.email_status == 'skipped' and not await db_manager.get_onboarding(current_user.uid):
+        from app.models.onboarding import new_session
+        from app.core.onboarding import apply_updates, advance
+        state = new_session(user_record)
+        apply_updates(state, {'email_status':'skipped'}, 'registration')
+        await advance(state)
+        await db_manager.save_onboarding(current_user.uid, state)
     projects_count = await db_manager.get_user_projects_count(current_user.uid)
     return UserProfileResponse(
         firebase_uid=user_record["firebase_uid"],
         name=user_record["name"],
-        email=user_record["email"],
+        email=profile_email(user_record),
         gender=user_record.get("gender", "Unspecified"),
         promoter_category=user_record.get("promoter_category"),
         auth_provider=user_record.get("auth_provider", "email"),
@@ -70,7 +141,7 @@ async def sync_user_session(
     """
     existing = await db_manager.get_user(current_user.uid)
     email = current_user.email or (existing.get("email") if existing else f"{current_user.uid}@udyam.gov.in")
-    name = (existing.get("name") if existing and existing.get("name") else current_user.name) or email.split("@")[0]
+    name = (existing.get("name") if existing and existing.get("name") else current_user.name) or ('' if current_user.auth_provider in ('phone','evaluator','anonymous') else email.split("@")[0])
 
     user_record = await db_manager.upsert_user(
         firebase_uid=current_user.uid,
@@ -79,7 +150,7 @@ async def sync_user_session(
         gender=existing.get("gender", "Unspecified") if existing else "Unspecified",
         promoter_category=existing.get("promoter_category") if existing else None,
         auth_provider=current_user.auth_provider,
-        phone=existing.get("phone") if existing else None,
+        phone=current_user.phone_number or (existing.get("phone") if existing else None),
         additional_business_details=existing.get("additional_business_details") if existing else None,
         language=existing.get("language") if existing else None,
     )
@@ -88,7 +159,7 @@ async def sync_user_session(
     return UserProfileResponse(
         firebase_uid=user_record["firebase_uid"],
         name=user_record["name"],
-        email=user_record["email"],
+        email=profile_email(user_record),
         gender=user_record.get("gender", "Unspecified"),
         promoter_category=user_record.get("promoter_category"),
         auth_provider=user_record.get("auth_provider", "email"),
@@ -123,7 +194,7 @@ async def get_my_profile(
     return UserProfileResponse(
         firebase_uid=user_record["firebase_uid"],
         name=user_record["name"],
-        email=user_record["email"],
+        email=profile_email(user_record),
         gender=user_record.get("gender", "Unspecified"),
         promoter_category=user_record.get("promoter_category"),
         auth_provider=user_record.get("auth_provider", "email"),
@@ -167,7 +238,7 @@ async def update_my_profile(
     return UserProfileResponse(
         firebase_uid=updated["firebase_uid"],
         name=updated["name"],
-        email=updated["email"],
+        email=profile_email(updated),
         gender=updated.get("gender", "Unspecified"),
         promoter_category=updated.get("promoter_category"),
         auth_provider=updated.get("auth_provider", "email"),
@@ -198,11 +269,11 @@ async def logout_user(
     try:
         # Firebase refresh-token revocation protects real deployments.  The
         # local deterministic test-token flow is covered by the session store.
-        if not token.startswith(("test-token-", "mock-token-")):
+        if not current_user.is_evaluator and not token.startswith(("test-token-", "mock-token-")):
             firebase_auth.revoke_refresh_tokens(current_user.uid)
     except Exception as exc:
-        logger.warning("Firebase refresh-token revocation failed for %s: %s", current_user.uid, exc)
-    logger.info(f"User '{current_user.uid}' ({current_user.email}) logged out and session revoked.")
+        logger.warning('Firebase refresh-token revocation failed (%s)', type(exc).__name__)
+    logger.info('Authenticated session terminated and revoked.')
     return {
         "status": "success",
         "message": "Session terminated successfully.",
@@ -220,8 +291,9 @@ async def delete_my_account(
     """
     await db_manager.delete_user(current_user.uid)
     try:
-        firebase_auth.delete_user(current_user.uid)
+        if not current_user.is_evaluator:
+            firebase_auth.delete_user(current_user.uid)
     except Exception as e:
-        logger.warning(f"Could not delete Firebase user ({e}); local profile removed.")
+        logger.warning('Firebase account deletion unavailable (%s)', type(e).__name__)
 
     return {"status": "success", "message": f"Account '{current_user.uid}' deleted successfully."}

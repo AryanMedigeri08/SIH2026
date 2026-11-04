@@ -796,14 +796,16 @@ export function LanguageProvider({ children }) {
     }
   }, []);
 
-  const setLanguage = useCallback((nextLanguage) => {
+  const setLanguage = useCallback((nextLanguage, { transition = true } = {}) => {
     const valid = LANGUAGES.some(({ code }) => code === nextLanguage) ? nextLanguage : "en";
     if (valid === language) return; // No-op for same language
 
     // Trigger transition overlay
-    setPreviousLanguage(language);
-    pendingTranslationCount.current = 0;
-    setIsTransitioning(true);
+    if (transition) {
+      setPreviousLanguage(language);
+      pendingTranslationCount.current = 0;
+      setIsTransitioning(true);
+    }
 
     localStorage.setItem(LANGUAGE_STORAGE_KEY, valid);
     setLanguageState(valid);
@@ -817,9 +819,11 @@ export function LanguageProvider({ children }) {
 
   useEffect(() => {
     const preferred = userProfile?.preferred_language;
-    if (isAuthenticated && LANGUAGES.some(({ code }) => code === preferred) && preferred !== language) {
+    if (!sessionStorage.getItem('udyam_mira_language_selected') && isAuthenticated && LANGUAGES.some(({ code }) => code === preferred) && preferred !== language) {
       localStorage.setItem(LANGUAGE_STORAGE_KEY, preferred);
       setLanguageState(preferred);
+    } else if (sessionStorage.getItem('udyam_mira_language_selected') && isAuthenticated && preferred !== language) {
+      updateProfile({ preferred_language: language }).catch(() => {});
     }
   }, [isAuthenticated, language, userProfile?.preferred_language]);
 

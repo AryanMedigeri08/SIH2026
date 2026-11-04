@@ -39,3 +39,5 @@ requests>=2.31.0
 # Automated Testing & Verification
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
+
+webauthn==3.0.1

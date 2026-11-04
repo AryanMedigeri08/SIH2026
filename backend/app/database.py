@@ -163,6 +163,9 @@ class DatabaseManager:
             CREATE INDEX IF NOT EXISTS idx_projects_user_id_sqlite ON projects(user_id);
             CREATE TABLE IF NOT EXISTS feasibility_reports (report_id TEXT PRIMARY KEY, user_id TEXT, payload TEXT NOT NULL, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS revoked_sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, revoked_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS evaluator_sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE, expires_at DOUBLE PRECISION NOT NULL);
+            CREATE TABLE IF NOT EXISTS passkey_challenges (challenge_id TEXT PRIMARY KEY, purpose TEXT NOT NULL, user_id TEXT, challenge TEXT NOT NULL, expires_at DOUBLE PRECISION NOT NULL);
+            CREATE TABLE IF NOT EXISTS passkey_credentials (credential_id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE, public_key TEXT NOT NULL, sign_count BIGINT NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT '');
             CREATE TABLE IF NOT EXISTS onboarding_sessions (user_id TEXT PRIMARY KEY REFERENCES users(firebase_uid) ON DELETE CASCADE, revision INTEGER NOT NULL, payload TEXT NOT NULL);
         """)
         existing_columns = {row[1] for row in self.sqlite.execute("PRAGMA table_info(users)")}
@@ -193,6 +196,11 @@ class DatabaseManager:
                 # Ensure default guest / demo user exists for foreign key references
                 await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS gender TEXT")
                 await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS promoter_category TEXT")
+                await conn.execute("""CREATE TABLE IF NOT EXISTS evaluator_sessions (
+                    token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+                    expires_at DOUBLE PRECISION NOT NULL)""")
+                await conn.execute("""CREATE TABLE IF NOT EXISTS passkey_challenges (challenge_id TEXT PRIMARY KEY, purpose TEXT NOT NULL, user_id TEXT, challenge TEXT NOT NULL, expires_at DOUBLE PRECISION NOT NULL);
+            CREATE TABLE IF NOT EXISTS passkey_credentials (credential_id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE, public_key TEXT NOT NULL, sign_count BIGINT NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT '');""")
                 await conn.execute("""CREATE TABLE IF NOT EXISTS onboarding_sessions (
                     user_id TEXT PRIMARY KEY REFERENCES users(firebase_uid) ON DELETE CASCADE,
                     revision INTEGER NOT NULL, payload JSONB NOT NULL)""")
@@ -264,6 +272,60 @@ class DatabaseManager:
             self.sqlite.close()
             self.sqlite = None
 
+    async def save_passkey_challenge(self, challenge_id: str, purpose: str, user_id: Optional[str], challenge: str, expires_at: float) -> None:
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                await conn.execute("DELETE FROM passkey_challenges WHERE expires_at < $1", time.time())
+                await conn.execute("INSERT INTO passkey_challenges (challenge_id, purpose, user_id, challenge, expires_at) VALUES ($1,$2,$3,$4,$5)", challenge_id, purpose, user_id, challenge, expires_at)
+        elif self.sqlite:
+            self.sqlite.execute("DELETE FROM passkey_challenges WHERE expires_at < ?", (time.time(),))
+            self.sqlite.execute("INSERT INTO passkey_challenges VALUES (?,?,?,?,?)", (challenge_id, purpose, user_id, challenge, expires_at))
+            self.sqlite.commit()
+        else:
+            raise RuntimeError("Persistent database is unavailable")
+
+    async def consume_passkey_challenge(self, challenge_id: str, purpose: str) -> Optional[dict[str, Any]]:
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                row = await conn.fetchrow("DELETE FROM passkey_challenges WHERE challenge_id=$1 AND purpose=$2 RETURNING user_id, challenge, expires_at", challenge_id, purpose)
+                return dict(row) if row else None
+        if self.sqlite:
+            row = self.sqlite.execute("DELETE FROM passkey_challenges WHERE challenge_id=? AND purpose=? RETURNING user_id, challenge, expires_at", (challenge_id, purpose)).fetchone()
+            self.sqlite.commit()
+            return dict(row) if row else None
+        raise RuntimeError("Persistent database is unavailable")
+
+    async def get_passkey_credential(self, credential_id: str) -> Optional[dict[str, Any]]:
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT credential_id, user_id, public_key, sign_count FROM passkey_credentials WHERE credential_id=$1", credential_id)
+                return dict(row) if row else None
+        if self.sqlite:
+            row = self.sqlite.execute("SELECT credential_id, user_id, public_key, sign_count FROM passkey_credentials WHERE credential_id=?", (credential_id,)).fetchone()
+            return dict(row) if row else None
+        raise RuntimeError("Persistent database is unavailable")
+
+    async def save_passkey_credential(self, credential_id: str, user_id: str, public_key: str, sign_count: int) -> None:
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                await conn.execute("INSERT INTO passkey_credentials (credential_id, user_id, public_key, sign_count) VALUES ($1,$2,$3,$4)", credential_id, user_id, public_key, sign_count)
+        elif self.sqlite:
+            self.sqlite.execute("INSERT INTO passkey_credentials VALUES (?,?,?,?,?)", (credential_id, user_id, public_key, sign_count, datetime.now(timezone.utc).isoformat()))
+            self.sqlite.commit()
+        else:
+            raise RuntimeError("Persistent database is unavailable")
+
+    async def update_passkey_counter(self, credential_id: str, old_count: int, new_count: int) -> bool:
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                result = await conn.execute("UPDATE passkey_credentials SET sign_count=$1 WHERE credential_id=$2 AND sign_count=$3", new_count, credential_id, old_count)
+                return result == "UPDATE 1"
+        if self.sqlite:
+            cursor = self.sqlite.execute("UPDATE passkey_credentials SET sign_count=? WHERE credential_id=? AND sign_count=?", (new_count, credential_id, old_count))
+            self.sqlite.commit()
+            return cursor.rowcount == 1
+        raise RuntimeError("Persistent database is unavailable")
+
     async def revoke_session(self, token_hash: str, user_id: str) -> None:
         now = datetime.now(timezone.utc).isoformat()
         if not hasattr(self, "revoked_sessions"):
@@ -287,6 +349,28 @@ class DatabaseManager:
         return False
 
     # --- User Management CRUD ---
+    async def save_evaluator_session(self, token_hash, user_id, expires_at):
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                await conn.execute('DELETE FROM evaluator_sessions WHERE expires_at < $1', time.time())
+                await conn.execute('INSERT INTO evaluator_sessions VALUES ($1,$2,$3)', token_hash, user_id, expires_at)
+        elif self.sqlite:
+            self.sqlite.execute('DELETE FROM evaluator_sessions WHERE expires_at < ?', (time.time(),))
+            self.sqlite.execute('INSERT INTO evaluator_sessions VALUES (?,?,?)', (token_hash, user_id, expires_at))
+            self.sqlite.commit()
+        else:
+            raise RuntimeError('Persistent session storage is unavailable')
+
+    async def get_evaluator_session(self, token_hash):
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                row = await conn.fetchrow('SELECT user_id, expires_at FROM evaluator_sessions WHERE token_hash=$1', token_hash)
+        elif self.sqlite:
+            row = self.sqlite.execute('SELECT user_id, expires_at FROM evaluator_sessions WHERE token_hash=?', (token_hash,)).fetchone()
+        else:
+            return None
+        return dict(row) if row and row['expires_at'] > time.time() else None
+
     async def upsert_user(
         self,
         firebase_uid: str,
@@ -370,7 +454,9 @@ class DatabaseManager:
                         self.in_memory_users[firebase_uid] = rec
                         return rec
             except Exception as e:
-                logger.warning(f"Could not upsert user to PostgreSQL ({e}); using in-memory store.")
+                self.in_memory_users.pop(firebase_uid, None)
+                logger.warning('Persistent profile write failed (%s)', type(e).__name__)
+                raise RuntimeError('Persistent profile storage is unavailable') from e
 
         return user_record
 
@@ -393,13 +479,14 @@ class DatabaseManager:
                         self.in_memory_users[firebase_uid] = rec
                         return rec
             except Exception as e:
-                logger.warning(f"Could not fetch user from PostgreSQL: {e}")
+                logger.warning('Persistent profile read failed (%s)', type(e).__name__)
+                raise RuntimeError('Persistent profile storage is unavailable') from e
 
         return self.in_memory_users.get(firebase_uid)
 
     async def update_user(self, firebase_uid: str, fields: dict[str, Any]) -> Optional[dict[str, Any]]:
         now = datetime.now(timezone.utc).isoformat()
-        allowed_fields = {"name", "phone", "language", "gender", "promoter_category"}
+        allowed_fields = {"name", "phone", "email", "language", "gender", "promoter_category"}
         fields = {key: value for key, value in fields.items() if key in allowed_fields}
         if firebase_uid in self.in_memory_users:
             self.in_memory_users[firebase_uid].update(fields)
@@ -436,7 +523,9 @@ class DatabaseManager:
                             self.in_memory_users[firebase_uid] = rec
                             return rec
             except Exception as e:
-                logger.warning(f"Could not update user in PostgreSQL: {e}")
+                self.in_memory_users.pop(firebase_uid, None)
+                logger.warning('Persistent profile update failed (%s)', type(e).__name__)
+                raise RuntimeError('Persistent profile storage is unavailable') from e
 
         return self.in_memory_users.get(firebase_uid)
 

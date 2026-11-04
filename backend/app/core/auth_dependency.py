@@ -5,6 +5,7 @@ auth_dependency.py — FastAPI Authentication Dependency for Firebase ID Token V
 from __future__ import annotations
 import logging
 import hashlib
+import re
 from typing import Optional, Any
 from dataclasses import dataclass, field
 from fastapi import Header, HTTPException, status
@@ -28,12 +29,14 @@ def token_fingerprint(token: str) -> str:
 
 
 class AuthenticatedUser(BaseModel):
+    phone_number: Optional[str] = None
     uid: str
     email: Optional[str] = None
     name: Optional[str] = None
     email_verified: bool = False
     auth_provider: str = "email"  # 'email' | 'google.com' | 'custom'
     picture: Optional[str] = None
+    is_evaluator: bool = False
     claims: dict[str, Any] = {}
 
 
@@ -91,11 +94,10 @@ def _verify_token_claims(token: str) -> dict[str, Any]:
         decoded_claims = firebase_auth.verify_id_token(token, check_revoked=False)
         return decoded_claims
     except Exception as e:
-        err_msg = str(e)
-        logger.warning(f"Firebase token verification failed ({err_msg})")
+        logger.warning('Firebase token verification failed (%s)', type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired authentication token: {err_msg}",
+            detail="Invalid or expired authentication token. Please sign in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -114,6 +116,14 @@ async def get_current_user(
             detail="Authentication session has been revoked. Please sign in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if token.startswith('ev1_'):
+        if not re.fullmatch(r'ev1_[A-Za-z0-9_-]{43}', token):
+            raise HTTPException(401, 'Invalid evaluator session.')
+        session = await db_manager.get_evaluator_session(token_fingerprint(token))
+        if not session or not await db_manager.get_user(session['user_id']):
+            raise HTTPException(401, 'Evaluator session expired. Use one-click access to start a new session.')
+        return AuthenticatedUser(uid=session['user_id'], auth_provider='evaluator', is_evaluator=True,
+            claims={'session_kind':'evaluator'})
     claims = _verify_token_claims(token)
 
     uid = claims.get("uid") or claims.get("user_id") or claims.get("sub")
@@ -138,6 +148,7 @@ async def get_current_user(
         email_verified=email_verified,
         auth_provider=sign_in_provider,
         picture=picture,
+        phone_number=claims.get('phone_number'),
         claims=claims,
     )
 

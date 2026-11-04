@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import httpx
+import re
+import json
 
 
 class LocationUnavailable(ValueError):
@@ -11,6 +13,43 @@ class LocationUnavailable(ValueError):
 class OnboardingLocation:
     def __init__(self, db):
         self.db = db
+
+    @staticmethod
+    def area_flag(row):
+        flag = row.get('is_rural')
+        if isinstance(flag, bool):
+            return flag
+        if str(flag).lower() in ('true', 'false'):
+            return str(flag).lower() == 'true'
+        for key in ('rural_urban', 'area_classification', 'residence', 'tru', 'TRU', 'area_type', 'administrative_level'):
+            value = str(row.get(key) or '').strip().lower()
+            if value in ('rural', 'r', 'village'):
+                return True
+            if value in ('urban', 'u', 'town', 'census town', 'statutory town'):
+                return False
+        return None
+
+    async def census_area(self, selection):
+        # JSON access supports deployments with different official census column
+        # names without interpolating SQL identifiers or fuzzy place-name joins.
+        try:
+            async with self.db.pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    SELECT to_jsonb(c) AS evidence FROM census_raw c
+                    WHERE COALESCE(to_jsonb(c)->>'village_code', to_jsonb(c)->>'town_village_code')=$1
+                      AND to_jsonb(c)->>'state_code'=$2 AND to_jsonb(c)->>'district_code'=$3 LIMIT 2
+                """, str(selection.village_code), str(selection.state_code), str(selection.district_code))
+            flags = []
+            for row in rows:
+                evidence = row['evidence']
+                if isinstance(evidence, str):
+                    evidence = json.loads(evidence)
+                flag = self.area_flag(evidence)
+                if flag is not None:
+                    flags.append(flag)
+            return flags[0] if flags and len(set(flags)) == 1 else None
+        except Exception:
+            return None
 
     async def options(self, level: str, parent: int | None = None, search: str = ""):
         # Reuse the existing LGD tables and code conventions. Legacy API fallbacks
@@ -47,11 +86,11 @@ class OnboardingLocation:
             raise ValueError("That village does not belong to the selected state, district and development block. Please choose it again.")
         row = dict(row)
         # Use authoritative flags if actually provided by this deployment's LGD schema.
-        is_rural = row.get("is_rural")
-        if not isinstance(is_rural, bool):
-            flag = str(row.get("rural_urban") or row.get("area_classification") or "").strip().lower()
-            is_rural = {"rural": True, "urban": False, "r": True, "u": False}.get(flag)
+        is_rural = self.area_flag(row)
         source = "lgd"
+        if is_rural is None:
+            is_rural = await self.census_area(selection)
+            source = 'official_census_code_match'
         if is_rural is None:
             is_rural = selection.verified_is_rural
             source = "legacy_user_verification"
@@ -84,6 +123,7 @@ class OnboardingLocation:
             return physical, None
         village = address.get("village") or address.get("hamlet") or address.get("town") or ""
         district = address.get("state_district") or address.get("district") or address.get("county") or ""
+        district = re.sub(r'\s+district$', '', district, flags=re.I).strip()
         async with self.db.pool.acquire() as conn:
             rows = await conn.fetch("""
                 SELECT v.state_code, v.district_code, v.development_block_code, v.village_code

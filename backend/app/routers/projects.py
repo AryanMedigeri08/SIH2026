@@ -30,7 +30,9 @@ router = APIRouter(prefix="/projects", tags=["Project State Persistence & Multi-
 def _project_dict_to_user_input(p: dict[str, Any]) -> UserInput:
     """Helper to convert project dict into UserInput for pipeline execution."""
     cost = float(p.get("project_cost") or p.get("investment_amount") or 500000.0)
-    avail_margin = p.get("available_margin_capital") if p.get("project_cost_components") else (p.get("available_margin_capital") or p.get("margin_capital"))
+    avail_margin = p.get("available_margin_capital")
+    if avail_margin is None:
+        avail_margin = p.get("margin_capital")
     if avail_margin is not None:
         avail_margin = float(avail_margin)
     prem_type = p.get("premise_type", "rented")

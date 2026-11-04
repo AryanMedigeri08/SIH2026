@@ -19,6 +19,9 @@ class Facts(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=120)
     gender: Literal["Male", "Female", "Other", "Unspecified"] | None = None
     promoter_category: Literal["general", "sc", "st", "obc", "minority", "ph", "artisan", "women", "women_shg"] | None = None
+    phone: str | None = Field(None, pattern=r'^\+91[6-9]\d{9}$')
+    email: str | None = Field(None, max_length=254, pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+    email_status: Literal['provided','skipped'] | None = None
     idea_status: Literal["known", "explore"] | None = None
     idea: str | None = Field(None, min_length=3, max_length=1000)
     activity: Literal["manufacture", "process", "retail", "distribute", "service", "other"] | None = None
@@ -51,7 +54,7 @@ class Turn(BaseModel):
     text: str = Field("", max_length=3000)
     updates: Facts | None = None
     action: Literal["answer", "repeat", "explain", "pause", "resume", "confirm_change", "discard_change",
-                    "confirm_location", "change_location", "confirm_business", "alternatives", "suggest_names"] = "answer"
+                    "confirm_location", "change_location", "confirm_business", "alternatives", "suggest_names", "confirm_estimate", "confirm_rent", "accept_regional_risk", "explore_alternatives"] = "answer"
     correction: bool = False
     source: Literal["text", "voice", "control"] = "text"
     language: Literal["en", "hi", "mr", "ta", "te", "kn"] = "en"
@@ -79,9 +82,11 @@ class GPSRequest(BaseModel):
 
 def new_session(profile: dict[str, Any]) -> dict:
     fields = {}
-    for key in ("name", "gender", "promoter_category"):
+    for key in ("name", "gender", "promoter_category", "phone", "email"):
         value = profile.get(key)
-        if value and (key != "gender" or value != "Unspecified"):
+        if key == 'email' and value and (value == f"{profile.get('firebase_uid')}@udyam.gov.in" or value.endswith('@evaluator.invalid')):
+            continue
+        if value and (key != "gender" or value != "Unspecified" or profile.get("promoter_category")):
             fields[key] = {"value": value, "source": "profile", "confirmed": True, "valid": True,
                            "required": True, "dependencies": [], "changed": False}
     return {"version": 1, "revision": 0, "fields": fields, "history": [], "pending_changes": {},

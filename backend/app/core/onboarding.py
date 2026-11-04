@@ -46,6 +46,11 @@ def record(state, key, val, source="text", dependencies=()):
 
 
 def invalidate(state, changed, *, clear_confirmed_inputs=True):
+    if changed & {'location', 'idea', 'activity', 'products'}:
+        state.pop('regional_risk_accepted', None)
+    if changed & {'location', 'classification', 'idea', 'activity', 'products', 'scale', 'operations', 'premises'}:
+        state['cost_proposal'] = None
+        state.pop('rent_proposal', None)
     if "location" in changed:
         # Requirements and capital survive a move; suitability and rent belong to the site.
         for key in ("premises_suitable", "rent_amount", "rent_period"):
@@ -183,11 +188,20 @@ def catalogue_entries(state):
 
 async def regional_assessment(state):
     from app.core.intelligence.engine import MarketOpportunityEngine
+    from app.core.intelligence.models import BusinessIntent
     loc = state["location"]
+    c = state['classification']
+    intent = c['intent_id']
+    if state.get('experience') == 'adaptive' and intent not in INTENT_CATALOG:
+        # An exact generic category must not be fuzzily resolved into an
+        # unrelated named business (e.g. manufacturing -> tailoring).
+        intent = BusinessIntent(intent_id=intent, display_name=c.get('label') or value(state, 'idea'),
+            primary_category=c['category_id'], direct_categories=[c['category_id']], related_categories=[],
+            search_keywords=[value(state, 'products', '')], description=value(state, 'idea', ''))
     result = await MarketOpportunityEngine().analyze_opportunity(
         state=loc["state_name"], district=loc["district_name"], village=loc["village_name"],
         target_lat=loc.get("latitude"), target_lon=loc.get("longitude"),
-        business_intent=state["classification"]["intent_id"], max_records=200)
+        business_intent=intent, max_records=200)
     data = result.to_dict()
     return {"evidence": data.get("evidence", {}), "recommendation": data.get("recommendation"), "confidence": data.get("confidence"),
             "data_lineage": data.get("data_lineage", []), "source": "existing_market_opportunity_engine",
@@ -207,7 +221,7 @@ def verified_odop(state):
             "source": "existing_odop_registry", "aligned": (state.get("classification") or {}).get("sector") in record_.get("matching_sectors", [])}
 
 
-def recommendations(state):
+def recommendations(state, limit=3):
     loc = state["location"]
     budget = value(state, "budget")
     kind = value(state, "budget_kind")
@@ -230,7 +244,7 @@ def recommendations(state):
             continue
         terms = set(re.findall(r"[a-z]{4,}", (entry["enterprise_name"] + " " + entry["description"]).lower()))
         fit = sum(word in interests for word in terms)
-        if not fit and value(state, "skills") != "open to learning":
+        if not fit and str(value(state, "skills", "")).strip().lower() != "open to learning":
             continue
         items.append({"id": entry["sector_id"], "idea": entry["enterprise_name"], "description": entry["description"].split(". ", 1)[0].rstrip(".") + ".",
             "why_region": f"{loc['state_name']} is listed in the existing sector catalogue's regional affinities." if regional else f"Matches the recorded district ODOP product: {odop.get('product')}.",
@@ -239,10 +253,10 @@ def recommendations(state):
             "potential_financing": max(low - budget, 0) if kind in ("personal", "total") else None,
             "scheme": entry["relevant_scheme"], "scheme_note": "Candidate scheme; eligibility is evaluated by the existing engine, not guaranteed.",
             "odop_aligned": is_odop, "source": "existing_sector_catalog", "score": fit + int(is_odop)})
-    return sorted(items, key=lambda e: e["score"], reverse=True)[:3]
+    return sorted(items, key=lambda e: e["score"], reverse=True)[:limit]
 
 
-async def assess_recommendations(state):
+async def assess_recommendations(state, limit=3):
     """Screen catalogue candidates against the existing village intelligence engine."""
     async def assess(candidate):
         proposed = deepcopy(state)
@@ -265,7 +279,7 @@ async def assess_recommendations(state):
             candidate["confidence"] = "INSUFFICIENT_DATA"
             candidate["market_evidence"] += " Village evidence is unavailable; suitability has not been established."
         return candidate
-    results = await asyncio.gather(*(assess(candidate) for candidate in recommendations(state)))
+    results = await asyncio.gather(*(assess(candidate) for candidate in recommendations(state, limit)))
     return [result for result in results if result is not None]
 
 
@@ -274,7 +288,7 @@ def financial_assessment(state):
     outlay = value(state, "project_cost")
     own = value(state, "personal_contribution")
     classification = state["classification"]
-    tenure, moratorium = (3.0, 3) if outlay <= 140000 else (5.0, 6)
+    tenure, moratorium = (3.0, 3) if outlay <= 140000 else (7.0 if state.get('experience') == 'adaptive' else 5.0, 6)
     ranked = rank_eligible_schemes(project_cost=outlay, business_category=classification["business_category"],
         sector=classification["sector"], promoter_category=value(state, "promoter_category"),
         is_rural=state["location"]["is_rural"], tenure_years=tenure, moratorium_months=moratorium)
@@ -398,6 +412,9 @@ def next_question(state):
 
 
 async def advance(state):
+    if state.get('experience') == 'adaptive':
+        from app.core.adaptive_onboarding import advance as adaptive_advance
+        return await adaptive_advance(state)
     costs = value(state, "cost_items")
     if costs:
         total = confirmed_project_outlay(costs)

@@ -31,10 +31,10 @@ export function DashboardPage({
             <div className="w-10 h-10 border-4 border-sovereign-800 border-t-transparent rounded-full animate-spin mx-auto" />
           </div>
           <h3 className="text-lg font-bold font-outfit text-slate-900">
-            Executing 4-Tier Zero-Hallucination Pipeline...
+            Preparing your business report…
           </h3>
           <p className="text-xs text-slate-600 mt-1 max-w-md mx-auto">
-            Connecting Census 2011 demographics, 613 village amenities API, XGBoost viability model & Groq LLM credit synthesis.
+            Checking your location, costs and funding options. This may take a moment.
           </p>
         </div>
       ) : (

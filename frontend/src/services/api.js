@@ -44,7 +44,7 @@ async function authFetch(url, token, options = {}) {
 }
 
 export const onboardingApi = {
-  session: (token, language = 'en') => authFetch(`${API_BASE}/onboarding/session?language=${language}`, token),
+  session: (token, language = 'en', experience = 'strict') => authFetch(`${API_BASE}/onboarding/session?language=${language}&experience=${experience}`, token),
   turn: (token, payload) => authFetch(`${API_BASE}/onboarding/turn`, token, { method: 'POST', body: JSON.stringify(payload) }),
   locationOptions: (token, level, parent, search = '') => {
     const params = new URLSearchParams({ search });
@@ -58,6 +58,27 @@ export const onboardingApi = {
   newSession: (token, revision) => authFetch(`${API_BASE}/onboarding/new-session`, token, { method: 'POST', body: JSON.stringify({ revision }) }),
 };
 
+export const passkeyApi = {
+  registerOptions: token => authFetch(`${API_BASE}/auth/passkeys/register/options`, token, { method: 'POST' }),
+  registerVerify: (token, payload) => authFetch(`${API_BASE}/auth/passkeys/register/verify`, token, { method: 'POST', body: JSON.stringify(payload) }),
+  authenticateOptions: () => authFetch(`${API_BASE}/auth/passkeys/authenticate/options`, null, { method: 'POST' }),
+  authenticateVerify: payload => authFetch(`${API_BASE}/auth/passkeys/authenticate/verify`, null, { method: 'POST', body: JSON.stringify(payload) }),
+};
+
+// Location hints for Mira's confirmation screen; no location is invented when
+// a provider is unavailable. Manual selection remains available.
+export async function reverseGeocodeCoords(latitude, longitude) {
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`);
+    if (!response.ok) return null;
+    const { address = {} } = await response.json();
+    const district = address.state_district || address.district || address.county || address.city;
+    if (!address.state || !district) return null;
+    return { state_name: address.state, district_name: district.replace(/ district/i, '').trim(),
+      locality_name: address.village || address.town || address.suburb || '', latitude, longitude };
+  } catch (_) { return null; }
+}
+
 export async function checkHealth() {
   try {
     const res = await fetch(`${API_BASE}/health`);
@@ -70,6 +91,8 @@ export async function checkHealth() {
 
 // --- User Authentication & Profile API ---
 export const authApi = {
+  createEvaluator: () => authFetch(`${API_BASE}/auth/evaluator`, null, { method: 'POST' }),
+  registrationAnswer: payload => authFetch(`${API_BASE}/auth/registration/answer`, null, { method: 'POST', body: JSON.stringify(payload) }),
   async registerProfile(token, profileData) {
     return await authFetch(`${API_BASE}/auth/register`, token, {
       method: 'POST',
@@ -560,6 +583,7 @@ export const chatApi = {
     const res = await fetch(`${API_BASE}/chat/stt`, {
       method: 'POST',
       body: formData,
+      signal: AbortSignal.timeout(45000),
     });
     if (!res.ok) {
       const errText = await res.text();
@@ -571,6 +595,7 @@ export const chatApi = {
   async generateTts(text, language = 'en', token = null) {
     return await authFetch(`${API_BASE}/chat/tts`, token, {
       method: 'POST',
+      signal: AbortSignal.timeout(45000),
       body: JSON.stringify({
         text,
         language,

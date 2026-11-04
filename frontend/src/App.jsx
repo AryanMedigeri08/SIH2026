@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { LanguageGate } from './components/LanguageGate';
 import { BrowserRouter, Navigate, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar/Sidebar';
@@ -161,7 +162,7 @@ export function AppContent() {
   const { language } = useLanguage();
 
   const isAuthOrLanding = ['/', '/landing', '/login', '/register'].includes(location.pathname);
-  const isMiraOnboarding = ['/wizard', '/new-assessment'].includes(location.pathname);
+  const isOnboarding = ['/wizard', '/new-assessment', '/onboarding'].includes(location.pathname);
 
   // Health check on app start
   useEffect(() => {
@@ -267,7 +268,6 @@ export function AppContent() {
       navigate('/dashboard');
       return created;
     } catch (err) {
-      if (formData?.onboarding_revision == null) alert(`Enterprise appraisal error: ${err.message}`);
       throw err;
     } finally {
       setIsGenerating(false);
@@ -286,13 +286,18 @@ export function AppContent() {
     );
   }
 
+  // Match Refactor-wizard-aryan: onboarding is a focused, full-screen journey.
+  if (isOnboarding) {
+    return <ProtectedRoute><WizardPage onWizardSubmit={handleWizardSubmit} isLoading={isGenerating} /></ProtectedRoute>;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-sovereign-200 selection:text-sovereign-900 overflow-x-hidden">
       
       {/* Top Navbar with Persistent Chatbot button & Multi-Business Switcher */}
       <Navbar
         health={health}
-          onboarding={isMiraOnboarding}
+        onboarding={isOnboarding}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
       />
 
@@ -569,6 +574,10 @@ export function AppContent() {
 
               {/* 7-Step Feasibility Wizard */}
               <Route
+                path="/onboarding"
+                element={<Navigate to="/wizard" replace />}
+              />
+              <Route
                 path="/wizard"
                 element={
                   <ProtectedRoute>
@@ -635,10 +644,10 @@ export function AppContent() {
       />
 
       {/* Persistent Movable Desktop AI Chatbot Window */}
-        {!isMiraOnboarding && <FloatingChatWindow />}
+        {!isOnboarding && <FloatingChatWindow />}
 
       {/* Lightweight Siri Voice Agent Widget */}
-        {!isMiraOnboarding && <VoiceAgentWindow />}
+        {!isOnboarding && <VoiceAgentWindow />}
 
     </div>
   );
@@ -653,7 +662,7 @@ export function App() {
           <ViewModeProvider>
             <BusinessProvider>
               <ChatProvider>
-                <AppContent />
+                <LanguageGate><AppContent /></LanguageGate>
               </ChatProvider>
             </BusinessProvider>
           </ViewModeProvider>

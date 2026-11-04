@@ -316,10 +316,10 @@ async def transcribe_audio_file(
         result["provider"] = "groq_whisper"
         return result
     except Exception as e:
-        logger.error("STT transcription error: %s", e, exc_info=True)
+        logger.warning("STT transcription failed (%s)", type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Audio transcription failed: {str(e)}",
+            detail="The audio could not be transcribed. Please retry or type your answer.",
         )
 
 

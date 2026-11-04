@@ -429,7 +429,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
     # Asset-Driven Capital Structure & SCA Equity Gap Analysis
     cap_struct = calculate_asset_driven_capital_structure(
         machinery_cost=mach_schedule.total_machinery_cost_inr,
-        available_promoter_cash=input_data.available_margin_capital if confirmed_costs is not None else (input_data.available_margin_capital or promoter_margin_val),
+        available_promoter_cash=input_data.available_margin_capital if input_data.available_margin_capital is not None else promoter_margin_val,
         promoter_category=input_data.promoter_category or "general",
         gender=input_data.gender or "male",
         is_rural=input_data.is_rural if input_data.is_rural is not None else True,

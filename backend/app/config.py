@@ -45,6 +45,8 @@ from pydantic import ConfigDict
 
 
 class Settings(BaseSettings):
+    PASSKEY_RP_ID: str = os.getenv('PASSKEY_RP_ID', 'localhost')
+    PASSKEY_ORIGIN: str = os.getenv('PASSKEY_ORIGIN', 'http://localhost:3000')
     model_config = ConfigDict(case_sensitive=True, extra="ignore")
 
     APP_NAME: str = "Udyam Saathi REST API"

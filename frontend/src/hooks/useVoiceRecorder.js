@@ -20,6 +20,8 @@ export function useVoiceRecorder({
   silenceThresholdMs = 2000,
   minSpeechThreshold = 0.025,
   maxDurationMs = 60000,
+  initialSilenceMs = null,
+  onSilence,
 } = {}) {
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -49,6 +51,8 @@ export function useVoiceRecorder({
   const onVolumeChangeRef = useRef(onVolumeChange);
   const onSpeechStartRef = useRef(onSpeechStart);
   const onSpeechEndRef = useRef(onSpeechEnd);
+  const onSilenceRef = useRef(onSilence);
+  onSilenceRef.current = onSilence;
   useEffect(() => { onVolumeChangeRef.current = onVolumeChange; }, [onVolumeChange]);
   useEffect(() => { onSpeechStartRef.current = onSpeechStart; }, [onSpeechStart]);
   useEffect(() => { onSpeechEndRef.current = onSpeechEnd; }, [onSpeechEnd]);
@@ -247,6 +251,12 @@ export function useVoiceRecorder({
 
         const now = Date.now();
         const elapsed = now - startTimeRef.current;
+        if (initialSilenceMs && !hasSpokenRef.current && elapsed > initialSilenceMs) {
+          isCancelledRef.current = true;
+          stopRecording();
+          onSilenceRef.current?.();
+          return;
+        }
 
         if (rms > minSpeechThreshold) {
           hasSpokenRef.current = true;
@@ -294,15 +304,16 @@ export function useVoiceRecorder({
       };
 
       animFrameRef.current = requestAnimationFrame(checkAudioLevel);
+      return true;
     } catch (err) {
-      console.error('Microphone access failed:', err);
       setError(err.message || 'Microphone access denied. Please grant permission in your browser.');
       setIsRecording(false);
       cleanupAudio();
+      return false;
     } finally {
       isStartingRef.current = false;
     }
-  }, [minSpeechThreshold, silenceThresholdMs, maxDurationMs, onRecordingComplete, stopRecording, cleanupAudio]);
+  }, [minSpeechThreshold, silenceThresholdMs, maxDurationMs, initialSilenceMs, onRecordingComplete, stopRecording, cleanupAudio]);
 
   // Clean up on component unmount
   useEffect(() => {

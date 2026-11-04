@@ -197,6 +197,7 @@ export const BusinessProvider = ({ children }) => {
         business_name: formData.enterprise_name,
         project_cost_components: formData.project_cost_components || null,
         financing_choice: formData.financing_choice || null,
+        odop_preference: formData.odop_preference || null,
         latitude: formData.latitude ?? null,
         longitude: formData.longitude ?? null,
         expected_monthly_units: formData.expected_monthly_units ?? null,
