@@ -16,6 +16,7 @@ import { miraCopy } from '../services/miraCopy';
 import { PROFILE_ORDER } from '../services/profilePrompts';
 import { AreaClassificationSummary } from '../components/AreaClassificationSummary';
 import { RegionalEvidenceCard, FundingSummary, RecommendationCards, OperatingPlanForm } from '../components/MiraInsights';
+import { readableChatPrompt } from '../services/chatPresentation';
 
 const money = value => `₹${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 const labels = { personal: 'My own savings', total: 'Total setup budget', borrowing: 'Money I expect to borrow',
@@ -61,7 +62,8 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
   const gpsAttempted = useRef(false);
   const alive = useRef(true);
   const announcedQuestion = useRef(null);
-  const speech = useMiraConversation({ language, token, prompt:reply, questionKey:`${state?.revision}:${messageSequence}:${language}`, field:state?.next?.field,
+  const caption=readableChatPrompt(reply,state,language);
+  const speech = useMiraConversation({ language, token, prompt:caption, questionKey:`${state?.revision}:${messageSequence}:${language}`, field:state?.next?.field,
     enabled:started && audioEnabled && speechAllowed && !!state && !state.paused && state.next?.field !== 'complete' && !manualLocation,
     autoListen:inputMode==='voice',
     busy:busy || isLoading, onAnswer:transcript => sendRef.current?.({text:transcript,source:'voice'}) });
@@ -212,6 +214,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
           onCompare={()=>send({action:'compare_recommendations',text:''})} onAlternatives={()=>send({action:'alternatives',text:''})}/>}
       </>}
       {['cost_proposal','personal_contribution','operating_plan','financing_choice','financial_review','ready'].includes(current?.field)&&<FundingSummary finance={assessment||insights.finance_preview} projection={insights.operating_projection} preview={!assessment}/>}
+      {caption!==reply&&<details className="mira-context-details"><summary><T text="Read Mira’s full explanation"/></summary><p className="whitespace-pre-wrap">{reply}</p></details>}
       {state?.regional&&<details className="mira-context-details"><summary><T text="Why this business may work here"/></summary><RegionalEvidenceCard region={state.regional} accepted={insights.regional_risk_accepted}/></details>}
       {state?.location&&<details className="mira-context-details"><summary><T text="Location details"/></summary><div className="mira-location-brief"><div><strong>{state.location.village_name}</strong><p>{state.location.block_name}, {state.location.district_name}, {state.location.state_name}</p></div><button disabled={locked} onClick={changeLocation}><T text="Change"/></button></div><AreaClassificationSummary location={state.location}/></details>}
       {assessment&&current?.field!=='operating_plan'&&<details className="mira-insight-card"><summary><T text="Change my monthly sales and expenses"/></summary><OperatingPlanForm key={state.revision} disabled={locked} values={state.fields} onSubmit={updates=>send({text:'',correction:true,updates})}/></details>}
@@ -224,7 +227,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
       {current?.field === 'ready' && insights.can_finish && <button className="mira-primary w-full justify-center py-4" disabled={locked} onClick={finish}><T text="Save and open my business plan" /></button>}
       {current?.field === 'complete' && <div className="mira-quick-actions"><Link to="/dashboard" className="mira-primary">Open my saved business report</Link><button className="mira-secondary" disabled={locked} onClick={async () => {gpsAttempted.current=false;setManualLocation(false);setBusy(true);try {accept(await onboardingApi.newSession(token,state.revision));}catch(err){setError(err.message);}finally{setBusy(false);}}}>Start another business plan</button></div>}
       {speech.speechError && <p role="status" className="text-sm text-amber-800">{speech.speechError}</p>}</div>;
-  return <MiraChatShell language={language} prompt={reply||copy.locating} speech={speech} busy={busy||isLoading} inputMode={inputMode} input={input}
+  return <MiraChatShell language={language} prompt={caption||copy.locating} speech={speech} busy={busy||isLoading} inputMode={inputMode} input={input}
     onInput={setInput} onTyping={typeAnswer} onMicrophone={useMicrophone} onSend={()=>send()} audioEnabled={audioEnabled} onAudioToggle={toggleAudio}
     history={state?.history||[]} error={error} onRetry={()=>requestRef.current?send({},true):reload()} dialogs={<>
     <MiraDialog open={manualLocation} onClose={closeLocation} title={copy.location} closeLabel={copy.close}>
