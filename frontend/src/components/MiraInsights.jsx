@@ -50,6 +50,16 @@ export function RegionalEvidenceCard({ region, accepted }) {
 
 function Metric({ label, value }) { return <div className="mira-metric"><span><T text={label} /></span><strong>{value}</strong></div>; }
 
+export function FundingSummary({ finance, projection, preview }) {
+  if (!finance) return null;
+  return <section className="mira-funding-summary" aria-label="Money needed for your business">
+    <h3><T text="Money for your business" /></h3>
+    <div className="mira-number-grid"><Metric label="Estimated setup cost" value={money(finance.project_outlay)} /><Metric label="Minimum own contribution" value={money(finance.capital_structure.required_promoter_equity)} /><Metric label="Possible loan needed" value={money(finance.capital_deficit)} /></div>
+    <p><T text="An estimate. Loan approval and subsidy are not guaranteed." /></p>
+    <details><summary><T text="See costs and monthly estimates" /></summary><FundingCard finance={finance} projection={projection} preview={preview} /></details>
+  </section>;
+}
+
 export function FundingCard({ finance, projection, preview = false, compact = false }) {
   if (!finance) return null;
   const capital = finance.capital_structure || {}, costs = finance.cost_items || {};
@@ -96,16 +106,24 @@ export function BusinessPlanDecision({ review }) {
 }
 
 export function RecommendationCards({ items = [], state, disabled, onChoose, onDiscuss, onCompare, onAlternatives }) {
-  return <section className="mira-recommendations" aria-label="Business recommendations"><div className="mira-recommendation-heading"><div><span className="mira-kicker"><T text="Your regional shortlist" /></span><h2><T text="Businesses to explore" /></h2></div>{items.length > 1 && <button className="mira-secondary" onClick={onCompare} disabled={disabled}><T text="Compare businesses" /></button>}</div>
-    {state.alternative_budget_basis && <p className="mira-finance-note"><T text={state.alternative_budget_basis} /></p>}
-    {items.length < 3 && <p><T text="The current evidence supports fewer than three options. Mira will not invent extra feasible businesses." /></p>}
-    {state.comparison_requested && <div className="mira-comparison"><table><caption><T text="Compare the same planning assumptions" /></caption><thead><tr><th><T text="Planning measure" /></th>{items.map(item => <th key={item.id}>{item.idea}</th>)}</tr></thead><tbody>{[['Setup cost', item => money(item.finance_preview?.project_outlay ?? item.outlay_range[0])], ['Required own equity', item => money(item.finance_preview?.capital_structure.required_promoter_equity)], ['Potential borrowing', item => money(item.finance_preview?.capital_deficit)], ['Monthly sales estimate', item => money(item.finance_preview?.operating_projection.monthly_sales)], ['Cash after expenses and EMI', item => money(item.finance_preview?.operating_projection.monthly_after_debt)], ['Regional evidence', item => item.confidence || 'INSUFFICIENT_DATA']].map(([label, get]) => <tr key={label}><th><T text={label} /></th>{items.map(item => <td key={item.id}>{get(item)}</td>)}</tr>)}</tbody></table></div>}
-    <div className="mira-recommendation-grid">{items.map((item, index) => <article className="mira-recommendation" key={item.id}><span className="mira-option-number">0{index + 1}</span><h3>{item.idea}</h3><p><T text={item.description} /></p><p className="mira-why"><CheckCircle2 size={16} /><T text={item.why_region} /></p>
-      <span className="mira-estimate-tag"><T text={item.provisional ? 'Provisional · local checks needed' : 'Screened against available regional evidence'} /></span>
-      <p><strong>ODOP · </strong><T text={item.odop?.aligned ? `Sector connection to ${item.odop.product}; product eligibility still needs checking.` : item.odop?.product ? `District product: ${item.odop.product}. No sector alignment established.` : 'No verified district ODOP record available.'} /></p>
-      <FundingCard finance={item.finance_preview} projection={item.finance_preview?.operating_projection} preview compact />
-      <details open={state.discussed_recommendation_id === item.id}><summary><T text="Why this business, how to start, and risks" /></summary><p><T text={item.requirements} /></p><p><T text={item.market_evidence} /></p><RegionalEvidenceCard region={item.regional_assessment} /></details>
-      <div className="mira-recommendation-actions"><button className="mira-primary" disabled={disabled} onClick={() => onChoose(item.id)}><T text="Explore this business" /><ArrowRight size={16} /></button><button className="mira-secondary" disabled={disabled} onClick={() => onDiscuss(item.id)}><T text="Discuss this option" /></button></div>
-    </article>)}</div><button className="mira-secondary" disabled={disabled} onClick={onAlternatives}><T text="None of these · Find other options" /></button>
+  const confidenceLabel = value => value === 'HIGH' ? 'Good evidence' : value === 'MEDIUM' ? 'Some evidence' : 'Needs local checks';
+  return <section className="mira-recommendations" aria-label="Business recommendations">
+    <div className="mira-recommendation-heading"><h2><T text="Choose a business to explore" /></h2>{items.length > 1 && <button className="mira-secondary" onClick={onCompare} disabled={disabled}><T text="Compare these ideas" /></button>}</div>
+    {state.alternative_budget_basis && <details className="mira-context-details"><summary><T text="Budget used for these ideas" /></summary><p><T text={state.alternative_budget_basis} /></p></details>}
+    {items.length < 3 && <p><T text="These are the options supported by the information available." /></p>}
+    {state.comparison_requested && <div className="mira-comparison"><table><caption><T text="Compare the estimates" /></caption><thead><tr><th><T text="Estimate" /></th>{items.map(item => <th key={item.id}>{item.idea}</th>)}</tr></thead><tbody>{[['Setup cost', item => money(item.finance_preview?.project_outlay ?? item.outlay_range[0])], ['Minimum own contribution', item => money(item.finance_preview?.capital_structure.required_promoter_equity)], ['Possible loan needed', item => money(item.finance_preview?.capital_deficit)], ['Monthly sales estimate', item => money(item.finance_preview?.operating_projection.monthly_sales)], ['Cash after costs and EMI', item => money(item.finance_preview?.operating_projection.monthly_after_debt)], ['Local evidence', item => confidenceLabel(item.confidence)]].map(([label, get]) => <tr key={label}><th><T text={label} /></th>{items.map(item => <td key={item.id}><T text={get(item)} /></td>)}</tr>)}</tbody></table></div>}
+    <div className="mira-recommendation-grid">{items.map((item, index) => <article className="mira-recommendation" key={item.id}>
+      <span className="mira-option-number"><T text="Idea" /> {index + 1}</span><h3>{item.idea}</h3>
+      <p><T text={item.description} /></p><span className="mira-estimate-tag"><T text={item.provisional ? 'Needs local checks' : 'Checked with available local information'} /></span>
+      <div className="mira-number-grid"><Metric label="Setup estimate" value={money(item.finance_preview?.project_outlay ?? item.outlay_range[0])} /><Metric label="Minimum own contribution" value={money(item.finance_preview?.capital_structure.required_promoter_equity)} /></div>
+      <button className="mira-primary mira-choose-business" disabled={disabled} onClick={() => onChoose(item.id)}><T text="Choose this business" /><ArrowRight size={18} /></button>
+      <details open={state.discussed_recommendation_id === item.id}><summary><T text="See details about this idea" /></summary>
+        <p><T text={item.why_region} /></p><p><T text={item.requirements} /></p><p><T text={item.market_evidence} /></p>
+        <FundingCard finance={item.finance_preview} projection={item.finance_preview?.operating_projection} preview compact />
+        <RegionalEvidenceCard region={item.regional_assessment} />
+        <button className="mira-secondary" disabled={disabled} onClick={() => onDiscuss(item.id)}><T text="Ask Mira about this idea" /></button>
+      </details>
+    </article>)}</div>
+    <button className="mira-secondary" disabled={disabled} onClick={onAlternatives}><T text="Show other business ideas" /></button>
   </section>;
 }
