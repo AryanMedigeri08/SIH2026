@@ -314,7 +314,6 @@ def financial_assessment(state):
     kind = value(state, "budget_kind")
     budget_shortfall = max((gap if kind == "borrowing" else outlay) - budget, 0) if budget is not None and kind in ("total", "personal", "borrowing") else None
     return {"project_outlay": outlay, "personal_contribution": own, "capital_deficit": gap,
-            "financing_choice": value(state, 'financing_choice'),
             "budget": value(state, "budget"), "budget_kind": value(state, "budget_kind"),
             "budget_shortfall": round(budget_shortfall, 2) if budget_shortfall is not None else None,
             "monthly_rent": round(rent, 2), "normal_loan": {"amount": gap, "monthly_emi": round(normal.monthly_emi, 2) if normal else 0,

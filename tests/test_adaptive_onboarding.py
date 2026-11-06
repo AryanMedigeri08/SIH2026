@@ -346,7 +346,6 @@ def test_local_money_parser_handles_native_digits_and_zero():
 
 
 def test_partial_operating_inputs_preserve_zero_and_selected_sca_service(conversation):
-    from app.core.onboarding_insights import operating_projection
     client, _, state = conversation
     state = define_business(client, state, personal_contribution=0, premises='owned')
     state = answer(client, state, action='confirm_estimate')
@@ -355,6 +354,17 @@ def test_partial_operating_inputs_preserve_zero_and_selected_sca_service(convers
     assert p['basis'] == 'mixed_estimate' and p['monthly_sales'] == 0
     assert p['monthly_emi'] == state['assessment']['capital_structure']['total_monthly_debt_service']
     assert p['monthly_after_debt'] == -p['monthly_emi']
+
+
+def test_self_funding_requires_review_when_cash_covers_margin_but_not_whole_cost(conversation):
+    client, _, state = conversation
+    state = define_business(client, state, personal_contribution=200000, premises='owned')
+    state = answer(client, state, action='confirm_estimate')
+    state = answer(client, state, action='use_operating_estimate')
+    state = answer(client, state, updates={'financing_choice': 'self'})
+    assert state['assessment']['capital_structure']['equity_gap'] == 0
+    assert state['next']['field'] == 'financial_review'
+    assert any('self-funding' in reason for reason in state['insights']['financial_concerns'])
 
 
 def test_latin_script_input_is_also_auto_detected(conversation, monkeypatch):
