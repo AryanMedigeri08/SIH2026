@@ -1,6 +1,6 @@
 # Audio-first registration and adaptive Mira onboarding
 
-The default `/onboarding`, `/wizard` and `/new-assessment` routes use one authenticated, resumable conversation. After registration and OTP, the default screen is a full-screen React Bits Orb with Mira’s current caption and a small bottom control bar. The supplied WebGL2 shader has distinct speaking, thinking and listening states; listening responds to microphone volume. Browsers without WebGL2 receive an animated CSS fallback. Review cards, financial controls and corrections remain available through the Details dialog. The backend still chooses the next question from missing facts.
+The default `/onboarding`, `/wizard` and `/new-assessment` routes use an authenticated, resumable chat. Mira’s avatar, spoken caption with current-word highlighting, prior messages and inline assessment cards replace the orb entirely. A persistent composer accepts keyboard input or an explicitly enabled microphone. The microphone starts off and switches off after a voice answer. Mira can speak new responses without recording. Typing cancels current recording/transcription and playback; new responses can speak again unless the user mutes Mira. Enter sends and Shift+Enter adds a line; IME composition does not accidentally submit a partial native-language answer. The backend chooses questions from missing facts, rather than making the frontend run a fixed questionnaire.
 
 ## Registration and sign-in
 
@@ -8,7 +8,7 @@ The existing public landing page remains at `/`. Entering `/register` shows the 
 
 Captions highlight the current spoken word only during playback. Native browser speech uses word-boundary events where supported; provider audio uses estimated word timing from actual playback progress because the TTS response does not contain word-alignment timestamps. Cancelling playback clears the highlight immediately. All registration prompts and status controls have explicit copy in the six supported languages.
 
-After the complete profile validates, Firebase sends the phone OTP. The six-digit code is checked automatically and the authenticated backend persists the profile. OTPs and credentials remain in secure controls, outside speech recognition. On the main orb screen, voice is the default response mode. Selecting typing synchronously cancels audio, recording and pending transcription. It remains off across subsequent questions until the microphone icon is pressed. Silence and invalid answers pause after three attempts; denied microphone access pauses immediately. Interrupted or obsolete speech/transcription cannot answer a later question.
+After the complete profile validates, Firebase sends the phone OTP. The six-digit code is checked automatically and the authenticated backend persists the profile. OTPs and credentials remain in secure controls, outside speech recognition. On the main chat screen, the microphone remains off until explicitly selected. Silence and invalid voice answers pause after three attempts; denied microphone access pauses immediately. Interrupted or obsolete speech/transcription cannot answer a later question.
 
 Google, phone, passkey and existing email sign-in retain Firebase authentication. Every successful sign-in returns the token to navigation, and authenticated UI state is published only after the backend accepts the same identity. OAuth failures never create unsigned fallback identities. Local document navigation from `127.0.0.1` redirects to `localhost`, which the configured Firebase project authorizes. This redirect also applies to Vite preview; APIs do not redirect. The configured project currently does not authorize `127.0.0.1`.
 
@@ -27,11 +27,24 @@ The server owns the confirmed facts, pending corrections, location, classificati
 - With an idea and no known investment, Mira clarifies activity, product and intended capacity, confirms her interpretation, checks the region and offers an applicable reference setup estimate for review. Personal cash is asked separately after the cost is understood.
 - With an idea and budget, Mira distinguishes personal savings from total project budget or borrowing. Known answers survive; she asks only for missing business, site, rent and funding details.
 - With a budget and no idea, Mira asks about interests/skills, then screens up to three catalogue candidates against budget and regional evidence. Saturated or constrained candidates are filtered. Insufficient evidence is labelled provisional rather than declared feasible.
-- An adverse regional result offers alternative ideas or explicit continuation with those risks.
+- An adverse regional result displays the evidence, risks and missing local checks. Users can request alternatives or explicitly accept the concerns. If own cash is known, alternatives reuse it; otherwise, the original reference project outlay becomes a labelled comparison ceiling, never invented personal savings.
 - ODOP is shown as a district-product card while shaping the idea, with explicit explore/alignment/keep choices. Asking a question about ODOP does not silently count as a decision. Choosing an ODOP business restarts activity/product clarification and recomputes downstream results through existing calculations. Keeping the original idea is one decision; moving district clears the previous district-specific choice. Exploring a connection does not establish subsidy eligibility.
 - Premises and actual monthly/annual rent are collected before financial assessment. A rent planning suggestion can be explicitly accepted or replaced.
 - Setup outlay, own cash, remaining funding need, conditional subsidy and promoter-margin shortfall remain separate. Users can increase funds, explore the existing normal loan, or explore SCA margin assistance when a margin gap exists. Normal and SCA servicing use the existing calculators.
+- Expected sales and running expenses can be supplied in chat or entered in a small inline form. Users may explicitly choose a labelled sector-model scenario instead. Zero and partial inputs remain meaningful. Financial concerns require explicit acceptance or a change of plan; edits clear prior acceptance.
 - Enterprise naming follows the settled business/funding draft. Type and sector are derived on the backend. Users can review or correct inputs before generating the existing saved project/report/DPR.
+
+## Chat evidence, recommendations and dashboard access
+
+Business input is auto-detected independently of the selected speaking language, including Latin-script and Indic replies. The existing translation provider normalizes business vocabulary for catalogue matching; the original user message stays in the history. Personal-profile answers and recognized demographic corrections remain in the deterministic personal-data parser. If translation/model access is unavailable, conservative local parsing retains the message and asks for clarification rather than manufacturing numbers or a classification. The existing six languages remain the supported spoken-output choices. Live arbitrary-language comprehension depends on configured translation and understanding providers.
+
+Regional cards use the existing opportunity engine’s evidence, positive drivers, risks, missing evidence, population and competition records. Demand and infrastructure indicators are labelled model scores. The catchment view is an offline schematic with 5 km and 10 km rings and only available mapped competitor coordinates; it is not a road-navigation map. Missing coordinates or directory coverage never establish that competition is absent. Local purchasing power, raw-material supply and verified customer orders are shown as missing when they are not supported by data.
+
+Up to three candidates are screened against current funds, category/location calculations and regional evidence, then ranked by the available opportunity scores. Adverse candidates are excluded; weak evidence yields provisional options. Fewer than three supported options is a valid result. Each card shows setup allocation, required promoter equity, available own cash, potential borrowing, ODOP connection and a labelled operating scenario. Comparison tables, option discussions, profitability follow-ups and replacement shortlists do not select a business. A selected option returns to detailed review. The exact shortlisted names and reference setup costs are also spoken.
+
+Operating scenarios reuse the existing sector turnover model and loan/SCA calculators. That model sizes sales from capital and servicing assumptions, so its resulting profit is not proof of local demand or profitability. User estimates take precedence for supplied sales/expenses. Fixed monthly costs and variable-cost share allow an operating break-even sales figure; a break-even date stays unavailable without sales ramp-up. Simple project payback is labelled separately. Current SCA servicing is used when SCA is selected. All original financial-calculator formulas, normal loan terms and SCA terms remain unchanged.
+
+The main workspace and login return links send users with no saved business plan back to onboarding. Only the existing server-validated completion path can save the selected plan and open its dashboard. As chosen by the user, explicit regional or financial risk acceptance permits continuation; it does not imply loan approval. A snapshot of the reviewed chat scenario and accepted concerns is saved in the business analysis and remains visible in a dashboard disclosure. Existing report/DPR appraisal calculations are preserved and labelled separately from the chat scenario.
 
 ## Location and area classification
 
@@ -48,14 +61,14 @@ The current Goldrush capital calculator and DPR allocations build a reviewable s
 ## Code map and verification
 
 - `frontend/src/pages/OnboardingPage.jsx`: voice/text conversation and review.
-- `frontend/src/components/Orb/`, `OrbOnboardingShell.jsx`, `MiraDialog.jsx`: stateful orb, minimal controls and focused dialogs.
+- `frontend/src/components/MiraChatShell.jsx`, `MiraInsights.jsx`, `MiraDialog.jsx`: chat composer, evidence/maps/charts, comparisons and location correction dialog.
 - `frontend/src/components/GuidedRegistrationPanel.jsx`, `ProgressiveProfileFields.jsx`, `MiraTranscript.jsx`: progressive registration and playback captions.
 - `frontend/src/services/miraCopy.js`, `spokenWords.js`, `progressiveRegistration.js`: localized UI copy, speech cues and confirmed-field progression.
 - `frontend/src/components/LanguageGate.jsx`, `frontend/src/pages/RegisterPage.jsx`: language-first sequential registration.
 - `frontend/src/services/voiceConversation.js`, `frontend/src/hooks/useMiraConversation.js`, `useMiraSpeech.js`, `useVoiceRecorder.js`: cancellable speech/listening state machine and bounded recovery.
 - `backend/app/core/profile_conversation.py`, `backend/app/routers/auth.py`: explicit multilingual profile validation and scoped evaluator issuance.
 - `frontend/src/components/AuthExperience.jsx`, account pages, `AuthContext.jsx`: source-branch account experience with Firebase transport.
-- `backend/app/core/adaptive_onboarding.py`: dependency-led conversation policy and reviewable estimates.
+- `backend/app/core/adaptive_onboarding.py`, `onboarding_insights.py`, `onboarding_discussion.py`: dependency-led conversation, reviewable projections and grounded follow-ups.
 - `backend/app/routers/onboarding.py`: owner-scoped persistence, corrections, commands, retry safety and report handoff.
 - `backend/app/core/onboarding_location.py`: official hierarchy and area evidence.
 - `backend/app/routers/passkeys.py` and persistent database methods: WebAuthn transport.
