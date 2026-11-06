@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import unicodedata
 
 from app.models.onboarding import Facts
 
@@ -16,6 +17,7 @@ MONEY_PATTERN = re.compile(r"(?:₹|rs\.?|inr|rupees?)?\s*([-+]?\d[\d,]*(?:\.\d+
 
 
 def normalize_money_words(text: str) -> str:
+    text = ''.join(str(unicodedata.decimal(char)) if char.isdecimal() else char for char in text)
     for word, unit in (("लाख", "lakh"), ("करोड़", "crore"), ("कोटी", "crore"), ("हज़ार", "thousand"), ("हजार", "thousand"),
                        ("லட்சம்", "lakh"), ("లక్షలు", "lakh"), ("ಲಕ್ಷ", "lakh")):
         text = text.replace(word, unit)
@@ -28,6 +30,28 @@ def normalize_money_words(text: str) -> str:
         return str(total) + (" " if match[0].endswith(" ") else "")
 
     return NUMBER_PATTERN.sub(to_digits, text)
+
+
+async def canonical_business_text(text: str) -> tuple[str, str]:
+    """Detect the input language independently of the selected output language.
+
+    Keep the original message for history. Only a real translation provider may
+    supply canonical business vocabulary; identity/fallback output is not proof
+    that a native-language idea has been understood.
+    """
+    normalized = ''.join(str(unicodedata.decimal(c)) if c.isdecimal() else c for c in text)
+    if not any(c.isalpha() and ord(c) > 127 for c in normalized):
+        return normalized, 'original'
+    try:
+        from app.core.translation_service import TranslationService
+        result = await asyncio.wait_for(TranslationService.get_instance().translate_text(
+            normalized, target_language='en', source_language='auto'), timeout=15)
+        translated = result.get('translated_text', '').strip()
+        if translated and result.get('provider') not in ('identity', 'noop', 'deterministic_fallback', None):
+            return translated, result['provider']
+    except Exception:
+        pass
+    return normalized, 'original'
 
 
 def money(text: str):
@@ -180,6 +204,7 @@ async def understand(text: str, state: dict) -> tuple[dict, list[str], str]:
     if state.get('experience') == 'adaptive' and question in ('name','gender','promoter_category','phone','email'):
         from app.core.profile_conversation import parse_answer
         return parse_answer(question, text) or {}, [], 'validated_profile_answer'
+    text, input_provider = await canonical_business_text(text)
     fallback = fallback_extract(text, question)
     # Profile fields never go to a general-purpose model.
     if question in ("name", "gender", "promoter_category") or re.search(r"\bmy (?:caste|gender|name)\b", text, re.I):
@@ -197,7 +222,7 @@ async def understand(text: str, state: dict) -> tuple[dict, list[str], str]:
             "ambiguities": {"type": "array", "items": {"type": "string"}}}, "required": ["updates", "evidence", "ambiguities"]}}}
     known = {k: v["value"] for k, v in state["fields"].items() if k not in ("name", "gender", "promoter_category", "phone", "email", "email_status")}
     prompt = ("You are Mira's language understanding layer for rural Indian entrepreneurs. Use record_user_facts. "
-              "Extract ALL explicitly stated facts, including multiple answers and corrections, in any supported Indian language. "
+              "Extract ALL explicitly stated facts, including multiple answers and corrections, in the user's language, including mixed languages. "
               "Each update MUST include a verbatim evidence substring from the latest user message. No guesses. "
               "Never calculate estimates, infer personal contribution from an unqualified budget, or invent scheme/geography/category decisions. "
               "Normalize lakh/crore and rupees only when stated, and monthly/annual rent only when explicit. "

@@ -135,6 +135,15 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
     profile_before = {k: value(state, k) for k in ("name", "gender", "promoter_category", "phone", "email")}
     state['last_input_valid'] = True
     text = turn.text.strip()
+    original_text = text
+    # Detect typed/spoken input separately from the preferred response language.
+    # Profile values stay in the deterministic personal-data parser.
+    if state['next']['field'] not in ('name','gender','promoter_category','phone','email'):
+        from app.core.profile_conversation import parse_correction
+        if not parse_correction(text):
+            from app.core.onboarding_understanding import canonical_business_text
+            text, input_provider = await canonical_business_text(text)
+            state['input_language_provider'] = input_provider
     action = turn.action
     current = state["next"]["field"]
     lower = text.lower().strip(" .?!।")
@@ -261,7 +270,7 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
         # Authentication credentials are never sent to this endpoint. Do not echo profile demographics into the transcript.
         from app.core.profile_conversation import parse_correction
         profile_turn = current in ("name", "gender", "promoter_category", "phone", "email") or bool(parse_correction(text)) or bool(re.search(r"\bmy (?:caste|gender|name|phone|email)\b", text, re.I))
-        state["history"].append({"role": "user", "text": "Profile detail updated" if profile_turn else text or "Answer selected", "source": turn.source})
+        state["history"].append({"role": "user", "text": "Profile detail updated" if profile_turn else original_text or "Answer selected", "source": turn.source})
     state["history"].append({"role": "assistant", "text": reply or state["next"]["text"]})
     state["history"] = state["history"][-80:]
     state["processed_requests"] = (state["processed_requests"] + [turn.request_id])[-80:]
