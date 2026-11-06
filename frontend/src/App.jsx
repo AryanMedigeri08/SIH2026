@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LanguageGate } from './components/LanguageGate';
 import { CurrentLocationCard } from './components/CurrentLocationCard';
+import { BusinessPlanDecision } from './components/MiraInsights';
 import { BrowserRouter, Navigate, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar/Sidebar';
@@ -348,6 +349,7 @@ export function AppContent() {
                 )}
 
               {location.pathname==='/dashboard'&&isAuthenticated&&<CurrentLocationCard onOpenWizard={()=>navigate('/wizard')}/>}
+              {location.pathname==='/dashboard'&&<BusinessPlanDecision review={activeBusiness?.analysis_result?.onboarding_review}/>}
               <Routes>
               {/* Protected Overview & Core Synthesis Dashboard */}
               <Route

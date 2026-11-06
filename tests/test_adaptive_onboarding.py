@@ -228,6 +228,10 @@ def test_confirmed_estimate_reaches_real_report_pipeline_and_is_idempotent(conve
     assert report['capital_structure']['true_project_outlay'] == engine.value(state, 'project_cost')
     assert report['financing_selection']['choice'] == 'sca'
     assert report['capital_structure']['actual_machinery_cost'] == engine.value(state, 'cost_items')['equipment']
+    review = project['analysis_result']['onboarding_review']
+    assert review['idea'] == engine.value(state, 'idea')
+    assert review['financial_risk_accepted'] is True
+    assert review['operating_projection']['monthly_emi'] == state['assessment']['capital_structure']['total_monthly_debt_service']
     assert client.post('/api/v2/onboarding/complete', json=command).json()['project_id'] == project['project_id']
     assert asyncio.run(db.get_user_projects_count('mira-test')) == 1
 
@@ -339,6 +343,18 @@ def test_local_money_parser_handles_native_digits_and_zero():
     for text in ('२ लाख', '௨ லட்சம்', '౨ లక్షలు', '೨ ಲಕ್ಷ'):
         assert money(text) == 200000
     assert money('०') == 0
+
+
+def test_partial_operating_inputs_preserve_zero_and_selected_sca_service(conversation):
+    from app.core.onboarding_insights import operating_projection
+    client, _, state = conversation
+    state = define_business(client, state, personal_contribution=0, premises='owned')
+    state = answer(client, state, action='confirm_estimate')
+    state = answer(client, state, updates={'monthly_sales': 0, 'financing_choice': 'sca'})
+    p = state['insights']['operating_projection']
+    assert p['basis'] == 'mixed_estimate' and p['monthly_sales'] == 0
+    assert p['monthly_emi'] == state['assessment']['capital_structure']['total_monthly_debt_service']
+    assert p['monthly_after_debt'] == -p['monthly_emi']
 
 
 def test_latin_script_input_is_also_auto_detected(conversation, monkeypatch):

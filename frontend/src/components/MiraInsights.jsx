@@ -84,6 +84,17 @@ export function OperatingPlanForm({ onSubmit, disabled, values = {} }) {
   </form>;
 }
 
+export function BusinessPlanDecision({ review }) {
+  if (!review) return null;
+  return <details className="mira-insight-card"><summary><T text="Your business decision and reviewed chat estimates" /></summary>
+    <h2>{review.enterprise_name}</h2><p><T text={review.idea} /></p><p className="mira-finance-note"><T text={review.notice} /></p>
+    {review.regional_summary && <p><T text={review.regional_summary} /></p>}
+    {review.regional_risk_accepted && <p className="mira-risk-acceptance"><T text="You explicitly chose to continue with the regional concerns explained in chat." /></p>}
+    {review.financial_risk_accepted && <div className="mira-risk-acceptance"><T text="You explicitly accepted these financial concerns:" /><ul>{review.financial_concerns.map(reason => <li key={reason}><T text={reason} /></li>)}</ul></div>}
+    <FundingCard finance={review.finance} projection={review.operating_projection} />
+  </details>;
+}
+
 export function RecommendationCards({ items = [], state, disabled, onChoose, onDiscuss, onCompare, onAlternatives }) {
   return <section className="mira-recommendations" aria-label="Business recommendations"><div className="mira-recommendation-heading"><div><span className="mira-kicker"><T text="Your regional shortlist" /></span><h2><T text="Businesses to explore" /></h2></div>{items.length > 1 && <button className="mira-secondary" onClick={onCompare} disabled={disabled}><T text="Compare businesses" /></button>}</div>
     {state.alternative_budget_basis && <p className="mira-finance-note"><T text={state.alternative_budget_basis} /></p>}

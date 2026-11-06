@@ -86,3 +86,15 @@ def insights(state):
         'regional_status': regional.get('recommendation', 'PENDING'),
         'can_finish': state.get('next', {}).get('field') in ('ready', 'complete') and bool(state.get('business_confirmed')),
         'estimate_notice': 'Numbers are planning estimates using existing calculators. Unknown local demand, resources or competition remain unknown.'}
+
+
+def review_snapshot(state):
+    data = insights(state)
+    return {'version': 1, 'revision': state['revision'], 'idea': base.value(state, 'idea'),
+        'enterprise_name': base.value(state, 'enterprise_name'), 'classification': deepcopy(state['classification']),
+        'finance': deepcopy(state.get('assessment')), 'operating_projection': data['operating_projection'],
+        'financial_concerns': data['financial_concerns'],
+        'regional_summary': (state.get('regional') or {}).get('evidence', {}).get('plain_language_summary'),
+        'regional_status': data['regional_status'], 'regional_risk_accepted': data['regional_risk_accepted'],
+        'financial_risk_accepted': data['financial_risk_accepted'],
+        'notice': 'This is the planning scenario reviewed in chat. The report uses the existing scheme-based appraisal calculations and may show different lending assumptions.'}

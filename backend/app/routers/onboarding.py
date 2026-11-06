@@ -440,6 +440,13 @@ async def complete(command: Complete, user: AuthenticatedUser = Depends(get_curr
         if saved and saved["user_id"] != user.uid:
             raise HTTPException(409, "The project could not be safely resumed.")
         completed = ProjectModel(**saved) if saved and saved.get("analysis_result") else await analyze_new_project(project, user, project_id=project_id)
+        if state.get('experience') == 'adaptive':
+            from app.core.onboarding_insights import review_snapshot
+            analysis = {**(completed.analysis_result or {}), 'onboarding_review': review_snapshot(state)}
+            reviewed = await db_manager.update_project_analysis(project_id, analysis)
+            if not reviewed:
+                raise ValueError('The reviewed chat decision could not be saved with this business.')
+            completed = ProjectModel(**reviewed)
     except Exception as exc:
         logger.warning("Onboarding report could not finish (%s)", type(exc).__name__)
         state.pop("submission_started_at", None)
