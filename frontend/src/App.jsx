@@ -149,7 +149,7 @@ export function AppContent() {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, token, isDemoMode } = useAuth();
+  const { isAuthenticated, token, isDemoMode, loading:authLoading } = useAuth();
   const {
     reportData,
     dprData,
@@ -276,6 +276,10 @@ export function AppContent() {
       setIsGenerating(false);
     }
   };
+
+  // Resolve identity before mounting any dashboard navigation or tools.
+  if(!isAuthOrLanding&&authLoading)return <main className="min-h-screen flex items-center justify-center bg-stone-50">Opening your saved business conversation…</main>;
+  if(!isAuthOrLanding&&!isAuthenticated)return <Navigate to="/login" state={{from:location}} replace/>;
 
   // If on Landing / Login / Register pages, render full screen without app sidebar
   if (isAuthOrLanding) {
