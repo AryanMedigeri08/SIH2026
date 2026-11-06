@@ -158,6 +158,8 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
         "change my location": "change_location", "change business location": "change_location"})
     if action == "answer" and lower in controls:
         action = controls[lower]
+    if action == 'answer' and current in ('regional_review', 'financial_review') and lower in ('i accept these risks', 'i accept the risks', 'accept these risks', 'continue with these risks', 'i accept these concerns'):
+        action = 'accept_regional_risk' if current == 'regional_review' else 'accept_financial_risk'
     if action == 'answer' and current == 'odop_explore' and lower in ('align','align my business','use this odop product','ओडीओपी से जोड़ें','ओडीओपीशी जोडा','odop உடன் இணைக்கவும்','ఓడీఓపీతో అనుసంధానించండి','ಒಡಿಒಪಿಗೆ ಹೊಂದಿಸಿ'):
         action = 'align_odop'
     if action == "answer" and lower in ("yes", "correct", "confirm", "that's right", "हाँ", "हां", "हो", "ஆம்", "అవును", "ಹೌದು"):
@@ -293,8 +295,11 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
             # Essential missing facts remain missing; clarification cannot override a prerequisite.
             state["language_ambiguities"] = ambiguities
         if text and not updates:
-            state['last_input_valid'] = False
-            reply = "I haven’t changed your answers because I’m not sure I understood. " + state["next"]["text"]
+            from app.core.onboarding_discussion import discuss
+            reply = discuss(text, state) if state.get('experience') == 'adaptive' else None
+            state['last_input_valid'] = bool(reply)
+            if not reply:
+                reply = "I haven’t changed your answers because I’m not sure I understood. " + state["next"]["text"]
     await advance(state)
     if state.get('experience') == 'adaptive' and state.get('regional_announcement'):
         notice = state.pop('regional_announcement')

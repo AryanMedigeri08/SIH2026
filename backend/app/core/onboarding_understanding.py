@@ -227,7 +227,7 @@ async def understand(text: str, state: dict) -> tuple[dict, list[str], str]:
         return fallback, [], "offline"
     full_schema = Facts.model_json_schema()
     schema = full_schema["properties"]
-    schema = {k: v for k, v in schema.items() if k not in ("name", "gender", "promoter_category", "phone", "email", "email_status")}
+    schema = {k: v for k, v in schema.items() if k not in ("name", "gender", "promoter_category", "phone", "email", "email_status", "operating_basis")}
     tool = {"type": "function", "function": {"name": "record_user_facts", "description": "Extract only explicit facts in the latest user statement.", "parameters": {
         "type": "object", "$defs": full_schema.get("$defs", {}), "properties": {"updates": {"type": "object", "properties": schema, "additionalProperties": False},
             "evidence": {"type": "object", "additionalProperties": {"type": "string"}},
