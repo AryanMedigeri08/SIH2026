@@ -46,6 +46,12 @@ def record(state, key, val, source="text", dependencies=()):
 
 
 def invalidate(state, changed, *, clear_confirmed_inputs=True):
+    if changed & {'location', 'idea', 'activity', 'products', 'scale', 'premises', 'rent_amount', 'rent_period', 'project_cost', 'cost_items', 'personal_contribution', 'monthly_sales', 'monthly_expenses', 'monthly_fixed_costs', 'variable_cost_pct'}:
+        state.pop('financial_risk_accepted', None)
+    if changed & {'idea', 'activity', 'products', 'scale'}:
+        for key in ('monthly_sales', 'monthly_expenses', 'monthly_fixed_costs', 'variable_cost_pct', 'operating_basis'):
+            if key not in changed:
+                state['fields'].pop(key, None)
     if changed & {'location', 'idea', 'activity', 'products'}:
         state.pop('regional_risk_accepted', None)
     if changed & {'location', 'classification', 'idea', 'activity', 'products', 'scale', 'operations', 'premises'}:
@@ -205,6 +211,7 @@ async def regional_assessment(state):
         business_intent=intent, max_records=200)
     data = result.to_dict()
     return {"evidence": data.get("evidence", {}), "recommendation": data.get("recommendation"), "confidence": data.get("confidence"),
+            "market": {key: data.get(key) for key in ('target_location', 'supply_metrics', 'demand_features', 'opportunity_indicators', 'sensitivity_analysis', 'classified_competitors')},
             "data_lineage": data.get("data_lineage", []), "source": "existing_market_opportunity_engine",
             "location": deepcopy(loc), "intent_id": state["classification"]["intent_id"]}
 

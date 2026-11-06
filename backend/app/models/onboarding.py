@@ -32,6 +32,11 @@ class Facts(BaseModel):
     budget_kind: Literal["personal", "total", "borrowing", "other", "unknown_budget"] | None = None
     funding_source: str | None = Field(None, max_length=300)
     personal_contribution: float | None = Field(None, ge=0, le=1e10)
+    monthly_sales: float | None = Field(None, ge=0, le=1e10)
+    monthly_expenses: float | None = Field(None, ge=0, le=1e10)
+    monthly_fixed_costs: float | None = Field(None, ge=0, le=1e10)
+    variable_cost_pct: float | None = Field(None, ge=0, le=100)
+    operating_basis: Literal['user_estimate', 'sector_model'] | None = None
     skills: str | None = Field(None, min_length=2, max_length=500)
     constraints: str | None = Field(None, min_length=2, max_length=500)
     premises: Literal["owned", "rented", "shared", "purchase", "mobile"] | None = None
@@ -54,7 +59,7 @@ class Turn(BaseModel):
     text: str = Field("", max_length=3000)
     updates: Facts | None = None
     action: Literal["answer", "repeat", "explain", "pause", "resume", "confirm_change", "discard_change",
-                    "confirm_location", "change_location", "confirm_business", "alternatives", "suggest_names", "confirm_estimate", "confirm_rent", "accept_regional_risk", "explore_alternatives", "align_odop"] = "answer"
+                    "confirm_location", "change_location", "confirm_business", "alternatives", "suggest_names", "confirm_estimate", "confirm_rent", "accept_regional_risk", "explore_alternatives", "align_odop", "use_operating_estimate", "accept_financial_risk", "compare_recommendations", "recommendation_details"] = "answer"
     correction: bool = False
     source: Literal["text", "voice", "control"] = "text"
     language: Literal["en", "hi", "mr", "ta", "te", "kn"] = "en"
