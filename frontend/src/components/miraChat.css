@@ -1,1 +1,88 @@
-.mira-chat-page{min-height:100dvh;background:#faf8f5;color:#292333;padding-bottom:140px;padding-top:88px}.mira-chat-header{height:88px;padding:14px max(22px,calc((100vw - 1050px)/2));display:flex;align-items:center;justify-content:space-between;gap:16px;background:#fffc;border-bottom:1px solid #e9e3ec;position:fixed;top:0;left:0;right:0;z-index:8;backdrop-filter:blur(16px)}.mira-chat-identity{display:flex;align-items:center;gap:12px}.mira-chat-identity img{width:49px;height:49px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 4px #eee4fa}.mira-chat-identity strong{font-size:20px;display:block}.mira-chat-identity span{font-size:12px;color:#887993}.mira-chat-thread{width:min(880px,calc(100% - 36px));margin:auto;padding:32px 0 48px}.mira-chat-intro{text-align:center;font-size:25px;font-weight:750;line-height:1.4;margin:12px 0 40px}.mira-chat-intro p{font-size:14px;font-weight:400;color:#85788d;margin-top:10px}.mira-chat-message{position:relative;max-width:88%;padding:20px 24px;border-radius:22px;margin:20px 0;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}.mira-chat-message p{font-size:15px}.mira-chat-speaker{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:800;color:#897295;margin-bottom:8px}.mira-chat-message--assistant{background:#fff;border:1px solid #ebe4ef;border-bottom-left-radius:6px}.mira-chat-message--user{background:#ece1f7;margin-left:auto;border-bottom-right-radius:6px}.mira-chat-current{max-width:100%;padding:25px 28px 20px 74px;scroll-margin-top:110px;box-shadow:0 12px 40px #5d337005}.mira-chat-current .mira-transcript{font-size:clamp(19px,2.1vw,23px);line-height:1.7}.mira-chat-avatar{position:absolute;top:25px;left:21px;width:36px;height:36px;object-fit:cover;border-radius:50%}.mira-chat-status{display:flex;align-items:center;gap:8px;color:#8b7b97;font-size:12px;margin-top:16px}.mira-chat-status button{padding:5px;margin-left:5px}.mira-chat-status-dot{width:6px;height:6px;border-radius:50%;background:#a289bb}.mira-chat-status-dot.listening{background:#249a78;box-shadow:0 0 0 4px #22987d15}.mira-chat-status-dot.thinking{animation:mira-chat-pulse 1s infinite}.mira-chat-insights{display:flex;flex-direction:column;gap:18px}.mira-chat-composer{position:fixed;bottom:0;left:0;right:0;padding:18px 20px 14px;background:linear-gradient(#faf8f500,#faf8f5 20%);z-index:10}.mira-chat-composer form{max-width:880px;margin:auto;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #ded2e9;border-radius:23px;padding:10px;box-shadow:0 10px 40px #5535750f}.mira-chat-composer textarea{resize:none;min-width:0;flex:1;background:transparent;border:0;outline:0;font-size:16px;padding:12px 5px;line-height:1.6;max-height:130px}.mira-chat-composer button{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;flex-shrink:0;color:#77588e}.mira-chat-composer button:focus-visible,.mira-chat-status button:focus-visible{outline:3px solid #bc91df;outline-offset:3px}.mira-chat-composer .mira-chat-send{background:#74439a;color:white}.mira-chat-composer .mira-chat-mic{background:#f1eaf7}.mira-chat-composer .mira-chat-mic.active{background:#d8f2e8;color:#17765a;box-shadow:0 0 0 3px #b9e7d6}.mira-chat-composer button:disabled{opacity:.4}.mira-chat-composer>p{font-size:11px;color:#97849d;text-align:center;margin-top:9px}.mira-chat-error{background:#fff2ed;border:1px solid #edcebd;padding:16px;border-radius:14px;font-size:14px;margin-top:18px}.mira-chat-error button{margin-left:12px;text-decoration:underline}.mira-chat-page .mira-primary{min-height:44px}.mira-chat-page .mira-secondary{min-height:42px}.mira-dialog{border:1px solid #e8e0ef;border-radius:24px;padding:0;width:min(780px,calc(100vw - 28px));max-height:calc(100dvh - 48px);color:#211a2f;background:#fff;box-shadow:0 30px 100px #0006}.mira-dialog::backdrop{background:#24132a75;backdrop-filter:blur(7px)}.mira-dialog-heading{position:sticky;top:0;z-index:1;padding:20px 24px;background:#fff;border-bottom:1px solid #eee6f4;display:flex;align-items:center;justify-content:space-between;gap:20px}.mira-dialog-heading h2{font-size:18px;font-weight:750}.mira-dialog-heading button{padding:8px;border-radius:50%;color:#7a628e}.mira-dialog-body{padding:22px;max-height:calc(100dvh - 140px);overflow:auto}.mira-review-content{display:flex;flex-direction:column;gap:18px}.chat-location-help{font-size:14px;color:#786b84;margin-bottom:16px}@keyframes mira-chat-pulse{50%{opacity:.3}}@media(max-width:600px){.mira-chat-page{padding-top:75px}.mira-chat-header{padding:12px 18px;height:75px}.mira-chat-identity span{display:none}.mira-chat-thread{width:calc(100% - 24px);padding-top:18px}.mira-chat-intro{font-size:22px;margin-bottom:28px}.mira-chat-current{padding:20px 18px 20px 62px}.mira-chat-avatar{left:16px;top:23px;width:30px;height:30px}.mira-chat-message{max-width:95%}.mira-chat-current{max-width:100%}.mira-chat-composer{padding:14px 10px 10px}.mira-chat-composer form{gap:4px;padding:7px}.mira-chat-composer button{width:39px;height:42px}.mira-chat-composer .mira-chat-audio{width:30px}.mira-dialog-body{padding:16px}}@media(prefers-reduced-motion:reduce){.mira-chat-status-dot.thinking{animation:none}html{scroll-behavior:auto}}
+.mira-chat-page {
+  --mira-composer-height: 196px;
+  min-height: 100dvh;
+  padding: 76px 0 calc(var(--mira-composer-height) + 24px);
+  background: #f6f7f9;
+  color: #202b3b;
+}
+.mira-chat-header {
+  position: fixed; inset: 0 0 auto; z-index: 8;
+  height: 76px; padding: 12px max(20px, calc((100vw - 820px) / 2));
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: #fff; border-bottom: 1px solid #dde2e8;
+}
+.mira-chat-identity { display: flex; align-items: center; gap: 11px; }
+.mira-chat-identity img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; }
+.mira-chat-identity strong { display: block; font-size: 20px; }
+.mira-chat-identity span { color: #526174; font-size: 14px; }
+.mira-chat-thread { width: min(780px, calc(100% - 32px)); margin: auto; padding-top: 20px; }
+.mira-chat-history { margin-bottom: 14px; }
+.mira-chat-history > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; width: fit-content; cursor: pointer; color: #46576c; font-size: 15px; font-weight: 600; }
+.mira-chat-history[open] > summary svg { transform: rotate(180deg); }
+.mira-chat-message { margin: 0 0 16px; padding: 18px 20px; border-radius: 16px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mira-chat-message p { font-size: 16px; }
+.mira-chat-speaker { display: block; margin-bottom: 6px; color: #46576c; font-size: 14px; font-weight: 700; }
+.mira-chat-message--assistant { background: #fff; border: 1px solid #dce2e9; }
+.mira-chat-message--user { max-width: 88%; margin-left: auto; background: #e8edf8; }
+.mira-chat-current { scroll-margin-top: 92px; border: 1px solid #d4dce9; box-shadow: 0 3px 12px #243b6310; }
+.mira-chat-question-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.mira-chat-question-heading .mira-chat-speaker { margin: 0; font-size: 16px; color: #25364f; }
+.mira-chat-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+.mira-chat-current .mira-transcript { font-size: 18px; font-weight: 550; line-height: 1.65; color: #202b3b; }
+.mira-chat-status { display: flex; align-items: center; gap: 6px; margin-left: auto; color: #526174; font-size: 13px; white-space: normal; }
+.mira-chat-status-dot { width: 6px; height: 6px; border-radius: 50%; background: #64748b; flex-shrink: 0; }
+.mira-chat-status-dot.listening { background: #17734d; box-shadow: 0 0 0 4px #dff1e6; }
+.mira-chat-status-dot.thinking { animation: mira-chat-pulse 1s infinite; }
+.mira-chat-audio-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.mira-chat-audio-actions button { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 8px 12px; border: 1px solid #d7dee9; border-radius: 10px; background: #f8fafc; color: #344963; font-size: 14px; font-weight: 600; }
+.mira-chat-insights, .mira-review-content { display: flex; flex-direction: column; gap: 14px; }
+.mira-chat-composer { position: fixed; inset: auto 0 0; z-index: 10; padding: 12px 16px max(10px, env(safe-area-inset-bottom)); border-top: 1px solid #dce2e9; background: #fff; }
+.mira-chat-composer form { max-width: 780px; margin: auto; }
+.mira-chat-composer textarea { display: block; width: 100%; min-height: 54px; max-height: 140px; resize: none; padding: 13px 15px; border: 1.5px solid #9aaac1; border-radius: 12px; background: #fff; font-size: 17px; line-height: 1.5; color: #172b46; }
+.mira-chat-composer textarea::placeholder { color: #586b84; opacity: 1; }
+.mira-chat-composer textarea:focus { outline: 3px solid #c9dafa; border-color: #205cc0; }
+.mira-chat-compose-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.mira-chat-compose-actions button { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 50px; padding: 11px 16px; border-radius: 12px; font-size: 17px; font-weight: 700; }
+.mira-chat-composer .mira-chat-mic { background: #edf3ff; border: 1.5px solid #7198da; color: #18498c; }
+.mira-chat-composer .mira-chat-mic.active { background: #fff0ed; border-color: #bd4937; color: #9b3024; }
+.mira-chat-composer .mira-chat-send { background: #1d56b0; color: #fff; border: 1.5px solid #1d56b0; }
+.mira-chat-composer .mira-chat-send:disabled { background: #e5eaf2; color: #526174; border-color: #cdd6e3; }
+.mira-chat-composer > p { margin-top: 8px; text-align: center; font-size: 13px; color: #46576c; }
+.mira-chat-error { margin-top: 14px; padding: 16px; border: 1px solid #d69d73; border-radius: 12px; background: #fff7ec; color: #6b401e; font-size: 15px; line-height: 1.6; }
+.mira-chat-error button { margin: 8px 0 0 12px; padding: 9px 16px; background: #fff; border: 1px solid #b5784b; border-radius: 9px; font-weight: 700; }
+.mira-chat-page .mira-primary, .mira-chat-page .mira-secondary { min-height: 50px; padding: 12px 18px; border-radius: 12px; justify-content: center; font-size: 16px; line-height: 1.45; font-weight: 700; text-align: center; }
+.mira-chat-page .mira-primary { background: #1d56b0; color: #fff; border: 2px solid #1d56b0; box-shadow: 0 3px 0 #143e81; }
+.mira-chat-page .mira-primary:hover { background: #17478f; }
+.mira-chat-page .mira-secondary { background: #fff; border: 1.5px solid #8098bd; color: #214a83; }
+.mira-chat-page button:disabled { cursor: not-allowed; }
+.mira-chat-page button:focus-visible, .mira-chat-page summary:focus-visible { outline: 3px solid #91b3ef; outline-offset: 3px; }
+.mira-quick-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.mira-quick-actions > button { flex: 1 1 180px; }
+.mira-context-details { padding: 14px 18px; border: 1px solid #d8e0e9; border-radius: 12px; background: #fff; }
+.mira-context-details > summary { cursor: pointer; min-height: 28px; color: #344963; font-size: 15px; font-weight: 650; }
+.mira-context-details[open] > summary { margin-bottom: 14px; }
+.mira-location-brief { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; background: #fff; border: 1px solid #d8e0e9; border-radius: 12px; font-size: 15px; }
+.mira-location-brief p { color: #46576c; margin-top: 3px; }
+.mira-location-brief button { min-height: 44px; padding: 8px 12px; border-radius: 10px; border: 1px solid #8098bd; color: #214a83; background: #f2f6fd; font-weight: 650; }
+.mira-dialog { border: 1px solid #d8e0e9; border-radius: 18px; padding: 0; width: min(780px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); color: #202b3b; background: #fff; box-shadow: 0 30px 100px #0006; }
+.mira-dialog::backdrop { background: #172b4666; }
+.mira-dialog-heading { position: sticky; top: 0; z-index: 1; padding: 18px 20px; background: #fff; border-bottom: 1px solid #dde2e8; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.mira-dialog-heading h2 { font-size: 18px; font-weight: 700; }
+.mira-dialog-heading button { min-height: 44px; min-width: 44px; border-radius: 10px; color: #344963; }
+.mira-dialog-body { padding: 20px; max-height: calc(100dvh - 130px); overflow: auto; }
+.chat-location-help { font-size: 16px; color: #46576c; margin-bottom: 16px; }
+@keyframes mira-chat-pulse { 50% { opacity: .35; } }
+@media (max-width: 600px) {
+  .mira-chat-page { padding-top: 70px; }
+  .mira-chat-header { height: 70px; padding: 10px 16px; }
+  .mira-chat-identity span { font-size: 12px; }
+  .mira-chat-thread { width: calc(100% - 24px); padding-top: 14px; }
+  .mira-chat-current { scroll-margin-top: 84px; padding: 16px; }
+  .mira-chat-message--user { padding: 13px 16px; }
+  .mira-chat-status { font-size: 12px; max-width: 46%; }
+  .mira-chat-composer { padding: 10px 12px max(8px, env(safe-area-inset-bottom)); }
+  .mira-chat-compose-actions { gap: 10px; }
+  .mira-chat-composer textarea { font-size: 16px; }
+  .mira-dialog-body { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .mira-chat-status-dot.thinking { animation: none; } }
