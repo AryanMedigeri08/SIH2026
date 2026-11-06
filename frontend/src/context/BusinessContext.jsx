@@ -21,6 +21,7 @@ export const BusinessProvider = ({ children }) => {
   const [reportData, setReportData] = useState(null);
   const [dprData, setDprData] = useState(null);
   const [loadingBusinesses, setLoadingBusinesses] = useState(false);
+  const [loadedToken, setLoadedToken] = useState(null);
   const [businessError, setBusinessError] = useState(null);
   // Login/profile synchronization can start more than one fetch.  Only the
   // newest response is allowed to update protected enterprise state.
@@ -41,6 +42,7 @@ export const BusinessProvider = ({ children }) => {
     setDprData(null);
     setBusinessError(null);
     setLoadingBusinesses(false);
+    setLoadedToken(null);
 
     // Active selection is only a convenience; remove it on logout so no
     // previous enterprise can be restored in a later user's UI.
@@ -125,6 +127,7 @@ export const BusinessProvider = ({ children }) => {
       return { list: [], hasBusinesses: false, activeBusiness: null };
     } finally {
       if (requestSequence === loadRequestSequence.current) {
+        setLoadedToken(authToken);
         setLoadingBusinesses(false);
       }
     }
@@ -331,6 +334,7 @@ export const BusinessProvider = ({ children }) => {
     loadingBusinesses,
     businessError,
     hasBusinesses: businesses.length > 0,
+    businessesReady: !!token && loadedToken === token,
     loadUserBusinesses,
     clearBusinessState,
     switchBusiness,

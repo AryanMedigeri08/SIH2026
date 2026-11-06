@@ -156,6 +156,7 @@ export function AppContent() {
     activeBusiness,
     businesses,
     loadingBusinesses,
+    businessesReady,
     hasBusinesses,
     createAndSaveBusiness,
     loadBenchmarkCase,
@@ -296,7 +297,7 @@ export function AppContent() {
   // Keep the full workspace behind a saved, reviewed business plan. This also
   // covers direct links and login return URLs, without changing account routes.
   if(isAuthenticated&&!reportData&&!hasBusinesses){
-    if(loadingBusinesses)return <div className="min-h-screen flex items-center justify-center bg-stone-50"><span>Opening your saved business conversation…</span></div>;
+    if(!businessesReady||loadingBusinesses)return <div className="min-h-screen flex items-center justify-center bg-stone-50"><span>Opening your saved business conversation…</span></div>;
     return <Navigate to="/onboarding" replace/>;
   }
 
