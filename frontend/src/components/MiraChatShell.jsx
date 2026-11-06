@@ -19,7 +19,7 @@ export function MiraChatShell({ language, prompt, speech, busy, inputMode, input
     <div className="mira-chat-thread">
       <div className="mira-chat-intro"><T text="Let’s find a business that works for you" /><p><T text="Speak when you choose, or write in your own language. Your progress is saved." /></p></div>
       {previous.map((message, index) => <article key={index} className={`mira-chat-message mira-chat-message--${message.role}`}>
-        <span className="mira-chat-speaker">{message.role === 'user' ? <T text="You" /> : 'Mira'}</span><p>{message.text}</p></article>)}
+        <span className="mira-chat-speaker">{message.role === 'user' ? <T text="You" /> : 'Mira'}</span><p>{message.role==='user'?message.text:<T text={message.text}/>}</p></article>)}
       <article ref={latest} className="mira-chat-message mira-chat-message--assistant mira-chat-current">
         <img className="mira-chat-avatar" src="/mira-avatar.png" alt="" /><span className="mira-chat-speaker">Mira</span>
         <MiraTranscript text={prompt} speech={speech} />

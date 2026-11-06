@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mic, Square, Send, Volume2, VolumeX, Pause, Play, RefreshCw, Pencil, Check } from 'lucide-react';
+import { Pencil, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage, LANGUAGES } from '../context/LanguageContext';
 import { onboardingApi,authApi } from '../services/api';
@@ -46,12 +46,10 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
   const [error, setError] = useState('');
   const [audioEnabled,setAudioEnabled]=useState(true);
   const [inputMode,setInputMode]=useState('text');
-  const [detailsOpen,setDetailsOpen]=useState(false);
   const [speechAllowed, setSpeechAllowed] = useState(true);
   const [profileForm,setProfileForm]=useState(()=>profileValues(userProfile));
   const [profileErrors,setProfileErrors]=useState({});
   const [manualLocation, setManualLocation] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [edit, setEdit] = useState('');
   const [editValue, setEditValue] = useState('');
@@ -64,15 +62,15 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
   const alive = useRef(true);
   const announcedQuestion = useRef(null);
   const speech = useMiraConversation({ language, token, prompt:reply, questionKey:`${state?.revision}:${messageSequence}:${language}`, field:state?.next?.field,
-    enabled:started && audioEnabled && speechAllowed && !!state && !state.paused && state.next?.field !== 'complete' && !manualLocation && !detailsOpen,
+    enabled:started && audioEnabled && speechAllowed && !!state && !state.paused && state.next?.field !== 'complete' && !manualLocation,
     autoListen:inputMode==='voice',
     busy:busy || isLoading, onAnswer:transcript => sendRef.current?.({text:transcript,source:'voice'}) });
   useEffect(()=>{
     const key=`${state?.revision}:${messageSequence}:${language}`;
-    if(!busy&&!isLoading&&audioEnabled&&speechAllowed&&state&&!manualLocation&&!detailsOpen&&announcedQuestion.current!==key){
+    if(!busy&&!isLoading&&audioEnabled&&speechAllowed&&state&&!manualLocation&&announcedQuestion.current!==key){
       announcedQuestion.current=key;speech.resume();
     }
-  },[state?.revision,messageSequence,language,busy,isLoading,audioEnabled,speechAllowed,manualLocation,detailsOpen]);
+  },[state?.revision,messageSequence,language,busy,isLoading,audioEnabled,speechAllowed,manualLocation]);
   const accept = result => {
     if(result.state.next?.field==='area_verification'||(stateRef.current?.next?.field==='location_confirmation'&&result.state.next?.field==='location'))setManualLocation(true);
     stateRef.current = result.state; setState(result.state); setReply(result.reply); setMessageSequence(value => value + 1); setSpeechAllowed(result.speech_allowed !== false); setError('');
@@ -112,9 +110,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
     speech.resume();
   };
   const toggleAudio=()=>{if(audioEnabled){speech.pause();setInputMode('text');setAudioEnabled(false);}else{setAudioEnabled(true);speech.resume();}};
-  const openDetails=()=>{speech.pause();setDetailsOpen(true);};
-  const closeDetails=()=>{setDetailsOpen(false);if(inputMode==='voice')speech.resume();};
-  const changeLocation=()=>{speech.pause();setDetailsOpen(false);setManualLocation(true);send({action:'change_location',text:''});};
+  const changeLocation=()=>{speech.pause();setInputMode('text');setManualLocation(true);send({action:'change_location',text:''});};
   const closeLocation=()=>{setManualLocation(false);if(inputMode==='voice')speech.resume();};
   const locationResult=result=>{accept(result);setManualLocation(result.state.next?.field==='area_verification');if(inputMode==='voice')speech.resume();};
   const answerProfile=async(key,text)=>{
@@ -162,7 +158,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
   const current = state?.next;
   const profileStep=personalFields.includes(current?.field);
   const locked = busy || isLoading || speech.transcribing;
-  const locationStep = current && ['location', 'area_verification'].includes(current.field);
   const assessment = state?.assessment;
   const insights=state?.insights||{};
   const openEdit = key => { setEdit(key); setEditValue(String(state.fields[key]?.value ?? '')); };
@@ -230,8 +225,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
         {(showSummary || current?.field === 'ready') && <div className="rounded-2xl border bg-white p-4 space-y-3">{Object.entries(state.fields).filter(([key]) => reviewLabels[key]).map(([key, field]) => <div key={key} className="text-sm flex justify-between items-start gap-3"><div><span className="text-slate-500">{reviewLabels[key]}: </span><span>{['budget','personal_contribution','project_cost','rent_amount'].includes(key) ? money(field.value) : key === 'promoter_category' ? String(field.value).toUpperCase() : labels[field.value] || String(field.value)}</span></div>{(choices[key] || numeric.has(key) || ['idea','products','scale','enterprise_name','name'].includes(key)) && <button aria-label={`Correct ${key}`} disabled={locked} onClick={() => openEdit(key)}><Pencil size={15} /></button>}</div>)}
           {edit && <form onSubmit={event => {event.preventDefault();send({text:'',correction:true,updates:{[edit]:numeric.has(edit)?Number(editValue):editValue}});}} className="space-y-2"><label className="text-sm">Correct {edit.replaceAll('_',' ')}{choices[edit] ? <select className="mira-input" value={editValue} onChange={e=>setEditValue(e.target.value)}>{choices[edit].map(value=><option key={value} value={value}>{labels[value]||value}</option>)}</select> : <input className="mira-input" type={numeric.has(edit)?'number':'text'} min="0" required value={editValue} onChange={e=>setEditValue(e.target.value)} />}</label><button className="mira-primary" disabled={locked}>Save correction</button></form>}
         </div>}
-        <button className="block text-xs text-slate-500" onClick={()=>setShowHistory(!showHistory)}>{showHistory ? 'Hide conversation' : 'Show conversation'}</button>
-        {showHistory && <div className="space-y-2">{state.history.map((message,index)=><p key={index} className={`rounded-xl p-3 text-sm ${message.role==='user'?'bg-violet-100':'bg-white border'}`}>{message.text}</p>)}</div>}
       </section>}
       {current?.field === 'ready' && <button type="button" className="mira-secondary" disabled={locked} onClick={() => setCosts({...state.fields.cost_items?.value})}>Change setup cost estimates</button>}
       {current?.field === 'ready' && insights.can_finish && <button className="mira-primary w-full justify-center py-4" disabled={locked} onClick={finish}><T text="Save this business plan and open my dashboard" /></button>}
