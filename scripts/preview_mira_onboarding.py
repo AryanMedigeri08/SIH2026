@@ -29,6 +29,10 @@ for key in type(settings).model_fields:
 settings.DATABASE_URL = ""
 settings.ALLOW_TEST_AUTH = True
 ChatService._get_api_key = lambda self: None
+from app.core.translation_service import TranslationService
+async def no_external_translation(self, text, target_language='hi', source_language='en', **_):
+    return {'translated_text':text,'provider':'identity'}
+TranslationService.translate_text = no_external_translation
 
 
 @asynccontextmanager

@@ -40,7 +40,7 @@ async def canonical_business_text(text: str) -> tuple[str, str]:
     that a native-language idea has been understood.
     """
     normalized = ''.join(str(unicodedata.decimal(c)) if c.isdecimal() else c for c in text)
-    if not any(c.isalpha() and ord(c) > 127 for c in normalized):
+    if not any(c.isalpha() for c in normalized):
         return normalized, 'original'
     try:
         from app.core.translation_service import TranslationService
@@ -205,7 +205,7 @@ def fallback_extract(text: str, question: str | None) -> dict:
     return {key: value for key, value in updates.items() if value is not None}
 
 
-async def understand(text: str, state: dict) -> tuple[dict, list[str], str]:
+async def understand(text: str, state: dict, *, input_is_canonical=False) -> tuple[dict, list[str], str]:
     question = (state.get("next") or {}).get("field")
     if state.get('experience') == 'adaptive':
         from app.core.profile_conversation import parse_correction
@@ -215,7 +215,8 @@ async def understand(text: str, state: dict) -> tuple[dict, list[str], str]:
     if state.get('experience') == 'adaptive' and question in ('name','gender','promoter_category','phone','email'):
         from app.core.profile_conversation import parse_answer
         return parse_answer(question, text) or {}, [], 'validated_profile_answer'
-    text, input_provider = await canonical_business_text(text)
+    if state.get('experience') == 'adaptive' and not input_is_canonical:
+        text, _ = await canonical_business_text(text)
     fallback = fallback_extract(text, question)
     if state.get('experience') == 'adaptive' and question == 'budget' and 'budget' in fallback and 'budget_kind' not in fallback:
         fallback['budget_kind'] = 'personal'
@@ -238,6 +239,7 @@ async def understand(text: str, state: dict) -> tuple[dict, list[str], str]:
     prompt = ("You are Mira's language understanding layer for rural Indian entrepreneurs. Use record_user_facts. "
               "Extract ALL explicitly stated facts, including multiple answers and corrections, in the user's language, including mixed languages. "
               "Each update MUST include a verbatim evidence substring from the latest user message. No guesses. "
+              "Normalize business idea, product and operations descriptions to English for catalogue matching, but preserve the chosen enterprise name. "
               "Never calculate estimates, infer personal contribution from an unqualified budget, or invent scheme/geography/category decisions. "
               "Normalize lakh/crore and rupees only when stated, and monthly/annual rent only when explicit. "
               "Separate products, operations (equipment, supply, staffing), and scale/capacity. A land statement is not site suitability. "

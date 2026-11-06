@@ -18,6 +18,10 @@ def conversation(stored_client, monkeypatch):
     asyncio.run(db.update_user('mira-test', {'phone':'+919999999999'}))
     from app.core.chat_service import ChatService
     monkeypatch.setattr(ChatService, '_get_api_key', lambda *_: None)
+    from app.core.translation_service import TranslationService
+    async def no_external_translation(self, text, target_language, source_language='en'):
+        return {'translated_text': text, 'provider': 'identity'}
+    monkeypatch.setattr(TranslationService, 'translate_text', no_external_translation)
     monkeypatch.setattr(engine, 'find_district_odop', lambda *_: None)
     async def regional(state):
         return {'recommendation': 'MODERATE_OPPORTUNITY', 'confidence': 'MEDIUM',
@@ -335,6 +339,19 @@ def test_local_money_parser_handles_native_digits_and_zero():
     for text in ('२ लाख', '௨ லட்சம்', '౨ లక్షలు', '೨ ಲಕ್ಷ'):
         assert money(text) == 200000
     assert money('०') == 0
+
+
+def test_latin_script_input_is_also_auto_detected(conversation, monkeypatch):
+    from app.core.translation_service import TranslationService
+    captured = []
+    async def translate(self, text, target_language, source_language='en'):
+        captured.append((text, source_language, target_language))
+        return {'translated_text': 'I have no idea and 2 lakh of my own savings', 'provider': 'synthetic_translation'}
+    monkeypatch.setattr(TranslationService, 'translate_text', translate)
+    client, _, state = conversation
+    state = answer(client, state, text='No tengo una idea y tengo ahorros para invertir')
+    assert engine.value(state, 'personal_contribution') == 200000
+    assert captured == [('No tengo una idea y tengo ahorros para invertir', 'auto', 'en')]
 
 
 def test_generic_regional_category_cannot_turn_into_an_unrelated_named_intent(monkeypatch):

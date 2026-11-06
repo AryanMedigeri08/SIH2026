@@ -138,14 +138,16 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
     state['last_input_valid'] = True
     text = turn.text.strip()
     original_text = text
+    input_is_canonical = False
     # Detect typed/spoken input separately from the preferred response language.
     # Profile values stay in the deterministic personal-data parser.
-    if state['next']['field'] not in ('name','gender','promoter_category','phone','email'):
+    if state.get('experience') == 'adaptive' and state['next']['field'] not in ('name','gender','promoter_category','phone','email'):
         from app.core.profile_conversation import parse_correction
         if not parse_correction(text):
             from app.core.onboarding_understanding import canonical_business_text
             text, input_provider = await canonical_business_text(text)
             state['input_language_provider'] = input_provider
+            input_is_canonical = True
     action = turn.action
     current = state["next"]["field"]
     lower = text.lower().strip(" .?!।")
@@ -284,7 +286,7 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
                 updates['project_cost'] = confirmed_project_outlay({**(value(state, 'cost_items') or {}), **updates['cost_items']})
             ambiguities, model = [], "structured_control"
         elif text:
-            updates, ambiguities, model = await understand(text, state)
+            updates, ambiguities, model = await understand(text, state, input_is_canonical=input_is_canonical)
         else:
             updates, ambiguities, model = {}, [], "local"
         if current == "odop_explore" and updates.get("odop_preference") in ("keep", "reject"):
