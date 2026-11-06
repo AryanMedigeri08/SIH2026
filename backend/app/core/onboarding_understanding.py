@@ -191,6 +191,15 @@ def fallback_extract(text: str, question: str | None) -> dict:
         for word, choice in (("normal", "normal"), ("sca", "sca"), ("increase", "increase"), ("self", "self")):
             if word in lower:
                 updates["financing_choice"] = choice
+    for field, words in (('monthly_sales', r'(?:monthly (?:sales|revenue)|sales|revenue)'),
+                         ('monthly_expenses', r'(?:monthly (?:expenses|costs)|running (?:expenses|costs)|expenses)'),
+                         ('monthly_fixed_costs', r'(?:monthly fixed (?:costs|expenses)|fixed (?:costs|expenses))')):
+        match = re.search(words + r'\s*(?:are|is|of|about|will be|:|=)?\s*(?:₹|rs\.?|inr)?\s*(\d[\d,.]*\s*(?:lakhs?|lacs?|crores?|thousand|k)?)', lower)
+        if match:
+            updates[field] = money(match[1])
+    variable = re.search(r'variable (?:costs?|expenses?)\s*(?:are|is|of|about|:|=)?\s*(\d+(?:\.\d+)?)\s*(?:%|percent)', lower)
+    if variable:
+        updates['variable_cost_pct'] = float(variable[1])
     return {key: value for key, value in updates.items() if value is not None}
 
 
@@ -206,6 +215,9 @@ async def understand(text: str, state: dict) -> tuple[dict, list[str], str]:
         return parse_answer(question, text) or {}, [], 'validated_profile_answer'
     text, input_provider = await canonical_business_text(text)
     fallback = fallback_extract(text, question)
+    if state.get('experience') == 'adaptive' and question == 'budget' and 'budget' in fallback and 'budget_kind' not in fallback:
+        fallback['budget_kind'] = 'personal'
+        fallback['personal_contribution'] = fallback['budget']
     # Profile fields never go to a general-purpose model.
     if question in ("name", "gender", "promoter_category") or re.search(r"\bmy (?:caste|gender|name)\b", text, re.I):
         return fallback, [], "local"
@@ -241,7 +253,7 @@ async def understand(text: str, state: dict) -> tuple[dict, list[str], str]:
                     if k in schema and isinstance(evidence.get(k), str) and evidence[k].strip()
                     and evidence[k].casefold() in text.casefold() and v is not None}
         for key in list(grounded):
-            if key in ("budget", "personal_contribution", "rent_amount", "project_cost", "cost_items"):
+            if key in ("budget", "personal_contribution", "rent_amount", "project_cost", "cost_items", "monthly_sales", "monthly_expenses", "monthly_fixed_costs", "variable_cost_pct"):
                 amounts = [money(match[0]) for match in MONEY_PATTERN.finditer(normalize_money_words(evidence[key]))]
                 values = grounded[key].values() if isinstance(grounded[key], dict) else [grounded[key]]
                 if any(not isinstance(v, (float, int)) or not any(abs(v - a) < 0.01 for a in amounts) for v in values):

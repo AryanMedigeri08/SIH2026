@@ -21,7 +21,8 @@ def proposal(state):
         equipment_cost = sum(item['estimated_cost_inr'] * item.get('quantity', 1) for item in reference['machinery_list'])
         if equipment_cost > 0:
             capital = calculate_asset_driven_capital_structure(equipment_cost, 0,
-                promoter_category=base.value(state, 'promoter_category'), gender=base.value(state, 'gender'))
+                promoter_category=base.value(state, 'promoter_category'), gender=base.value(state, 'gender'),
+                is_rural=state.get('location', {}).get('is_rural', True))
             total = capital.true_project_outlay
             items = {'equipment': equipment_cost, 'premises_setup': round(total * .15, 2), 'working_capital': round(total * .20, 2)}
             items['other'] = round(total - sum(items.values()), 2)
@@ -98,7 +99,7 @@ def next_question(state):
         return q('idea', 'What business do you have in mind? Tell me what you want to make, sell or provide. If you have no idea yet, tell me your budget and I will help you explore.')
     if v('idea_status') == 'explore' and not v('idea'):
         if v('budget') is None:
-            return q('budget', 'How much money do you have available to invest?')
+            return q('budget', 'How much of your own money can you invest as promoter equity? This is your savings, separate from a future loan.')
         if v('budget_kind') not in ('personal', 'total', 'borrowing'):
             return q('budget_kind', 'Is this your own money, the total business budget, or an amount you plan to borrow?', ('personal', 'total', 'borrowing'))
         if not v('skills'):
@@ -117,7 +118,7 @@ def next_question(state):
         return q('business_confirmation', f"I understand you want to {v('activity')} {v('products')}, at {v('scale')}. Is that right?", action='confirm_business')
     if not state.get('regional'):
         return q('regional', 'The regional check could not finish. Your answers are saved. Please retry the regional check.', action='answer')
-    if state['regional'].get('recommendation') in ('SATURATED_MARKET', 'CONSTRAINED_MARKET', 'NOT_RECOMMENDED') and not state.get('regional_risk_accepted'):
+    if state['regional'].get('recommendation') in ('SATURATED_MARKET', 'CONSTRAINED_MARKET', 'NOT_RECOMMENDED', 'RECONSIDER', 'UNSUITABLE') and not state.get('regional_risk_accepted'):
         return q('regional_review', 'The regional evidence raises market or operating concerns for this idea. Would you like to explore other ideas, or continue reviewing this one with those risks?', action='accept_regional_risk')
     odop = state.get('odop')
     if odop and not v('odop_preference'):
@@ -151,6 +152,8 @@ def next_question(state):
     if not state.get('assessment'):
         return q('calculation', 'I could not finish the financial check. Check the amounts or retry; your answers are saved.')
     assessment = state['assessment']
+    if not v('operating_basis') and not (v('monthly_sales') is not None and v('monthly_expenses') is not None):
+        return q('operating_plan', 'What monthly sales and running expenses do you expect? Include materials, wages, utilities and rent in expenses, but not loan EMI. If you do not know yet, use the labelled planning scenario below; we can update it later.', action='use_operating_estimate')
     if not v('financing_choice') or v('financing_choice') == 'increase':
         if v('financing_choice') == 'increase':
             return q('personal_contribution', 'How much can you contribute now? I will recalculate the remaining amount.')
@@ -163,6 +166,10 @@ def next_question(state):
             f"The remaining funding need is ₹{gap:,.0f}. " +
             (f"There is also a promoter-margin shortfall of ₹{margin_gap:,.0f}; SCA assistance can be explored under the existing eligibility rules. " if margin_gap else '') +
             'Would you increase your contribution or explore financing?', choices)
+    from app.core.onboarding_insights import operating_projection, financial_concerns
+    concerns = financial_concerns(assessment, operating_projection(state, assessment))
+    if concerns and not state.get('financial_risk_accepted'):
+        return q('financial_review', 'This plan needs care: ' + ' '.join(concerns) + ' Would you like alternatives within your funds, change this plan, or explicitly accept these concerns and continue?', action='accept_financial_risk')
     if not v('enterprise_name'):
         return q('enterprise_name', 'Your business and funding draft are settled. What name would you like for your enterprise?')
     return q('ready', 'Your draft is ready. Review the details below, correct anything, or ask me to generate your feasibility report.')
@@ -180,7 +187,7 @@ async def advance(state):
                 candidates = await base.assess_recommendations(state, limit=8)
                 supported = []
                 for candidate in candidates:
-                    if candidate.get('regional_assessment', {}).get('recommendation') in ('SATURATED_MARKET', 'CONSTRAINED_MARKET', 'NOT_RECOMMENDED'):
+                    if candidate.get('regional_assessment', {}).get('recommendation') in ('SATURATED_MARKET', 'CONSTRAINED_MARKET', 'NOT_RECOMMENDED', 'RECONSIDER', 'UNSUITABLE'):
                         continue
                     entry = next(e for e in base.SECTOR_CATALOG if e['sector_id'] == candidate['id'])
                     projected = deepcopy(state)
@@ -203,10 +210,14 @@ async def advance(state):
                     if p:
                         candidate['outlay_range'] = [outlay, outlay]
                         candidate['market_evidence'] += ' Equipment costs are reference estimates and require capacity and supplier checks.'
+                    from app.core.onboarding_insights import finance_preview
+                    candidate['finance_preview'] = finance_preview(projected, p)
+                    candidate['odop'] = base.verified_odop(projected)
+                    candidate['requirements'] = p['basis'] if p else 'Equipment, premises, supplier quotations and local operating costs need confirmation.'
+                    candidate['provisional'] = candidate.get('confidence') not in ('HIGH', 'MEDIUM')
                     supported.append(candidate)
-                    if len(supported) == 3:
-                        break
-                state['recommendations'] = supported
+                supported.sort(key=lambda item: ((item.get('regional_assessment') or {}).get('evidence', {}).get('composite_score', 0), item.get('score', 0)), reverse=True)
+                state['recommendations'] = supported[:3]
         c = state.get('classification')
         if c and state['business_confirmed'] and state.get('regional') is None:
             try:

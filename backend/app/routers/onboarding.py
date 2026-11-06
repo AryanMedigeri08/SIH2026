@@ -105,6 +105,8 @@ def _adaptive_response(state, text, language):
     visible = state
     if state.get('experience') == 'adaptive':
         visible = deepcopy(state)
+        from app.core.onboarding_insights import insights
+        visible['insights'] = insights(state)
         for key in ('name','gender','promoter_category','phone','email'):
             if key in visible['fields']:
                 visible['fields'][key] = {'provided':True, 'redacted':True}
@@ -149,7 +151,7 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
     lower = text.lower().strip(" .?!।")
     controls = {"repeat": "repeat", "say that again": "repeat", "please repeat": "repeat", "explain": "explain",
                 "what does that mean": "explain", "pause": "pause", "resume": "resume", "suggest names": "suggest_names",
-                "alternatives": "alternatives", "reject all": "alternatives"}
+                "alternatives": "alternatives", "reject all": "alternatives", "compare": "compare_recommendations", "compare them": "compare_recommendations", "compare these businesses": "compare_recommendations"}
     controls.update({"दोहराएं": "repeat", "पुन्हा सांगा": "repeat", "மீண்டும் சொல்லுங்கள்": "repeat", "మళ్ళీ చెప్పండి": "repeat", "ಮತ್ತೆ ಹೇಳಿ": "repeat",
         "रुकें": "pause", "थांबा": "pause", "நிறுத்து": "pause", "ఆపు": "pause", "ನಿಲ್ಲಿಸಿ": "pause",
         "जारी रखें": "resume", "पुढे सुरू करा": "resume", "தொடரவும்": "resume", "కొనసాగించండి": "resume", "ಮುಂದುವರಿಸಿ": "resume",
@@ -216,7 +218,35 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
         if current != 'regional_review':
             raise HTTPException(422, 'There is no regional risk decision awaiting review.')
         state['regional_risk_accepted'] = True
+    elif action == 'use_operating_estimate':
+        if current != 'operating_plan' or not state.get('assessment'):
+            raise HTTPException(422, 'Review the setup and available own funds before using an operating scenario.')
+        apply_valid_answers(state, {'operating_basis': 'sector_model'}, 'explicit_planning_scenario')
+    elif action == 'accept_financial_risk':
+        if current != 'financial_review':
+            raise HTTPException(422, 'There is no financial concern awaiting explicit acceptance.')
+        state['financial_risk_accepted'] = True
+    elif action in ('compare_recommendations', 'recommendation_details'):
+        if not state.get('recommendations'):
+            raise HTTPException(422, 'There are no current recommendations to discuss.')
+        selected = next((item for item in state['recommendations'] if item['id'] == turn.recommendation_id), None)
+        if action == 'recommendation_details' and not selected:
+            raise HTTPException(422, 'Choose a current recommendation to discuss.')
+        state['comparison_requested'] = action == 'compare_recommendations'
+        state['discussed_recommendation_id'] = selected['id'] if selected else None
+        candidates = [selected] if selected else state['recommendations']
+        reply = '\n\n'.join(f"{item['idea']}: {item['why_region']} {item['market_evidence']} "
+            f"Reference setup cost: ₹{item['outlay_range'][0]:,.0f}. " +
+            (f"Required promoter equity: ₹{item['finance_preview']['capital_structure']['required_promoter_equity']:,.0f}; potential normal borrowing: ₹{item['finance_preview']['capital_deficit']:,.0f}. " if item.get('finance_preview') else 'A detailed financing estimate needs confirmed setup costs. ')
+            for item in candidates) + '\n\nNo business has been selected. You can choose one, ask about another, or request other options.'
     elif action == 'explore_alternatives':
+        own = value(state, 'personal_contribution')
+        ceiling = (state.get('cost_proposal') or {}).get('total') or value(state, 'project_cost')
+        if own is not None:
+            apply_valid_answers(state, {'budget': own, 'budget_kind': 'personal'}, 'confirmed_own_funds', correction=True)
+        elif ceiling and value(state, 'budget') is None:
+            apply_valid_answers(state, {'budget': ceiling, 'budget_kind': 'total'}, 'previous_idea_reference_ceiling', correction=True)
+            state['alternative_budget_basis'] = 'Using the previous idea’s reference setup cost as a comparison ceiling, not as your own savings.'
         for key in ('idea', 'products', 'activity', 'operations', 'scale', 'cost_items', 'project_cost', 'cost_basis', 'enterprise_name'):
             state['fields'].pop(key, None)
         invalidate(state, {'idea'})
@@ -224,6 +254,9 @@ async def turn(turn: Turn, user: AuthenticatedUser = Depends(get_current_user)):
     elif action == "alternatives":
         state["rejected"] = list(set(state["rejected"] + [r["id"] for r in state["recommendations"]]))
         apply_valid_answers(state, {"idea_status": "explore"}, turn.source, correction=True)
+        state['recommendations'] = []
+        state['comparison_requested'] = False
+        state['discussed_recommendation_id'] = None
     elif action == "suggest_names":
         product = value(state, "products", "Enterprise").split(",")[0].title()
         reply = f"Some names to consider: Saathi {product}, Pragati {product}, or Navjeevan {product}. Tell me which name you want, or give your own. I haven’t selected one."
