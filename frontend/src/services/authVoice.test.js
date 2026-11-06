@@ -92,6 +92,10 @@ test('backend rejection or identity mismatch never produces an accepted session'
   await assert.rejects(()=>authenticatedSession({uid:'one'},async()=>'token',async()=>{throw new Error('rejected');}));
   await assert.rejects(()=>authenticatedSession({uid:'one'},async()=>'token',async()=>({firebase_uid:'two'})));
 });
+test('a login return URL cannot open the dashboard before a business plan exists',async()=>{
+  assert.equal(await destinationAfterSignIn({token:'verified'},async()=>({hasBusinesses:false}),'/dashboard'),'/onboarding');
+  assert.equal(await destinationAfterSignIn({token:'verified'},async()=>({hasBusinesses:true}),'/reports/saved/overview'),'/reports/saved/overview');
+});
 test('development documents use the Firebase-authorized localhost origin; APIs do not redirect',()=>{
   let headers,next=false;const response={writeHead:(status,value)=>{assert.equal(status,307);headers=value;},end:()=>{}};
   canonicalAuthOrigin({method:'GET',headers:{host:'127.0.0.1:3000',accept:'text/html'},url:'/login?next=plan'},response,()=>{next=true;});

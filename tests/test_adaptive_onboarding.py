@@ -65,6 +65,8 @@ def test_idea_without_budget_receives_regional_and_cost_estimate_before_asking_c
     state = answer(client, state, text='I can invest zero rupees', source='voice')
     assert state['assessment']['personal_contribution'] == 0
     assert state['assessment']['capital_deficit'] == proposal['total']
+    assert state['next']['field'] == 'operating_plan'
+    state = answer(client, state, action='use_operating_estimate')
     assert 'sca' in state['next']['choices']
 
 
@@ -80,9 +82,12 @@ def test_idea_with_own_budget_keeps_cash_separate_and_collects_actual_rent(conve
     state = answer(client, state, action='confirm_estimate')
     assert state['assessment']['monthly_rent'] == 5000
     assert state['assessment']['project_outlay'] != 10000
+    state = answer(client, state, action='use_operating_estimate')
     assert 'sca' in state['next']['choices']
     assert state['assessment']['normal_loan']['tenure_years'] == 7
     state = answer(client, state, updates={'financing_choice': 'sca'})
+    assert state['next']['field'] == 'financial_review'
+    state = answer(client, state, action='accept_financial_risk')
     assert state['next']['field'] == 'enterprise_name'
     state = answer(client, state, text='Asha Paneer Works')
     assert state['next']['field'] == 'ready'
@@ -120,6 +125,7 @@ def test_increasing_own_cash_recomputes_and_finishes_before_enterprise_name(conv
     client, _, state = conversation
     state = define_business(client, state, personal_contribution=0, premises='owned')
     state = answer(client, state, action='confirm_estimate')
+    state = answer(client, state, action='use_operating_estimate')
     state = answer(client, state, updates={'financing_choice': 'increase'})
     assert state['next']['field'] == 'personal_contribution'
     state = answer(client, state, text='5000000 rupees')
@@ -204,7 +210,9 @@ def test_confirmed_estimate_reaches_real_report_pipeline_and_is_idempotent(conve
     monkeypatch.setattr(feasibility, 'fetch_village_amenities', lambda **_: VillageAmenitiesResult(7.0, 20, True, True, True, False, 'synthetic_fixture'))
     state = define_business(client, state, personal_contribution=0, premises='rented', rent_amount=3000, rent_period='monthly')
     state = answer(client, state, action='confirm_estimate')
+    state = answer(client, state, action='use_operating_estimate')
     state = answer(client, state, updates={'financing_choice': 'sca'})
+    state = answer(client, state, action='accept_financial_risk')
     state = answer(client, state, text='Asha Test Paneer')
     assert state['next']['field'] == 'ready'
     command = {'revision': state['revision']}
@@ -236,7 +244,97 @@ def test_reviewed_cost_correction_updates_sum_without_a_repeated_confirmation(co
     state = answer(client, state, correction=True, updates={'cost_items': costs, 'cost_basis': 'User reviewed supplier estimate'})
     assert state['pending_changes'] == {}
     assert state['assessment']['project_outlay'] == sum(costs.values())
+    assert state['next']['field'] == 'operating_plan'
+    state = answer(client, state, action='use_operating_estimate')
     assert state['next']['field'] == 'financing_choice'
+
+
+def test_reference_finance_preview_does_not_invent_user_cash(conversation):
+    client, _, state = conversation
+    state = define_business(client, state)
+    finance = state['insights']['finance_preview']
+    assert finance['own_funds_known'] is False
+    assert finance['personal_contribution'] == finance['capital_structure']['required_promoter_equity']
+    assert engine.value(state, 'personal_contribution') is None
+    assert engine.value(state, 'cost_items') is None
+    assert finance['operating_projection']['basis'] == 'sector_model'
+    assert finance['operating_projection']['break_even_period_months'] is None
+
+
+def test_financial_concerns_require_explicit_acceptance_and_corrections_reset_it(conversation):
+    client, _, state = conversation
+    state = define_business(client, state, personal_contribution=0, premises='owned')
+    state = answer(client, state, action='confirm_estimate')
+    state = answer(client, state, text='Monthly sales 5000 and expenses 6000, fixed costs 1000 and variable costs 50%')
+    state = answer(client, state, updates={'financing_choice': 'normal'})
+    assert state['next']['field'] == 'financial_review'
+    assert state['insights']['operating_projection']['monthly_after_debt'] < 0
+    assert state['insights']['operating_projection']['break_even_monthly_sales'] == 2000
+    assert state['insights']['can_finish'] is False
+    assert client.post('/api/v2/onboarding/complete', json={'revision': state['revision']}).status_code == 422
+    state = answer(client, state, text='I accept these risks')
+    assert state['insights']['financial_risk_accepted'] is True
+    assert state['next']['field'] == 'enterprise_name'
+    state = answer(client, state, text='My reviewed business')
+    assert state['next']['field'] == 'ready' and state['insights']['can_finish']
+    state = answer(client, state, correction=True, updates={'monthly_sales': 0})
+    assert not state['insights']['financial_risk_accepted']
+    assert state['next']['field'] == 'financial_review'
+    assert state['insights']['operating_projection']['monthly_sales'] == 0
+
+
+def test_recommendations_include_finances_compare_and_discuss_without_selecting(conversation):
+    client, _, state = conversation
+    state = answer(client, state, text='I have no idea and 2 lakh of my own savings')
+    state = answer(client, state, text='Open to learning')
+    first = state['recommendations'][0]
+    assert first['finance_preview']['capital_structure']['required_promoter_equity'] <= 200000
+    assert first['finance_preview']['operating_projection']['is_estimate']
+    state = answer(client, state, text='compare')
+    assert state['comparison_requested'] and engine.value(state, 'idea') is None
+    state = answer(client, state, action='recommendation_details', recommendation_id=first['id'])
+    assert state['discussed_recommendation_id'] == first['id'] and engine.value(state, 'idea') is None
+    state = answer(client, state, text='What is the profit for the first business?')
+    assert 'monthly sales' in state['history'][-1]['text']
+    assert engine.value(state, 'idea') is None
+    previous = {item['id'] for item in state['recommendations']}
+    state = answer(client, state, action='alternatives')
+    assert not previous.intersection(item['id'] for item in state['recommendations'])
+
+
+def test_regional_alternatives_reuse_reference_ceiling_without_claiming_own_cash(conversation, monkeypatch):
+    client, _, state = conversation
+    async def constrained(state):
+        return {'recommendation': 'CONSTRAINED_MARKET', 'confidence': 'HIGH', 'evidence': {'top_risk_factors': ['Synthetic power constraint']}}
+    monkeypatch.setattr(engine, 'regional_assessment', constrained)
+    state = define_business(client, state)
+    ceiling = state['cost_proposal']['total']
+    state = answer(client, state, action='explore_alternatives')
+    assert engine.value(state, 'budget') == ceiling and engine.value(state, 'budget_kind') == 'total'
+    assert engine.value(state, 'personal_contribution') is None
+    assert 'reference setup cost' in state['alternative_budget_basis']
+
+
+def test_typed_input_language_is_independent_of_selected_mira_language(conversation, monkeypatch):
+    from app.core.translation_service import TranslationService
+    inputs = []
+    async def translated(self, text, target_language, source_language='en'):
+        inputs.append((text, target_language, source_language))
+        return {'translated_text': 'I have no business idea and 2 lakh of my own savings', 'provider': 'synthetic_verified_translation'}
+    monkeypatch.setattr(TranslationService, 'translate_text', translated)
+    client, _, state = conversation
+    original = 'मेरे पास अपना व्यवसाय विचार नहीं है और २ लाख की बचत है'
+    state = answer(client, state, text=original, language='en')
+    assert engine.value(state, 'personal_contribution') == 200000
+    assert state['history'][-2]['text'] == original
+    assert inputs[0][1:] == ('en', 'auto')
+
+
+def test_local_money_parser_handles_native_digits_and_zero():
+    from app.core.onboarding_understanding import money
+    for text in ('२ लाख', '௨ லட்சம்', '౨ లక్షలు', '೨ ಲಕ್ಷ'):
+        assert money(text) == 200000
+    assert money('०') == 0
 
 
 def test_generic_regional_category_cannot_turn_into_an_unrelated_named_intent(monkeypatch):
