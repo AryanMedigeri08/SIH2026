@@ -17,22 +17,24 @@ def operating_projection(state, finance):
         loan_principal=loan['amount'], annual_rate_pct=loan['rate_pct'], tenure_years=loan['tenure_years'],
         moratorium_months=loan['moratorium_months'], premise_type=v('premises', 'rented'),
         monthly_rent=finance['monthly_rent'] if v('premises') else None)
-    user_inputs = v('monthly_sales') is not None and v('monthly_expenses') is not None
-    sales = v('monthly_sales') if user_inputs else model.monthly_gross_sales
+    has_sales, has_expenses = v('monthly_sales') is not None, v('monthly_expenses') is not None
+    sales = v('monthly_sales') if has_sales else model.monthly_gross_sales
     # User expenses include rent, wages, materials and utilities, but exclude loan EMI.
-    expenses = v('monthly_expenses') if user_inputs else model.monthly_gross_sales - model.monthly_noi
+    expenses = v('monthly_expenses') if has_expenses else sales * (1 - model.operating_margin_pct / 100) + model.monthly_rent_deducted
     surplus = sales - expenses
-    after_debt = surplus - loan['monthly_emi']
+    financing = v('financing_choice', 'normal')
+    debt = finance['capital_structure']['total_monthly_debt_service'] if financing == 'sca' else 0 if financing == 'self' else loan['monthly_emi']
+    after_debt = surplus - debt
     fixed, variable = v('monthly_fixed_costs'), v('variable_cost_pct')
     break_even = fixed / (1 - variable / 100) if fixed is not None and variable is not None and variable < 100 else None
-    return {'basis': 'user_estimate' if user_inputs else 'sector_model', 'is_estimate': True,
+    return {'basis': 'user_estimate' if has_sales and has_expenses else 'mixed_estimate' if has_sales or has_expenses else 'sector_model', 'is_estimate': True,
         'monthly_sales': round(sales, 2), 'monthly_expenses': round(expenses, 2),
-        'monthly_operating_surplus': round(surplus, 2), 'monthly_emi': loan['monthly_emi'],
+        'monthly_operating_surplus': round(surplus, 2), 'monthly_emi': debt, 'debt_basis': financing,
         'monthly_after_debt': round(after_debt, 2), 'operating_margin_pct': round(surplus / sales * 100, 2) if sales else None,
         'simple_project_payback_months': round(finance['project_outlay'] / surplus, 1) if surplus > 0 else None,
         'break_even_monthly_sales': round(break_even, 2) if break_even is not None else None,
         'break_even_period_months': None,
-        'missing_details': ([] if user_inputs else ['Expected monthly customer sales', 'Monthly materials, wages, utilities and rent']) +
+        'missing_details': ([] if has_sales else ['Expected monthly customer sales']) + ([] if has_expenses else ['Monthly materials, wages, utilities and rent']) +
             ([] if break_even is not None else ['Fixed monthly expenses and variable cost percentage for a break-even sales calculation']) +
             ['Monthly sales ramp-up for a break-even date', 'Local customer orders and supplier quotations'],
         'notice': 'Planning scenario, not a verified profit forecast. The existing sector model sizes sales from capital and debt-service assumptions; it does not establish customer demand. Simple project payback is not the operating break-even date.'}
@@ -68,12 +70,11 @@ def financial_concerns(finance, projection):
     if finance.get('budget_kind') == 'borrowing' and (finance.get('budget_shortfall') or 0) > 0:
         reasons.append('The funding gap exceeds the borrowing amount you stated.')
     if projection and projection['monthly_after_debt'] <= 0:
-        reasons.append('The planning scenario leaves no positive monthly cash after expenses and the normal-loan EMI.')
+        reasons.append('The planning scenario leaves no positive monthly cash after expenses and the selected loan repayments.')
     return reasons
 
 
 def insights(state):
-    from app.core.adaptive_onboarding import proposal
     finance = state.get('assessment')
     preview = finance_preview(state, state.get('cost_proposal')) if not finance else None
     projection = operating_projection(state, finance) if finance else (preview or {}).get('operating_projection')

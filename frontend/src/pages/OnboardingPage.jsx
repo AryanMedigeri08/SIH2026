@@ -68,7 +68,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
   useEffect(()=>{
     const key=`${state?.revision}:${messageSequence}:${language}`;
     if(!busy&&!isLoading&&audioEnabled&&speechAllowed&&state&&!manualLocation&&announcedQuestion.current!==key){
-      announcedQuestion.current=key;speech.resume();
+      announcedQuestion.current=key;if(speech.paused)speech.resume();
     }
   },[state?.revision,messageSequence,language,busy,isLoading,audioEnabled,speechAllowed,manualLocation]);
   const accept = result => {

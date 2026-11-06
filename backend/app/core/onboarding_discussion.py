@@ -35,7 +35,7 @@ def discuss(text, state):
         parts = [item['idea'] + '.']
         if re.search(r'profit|revenue|expense|break.?even|earn|income', lower):
             if projection:
-                parts.append(f"The planning scenario has monthly sales of ₹{projection['monthly_sales']:,.0f}, expenses of ₹{projection['monthly_expenses']:,.0f}, and ₹{projection['monthly_after_debt']:,.0f} left after the normal-loan EMI. This is an estimate, not verified demand or guaranteed profit.")
+                parts.append(f"The planning scenario has monthly sales of ₹{projection['monthly_sales']:,.0f}, expenses of ₹{projection['monthly_expenses']:,.0f}, and ₹{projection['monthly_after_debt']:,.0f} left after loan repayments. This is an estimate, not verified demand or guaranteed profit.")
                 if 'break' in lower:
                     parts.append(f"Break-even monthly sales are ₹{projection['break_even_monthly_sales']:,.0f}." if projection.get('break_even_monthly_sales') is not None else 'A break-even sales figure needs fixed expenses and variable costs. A break-even date also needs monthly sales ramp-up; simple payback is a different measure.')
             else:
