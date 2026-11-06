@@ -292,6 +292,13 @@ export function AppContent() {
     return <ProtectedRoute><WizardPage onWizardSubmit={handleWizardSubmit} isLoading={isGenerating} /></ProtectedRoute>;
   }
 
+  // Keep the full workspace behind a saved, reviewed business plan. This also
+  // covers direct links and login return URLs, without changing account routes.
+  if(isAuthenticated&&!reportData&&!hasBusinesses){
+    if(loadingBusinesses)return <div className="min-h-screen flex items-center justify-center bg-stone-50"><span>Opening your saved business conversation…</span></div>;
+    return <Navigate to="/onboarding" replace/>;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-sovereign-200 selection:text-sovereign-900 overflow-x-hidden">
       

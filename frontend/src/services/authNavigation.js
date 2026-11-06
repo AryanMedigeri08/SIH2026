@@ -2,6 +2,7 @@ export async function destinationAfterSignIn(session, loadUserBusinesses, reques
   if (!session?.token) throw new Error('Authenticated session did not provide an ID token.');
   const result = await loadUserBusinesses(session.token);
   if (result.error) throw result.error;
+  if (!result.hasBusinesses) return '/onboarding';
   if (requestedPath && !['/login', '/register'].includes(requestedPath)) return requestedPath;
   return result.hasBusinesses ? '/dashboard' : '/onboarding';
 }
