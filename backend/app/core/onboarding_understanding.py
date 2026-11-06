@@ -109,6 +109,8 @@ def fallback_extract(text: str, question: str | None) -> dict:
     budget = re.search(r"(?:invest(?:ment)?|budget|(?<!working )capital|savings|contribut\w*|borrow(?:ing capacity)?)\s*(?:is|of|up to|about|around|have|can be|will be)?\s*(?:₹|rs\.?|inr)?\s*(\d[\d,.]*\s*(?:lakhs?|lacs?|crores?|thousand|k)?)", lower)
     if not budget and (question == "idea" or updates.get("idea_status") == "explore"):
         budget = re.search(r"\b(?:i have|i saved|i can spend)\s*(?:₹|rs\.?|inr)?\s*(\d[\d,.]*\s*(?:lakhs?|lacs?|crores?|thousand))\b", lower)
+    if not budget:
+        budget = re.search(r'(\d[\d,.]*\s*(?:lakhs?|lacs?|crores?|thousand|k)?)\s+(?:(?:of|in|from)\s+)?(?:my\s+)?own\s+(?:savings|funds|money|capital)', lower)
     if budget:
         updates["budget"] = money(budget[1])
         if re.search(r"personal|my (?:own|savings)|own (?:money|capital|contribution)|savings", lower):
