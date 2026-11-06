@@ -83,6 +83,23 @@ class FixtureLocation:
 
 
 async def region(state):
+    if '--chat-demo' in sys.argv:
+        constrained = 'paneer' in engine.value(state, 'idea', '').lower()
+        return {'recommendation':'CONSTRAINED_MARKET' if constrained else 'MODERATE_OPPORTUNITY', 'confidence':'MEDIUM',
+            'location':state['location'], 'source':'SYNTHETIC_CHAT_FIXTURE',
+            'evidence':{'confidence':'MEDIUM','composite_score':42 if constrained else 72,
+                'plain_language_summary':'Synthetic preview only: the example shows how Mira explains local evidence. This is not a real village assessment.',
+                'top_positive_drivers':['Synthetic example: agriculture-linked customer base and road access.'],
+                'top_risk_factors':['Synthetic example: competing suppliers and unconfirmed cold-storage capacity.'] if constrained else ['Synthetic example: check supplier costs before buying equipment.'],
+                'missing_evidence':['Confirm local customer orders and raw-material supply.'],
+                'data_quality_limitations':['All values and competitor positions in this preview are synthetic.']},
+            'market':{'target_location':{'latitude':18.5,'longitude':73.9},
+                'supply_metrics':{'direct_competitors_count':12 if constrained else 3,'nearest_direct_competitor_km':1.8},
+                'demand_features':{'population':7000,'sources':['SYNTHETIC_CHAT_FIXTURE']},
+                'opportunity_indicators':{'supply_gap_score':32 if constrained else 74,'demand_support_score':65,'accessibility_gap_score':55},
+                'sensitivity_analysis':[{'radius_km':5,'competitors_count':5 if constrained else 1},{'radius_km':10,'competitors_count':12 if constrained else 3}],
+                'classified_competitors':[{'enterprise_name':'Synthetic example A','latitude':18.52,'longitude':73.93,'distance_km':3.8},
+                    {'enterprise_name':'Synthetic example B','latitude':18.48,'longitude':73.88,'distance_km':3.1}]}}
     return {"evidence": {"confidence": "INSUFFICIENT_DATA", "plain_language_summary": "Synthetic UI fixture — no real regional suitability conclusion.",
                          "data_quality_limitations": ["Test data only"]}, "location": state["location"]}
 
@@ -92,7 +109,7 @@ engine.regional_assessment = region
 engine.find_district_odop = lambda *_: None
 
 # Optional isolated visual fixture; never touches real account or location data.
-if '--area-demo' in sys.argv:
+if '--area-demo' in sys.argv or '--chat-demo' in sys.argv:
     original_upsert = db_manager.upsert_user
     async def area_demo_user(*args, **kwargs):
         profile = await original_upsert(*args, **kwargs)

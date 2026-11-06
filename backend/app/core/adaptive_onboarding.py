@@ -104,8 +104,10 @@ def next_question(state):
             return q('budget_kind', 'Is this your own money, the total business budget, or an amount you plan to borrow?', ('personal', 'total', 'borrowing'))
         if not v('skills'):
             return q('skills', 'What work do you know or enjoy, and are there any limits such as space or electricity? You can also say open to learning.')
-        return q('recommendations', 'Here are up to three businesses screened against your budget and regional evidence. Choose one to explore, or ask for alternatives.' if state.get('recommendations') else
-            'I do not have a supported regional match for that budget and interest yet. Tell me another interest or change the budget; I will check again.')
+        if state.get('recommendations'):
+            options = ' '.join(f"Option {index + 1}: {item['idea']}, reference setup ₹{item['outlay_range'][0]:,.0f}." for index, item in enumerate(state['recommendations']))
+            return q('recommendations', 'These options are screened against your own funds and the available regional evidence. ' + options + ' Local checks are still needed. Which would you like to explore? You can also compare them, discuss an option or ask for alternatives.')
+        return q('recommendations', 'I do not have a supported regional match for that budget and interest yet. Tell me another interest or change the budget; I will check again.')
     if not v('activity'):
         return q('activity', f"For {v('idea')}, will you make products, sell ready-made products, or provide a service?", ('manufacture', 'process', 'retail', 'distribute', 'service'))
     if not v('products'):

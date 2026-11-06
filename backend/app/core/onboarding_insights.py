@@ -63,6 +63,8 @@ def financial_concerns(finance, projection):
     if not finance:
         return []
     reasons = []
+    if finance.get('financing_choice') == 'self' and finance['capital_deficit'] > 0:
+        reasons.append('Your own funds do not cover the full setup cost, so the self-funding choice still leaves an unfunded amount.')
     if finance['capital_structure']['equity_gap'] > 0:
         reasons.append('Your own funds are below the required promoter margin. Review increasing funds or the existing SCA assistance option.')
     if finance.get('budget_kind') == 'total' and (finance.get('budget_shortfall') or 0) > 0:
