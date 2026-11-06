@@ -27,7 +27,7 @@ export function MiraChatShell({ language, prompt, speech, busy, inputMode, input
           <button type="button" aria-label={copy.repeat} title={copy.repeat} onClick={speech.repeat} disabled={busy || !prompt}><RotateCcw size={15} /></button></div>
       </article>
       <div className="mira-chat-insights">{children}</div>
-      {(error || speech.error) && <div role="alert" className="mira-chat-error">{error || copy.voiceRecovery}<button type="button" onClick={onRetry}>{copy.retry}</button></div>}
+      {(error || speech.error) && <div role="alert" className="mira-chat-error">{error || copy.voiceRecovery}<button type="button" onClick={onRetry} disabled={busy}>{copy.retry}</button></div>}
     </div>
     <footer className="mira-chat-composer"><form onSubmit={event => { event.preventDefault(); if (!composing.current && input.trim() && !busy) onSend(); }}>
       <button className={`mira-chat-mic ${inputMode === 'voice' ? 'active' : ''}`} type="button" aria-label={copy.microphone} aria-pressed={inputMode === 'voice'} title={copy.microphone} onClick={onMicrophone} disabled={busy}><Mic size={22} /></button>

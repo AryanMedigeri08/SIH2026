@@ -275,6 +275,10 @@ def test_no_financial_evaluation_before_location_confirmation():
 
 @pytest.fixture
 def client(monkeypatch, tmp_path):
+    from app.core.translation_service import TranslationService
+    async def no_external_translation(self, text, target_language='hi', source_language='en', **_):
+        return {'translated_text': text, 'provider': 'identity'}
+    monkeypatch.setattr(TranslationService, 'translate_text', no_external_translation)
     manager = DatabaseManager()
     manager.sqlite = sqlite3.connect(tmp_path / 'onboarding.sqlite3', check_same_thread=False)
     manager.sqlite.row_factory = sqlite3.Row

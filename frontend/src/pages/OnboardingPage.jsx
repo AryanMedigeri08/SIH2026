@@ -71,6 +71,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
       announcedQuestion.current=key;if(speech.paused)speech.resume();
     }
   },[state?.revision,messageSequence,language,busy,isLoading,audioEnabled,speechAllowed,manualLocation]);
+  useEffect(()=>{if(speech.paused&&!speech.isRecording&&!busy&&inputMode==='voice')setInputMode('text');},[speech.paused,speech.isRecording,busy,inputMode]);
   const accept = result => {
     if(result.state.next?.field==='area_verification'||(stateRef.current?.next?.field==='location_confirmation'&&result.state.next?.field==='location'))setManualLocation(true);
     stateRef.current = result.state; setState(result.state); setReply(result.reply); setMessageSequence(value => value + 1); setSpeechAllowed(result.speech_allowed !== false); setError('');
@@ -181,9 +182,6 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
     </GuidedRegistrationPanel>
   </main>;
   const details=<div className="mira-review-content">
-      {error && <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}<div className="flex gap-4 mt-2">
-        <button onClick={reload} disabled={locked} className="underline">Reload saved progress</button>{requestRef.current && <button onClick={() => send({}, true)} disabled={locked} className="underline">Retry answer</button>}
-      </div></div>}
       {!speechAllowed && <button className="mira-secondary" disabled={locked} onClick={reload}><T text="Retry spoken translation" /></button>}
       {state?.location && <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm flex items-start justify-between gap-3"><div><strong>{state.location.village_name}</strong><p className="text-slate-500">{state.location.block_name}, {state.location.district_name}, {state.location.state_name}</p></div>
         <button className="text-violet-800 font-semibold" disabled={locked} onClick={changeLocation}>Change</button></div>}
@@ -232,7 +230,7 @@ export function OnboardingPage({ onWizardSubmit, isLoading }) {
       {speech.speechError && <p role="status" className="text-sm text-amber-800">{speech.speechError}</p>}</div>;
   return <MiraChatShell language={language} prompt={reply||copy.locating} speech={speech} busy={busy||isLoading} inputMode={inputMode} input={input}
     onInput={setInput} onTyping={typeAnswer} onMicrophone={useMicrophone} onSend={()=>send()} audioEnabled={audioEnabled} onAudioToggle={toggleAudio}
-    history={state?.history||[]} error={error} onRetry={reload} dialogs={<>
+    history={state?.history||[]} error={error} onRetry={()=>requestRef.current?send({},true):reload()} dialogs={<>
     <MiraDialog open={manualLocation} onClose={closeLocation} title={copy.location} closeLabel={copy.close}>
       <p className="chat-location-help">{copy.locationHelp}</p>
       {state&&<BusinessLocationPicker token={token} state={state} language={language} disabled={locked} onError={setError} onResult={locationResult}/>}
