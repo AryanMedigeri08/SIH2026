@@ -188,11 +188,7 @@ class Draft:
 
 
 class PlanningSessions:
-    """Bounded, short-lived previews. No project/report is persisted before acceptance.
-
-    These sessions are process-local: after a restart or worker change, clients
-    receive an explicit expiry response and must evaluate again.
-    """
+    """Per-worker request limits and bounded fallback previews for isolated tests."""
     def __init__(self):
         self.drafts = OrderedDict()
         self.busy = set()
@@ -209,7 +205,7 @@ class PlanningSessions:
 
     def save(self, owner, request, result):
         # Re-evaluation invalidates all earlier proposals for this owner.
-        now = time.monotonic()
+        now = time.time()
         for key in list(self.drafts):
             if self.drafts[key].owner == owner or self.drafts[key].expires < now:
                 del self.drafts[key]
@@ -219,12 +215,12 @@ class PlanningSessions:
         self.drafts[draft_id] = Draft(owner, now + 1800, request.model_copy(deep=True), copy.deepcopy(result))
         return draft_id
 
-    def accept(self, owner, draft_id, acceptance):
-        draft = self.drafts.get(draft_id)
+    def accept(self, owner, draft_id, acceptance, draft=None):
+        draft = draft if draft is not None else self.drafts.get(draft_id)
         if not draft or draft.owner != owner:
             raise HTTPException(404, "Planning preview not found. Evaluate again.")
-        if draft.expires < time.monotonic():
-            del self.drafts[draft_id]
+        if draft.expires < time.time():
+            self.drafts.pop(draft_id, None)
             raise HTTPException(410, "This preview expired. Evaluate again with your latest details.")
         proposal = next((p for p in draft.result["proposals"] if p["proposal_id"] == acceptance.proposal_id), None)
         if not proposal:

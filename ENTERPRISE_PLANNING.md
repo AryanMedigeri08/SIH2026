@@ -76,11 +76,14 @@ one in-flight request per owner, a ten-second resubmit interval and four in-flig
 owners per process. Regional calls have a 45-second timeout. Full pipeline provider
 timeouts remain their existing settings; a comparison can take several minutes.
 
-Previews are intentionally ephemeral and process-local (up to 100 drafts). A server
-restart, worker change or expiry requires re-evaluation and returns a clear error.
-Use one worker/sticky routing for this preview lifecycle; a shared TTL store is
-needed before deploying it across non-sticky workers. No database migration is
-required. Refreshing the browser also resets the unsaved planning form.
+Drafts use a separate owner-scoped `planning_drafts` table in the existing
+PostgreSQL database or shared SQLite fallback, so the Docker configuration's two
+workers can read the same preview. The table is created additively on first use.
+Each owner has one current draft; expired drafts are pruned on subsequent saves.
+Preview rows never enter `projects` or `feasibility_reports`. Request limits remain
+per worker. Only isolated fixtures without an initialized database use a bounded
+in-memory fallback. Refreshing the browser resets the unsaved form; the server
+draft remains available until replaced or expired.
 
 ## Verification
 
@@ -89,6 +92,8 @@ Financial baselines captured before feature work are in
 loan-tier boundaries, category/gender, rented/owned premises, zero/unknown/insufficient
 cash, no preview persistence, ownership, expiry, invalidation, explicit acceptance,
 custom quotes, provider failure, existing appraisal status and accepted-input parity.
+Separate SQLite connections verify cross-worker reads, replacement, restart,
+expiry and owner isolation without creating any project/report table.
 
 ```powershell
 .\venv\Scripts\python.exe -m pytest tests/test_enterprise_planning.py tests/test_planning_financial_baseline.py tests/test_sca_capital_structure.py -q -p no:cacheprovider

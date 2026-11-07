@@ -169,3 +169,39 @@ def test_endpoints_require_authentication_and_return_planning_contract(monkeypat
     assert response.status_code == 200
     assert response.json()["initial_data"]["sector"] == "dairy"
     assert client.post("/planning/evaluate", json=request().model_dump()).status_code == 429
+
+
+def test_drafts_survive_worker_change_and_restart_without_project_rows(tmp_path):
+    import sqlite3
+    from types import SimpleNamespace
+    from app.core.planning_drafts import PlanningDraftStore
+    path = tmp_path / "shared-planning.sqlite3"
+    db_a = SimpleNamespace(pool=None, sqlite=sqlite3.connect(path))
+    db_b = SimpleNamespace(pool=None, sqlite=sqlite3.connect(path))
+    first = PlanningDraftStore(db_a, planner.PlanningSessions())
+    second = PlanningDraftStore(db_b, planner.PlanningSessions())
+    result = {"proposals": [], "reference_version": planner.REFERENCE_VERSION}
+    try:
+        draft_id = asyncio.run(first.save("alice", request(), result))
+        assert asyncio.run(second.get("alice", draft_id)).result == result
+        with pytest.raises(HTTPException) as error:
+            asyncio.run(second.get("bob", draft_id))
+        assert error.value.status_code == 404
+        replacement = asyncio.run(second.save("alice", request(own_cash=0), result))
+        with pytest.raises(HTTPException):
+            asyncio.run(first.get("alice", draft_id))
+        assert asyncio.run(first.get("alice", replacement)).request.own_cash == 0
+        assert db_a.sqlite.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall() == [("planning_drafts",)]
+        db_a.sqlite.close()
+        db_a.sqlite = sqlite3.connect(path)
+        restarted = PlanningDraftStore(db_a, planner.PlanningSessions())
+        assert asyncio.run(restarted.get("alice", replacement)).result == result
+        db_a.sqlite.execute("UPDATE planning_drafts SET expires_at=0")
+        db_a.sqlite.commit()
+        expired = asyncio.run(second.get("alice", replacement))
+        with pytest.raises(HTTPException) as error:
+            planner.PlanningSessions().accept("alice", replacement, AcceptPlan(proposal_id="missing"), draft=expired)
+        assert error.value.status_code == 410
+    finally:
+        db_a.sqlite.close()
+        db_b.sqlite.close()
