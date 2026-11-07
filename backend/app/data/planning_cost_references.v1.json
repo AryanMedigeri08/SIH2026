@@ -1,0 +1,23 @@
+{
+  "version": "catalogue-77afa90-v1",
+  "source": "Existing SECTOR_CATALOG cost bands at commit 77afa90; planning references only, not independently verified supplier quotes",
+  "currency": "INR",
+  "project_cost_ranges": {
+    "vermicompost": [150000, 500000],
+    "drone_custom_hiring": [400000, 1200000],
+    "dairy_aggregation": [300000, 900000],
+    "solar_pump_repair": [200000, 600000],
+    "bamboo_crafts": [200000, 800000],
+    "millet_bakery": [250000, 750000],
+    "tailoring_unit": [100000, 400000],
+    "honey_processing": [200000, 600000],
+    "fish_feed": [300000, 900000],
+    "turmeric_processing": [200000, 700000],
+    "atta_chakki": [150000, 500000],
+    "electric_vehicle_repair": [300000, 800000],
+    "mushroom_cultivation": [100000, 400000],
+    "detergent_soap": [200000, 600000],
+    "led_assembly": [250000, 700000],
+    "papad_pickle": [100000, 350000]
+  }
+}

@@ -67,8 +67,34 @@ def test_budget_only_shortlist_and_no_project_writes(monkeypatch):
     assert len(result["proposals"]) == 3
     assert len({p["business_id"] for p in result["proposals"]}) == 3
     assert result["proposals"][0]["affordable"] is True
+    assert all(p["affordable"] for p in result["proposals"])
     save.assert_not_called()
     create.assert_not_called()
+
+
+def test_planning_reuses_existing_appraisal_verdict_including_marginal_dscr():
+    req = request(own_cash=100000)
+    with frozen_evidence():
+        report = asyncio.run(planner.evaluate_finances(make_input(project_cost=300000)))
+    # 1.25 must not be called healthy by a separate planner threshold.
+    report.financial_analysis["dscr"].update(dscr=1.25, verdict="MARGINAL")
+    region = {**UNKNOWN_REGION, "recommendation": "HIGH_OPPORTUNITY", "confidence": "HIGH"}
+    proposal = planner.describe_trial(req, planner.CATALOGUE["dairy_aggregation"], "Test", planner.REFERENCE_VERSION, report, region)
+    assert proposal["appraisal_status"]["code"] == "reconsideration"
+    assert proposal["status"] == "review_needed"
+
+
+def test_region_uses_explicit_business_intent_and_fails_to_provisional(monkeypatch):
+    from app.routers import market_intelligence
+    from types import SimpleNamespace
+    analyze = AsyncMock(side_effect=RuntimeError("provider down"))
+    monkeypatch.setattr(market_intelligence, "get_opportunity_engine", lambda: SimpleNamespace(analyze_opportunity=analyze))
+    result = asyncio.run(planner.evaluate_region(request(), planner.CATALOGUE["solar_pump_repair"]))
+    intent = analyze.call_args.kwargs["business_intent"]
+    assert intent.intent_id == "solar_pump_repair"
+    assert intent.primary_category == "SERVICES"
+    assert result["recommendation"] == "INSUFFICIENT_DATA"
+    assert result["evidence"]["missing_evidence"]
 
 
 def test_custom_idea_requires_cost_evidence():

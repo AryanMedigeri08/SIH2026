@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import json
 import logging
 import time
 import uuid
 from collections import OrderedDict
 from dataclasses import dataclass
+from pathlib import Path
 
 from fastapi import HTTPException
 
@@ -19,12 +21,14 @@ from app.core.intelligence.models import BusinessIntent
 from app.core.odop_matcher import match_odop
 from app.core.opportunity_matcher import SECTOR_CATALOG
 from app.models.planning import PlanningRequest
-from app.models.schemas import UserInput
+from app.models.schemas import UserInput, compute_business_status
 
 logger = logging.getLogger(__name__)
-REFERENCE_VERSION = "catalogue-77afa90-v1"
+REFERENCES = json.loads((Path(__file__).resolve().parents[1] / "data/planning_cost_references.v1.json").read_text(encoding="utf-8"))
+REFERENCE_VERSION = REFERENCES["version"]
 REFERENCE_NOTE = "Catalogue planning estimate, not a supplier quote. Confirm equipment, capacity, local demand and prices before borrowing."
-CATALOGUE = {item["sector_id"]: item for item in SECTOR_CATALOG}
+CATALOGUE = {item["sector_id"]: {**item, "typical_project_cost_range": REFERENCES["project_cost_ranges"][item["sector_id"]]}
+             for item in SECTOR_CATALOG}
 CATEGORIES = {
     "dairy": "DAIRY", "textile": "TAILORING", "food_processing": "FOOD_PROCESSING",
     "spice_processing": "FOOD_PROCESSING", "agriculture_processing": "AGRICULTURE_SUPPORT",
@@ -65,7 +69,7 @@ async def evaluate_region(request: PlanningRequest, item: dict):
 
 def business_choices():
     return [{"id": item["sector_id"], "name": item["enterprise_name"], "description": item["description"]}
-            for item in SECTOR_CATALOG]
+            for item in CATALOGUE.values()]
 
 
 def configurations(item: dict, quote: float | None = None):
@@ -96,7 +100,10 @@ def describe_trial(request, item, label, source, report, regional):
     # understate the cash needed for the final report's own margin requirement.
     required = max(cap["required_promoter_equity"], report.financial_analysis["promoter_margin_amount"])
     gap = None if request.own_cash is None else max(round(required - request.own_cash, 2), 0)
-    dscr = report.financial_analysis["dscr"]["dscr"]
+    appraisal = compute_business_status({"report": {
+        "financial_analysis": report.financial_analysis, "ml_viability": report.ml_viability,
+        "risk_assessment": report.risk_assessment,
+    }})
     warnings = [REFERENCE_NOTE] if source == REFERENCE_VERSION else ["User equipment quote; other setup and working-capital costs remain estimates."]
     warnings.append("Sales are engine estimates, not verified local orders. A positive DSCR does not prove local demand.")
     if cap["required_promoter_equity"] != report.financial_analysis["promoter_margin_amount"]:
@@ -104,8 +111,8 @@ def describe_trial(request, item, label, source, report, regional):
     concerns = []
     if gap:
         concerns.append("Available own money is below the planned contribution. Increase it, resize the project, or review existing SCA options in the wizard.")
-    if dscr < 1.2 or report.ml_viability.get("verdict") == "RECONSIDER":
-        concerns.append("The current appraisal flags repayment or business viability concerns.")
+    if appraisal.code != "healthy":
+        concerns.append(f"The existing appraisal needs attention: {appraisal.reason}")
     if regional["recommendation"] in {"SATURATED_MARKET", "CONSTRAINED_MARKET"}:
         concerns.append("Regional evidence flags competition or infrastructure constraints.")
     provisional = regional["confidence"] not in {"HIGH", "MEDIUM"} or regional["recommendation"] == "INSUFFICIENT_DATA"
@@ -117,7 +124,7 @@ def describe_trial(request, item, label, source, report, regional):
         "project_cost": report.input_parameters.project_cost, "required_own_money": required,
         "available_own_money": request.own_cash, "equity_gap": gap,
         "affordable": gap == 0 if gap is not None else None,
-        "status": "review_needed" if concerns else "estimated_fit",
+        "status": "review_needed" if concerns else "estimated_fit", "appraisal_status": appraisal.model_dump(),
         "financial_analysis": report.financial_analysis, "scheme_optimization": report.scheme_optimization,
         "odop_alignment": report.odop_alignment, "regional": regional,
         "warnings": warnings, "concerns": concerns,
@@ -140,8 +147,10 @@ async def build_plans(request: PlanningRequest):
         def priority(item):
             odop = match_odop(request.state_name, request.district_name, item["sector"], item["enterprise_name"])
             local = request.state_name.casefold() in {s.casefold() for s in item["state_affinities"]}
-            return (-bool(odop.get("is_aligned")), -local, item["typical_project_cost_range"][0])
-        items = sorted(SECTOR_CATALOG, key=priority)[:6]
+            # Include lower-cost starters before regional affinities. A costly
+            # ODOP sector must not hide all affordable catalogue starters.
+            return (item["typical_project_cost_range"][0], -bool(odop.get("is_aligned")), -local)
+        items = sorted(CATALOGUE.values(), key=priority)[:6]
 
     proposals, failed = [], 0
     # Sequential bounded evaluations avoid multiplying paid-provider traffic.
@@ -167,7 +176,7 @@ async def build_plans(request: PlanningRequest):
         proposals = proposals[:3]
     return {"proposals": proposals, "evaluated_businesses": len(items), "failed_trials": failed,
             "reference_version": REFERENCE_VERSION,
-            "search_note": "Compared a six-business catalogue shortlist; not an exhaustive market survey." if request.path == "budget_only" else "Compared fixed cost references; supplier prices and capacity need confirmation."}
+            "search_note": "Compared six lower-cost catalogue starters, ranked by funding fit and regional evidence; not an exhaustive market survey." if request.path == "budget_only" else "Compared fixed cost references; supplier prices and capacity need confirmation."}
 
 
 @dataclass
