@@ -102,6 +102,7 @@ from app.routers import (
     market_intelligence_router,
 )
 from app.core.telemetry import TelemetryMiddleware
+from app.routers.planning import router as planning_router
 from inference import ViabilityModelLoader
 
 
@@ -214,6 +215,7 @@ app.include_router(auth_router, prefix=settings.API_V2_STR)
 app.include_router(locations_router, prefix=settings.API_V2_STR)
 app.include_router(financial_router, prefix=settings.API_V2_STR)
 app.include_router(feasibility_router, prefix=settings.API_V2_STR)
+app.include_router(planning_router, prefix=settings.API_V2_STR)
 app.include_router(projects_router, prefix=settings.API_V2_STR)
 app.include_router(data_sources_router, prefix=settings.API_V2_STR)
 app.include_router(translation_router, prefix=settings.API_V2_STR)
