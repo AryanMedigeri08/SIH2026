@@ -21,7 +21,10 @@ async function authFetch(url, token, options = {}) {
     let errorDetail = `Request failed with status ${res.status}`;
     try {
       const errJson = await res.json();
-      errorDetail = errJson.detail || errJson.message || errorDetail;
+      const detail = errJson.detail || errJson.message;
+      errorDetail = Array.isArray(detail)
+        ? detail.map(item => `${item.loc?.slice(1).join(' / ') || 'Input'}: ${item.msg}`).join('; ')
+        : (typeof detail === 'string' ? detail : errorDetail);
     } catch (_) {}
     const error = new Error(errorDetail);
     error.status = res.status;
@@ -404,6 +407,30 @@ export async function fetchMachinerySchedule(sector, enterpriseName, budget, bus
     if (res.ok) return await res.json();
   } catch (e) {}
   return null;
+}
+
+// Optional planning paths use authenticated previews and real location responses
+// rather than the legacy location helpers' sample-data fallbacks.
+export const planningApi = {
+  businesses: (token) => authFetch(`${API_BASE}/planning/businesses`, token),
+  evaluate: (token, payload) => authFetch(`${API_BASE}/planning/evaluate`, token, {
+    method: 'POST', body: JSON.stringify(payload),
+  }),
+  accept: (token, draftId, payload) => authFetch(`${API_BASE}/planning/${encodeURIComponent(draftId)}/accept`, token, {
+    method: 'POST', body: JSON.stringify(payload),
+  }),
+  locations: (token, level, params = {}) => authFetch(`${API_BASE}/locations/${level}?${new URLSearchParams(params)}`, token),
+};
+
+export async function fetchPlanningMachinery(form) {
+  const params = new URLSearchParams({
+    sector: form.sector, enterprise_name: form.enterprise_name,
+    project_cost: String(form.project_cost), business_category: form.business_category,
+    additional_details: form.additional_business_details || '',
+  });
+  const response = await fetch(`${API_BASE}/financial/machinery-schedule?${params}`);
+  if (!response.ok) throw new Error('Could not refresh equipment. Please try again.');
+  return response.json();
 }
 
 // --- Data Source & Schemes Catalog Endpoints ---

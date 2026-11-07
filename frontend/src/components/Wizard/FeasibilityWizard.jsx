@@ -4,7 +4,8 @@ import {
   ChevronRight, ChevronLeft, Sparkles, X, Loader2, Compass, 
   AlertCircle, Info, ShieldCheck, Languages, Check, Wrench, Cpu, Zap, Landmark, RotateCcw, Sliders
 } from 'lucide-react';
-import { fetchStates, fetchDistricts, fetchBlocks, fetchVillages, fetchOdopProduct, fetchMachinerySchedule } from '../../services/api';
+import { fetchStates, fetchDistricts, fetchBlocks, fetchVillages, fetchOdopProduct, fetchMachinerySchedule, fetchPlanningMachinery } from '../../services/api';
+import { usesPlanningSnapshot, planningRent } from '../Planning/planningHandoff';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -17,7 +18,7 @@ export const getMarginPct = (category) => {
   return category && category.toLowerCase() !== "general" ? 0.05 : 0.10;
 };
 
-export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, initialData }) {
+export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, initialData, planningSnapshot = null }) {
   const { userProfile } = useAuth() || {};
   const { language: appLanguage, setLanguage, languages, t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(1);
@@ -60,7 +61,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
 
   // Capacity dial & Machinery BoQ state
   const [capacityFactor, setCapacityFactor] = useState(0.80);
-  const [machinerySchedule, setMachinerySchedule] = useState(null);
+  const [machinerySchedule, setMachinerySchedule] = useState(planningSnapshot?.machinery_schedule || null);
   const [loadingMachinery, setLoadingMachinery] = useState(false);
   const [sizingMode, setSizingMode] = useState('asset_driven'); // 'asset_driven' | 'cash_constrained'
   const [scaBridgeApplied, setScaBridgeApplied] = useState(false);
@@ -157,6 +158,11 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
 
   // Dynamic Machinery Schedule & Smart Turnover auto-sizing
   useEffect(() => {
+    if (usesPlanningSnapshot(formData, planningSnapshot, capacityFactor)) {
+      setMachinerySchedule(planningSnapshot.machinery_schedule);
+      setLoadingMachinery(false);
+      return;
+    }
     const cost = Number(formData.project_cost) || 900000;
     const machBudget = Math.round(cost * 0.55);
     const sec = formData.sector || 'dairy';
@@ -166,7 +172,9 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
     async function loadMachinery() {
       setLoadingMachinery(true);
       try {
-        const sched = await fetchMachinerySchedule(sec, entName, machBudget, formData.business_category);
+        const sched = planningSnapshot
+          ? await fetchPlanningMachinery(formData)
+          : await fetchMachinerySchedule(sec, entName, machBudget, formData.business_category);
         if (isSubscribed && sched) {
           setMachinerySchedule(sched);
           if (sched.total_machinery_cost_inr > 0 && sizingMode === 'asset_driven') {
@@ -191,7 +199,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
     }));
 
     return () => { isSubscribed = false; };
-  }, [formData.project_cost, formData.sector, formData.business_category, capacityFactor]);
+  }, [formData.project_cost, formData.sector, formData.business_category, capacityFactor, planningSnapshot]);
 
   // Sync ODOP data for selected district
   useEffect(() => {
@@ -351,7 +359,12 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
     { num: 7, title: 'Review & Run', icon: CheckCircle2 },
   ];
 
-  const handleNext = () => setCurrentStep(prev => Math.min(prev + 1, 7));
+  const handleNext = (event) => {
+    // Prevent the browser's default action after React turns the last Next
+    // button into a submit button; review must remain a separate user action.
+    event.preventDefault();
+    setCurrentStep(prev => Math.min(prev + 1, 7));
+  };
   const handleBack = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
   const handleSubmit = (e) => {
@@ -382,7 +395,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
       tenure_years: finalTenure,
       moratorium_months: finalMoratorium,
       premise_type: formData.premise_type || "rented",
-      monthly_rent: formData.premise_type === "rented" ? (Number(formData.monthly_rent) || 2500) : 0,
+      monthly_rent: planningSnapshot ? planningRent(formData) : (formData.premise_type === "rented" ? (Number(formData.monthly_rent) || 2500) : 0),
       monthly_net_operating_income_override: formData.monthly_net_operating_income_override 
         ? Number(formData.monthly_net_operating_income_override) 
         : undefined,
@@ -473,6 +486,11 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-4 sm:space-y-6">
+          {planningSnapshot && <p className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+            Your planning estimate is prefilled. Review every step before running the final appraisal.
+            Changes will be recalculated. This wizard also shows existing capital-allocation estimates;
+            scheme-specific loan and repayment figures come from the final appraisal.
+          </p>}
           
           {/* Step 1: LGD Location Hierarchy + Geolocation Detection */}
           {currentStep === 1 && (
@@ -856,6 +874,9 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                     <option value="fabrication">Light Engineering & Metal Fabrication</option>
                     <option value="artisan_trades">Artisan & Craft Trades</option>
                     <option value="general">General Commercial MSME</option>
+                    {planningSnapshot && !['dairy', 'food_processing', 'repair', 'apparel', 'fabrication', 'artisan_trades', 'general'].includes(formData.sector) && (
+                      <option value={formData.sector}>{formData.sector.replaceAll('_', ' ')}</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -995,6 +1016,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                     <option value="st">Scheduled Tribe (ST) (5% Margin)</option>
                     <option value="obc">Other Backward Class (OBC) (5% Margin)</option>
                     <option value="artisan">Artisan / Traditional Craftsman (5% Margin)</option>
+                    {planningSnapshot && formData.promoter_category === 'women_shg' && <option value="women_shg">Women Self-Help Group</option>}
                   </select>
                 </div>
 
@@ -1008,6 +1030,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other / Transgender</option>
+                    {planningSnapshot && formData.gender === 'Unspecified' && <option value="Unspecified">Unspecified</option>}
                   </select>
                 </div>
               </div>
