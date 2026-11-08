@@ -20,15 +20,18 @@ from app.routers.planning import router
 from app.routers.projects import router as projects_router
 from app.routers.odop_hybrid import router as odop_hybrid_router
 from app.core import odop_hybrid
+from app.routers.onboarding import router as onboarding_router
+from app.core import onboarding_location
 from tests.test_planning_financial_baseline import frozen_evidence
 
 app = FastAPI()
 app.include_router(router, prefix="/api/v2")
 app.include_router(projects_router, prefix="/api/v2")
 app.include_router(odop_hybrid_router, prefix="/api/v2")
+app.include_router(onboarding_router, prefix="/api/v2")
 app.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(uid="synthetic-planner-preview")
 profile = {"firebase_uid": "synthetic-planner-preview", "name": "Test Entrepreneur", "email": "preview@example.test",
-           "gender": "Male", "auth_provider": "demo", "projects_count": 0, "preferred_language": "en"}
+           "gender": "Male", "promoter_category": "general", "auth_provider": "demo", "projects_count": 0, "preferred_language": "en"}
 
 hybrid_completion = Mock(return_value=SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps({
     "score": 85, "summary": "Synthetic preview: food-safe packaging can link the dairy idea to local pottery. Verify safety, costs and demand.",
@@ -49,8 +52,18 @@ async def odop_calls():
 @app.post("/api/v2/auth/register")
 @app.post("/api/v2/auth/session")
 @app.get("/api/v2/auth/me")
+@app.patch("/api/v2/auth/me")
 async def auth():
     return profile
+
+
+@app.post('/api/v2/chat/tts')
+async def synthetic_tts():
+    return {'audio_base64': '', 'language': 'en', 'latency_s': 0}
+
+
+async def synthetic_options(level, **parents):
+    return {'states': ['West Bengal'], 'districts': ['Bankura'], 'blocks': ['Test block'], 'villages': ['Test village']}[level]
 
 
 @app.get("/api/v2/health")
@@ -81,5 +94,7 @@ if __name__ == "__main__":
     region = {"recommendation": "INSUFFICIENT_DATA", "composite_score": 0, "confidence": "INSUFFICIENT_DATA",
               "evidence": {"missing_evidence": ["Synthetic fixture: customer demand and competition are not verified."]},
               "supply_metrics": {}, "demand_features": {}, "data_lineage": []}
-    with frozen_evidence(), patch.object(planner, "evaluate_region", AsyncMock(return_value=region)), patch.object(planner, "_get_groq_client", return_value=None), patch.object(odop_hybrid, "_get_groq_client", return_value=hybrid_client):
+    from app.routers import onboarding
+    from app.core import onboarding_intent
+    with frozen_evidence(), patch.object(planner, "evaluate_region", AsyncMock(return_value=region)), patch.object(planner, "_get_groq_client", return_value=None), patch.object(odop_hybrid, "_get_groq_client", return_value=hybrid_client), patch.object(onboarding_location, 'location_options', synthetic_options), patch.object(onboarding, 'location_options', synthetic_options), patch.object(onboarding_intent, '_get_groq_client', return_value=None):
         uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
