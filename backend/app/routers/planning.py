@@ -53,7 +53,7 @@ async def accept(draft_id: str, request: AcceptPlan, current_user: Authenticated
 @router.get('/{draft_id}')
 async def saved_preview(draft_id: str, current_user: AuthenticatedUser = Depends(get_current_user)):
     draft = await draft_store.get(current_user.uid, draft_id)
-    if draft.expires_at < time.time():
+    if draft.expires < time.time():
         raise HTTPException(410, 'This preview has expired. Please explicitly compare your plans again.')
-    return {'draft_id': draft_id, 'expires_in_seconds': max(0, int(draft.expires_at - time.time())),
+    return {'draft_id': draft_id, 'expires_in_seconds': max(0, int(draft.expires - time.time())),
             **{key: value for key, value in draft.result.items() if not key.startswith('_')}}
