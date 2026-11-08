@@ -22,6 +22,8 @@ class OnboardingDraft(BaseModel):
     location: OnboardingLocation | None = None
     answers: dict[str, str | float | bool | None] = Field(default_factory=dict, max_length=30)
     completed: bool = False
+    preview_id: str | None = Field(None, max_length=100)
+    project_id: str | None = Field(None, max_length=100)
 
 
 class GpsRequest(BaseModel):

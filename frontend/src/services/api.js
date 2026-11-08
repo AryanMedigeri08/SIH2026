@@ -423,6 +423,7 @@ export async function fetchMachinerySchedule(sector, enterpriseName, budget, bus
 // Optional planning paths use authenticated previews and real location responses
 // rather than the legacy location helpers' sample-data fallbacks.
 export const planningApi = {
+  preview: (token, draftId) => authFetch(`${API_BASE}/planning/${encodeURIComponent(draftId)}`, token),
   businesses: (token) => authFetch(`${API_BASE}/planning/businesses`, token),
   evaluate: (token, payload) => authFetch(`${API_BASE}/planning/evaluate`, token, {
     method: 'POST', body: JSON.stringify(payload),

@@ -1,5 +1,6 @@
 """Evaluate before recommendation; selection persists the cached appraisal."""
 import logging
+import time
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.auth_dependency import AuthenticatedUser, get_current_user
@@ -47,3 +48,12 @@ async def accept(draft_id: str, request: AcceptPlan, current_user: Authenticated
     except Exception:
         logger.exception("Could not load planning preview")
         raise HTTPException(503, "Could not finish saving this business. Retry this selection; your appraisal will be reused.")
+
+
+@router.get('/{draft_id}')
+async def saved_preview(draft_id: str, current_user: AuthenticatedUser = Depends(get_current_user)):
+    draft = await draft_store.get(current_user.uid, draft_id)
+    if draft.expires_at < time.time():
+        raise HTTPException(410, 'This preview has expired. Please explicitly compare your plans again.')
+    return {'draft_id': draft_id, 'expires_in_seconds': max(0, int(draft.expires_at - time.time())),
+            **{key: value for key, value in draft.result.items() if not key.startswith('_')}}
