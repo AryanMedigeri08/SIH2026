@@ -42,7 +42,7 @@ from app.models.schemas import UserInput, FeasibilityReport
 router = APIRouter(prefix="/feasibility", tags=["Feasibility Analysis & DPR"])
 
 
-async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankDPRDocument]:
+async def _run_pipeline(input_data: UserInput, *, use_ai: bool = True) -> tuple[FeasibilityReport, BankDPRDocument]:
     """
     Executes the complete 4-tier pipeline querying live ground-truth databases and APIs:
       - Tier 1 (Market Demographics): census_raw (660k+ rows) + msme_district (788 rows)
@@ -51,6 +51,9 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
       - Tier 2 (ML Viability): 10-Dimensional XGBoost Classifier
       - Tier 3 (Executive Narrative): Sarvam AI (sarvam-105b-conversations) Multi-Lingual Synthesis
       - Tier 4 (Bank Memorandum): 7-Section Bank DPR Compilation
+
+    Planning uses use_ai=False for local machinery/narrative fallbacks. Financial
+    formulas and XGBoost inference are identical in both modes.
     """
     # 0. Sizing Project Cost & Worksite Premises
     if input_data.project_cost is None or input_data.project_cost <= 0:
@@ -137,7 +140,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         sector=input_data.sector,
         allocated_machinery_budget=machinery_budget,
         additional_details=input_data.additional_business_details,
-        use_ai=True,
+        use_ai=use_ai,
     )
 
     msme_data = await db_manager.get_district_msme_stats(
@@ -283,7 +286,7 @@ async def _run_pipeline(input_data: UserInput) -> tuple[FeasibilityReport, BankD
         "weather_risk_score": weather_score,
         "annual_turnover_estimate": input_data.annual_turnover_estimate,
         "additional_business_details": input_data.additional_business_details,
-    }, language=input_data.language)
+    }, language=input_data.language, force_fallback=not use_ai)
     logger.info(
         f"📝 [TIER 3 SYNTHESIS] Model: '{synthesis.model_name}' | Language: '{input_data.language.upper()}' | "
         f"Source: {'[DETERMINISTIC_TEMPLATE]' if synthesis.is_fallback else '[AI_GENERATED]'}"

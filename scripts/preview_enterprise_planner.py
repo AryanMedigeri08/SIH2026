@@ -61,5 +61,5 @@ if __name__ == "__main__":
     region = {"recommendation": "INSUFFICIENT_DATA", "composite_score": 0, "confidence": "INSUFFICIENT_DATA",
               "evidence": {"missing_evidence": ["Synthetic fixture: customer demand and competition are not verified."]},
               "supply_metrics": {}, "demand_features": {}, "data_lineage": []}
-    with frozen_evidence(), patch.object(planner, "evaluate_region", AsyncMock(return_value=region)):
+    with frozen_evidence(), patch.object(planner, "evaluate_region", AsyncMock(return_value=region)), patch.object(planner, "_get_groq_client", return_value=None):
         uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")

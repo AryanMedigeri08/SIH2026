@@ -181,6 +181,20 @@ export const BusinessProvider = ({ children }) => {
     [businesses, token, getStorageKey]
   );
 
+  // Planning returns a saved, fully analyzed project. Adopt it without calling
+  // create-and-analyze or triggering another report/model request.
+  const adoptEvaluatedBusiness = useCallback((project) => {
+    if (!project?.project_id || !project?.analysis_result?.report || !project?.analysis_result?.dpr) {
+      throw new Error('The saved business is missing its appraisal. Please retry the selection.');
+    }
+    setBusinesses(prev => [project, ...prev.filter(item => item.project_id !== project.project_id)]);
+    setActiveBusiness(project);
+    setReportData(project.analysis_result.report);
+    setDprData(project.analysis_result.dpr);
+    setBusinessError(null);
+    try { localStorage.setItem(getStorageKey(), project.project_id); } catch (_) {}
+  }, [getStorageKey]);
+
   // Create New Business and Persist
   const createAndSaveBusiness = useCallback(
     async (formData) => {
@@ -332,6 +346,7 @@ export const BusinessProvider = ({ children }) => {
     clearBusinessState,
     switchBusiness,
     createAndSaveBusiness,
+    adoptEvaluatedBusiness,
     deleteBusiness,
     loadBenchmarkCase,
     setReportData,

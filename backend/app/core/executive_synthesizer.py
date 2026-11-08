@@ -494,6 +494,9 @@ def generate_executive_synthesis(
 
     cache = SynthesisCache()
     payload_hash = cache.compute_hash(payload, lang)
+    if force_fallback:
+        # Local planning appraisals must not replace an AI-enabled report cache.
+        payload_hash += ":local"
 
     # 1. Cache Lookup
     cached = cache.get(payload_hash)

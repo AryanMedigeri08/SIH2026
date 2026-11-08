@@ -25,7 +25,7 @@ function PlanCard({ plan, onChoose, choosing }) {
   return <article className="flex flex-col gap-4 rounded-2xl border-2 border-slate-300 bg-white p-5 shadow-sm">
     <div>
       <span className={`inline-block rounded-full px-3 py-1 text-sm font-bold ${needsReview ? 'bg-amber-100 text-amber-950' : 'bg-green-100 text-green-950'}`}>
-        {needsReview ? 'Needs your review' : 'Estimated fit'}
+        {needsReview ? 'Passed appraisal · check local estimates' : 'Passed appraisal'}
       </span>
       <h3 className="mt-3 text-xl font-bold text-slate-950">{plan.name}</h3>
       <p className="mt-1 text-base text-slate-700">{plan.configuration}</p>
@@ -54,6 +54,7 @@ function PlanCard({ plan, onChoose, choosing }) {
         <p>Estimated annual sales: <strong>{money(plan.input_parameters.annual_turnover_estimate)}</strong></p>
         <p>Working capital required: <strong>{money(f.working_capital.working_capital_required)}</strong></p>
         <p>Repayment cover (DSCR): <strong>{f.dscr.dscr.toFixed(2)}×</strong></p>
+        <p>Business assessment: <strong>{plan.ml_viability?.verdict?.toLowerCase()}</strong> ({plan.ml_viability?.is_fallback ? 'backup rules; trained model unavailable' : 'XGBoost model'}).</p>
         <p>Existing capital-structure equity: {money(f.capital_structure.required_promoter_equity)}. Existing scheme margin: {money(f.promoter_margin_amount)}.</p>
         {plan.warnings.map((text, i) => <p className="text-sm" key={i}>{text}</p>)}
       </div>
@@ -71,7 +72,7 @@ function PlanCard({ plan, onChoose, choosing }) {
         <span>I understand the concerns above and want to explore this plan.</span>
       </label>}
       <button type="button" onClick={() => onChoose(plan, acknowledge, acceptRisk)} disabled={!!choosing || !acknowledge || (needsReview && !acceptRisk)} className={`${primaryClass} w-full`}>
-        {choosing === plan.proposal_id ? 'Opening plan…' : 'Review this plan'}
+        {choosing === plan.proposal_id ? 'Opening dashboard…' : 'Start this business'}
       </button>
     </div>
   </article>;
@@ -168,7 +169,7 @@ export function EnterprisePlanner({ path, onBack, onAccept }) {
       const accepted = await planningApi.accept(token, result.draft_id, {
         proposal_id: plan.proposal_id, acknowledge_estimates: acknowledge, accept_risks: risk,
       });
-      if (mounted.current) onAccept(accepted);
+      if (mounted.current) await onAccept(accepted);
     } catch (e) { if (mounted.current) setError(e.message); }
     finally { if (mounted.current) setChoosing(null); }
   };
@@ -186,11 +187,14 @@ export function EnterprisePlanner({ path, onBack, onAccept }) {
     </button>
     <div>
       <h1 className="text-2xl font-bold text-slate-950">{result ? 'Compare your plans' : path === 'budget_only' ? 'Find a business for your money' : 'Find the investment for your idea'}</h1>
-      <p className="mt-2 text-base text-slate-700">{result ? 'Choose a plan to review in the existing application. Nothing is saved as a business yet.' : 'First, tell us where you will work and what you have available.'}</p>
+      <p className="mt-2 text-base text-slate-700">{result ? 'These plans have already been appraised. Select one to save your business and open its dashboard.' : 'First, tell us where you will work and what you have available.'}</p>
     </div>
     {error && <div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-base text-red-900">{error}</div>}
     {result ? <>
       <p className="rounded-xl bg-blue-50 p-4 text-base text-blue-950">{result.search_note} {result.failed_trials > 0 && `${result.failed_trials} trial(s) could not be evaluated.`}</p>
+      {result.proposals.length < 3 && <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-base text-amber-950">
+        {result.proposals.length === 0 ? 'No plans passed the checks with these details.' : `Only ${result.proposals.length} plan(s) passed the checks.`} Change your details to explore other options. Plans with failed appraisals are not recommended.
+      </p>}
       <div className="grid items-stretch gap-5 lg:grid-cols-3">
         {result.proposals.map(plan => <PlanCard key={plan.proposal_id} plan={plan} choosing={choosing} onChoose={accept} />)}
       </div>
@@ -248,7 +252,7 @@ export function EnterprisePlanner({ path, onBack, onAccept }) {
       <button disabled={pending || !!locationError || !token} className={`${primaryClass} inline-flex items-center justify-center gap-2 w-full sm:w-auto`}>
         {pending ? <><Loader2 className="animate-spin" size={22} /> Comparing plans…</> : <><CheckCircle2 size={22} /> Compare plans</>}
       </button>
-      {pending && <p role="status" aria-live="polite" className="text-base text-slate-700">Checking local evidence and running the existing financial appraisal for each trial. This may take a few minutes. Please keep this page open.</p>}
+      {pending && <p role="status" aria-live="polite" className="text-base text-slate-700">Generating candidates and checking each with the business model and financial engine. Your selected result will be reused directly in the dashboard. Please keep this page open.</p>}
     </form>}
   </section>;
 }

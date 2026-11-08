@@ -6,13 +6,14 @@ import { PITCH_CASES } from '../data/pitchCases';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { EnterprisePlanner } from '../components/Planning/EnterprisePlanner';
+import { useBusiness } from '../context/BusinessContext';
 
 export function WizardPage({ onWizardSubmit, isLoading }) {
   const navigate = useNavigate();
   const { isDemoMode } = useAuth();
   const [selectedTemplateIndex, setSelectedTemplateIndex] = useState(0);
   const [journey, setJourney] = useState(null);
-  const [planningSnapshot, setPlanningSnapshot] = useState(null);
+  const { adoptEvaluatedBusiness } = useBusiness();
   const { language, setLanguage, t } = useLanguage();
 
   // Automatically reset active language to English when starting a fresh enterprise analysis
@@ -30,9 +31,9 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
     navigate('/dashboard');
   };
 
-  const initialData = useMemo(() => planningSnapshot?.initial_data || (isDemoMode && PITCH_CASES[selectedTemplateIndex]
+  const initialData = useMemo(() => (isDemoMode && PITCH_CASES[selectedTemplateIndex]
     ? { ...PITCH_CASES[selectedTemplateIndex].formData, language: "en" }
-    : { language: "en" }), [planningSnapshot, isDemoMode, selectedTemplateIndex]);
+    : { language: "en" }), [isDemoMode, selectedTemplateIndex]);
 
   if (!journey) return <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
     <h1 className="text-3xl font-bold text-slate-950">Let’s plan your business</h1>
@@ -42,7 +43,7 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
         ['existing', 'I have an idea and know my investment', 'Continue with the existing business application.'],
         ['budget_only', 'I have money, but need a business idea', 'Compare business ideas for your location and own contribution.'],
         ['idea_only', 'I have an idea, but don’t know the investment', 'Compare project sizes and see how much own money to arrange.'],
-      ].map(([id, title, description]) => <button type="button" key={id} onClick={() => { setPlanningSnapshot(null); setJourney(id); }} className="block w-full rounded-2xl border-2 border-purple-700 bg-white p-5 text-left shadow-sm hover:bg-purple-50 focus:outline-none focus:ring-4 focus:ring-purple-300">
+      ].map(([id, title, description]) => <button type="button" key={id} onClick={() => setJourney(id)} className="block w-full rounded-2xl border-2 border-purple-700 bg-white p-5 text-left shadow-sm hover:bg-purple-50 focus:outline-none focus:ring-4 focus:ring-purple-300">
         <span className="block text-xl font-bold text-purple-950">{title} <span aria-hidden="true">→</span></span>
         <span className="mt-2 block text-base text-slate-700">{description}</span>
       </button>)}
@@ -50,8 +51,8 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
   </div>;
 
   if (journey !== 'existing') return <div className="mx-auto max-w-7xl px-4 py-8">
-    <EnterprisePlanner path={journey} onBack={() => setJourney(null)} onAccept={accepted => {
-      setPlanningSnapshot(accepted); setJourney('existing');
+    <EnterprisePlanner path={journey} onBack={() => setJourney(null)} onAccept={project => {
+      adoptEvaluatedBusiness(project); navigate('/dashboard');
     }} />
   </div>;
 
@@ -80,7 +81,7 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
         </div>
 
         {/* Quick Preload Benchmark Template selector — Only for Quick Login / Demo Mode */}
-        {isDemoMode && !planningSnapshot && (
+        {isDemoMode && (
           <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs space-y-1.5 shrink-0">
             <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
               Preload Benchmark Case:
@@ -104,11 +105,10 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
       <div className="relative">
         <FeasibilityWizard
           isOpen={true}
-          onClose={() => planningSnapshot ? setJourney(null) : navigate('/dashboard')}
+          onClose={() => navigate('/dashboard')}
           onSubmit={handleSubmit}
           isSubmitting={isLoading}
           initialData={initialData}
-          planningSnapshot={planningSnapshot}
         />
       </div>
 
