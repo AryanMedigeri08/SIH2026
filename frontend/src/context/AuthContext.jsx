@@ -226,6 +226,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Email & Password Login Flow
+  const completePhoneRegistration = async (credential, profileData) => {
+    const user = credential?.user;
+    if (!user?.phoneNumber) throw new Error('Phone verification is incomplete.');
+    const idToken = await getIdToken(user, true);
+    await updateFirebaseProfile(user, { displayName: profileData.name });
+    const profile = await authApi.registerProfile(idToken, {
+      ...profileData, phone: user.phoneNumber,
+    });
+    localStorage.removeItem(LOCAL_SESSION_KEY);
+    setFirebaseUser(user); setToken(idToken); setIsDemoMode(false); setUserProfile(profile);
+    return { user, profile, token: idToken };
+  };
+
   const loginWithEmail = async (email, password) => {
     setLoading(true);
     setAuthError(null);
@@ -363,6 +376,7 @@ export const AuthProvider = ({ children }) => {
     isDemoMode,
     isAuthenticated: !!firebaseUser,
     registerWithEmail,
+    completePhoneRegistration,
     loginWithEmail,
     loginWithGoogle,
     loginAsDemo,
