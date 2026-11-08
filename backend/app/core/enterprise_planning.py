@@ -82,8 +82,11 @@ def configurations(item: dict, quote: float | None = None):
 
 
 def calculate_budget_tiers(own_cash: float, promoter_category: str, is_rural: bool = True) -> list[dict]:
-    """Computes 3 project cost tiers designed to maximize utilization of the promoter's available cash."""
-    is_special = promoter_category.lower() in ("sc", "st", "obc", "women", "artisan", "women_shg") or is_rural
+    """Computes 3 project cost tiers designed to maximize utilization of the promoter's available cash.
+    Under statutory PMEGP/credit guidelines:
+      - Special Categories (SC/ST/OBC/Women/Artisan/SHG): 5% promoter equity.
+      - General Category: 10% promoter equity."""
+    is_special = promoter_category.lower() in ("sc", "st", "obc", "women", "artisan", "women_shg")
     margin_rate = 0.05 if is_special else 0.10
 
     # Maximum bankable outlay that absorbs ~100% of available cash
