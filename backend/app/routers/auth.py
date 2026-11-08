@@ -38,6 +38,8 @@ async def register_user_profile(
         auth_provider=current_user.auth_provider,
         phone=reg_in.phone,
         additional_business_details=reg_in.additional_business_details,
+        language=reg_in.preferred_language,
+        promoter_category=reg_in.promoter_category,
     )
 
     projects_count = await db_manager.get_user_projects_count(current_user.uid)
@@ -50,6 +52,7 @@ async def register_user_profile(
         phone=user_record.get("phone"),
         additional_business_details=user_record.get("additional_business_details"),
         preferred_language=user_record.get("language", "en"),
+        promoter_category=user_record.get("promoter_category", "general"),
         projects_count=projects_count,
         created_at=user_record.get("created_at", ""),
         updated_at=user_record.get("updated_at", ""),
@@ -79,6 +82,7 @@ async def sync_user_session(
         phone=existing.get("phone") if existing else None,
         additional_business_details=existing.get("additional_business_details") if existing else None,
         language=existing.get("language") if existing else None,
+        promoter_category=existing.get("promoter_category") if existing else None,
     )
 
     projects_count = await db_manager.get_user_projects_count(current_user.uid)
@@ -91,6 +95,7 @@ async def sync_user_session(
         phone=user_record.get("phone"),
         additional_business_details=user_record.get("additional_business_details"),
         preferred_language=user_record.get("language", "en"),
+        promoter_category=user_record.get("promoter_category", "general"),
         projects_count=projects_count,
         created_at=user_record.get("created_at", ""),
         updated_at=user_record.get("updated_at", ""),
@@ -125,6 +130,7 @@ async def get_my_profile(
         phone=user_record.get("phone"),
         additional_business_details=user_record.get("additional_business_details"),
         preferred_language=user_record.get("language", "en"),
+        promoter_category=user_record.get("promoter_category", "general"),
         projects_count=projects_count,
         created_at=user_record.get("created_at", ""),
         updated_at=user_record.get("updated_at", ""),
@@ -151,6 +157,8 @@ async def update_my_profile(
         fields_to_update["additional_business_details"] = update_in.additional_business_details
     if update_in.preferred_language is not None:
         fields_to_update["language"] = update_in.preferred_language
+    if update_in.promoter_category is not None:
+        fields_to_update["promoter_category"] = update_in.promoter_category
 
     updated = await db_manager.update_user(current_user.uid, fields_to_update)
     if not updated:
@@ -166,6 +174,7 @@ async def update_my_profile(
         phone=updated.get("phone"),
         additional_business_details=updated.get("additional_business_details"),
         preferred_language=updated.get("language", "en"),
+        promoter_category=updated.get("promoter_category", "general"),
         projects_count=projects_count,
         created_at=updated.get("created_at", ""),
         updated_at=updated.get("updated_at", ""),
