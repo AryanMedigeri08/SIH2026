@@ -73,7 +73,7 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
             <span className="p-2 rounded-xl bg-sovereign-50 text-sovereign-800 border border-sovereign-200">
               <Sparkles className="w-5 h-5" />
             </span>
-            <span>7-Step Rural & Semi-Urban Enterprise Feasibility Wizard</span>
+            <span>8-Step Rural & Semi-Urban Enterprise Feasibility Wizard</span>
           </h1>
           <p className="text-xs text-slate-600 mt-1 max-w-2xl font-medium">
             Input enterprise specifications, LGD location hierarchy, capital outlay, supplementary business context, and loan parameters to generate an instant statutory bank appraisal report with zero financial hallucination.

@@ -422,6 +422,13 @@ export const planningApi = {
   locations: (token, level, params = {}) => authFetch(`${API_BASE}/locations/${level}?${new URLSearchParams(params)}`, token),
 };
 
+export const odopHybridApi = {
+  context: (token, state, district) => authFetch(`${API_BASE}/odop-hybrid/context?${new URLSearchParams({ state_name: state || '', district_name: district || '' })}`, token),
+  evaluate: (token, payload) => authFetch(`${API_BASE}/odop-hybrid/evaluate`, token, {
+    method: 'POST', body: JSON.stringify(payload),
+  }),
+};
+
 export async function fetchPlanningMachinery(form) {
   const params = new URLSearchParams({
     sector: form.sector, enterprise_name: form.enterprise_name,

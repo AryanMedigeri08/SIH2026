@@ -4,8 +4,10 @@ Run: venv/Scripts/python.exe scripts/preview_enterprise_planner.py
 Then run Vite on port 3001 and use the evaluator login. All records are ephemeral.
 """
 import sys
+import json
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 for folder in (ROOT, ROOT / "backend", ROOT / "backend/app/core"):
@@ -16,14 +18,32 @@ from app.core.auth_dependency import AuthenticatedUser, get_current_user
 from app.core import enterprise_planning as planner
 from app.routers.planning import router
 from app.routers.projects import router as projects_router
+from app.routers.odop_hybrid import router as odop_hybrid_router
+from app.core import odop_hybrid
 from tests.test_planning_financial_baseline import frozen_evidence
 
 app = FastAPI()
 app.include_router(router, prefix="/api/v2")
 app.include_router(projects_router, prefix="/api/v2")
+app.include_router(odop_hybrid_router, prefix="/api/v2")
 app.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(uid="synthetic-planner-preview")
 profile = {"firebase_uid": "synthetic-planner-preview", "name": "Test Entrepreneur", "email": "preview@example.test",
            "gender": "Male", "auth_provider": "demo", "projects_count": 0, "preferred_language": "en"}
+
+hybrid_completion = Mock(return_value=SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps({
+    "score": 85, "summary": "Synthetic preview: food-safe packaging can link the dairy idea to local pottery. Verify safety, costs and demand.",
+    "hybrid_name": "Curd in locally made food-safe clay pots",
+    "hybrid_description": "Make curd and source food-safe clay pots from local artisans. Test hygiene, breakage, price and customer demand before launch.",
+    "reasons": ["Connects the original dairy activity to a local packaging supplier."],
+    "practical_steps": ["Confirm food-safe pots and compare packaging costs."],
+    "risks": ["Breakage and food safety need checks."], "missing_information": ["Verified customer demand"]
+})))]))
+hybrid_client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=hybrid_completion)))
+
+
+@app.get("/api/v2/preview/odop-calls")
+async def odop_calls():
+    return {"calls": hybrid_completion.call_count}
 
 
 @app.post("/api/v2/auth/register")
@@ -61,5 +81,5 @@ if __name__ == "__main__":
     region = {"recommendation": "INSUFFICIENT_DATA", "composite_score": 0, "confidence": "INSUFFICIENT_DATA",
               "evidence": {"missing_evidence": ["Synthetic fixture: customer demand and competition are not verified."]},
               "supply_metrics": {}, "demand_features": {}, "data_lineage": []}
-    with frozen_evidence(), patch.object(planner, "evaluate_region", AsyncMock(return_value=region)), patch.object(planner, "_get_groq_client", return_value=None):
+    with frozen_evidence(), patch.object(planner, "evaluate_region", AsyncMock(return_value=region)), patch.object(planner, "_get_groq_client", return_value=None), patch.object(odop_hybrid, "_get_groq_client", return_value=hybrid_client):
         uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")

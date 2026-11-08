@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Building2, MapPin, User, Coins, Clock, FileText, CheckCircle2, 
   ChevronRight, ChevronLeft, Sparkles, X, Loader2, Compass, 
   AlertCircle, Info, ShieldCheck, Languages, Check, Wrench, Cpu, Zap, Landmark, RotateCcw, Sliders
 } from 'lucide-react';
-import { fetchStates, fetchDistricts, fetchBlocks, fetchVillages, fetchOdopProduct, fetchMachinerySchedule, fetchPlanningMachinery } from '../../services/api';
+import { fetchStates, fetchDistricts, fetchBlocks, fetchVillages, fetchMachinerySchedule, fetchPlanningMachinery } from '../../services/api';
+import { OdopHybridStep } from './OdopHybridStep';
+import { hybridInputKey, validHybridReview, hybridStepReady, selectHybridPlan, combinedBusinessContext } from './odopHybridState';
 import { usesPlanningSnapshot, planningRent } from '../Planning/planningHandoff';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -22,7 +24,9 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
   const { userProfile } = useAuth() || {};
   const { language: appLanguage, setLanguage, languages, t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(1);
-  const [odopHint, setOdopHint] = useState(null);
+  const [odopReview, setOdopReview] = useState(null);
+  const [contextError, setContextError] = useState('');
+  const machineryRevision = useRef(0);
   const [formData, setFormData] = useState(() => {
     const initCat = initialData?.promoter_category || "general";
     const marginPct = getMarginPct(initCat);
@@ -49,6 +53,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
       tenure_years: 7,
       moratorium_months: 6,
       additional_business_details: "",
+      enterprise_idea: initialData?.enterprise_idea || '',
       monthly_net_operating_income_override: "",
       language: "en",
       latitude: initialData?.latitude != null ? initialData.latitude : null,
@@ -158,6 +163,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
 
   // Dynamic Machinery Schedule & Smart Turnover auto-sizing
   useEffect(() => {
+    const revision = ++machineryRevision.current;
     if (usesPlanningSnapshot(formData, planningSnapshot, capacityFactor)) {
       setMachinerySchedule(planningSnapshot.machinery_schedule);
       setLoadingMachinery(false);
@@ -175,7 +181,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
         const sched = planningSnapshot
           ? await fetchPlanningMachinery(formData)
           : await fetchMachinerySchedule(sec, entName, machBudget, formData.business_category);
-        if (isSubscribed && sched) {
+        if (isSubscribed && revision === machineryRevision.current && sched) {
           setMachinerySchedule(sched);
           if (sched.total_machinery_cost_inr > 0 && sizingMode === 'asset_driven') {
             const derivedOutlay = Math.round((sched.total_machinery_cost_inr / 0.55) / 1000) * 1000;
@@ -200,25 +206,6 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
 
     return () => { isSubscribed = false; };
   }, [formData.project_cost, formData.sector, formData.business_category, capacityFactor, planningSnapshot]);
-
-  // Sync ODOP data for selected district
-  useEffect(() => {
-    if (!formData.district_name) {
-      setOdopHint(null);
-      return;
-    }
-    let isCurrent = true;
-    async function checkOdop() {
-      const data = await fetchOdopProduct(formData.state_name, formData.district_name);
-      if (isCurrent && (data?.has_odop_record || data?.odop_product)) {
-        setOdopHint(data);
-      } else if (isCurrent) {
-        setOdopHint(null);
-      }
-    }
-    checkOdop();
-    return () => { isCurrent = false; };
-  }, [formData.state_name, formData.district_name]);
 
   // Browser Geolocation Auto-Detection
   const handleDetectLocation = () => {
@@ -352,23 +339,61 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
   const steps = [
     { num: 1, title: 'LGD Location', icon: MapPin },
     { num: 2, title: 'Enterprise', icon: Building2 },
-    { num: 3, title: 'Promoter', icon: User },
-    { num: 4, title: 'Capital & Sales', icon: Coins },
-    { num: 5, title: 'Loan Terms', icon: Clock },
-    { num: 6, title: 'Additional Details', icon: FileText },
-    { num: 7, title: 'Review & Run', icon: CheckCircle2 },
+    { num: 3, title: 'ODOP Alignment', icon: Sparkles },
+    { num: 4, title: 'Promoter', icon: User },
+    { num: 5, title: 'Capital & Sales', icon: Coins },
+    { num: 6, title: 'Loan Terms', icon: Clock },
+    { num: 7, title: 'Additional Details', icon: FileText },
+    { num: 8, title: 'Review & Run', icon: CheckCircle2 },
   ];
+  const odopReady = hybridStepReady(odopReview, formData);
+  const navigateStep = (step) => setCurrentStep(step > 3 && !odopReady ? 3 : step);
+  const chooseCombination = (selection) => {
+    const chosen = selectHybridPlan(formData, odopReview, selection);
+    setFormData(chosen.form);
+    setOdopReview(chosen.review);
+    // Discard equipment for the previous idea. The normal final appraisal
+    // refreshes machinery for the chosen plan without an extra advice-time call.
+    machineryRevision.current += 1;
+    setMachinerySchedule(null);
+    setLoadingMachinery(false);
+    setCurrentStep(4);
+  };
+  const skipCombination = () => {
+    const valid = validHybridReview(odopReview, formData);
+    const nextForm = valid && odopReview.selection === 'hybrid'
+      ? selectHybridPlan(formData, odopReview, 'original').form : formData;
+    setFormData(nextForm);
+    setOdopReview({ ...(valid ? odopReview : {}), input_key: hybridInputKey(nextForm),
+      adopted_key: null, choice: 'no', selection: 'original', busy: false, error: null,
+      original_form: { ...nextForm } });
+    if (valid && odopReview.selection === 'hybrid') {
+      machineryRevision.current += 1;
+      setMachinerySchedule(null);
+      setLoadingMachinery(false);
+    }
+    setCurrentStep(4);
+  };
 
   const handleNext = (event) => {
     // Prevent the browser's default action after React turns the last Next
     // button into a submit button; review must remain a separate user action.
     event.preventDefault();
-    setCurrentStep(prev => Math.min(prev + 1, 7));
+    navigateStep(Math.min(currentStep + 1, steps.length));
   };
   const handleBack = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!odopReady) { setCurrentStep(3); return; }
+    if (currentStep !== steps.length) return;
+    const businessContext = combinedBusinessContext(formData);
+    if (businessContext.length > 1000) {
+      setContextError('Your business idea and additional background must fit within 1,000 characters. Please shorten the background.');
+      setCurrentStep(7);
+      return;
+    }
+    setContextError('');
     const machCost = (machinerySchedule?.total_machinery_cost_inr && machinerySchedule.total_machinery_cost_inr > 0)
       ? machinerySchedule.total_machinery_cost_inr
       : Math.round((Number(formData.project_cost) || 900000) * 0.55);
@@ -399,7 +424,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
       monthly_net_operating_income_override: formData.monthly_net_operating_income_override 
         ? Number(formData.monthly_net_operating_income_override) 
         : undefined,
-      additional_business_details: formData.additional_business_details?.trim() || undefined,
+      additional_business_details: businessContext || undefined,
     };
     onSubmit(submissionPayload);
   };
@@ -416,7 +441,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 <Sparkles className="w-5 h-5" />
               </span>
               <h2 className="font-outfit text-xl font-bold text-slate-900">
-                7-Step Enterprise Feasibility Appraisal Wizard
+                8-Step Enterprise Feasibility Appraisal Wizard
               </h2>
             </div>
             <p className="text-xs text-slate-500 mt-1 font-medium">
@@ -435,16 +460,16 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
         <div className="md:hidden bg-slate-100/70 px-4 py-2.5 border-b border-slate-200">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-bold text-sovereign-900">
-              Step {currentStep} of 7: {steps[currentStep - 1]?.title}
+              Step {currentStep} of {steps.length}: {steps[currentStep - 1]?.title}
             </span>
             <span className="text-[10px] font-mono font-bold text-slate-500">
-              {Math.round(((currentStep - 1) / 6) * 100)}%
+              {Math.round(((currentStep - 1) / (steps.length - 1)) * 100)}%
             </span>
           </div>
           <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-sovereign-800 to-sky-600 rounded-full transition-all duration-300"
-              style={{ width: `${((currentStep - 1) / 6) * 100}%` }}
+              style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
             />
           </div>
         </div>
@@ -459,7 +484,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
               <div key={s.num} className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setCurrentStep(s.num)}
+                  onClick={() => navigateStep(s.num)}
                   className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 ${
                     isDone 
                       ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-500' 
@@ -618,33 +643,6 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                   <span className="text-[10px] uppercase tracking-wider font-bold text-sky-700 bg-sky-100/90 px-2 py-0.5 rounded-md border border-sky-200">
                     Catchment Grounded
                   </span>
-                </div>
-              )}
-
-              {/* Real-Time ODOP Cluster Discovery Banner */}
-              {odopHint && (
-                <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-50 via-sky-50/40 to-amber-50 border border-amber-200 shadow-xs flex items-start gap-2.5 text-xs text-amber-950 animate-in fade-in">
-                  <div className="p-1.5 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
-                    <Sparkles className="w-4 h-4 text-amber-700" />
-                  </div>
-                  <div className="space-y-1 w-full">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-md bg-amber-600 text-white font-bold text-[10px] font-mono uppercase tracking-wider">
-                          One District One Product (ODOP)
-                        </span>
-                        <span className="font-bold text-slate-900 text-xs sm:text-sm">{odopHint.odop_product}</span>
-                      </div>
-                      {odopHint.pmfme_eligible && (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-bold">
-                          35% PMFME Subsidy
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
-                      Statutory cluster identified under MoFPI & DPIIT. Enterprises in this cluster receive <strong>priority bank sanction</strong>, GeM ODOP corridor access, and testing lab subsidies.
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -836,16 +834,26 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
               </h3>
               
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">Enterprise Commercial Name</label>
+                <label htmlFor="enterprise-commercial-name" className="block text-xs font-bold text-slate-700 mb-1.5">Enterprise Commercial Name</label>
                 <input
+                  id="enterprise-commercial-name"
                   type="text"
                   required
                   value={formData.enterprise_name}
+                  maxLength={160}
                   onChange={e => setFormData({ ...formData, enterprise_name: e.target.value })}
                   placeholder="e.g. Joypur Fresh Dairy Processing Unit"
                   className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 transition shadow-subtle"
                 />
               </div>
+
+              <label className="block space-y-2 text-base font-semibold text-slate-900">
+                <span>Describe your business idea (optional)</span>
+                <textarea rows={3} maxLength={600} value={formData.enterprise_idea || ''}
+                  onChange={event => setFormData({ ...formData, enterprise_idea: event.target.value })}
+                  placeholder="What will you make or sell, and who will buy it?"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-normal focus:outline-none focus:ring-2 focus:ring-purple-700" />
+              </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -881,102 +889,18 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 </div>
               </div>
 
-              {/* District ODOP Mandate & Cluster Linkage Section (Below the 2 dropdown options) */}
-              {odopHint?.odop_product ? (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50/90 via-sky-50/40 to-amber-50/90 border border-amber-200/90 shadow-subtle space-y-2.5 animate-in fade-in">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-md bg-amber-600 text-white font-bold text-[10px] font-mono uppercase tracking-wider">
-                        One District One Product (ODOP)
-                      </span>
-                      <span className="text-xs font-semibold text-slate-700">
-                        {formData.district_name ? `${formData.district_name} (${formData.state_name || 'Selected State'})` : 'Your District'}
-                      </span>
-                    </div>
-
-                    {odopHint.pmfme_eligible && (
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-bold">
-                        35% PMFME Capital Subsidy
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                    <div className="space-y-0.5">
-                      <div className="text-[11px] text-slate-500 font-medium">Designated District Cluster Product:</div>
-                      <div className="font-outfit text-base font-extrabold text-slate-900 flex items-center gap-2">
-                        <Sparkles className="w-4.5 h-4.5 text-amber-600 shrink-0" />
-                        <span>{odopHint.odop_product}</span>
-                      </div>
-                      {odopHint.category && (
-                        <div className="text-[11px] text-slate-500 font-medium">
-                          Category: <span className="font-semibold text-slate-700">{odopHint.category}</span>
-                          {odopHint.secondary_product && (
-                            <span className="ml-2 text-slate-400">• Also: {odopHint.secondary_product}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Sector Alignment Status Pill / Button */}
-                    <div className="shrink-0">
-                      {odopHint.matching_sectors?.includes(formData.sector) ? (
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-bold shadow-2xs">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span>Selected Sector Matches ODOP!</span>
-                        </div>
-                      ) : odopHint.matching_sectors?.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => setFormData(prev => ({ ...prev, sector: odopHint.matching_sectors[0] }))}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-subtle group cursor-pointer"
-                          title="Auto-select matching industry sector to qualify for ODOP 35% PMFME subsidy"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-amber-200 group-hover:rotate-12 transition-transform" />
-                          <span>Align Sector with ODOP</span>
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-amber-200/60 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                    <span className="text-slate-600">
-                      {odopHint.matching_sectors?.includes(formData.sector) ? (
-                        <span className="text-emerald-800 font-medium">
-                          ✓ Your enterprise qualifies for <strong>priority bank sanction</strong>, GeM ODOP corridor access, and state testing lab subsidies.
-                        </span>
-                      ) : (
-                        <span className="text-slate-600">
-                          Enterprises producing or processing <strong>{odopHint.odop_product}</strong> receive <strong>up to ₹10 Lakhs capital subsidy</strong> under PMFME and DIC fast-track sanction.
-                        </span>
-                      )}
-                    </span>
-                    {odopHint.gem_category && (
-                      <span className="text-slate-500 font-mono text-[10px] bg-white/80 px-2 py-0.5 rounded border border-slate-200">
-                        GeM: {odopHint.gem_category.length > 30 ? `${odopHint.gem_category.slice(0, 30)}...` : odopHint.gem_category}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ) : formData.district_name ? (
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Info className="w-4 h-4 text-slate-500 shrink-0" />
-                    <span>
-                      District: <strong>{formData.district_name}</strong> • Standard central MSME schemes (PMEGP up to 35%, MUDRA, CGTMSE) apply.
-                    </span>
-                  </div>
-                </div>
-              ) : null}
             </div>
           )}
 
-          {/* Step 3: Promoter Details */}
-          {currentStep === 3 && (
+          {currentStep === 3 && <OdopHybridStep form={formData} review={odopReview}
+            onReview={setOdopReview} onSelect={chooseCombination} onSkip={skipCombination} />}
+
+          {/* Step 4: Promoter Details */}
+          {currentStep === 4 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <User className="w-4 h-4 text-sovereign-700" />
-                Step 3: Promoter Identity & Social Beneficiary Category
+                Step 4: Promoter Identity & Social Beneficiary Category
               </h3>
 
               <div>
@@ -1037,8 +961,8 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
             </div>
           )}
 
-          {/* Step 4: Capital Outlay, Machinery BoQ & Smart Revenue */}
-          {currentStep === 4 && (() => {
+          {/* Step 5: Capital Outlay, Machinery BoQ & Smart Revenue */}
+          {currentStep === 5 && (() => {
             const cost = Number(formData.project_cost) || 900000;
             const sales = Number(formData.annual_turnover_estimate) || 0;
             const marginPct = getMarginPct(formData.promoter_category);
@@ -1112,7 +1036,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                     <Coins className="w-4 h-4 text-sovereign-700" />
-                    Step 4: Margin Capital, Plant & Machinery Schedule & Sales
+                    Step 5: Margin Capital, Plant & Machinery Schedule & Sales
                   </h3>
                   <span className="text-[11px] font-bold text-sovereign-800 bg-sovereign-50 border border-sovereign-200 px-2.5 py-1 rounded-lg self-start sm:self-auto">
                     Statutory Equity: {(getMarginPct(formData.promoter_category) * 100).toFixed(0)}% ({formData.promoter_category?.toUpperCase()})
@@ -1554,8 +1478,8 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
             );
           })()}
 
-          {/* Step 5: Statutory Scheme Repayment & Grace Terms */}
-          {currentStep === 5 && (() => {
+          {/* Step 6: Statutory Scheme Repayment & Grace Terms */}
+          {currentStep === 6 && (() => {
             const currentOutlay = Number(formData.project_cost) || 900000;
             const isMicro = currentOutlay <= 140000;
             const statutoryTenure = isMicro ? 3 : 7;
@@ -1571,7 +1495,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-sovereign-700" />
-                    Step 5: Statutory Credit Tier & Repayment Terms
+                    Step 6: Statutory Credit Tier & Repayment Terms
                   </h3>
                   <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                     Statutory Auto-Tiering Active
@@ -1675,13 +1599,14 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
             );
           })()}
 
-          {/* Step 6: Supplementary Business Context & Operational Overrides (NEW STEP) */}
-          {currentStep === 6 && (
+          {/* Step 7: Supplementary Business Context & Operational Overrides */}
+          {currentStep === 7 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {contextError && <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">{contextError}</p>}
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-sovereign-700" />
-                  Step 6: Supplementary Business Context & Operational Overrides
+                  Step 7: Supplementary Business Context & Operational Overrides
                 </h3>
                 <span className="text-[11px] text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-full">
                   Optional Details
@@ -1770,12 +1695,12 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
             </div>
           )}
 
-          {/* Step 7: Review & Final Verification */}
-          {currentStep === 7 && (
+          {/* Step 8: Review & Final Verification */}
+          {currentStep === 8 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-sovereign-700" />
-                Step 7: Appraisal Review & Statutory Pipeline Execution
+                Step 8: Appraisal Review & Statutory Pipeline Execution
               </h3>
 
               {/* Summary card */}
@@ -1836,11 +1761,15 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                   </div>
                 </div>
 
-                {formData.additional_business_details && (
+                {validHybridReview(odopReview, formData) && odopReview.result && <p className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-sm text-purple-950">
+                  ODOP choice: <strong>{odopReview.selection === 'hybrid' ? 'Use the combination' : 'Keep the original idea'}</strong>.
+                  {' '}Business-synergy advice: {odopReview.result.score}/100. This does not determine scheme eligibility.
+                </p>}
+                {combinedBusinessContext(formData) && (
                   <div className="p-2.5 bg-white rounded-lg border border-slate-200">
                     <div className="text-[10px] text-slate-400 font-bold uppercase">Supplementary Context</div>
                     <div className="text-slate-700 text-xs italic mt-0.5 line-clamp-2">
-                      "{formData.additional_business_details}"
+                      "{combinedBusinessContext(formData)}"
                     </div>
                   </div>
                 )}
@@ -1865,11 +1794,12 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
               </button>
             ) : <div />}
 
-            {currentStep < 7 ? (
+            {currentStep < steps.length ? (
               <button
                 type="button"
                 onClick={handleNext}
-                className="flex items-center gap-1.5 text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-4 sm:px-5 py-2.5 rounded-xl shadow-sm transition group shrink-0"
+                disabled={currentStep === 3 && !odopReady}
+                className="flex items-center gap-1.5 text-xs font-bold text-white bg-sovereign-800 hover:bg-sovereign-700 px-4 sm:px-5 py-2.5 rounded-xl shadow-sm transition group shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span>Next Step</span>
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />

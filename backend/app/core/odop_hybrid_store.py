@@ -38,6 +38,8 @@ class HybridStore:
         if db.pool:
             async with db.pool.acquire() as conn:
                 async with conn.transaction():
+                    # Serialize first-use DDL across the deployed workers.
+                    await conn.execute("SELECT pg_advisory_xact_lock(679024173)")
                     await conn.execute(TABLE)
                     await conn.execute("INSERT INTO odop_hybrid_reviews (owner) VALUES ($1) ON CONFLICT (owner) DO NOTHING", owner)
                     row = await conn.fetchrow(f"SELECT {COLUMNS} FROM odop_hybrid_reviews WHERE owner=$1 FOR UPDATE", owner)
