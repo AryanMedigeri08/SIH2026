@@ -1,12 +1,7 @@
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { auth } from './firebaseClient';
-
-export function indianPhone(value) {
-  const digits = value.replace(/\D/g, '');
-  const national = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
-  if (!/^[6-9]\d{9}$/.test(national)) throw new Error('Enter a valid 10-digit Indian mobile number.');
-  return `+91${national}`;
-}
+import { indianPhone } from './registrationValidation';
+export { indianPhone } from './registrationValidation';
 
 // Kept outside React state: neither challenge nor OTP belongs in a saved draft.
 export function phoneChallenge(element) {

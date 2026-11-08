@@ -9,7 +9,7 @@ import { MiraAnswer } from './MiraAnswer';
 import { TranslatedText as T } from '../TranslatedText';
 import { copy } from './copy';
 
-export function MiraOdop({ form, onChoice }) {
+export function MiraOdop({ form, onChoice, onBack, disabled = false }) {
   const { token } = useAuth();
   const { language } = useLanguage();
   const [context, setContext] = useState(null);
@@ -53,9 +53,10 @@ export function MiraOdop({ form, onChoice }) {
         <p className="text-sm text-slate-600"><T text={result.note} /></p>
       </>}
       {error && <p role="alert" className="mira-error"><T text={error} /></p>}
-      <MiraAnswer key={`${!!result}:${language}`} disabled={busy || loading} onAnswer={choose}
+      <MiraAnswer key={`${!!result}:${language}`} disabled={busy || loading || disabled} onAnswer={choose}
         options={result ? [{ value: 'hybrid', label: 'Use this combination' }, { value: 'original', label: 'Continue with my own idea' }]
           : [...(context?.has_odop_record ? [{ value: 'evaluate', label: error ? 'Try evaluation again' : 'Yes, evaluate the combination' }] : []), { value: 'original', label: 'No, continue with my own idea' }]} />
+      {onBack && <button type="button" disabled={busy || disabled} onClick={onBack} className="mira-secondary">{copy('back', language)}</button>}
     </div>
   </div>;
 }

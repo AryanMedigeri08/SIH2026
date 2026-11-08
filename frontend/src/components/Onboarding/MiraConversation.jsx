@@ -146,7 +146,8 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
   if (result) return <>{banner}<MiraPlanResults result={result} pending={pending} onAccept={accept} onEdit={() => edit(draft.journey === 'budget_only' ? 'preferences' : 'idea')} /></>;
   if (project) return <>{banner}<ExistingResult project={project} pending={pending} onContinue={() => onFinish(project, { ...draft, completed: true })} onEdit={() => edit('own_cash')} /></>;
   const form = conversationForm(draft, userProfile, choices);
-  if (question === 'odop_choice') return <>{banner}<MiraOdop form={form} onChoice={(choice, result) => answer(choice, choice === 'hybrid' ? { hybrid_name: result.hybrid_name, hybrid_description: result.hybrid_description } : {})} /></>;
+  if (question === 'odop_choice') return <>{banner}<MiraOdop form={form} disabled={pending} onBack={() => edit('idea')} onChoice={(choice, result) => answer(choice, choice === 'hybrid' ? { hybrid_name: result.hybrid_name, hybrid_description: result.hybrid_description } : {})} /></>;
+  if (['journey','location'].includes(question)) return <>{banner}<button className="mira-primary" onClick={onChangeJourney}>{qc('differentStart', language)}</button></>;
   const reviewing = ['review_confirmed', 'ready'].includes(question);
   return <section className="space-y-5">
     {banner}

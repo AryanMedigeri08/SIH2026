@@ -7,6 +7,7 @@ import { MiraGuide } from '../components/Onboarding/MiraGuide';
 import { MiraLanguageChoice } from '../components/Onboarding/MiraLanguageChoice';
 import { copy, registrationSteps } from '../components/Onboarding/copy';
 import { indianPhone, phoneChallenge } from '../services/phoneAuth';
+import { normalizeIndicDigits, phoneError } from '../services/registrationValidation';
 
 export function MiraRegisterPage() {
   const { language } = useLanguage();
@@ -30,7 +31,7 @@ export function MiraRegisterPage() {
   useEffect(() => { input.current?.focus(); setError(''); }, [step, chosenLanguage]);
   useEffect(() => () => challenge.current?.clear(), []);
   useEffect(() => { if (key !== 'otp') return; const timer = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(timer); }, [key]);
-  const update = value => setValues(previous => ({ ...previous, [key]: value }));
+  const update = value => setValues(previous => ({ ...previous, [key]: ['phone','otp'].includes(key) ? normalizeIndicDigits(value) : value }));
   const send = async () => {
     indianPhone(values.phone);
     challenge.current?.clear();
@@ -62,14 +63,14 @@ export function MiraRegisterPage() {
         return;
       }
       setStep(previous => previous + 1);
-    } catch (err) { setError(err.message || 'Verification could not complete. Please try again.'); }
+    } catch (err) { setError(phoneError(err)); }
     finally { busy.current = false; setPending(false); }
   };
   const resend = async () => {
     if (pending || Date.now() < retryAt) return;
     setPending(true); setError('');
     try { await send(); setValues(previous => ({ ...previous, otp: '' })); }
-    catch (err) { setError(err.message); }
+    catch (err) { setError(phoneError(err)); }
     finally { setPending(false); }
   };
   if (!chosenLanguage) return <MiraLanguageChoice onContinue={setChosenLanguage} />;

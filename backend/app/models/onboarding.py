@@ -15,7 +15,7 @@ class OnboardingLocation(BaseModel):
 
 
 class OnboardingDraft(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra='forbid', allow_inf_nan=False)
     version: Literal[1] = 1
     journey: Literal['existing', 'budget_only', 'idea_only'] | None = None
     language: Literal['en', 'hi', 'mr', 'ta', 'te', 'kn'] = 'en'
