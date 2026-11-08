@@ -644,12 +644,20 @@ export function AppContent() {
   );
 }
 
+function RoutedLanguageTransition() {
+  const { pathname } = useLocation();
+  const { isTransitioning, dismissTransition } = useLanguage();
+  const conversational = ['/register', '/onboarding'].includes(pathname);
+  useEffect(() => { if (conversational && isTransitioning) dismissTransition(); }, [conversational, isTransitioning, dismissTransition]);
+  return conversational ? null : <LanguageTransitionOverlay />;
+}
+
 export function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <LanguageProvider>
-          <LanguageTransitionOverlay />
+          <RoutedLanguageTransition />
           <ViewModeProvider>
             <BusinessProvider>
               <ChatProvider>
