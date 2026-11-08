@@ -4,6 +4,14 @@
 
 const API_BASE = '/api/v2';
 
+export const onboardingApi = {
+  session: token => authFetch(`${API_BASE}/onboarding/session`, token),
+  save: (token, draft) => authFetch(`${API_BASE}/onboarding/session`, token, { method: 'PUT', body: JSON.stringify(draft) }),
+  detect: (token, coords) => authFetch(`${API_BASE}/onboarding/location/detect`, token, { method: 'POST', body: JSON.stringify(coords) }),
+  confirm: (token, location) => authFetch(`${API_BASE}/onboarding/location/confirm`, token, { method: 'POST', body: JSON.stringify(location) }),
+  locations: (token, level, parents = {}) => authFetch(`${API_BASE}/onboarding/locations/${level}?${new URLSearchParams(parents)}`, token),
+};
+
 // Helper for authenticated HTTP requests
 async function authFetch(url, token, options = {}) {
   const headers = {
