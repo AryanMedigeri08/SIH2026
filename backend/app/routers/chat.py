@@ -14,14 +14,14 @@ from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
 from pydantic import BaseModel, Field
 
 try:
-    from app.core.chat_service import chat_service
+    from app.core.chat_service import chat_service, LANGUAGE_NAMES
     from app.core.audio_chat_service import audio_chat_service, normalize_lang
     from app.core.bhashini_client import bhashini_client
     from app.core import sarvam_client
     from app.config import settings
     from app.core.action_registry import ACTION_REGISTRY_SCHEMA
 except ImportError:
-    from backend.app.core.chat_service import chat_service
+    from backend.app.core.chat_service import chat_service, LANGUAGE_NAMES
     from backend.app.core.audio_chat_service import audio_chat_service, normalize_lang
     from backend.app.core.bhashini_client import bhashini_client
     from backend.app.core import sarvam_client
@@ -255,7 +255,7 @@ async def generate_speech(payload: TtsRequest):
             except Exception:
                 raise HTTPException(503, 'Bhashini voice is temporarily unavailable. Please use the text or try Hear again.')
             return {'audio_base64': f'data:audio/wav;base64,{base64.b64encode(audio).decode()}',
-                    'language': language, 'language_name': chat_service.LANGUAGE_NAMES.get(language, language),
+                    'language': language, 'language_name': LANGUAGE_NAMES.get(language, language),
                     'latency_s': round(time.perf_counter() - started, 3), 'tier_used': 'bhashini'}
         result = await audio_chat_service.text_to_speech_v2(
             text=payload.text,
@@ -305,7 +305,7 @@ async def transcribe_audio_file(
                 )
                 if transcript and transcript.strip():
                     stt_latency = round(time.perf_counter() - start_time, 3)
-                    lang_name = chat_service.LANGUAGE_NAMES.get(norm_lang, norm_lang.capitalize())
+                    lang_name = LANGUAGE_NAMES.get(norm_lang, norm_lang.capitalize())
                     logger.info(
                         "[🇮🇳 BHASHINI ASR] Speech Transcribed (/stt %s): \"%s\" | ⏱️ %dms",
                         norm_lang,
