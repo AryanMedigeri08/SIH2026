@@ -104,6 +104,7 @@ from app.routers import (
 from app.core.telemetry import TelemetryMiddleware
 from app.routers.planning import router as planning_router
 from app.routers.odop_hybrid import router as odop_hybrid_router
+from app.routers.onboarding import router as onboarding_router
 from inference import ViabilityModelLoader
 
 
@@ -218,6 +219,7 @@ app.include_router(financial_router, prefix=settings.API_V2_STR)
 app.include_router(feasibility_router, prefix=settings.API_V2_STR)
 app.include_router(planning_router, prefix=settings.API_V2_STR)
 app.include_router(odop_hybrid_router, prefix=settings.API_V2_STR)
+app.include_router(onboarding_router, prefix=settings.API_V2_STR)
 app.include_router(projects_router, prefix=settings.API_V2_STR)
 app.include_router(data_sources_router, prefix=settings.API_V2_STR)
 app.include_router(translation_router, prefix=settings.API_V2_STR)
