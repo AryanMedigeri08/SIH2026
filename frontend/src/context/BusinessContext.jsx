@@ -198,11 +198,6 @@ export const BusinessProvider = ({ children }) => {
   // Create New Business and Persist
   const createAndSaveBusiness = useCallback(
     async (formData) => {
-      // Automatically reset active UI language to English for new enterprise analysis
-      if (setLanguage && globalLanguage !== "en") {
-        setLanguage("en");
-      }
-
       const outlay = Number(formData.project_cost) || 900000;
       const marginVal = formData.available_margin_capital !== undefined 
         ? Number(formData.available_margin_capital) 
@@ -232,7 +227,7 @@ export const BusinessProvider = ({ children }) => {
         is_rural: formData.is_rural ?? true,
         tenure_years: Number(formData.tenure_years || 5.0),
         moratorium_months: Number(formData.moratorium_months || 6),
-        language: "en",
+        language: formData.language || globalLanguage || "en",
         additional_business_details: formData.additional_business_details || null,
         monthly_net_operating_income_override: formData.monthly_net_operating_income_override
           ? Number(formData.monthly_net_operating_income_override)
@@ -262,7 +257,7 @@ export const BusinessProvider = ({ children }) => {
           available_margin_capital: marginVal,
           premise_type: premType,
           monthly_rent: mRent,
-          language: "en",
+          language: formData.language || globalLanguage || "en",
         });
         setReportData(rep);
         return {

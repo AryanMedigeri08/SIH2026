@@ -312,6 +312,7 @@ def trial_input(request: PlanningRequest, item: dict, cost: float):
         annual_turnover_estimate=None, tenure_years=3 if cost <= 140000 else 7,
         moratorium_months=3 if cost <= 140000 else 6,
         additional_business_details=request.idea_description or item["description"],
+        language=request.language,
     )
 
 

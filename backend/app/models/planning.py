@@ -8,6 +8,7 @@ class PlanningRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False, str_strip_whitespace=True)
 
     path: Literal["budget_only", "idea_only"]
+    language: Literal['en', 'hi', 'mr', 'ta', 'te', 'kn'] = 'en'
     own_cash: Optional[float] = Field(None, ge=0, le=100000000)
     business_id: Optional[str] = Field(None, max_length=80)
     idea_description: str = Field("", max_length=800)

@@ -16,24 +16,14 @@ export function WizardPage({ onWizardSubmit, isLoading }) {
   const { adoptEvaluatedBusiness } = useBusiness();
   const { language, setLanguage, t } = useLanguage();
 
-  // Automatically reset active language to English when starting a fresh enterprise analysis
-  useEffect(() => {
-    if (language !== "en") {
-      setLanguage("en");
-    }
-  }, []);
-
   const handleSubmit = async (formData) => {
-    if (language !== "en") {
-      setLanguage("en");
-    }
-    await onWizardSubmit({ ...formData, language: "en" });
+    await onWizardSubmit({ ...formData, language });
     navigate('/dashboard');
   };
 
   const initialData = useMemo(() => (isDemoMode && PITCH_CASES[selectedTemplateIndex]
-    ? { ...PITCH_CASES[selectedTemplateIndex].formData, language: "en" }
-    : { language: "en" }), [isDemoMode, selectedTemplateIndex]);
+    ? { ...PITCH_CASES[selectedTemplateIndex].formData, language }
+    : { language }), [isDemoMode, selectedTemplateIndex, language]);
 
   if (!journey) return <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
     <h1 className="text-3xl font-bold text-slate-950">Let’s plan your business</h1>
