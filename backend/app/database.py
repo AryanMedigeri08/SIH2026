@@ -296,6 +296,12 @@ class DatabaseManager:
         promoter_category: Optional[str] = None,
     ) -> dict[str, Any]:
         now = datetime.now(timezone.utc).isoformat()
+        persisted = await self.get_user(firebase_uid)
+        if persisted:
+            if language is None:
+                language = persisted.get('language', 'en')
+            if promoter_category is None:
+                promoter_category = persisted.get('promoter_category', 'general')
         user_record = {
             "firebase_uid": firebase_uid,
             "email": email,
@@ -330,9 +336,14 @@ class DatabaseManager:
             existing = self.sqlite.execute("SELECT created_at FROM users WHERE firebase_uid = ?", (firebase_uid,)).fetchone()
             if existing:
                 user_record["created_at"] = existing["created_at"]
-            self.sqlite.execute("INSERT INTO users (firebase_uid, email, name, gender, auth_provider, phone, additional_business_details, language, created_at, updated_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(firebase_uid) DO UPDATE SET email=excluded.email, name=excluded.name, gender=excluded.gender, auth_provider=excluded.auth_provider, phone=COALESCE(excluded.phone, users.phone), additional_business_details=COALESCE(excluded.additional_business_details, users.additional_business_details), language=COALESCE(excluded.language, users.language), updated_at=excluded.updated_at, last_login_at=excluded.last_login_at", (firebase_uid, user_record["email"], user_record["name"], user_record["gender"], user_record["auth_provider"], user_record["phone"], user_record["additional_business_details"], user_record["language"], user_record["created_at"], now, now))
-            self.sqlite.commit()
-            self.sqlite.execute("UPDATE users SET promoter_category=? WHERE firebase_uid=?", (user_record["promoter_category"], firebase_uid))
+            self.sqlite.execute("""INSERT INTO users
+                (firebase_uid,email,name,gender,auth_provider,phone,additional_business_details,language,promoter_category,created_at,updated_at,last_login_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(firebase_uid) DO UPDATE SET
+                email=excluded.email,name=excluded.name,gender=excluded.gender,auth_provider=excluded.auth_provider,
+                phone=COALESCE(excluded.phone,users.phone),additional_business_details=COALESCE(excluded.additional_business_details,users.additional_business_details),
+                language=excluded.language,promoter_category=excluded.promoter_category,updated_at=excluded.updated_at,last_login_at=excluded.last_login_at""",
+                (firebase_uid,user_record['email'],user_record['name'],user_record['gender'],user_record['auth_provider'],user_record['phone'],
+                 user_record['additional_business_details'],user_record['language'],user_record['promoter_category'],user_record['created_at'],now,now))
             self.sqlite.commit()
             return user_record
 

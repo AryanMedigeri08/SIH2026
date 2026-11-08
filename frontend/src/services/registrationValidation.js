@@ -1,7 +1,7 @@
 export function normalizeIndicDigits(value) {
-  const alphabets = ['०१२३४५६७८९','௦௧௨௩௪௫௬௭௮௯','౦౧౨౩౪౫౬౭౮౯','೦೧೨೩೪೫೬೭೮೯'];
+  const bases = [0x0966, 0x0be6, 0x0c66, 0x0ce6];
   return [...value].map(char => {
-    for (const alphabet of alphabets) { const index = alphabet.indexOf(char); if (index >= 0) return String(index); }
+    for (const base of bases) { const index = char.codePointAt(0) - base; if (index >= 0 && index < 10) return String(index); }
     return char;
   }).join('');
 }
