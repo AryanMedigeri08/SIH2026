@@ -4,7 +4,7 @@
  * Features automatic Sovereign Token fallback if Firebase Web API Key is unconfigured.
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import {
   auth,
   googleProvider,
@@ -28,6 +28,8 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const authRevision = useRef(0);
+  const profileSync = useRef(Promise.resolve());
 
   // Helper to create sovereign mock user
   const createSovereignUser = (uid, email, name, sessionToken = null) => ({
@@ -39,6 +41,7 @@ export const AuthProvider = ({ children }) => {
 
   // Sync session with backend
   const handleAuthChange = useCallback(async (user) => {
+    const revision = ++authRevision.current;
     if (user) {
       try {
         const idToken = await getIdToken(user, false);
@@ -47,8 +50,9 @@ export const AuthProvider = ({ children }) => {
         setIsDemoMode(false);
 
         try {
-          const profile = await authApi.syncSession(idToken);
-          setUserProfile(profile);
+          profileSync.current = authApi.syncSession(idToken);
+          const profile = await profileSync.current;
+          if (revision === authRevision.current) setUserProfile(profile);
         } catch (backendErr) {
           console.warn("Backend session sync fallback:", backendErr);
           setUserProfile({
@@ -231,6 +235,8 @@ export const AuthProvider = ({ children }) => {
     if (!user?.phoneNumber) throw new Error('Phone verification is incomplete.');
     const idToken = await getIdToken(user, true);
     await updateFirebaseProfile(user, { displayName: profileData.name });
+    await profileSync.current.catch(() => {});
+    authRevision.current += 1;
     const profile = await authApi.registerProfile(idToken, {
       ...profileData, phone: user.phoneNumber,
     });

@@ -29,6 +29,11 @@ async def register_user_profile(
     """
     email = current_user.email or f"{current_user.uid}@udyam.gov.in"
     name = reg_in.name.strip() or current_user.name or email.split("@")[0]
+    if current_user.auth_provider == 'phone':
+        verified_phone = current_user.claims.get('phone_number')
+        if not verified_phone:
+            raise HTTPException(401, 'Phone verification is incomplete.')
+        reg_in.phone = verified_phone
 
     user_record = await db_manager.upsert_user(
         firebase_uid=current_user.uid,

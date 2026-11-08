@@ -163,6 +163,9 @@ export const LoginPage = () => {
           )}
 
           {/* Email / Password Form */}
+          <Link to="/register?signin=1" className="mb-5 flex min-h-14 items-center justify-center rounded-xl bg-purple-800 px-5 py-3 text-base font-bold text-white">
+            <TranslatedText text="Sign in with mobile number and code" />
+          </Link>
           <form className="space-y-4" onSubmit={handleEmailLogin}>
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
