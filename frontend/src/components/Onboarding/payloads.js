@@ -1,3 +1,4 @@
+import { SECTOR_CAPITAL_MULTIPLIERS } from '../Wizard/wizardSizing.js';
 // Map confirmed conversation values to existing API contracts, not new formulas.
 export function businessContext(draft) {
   const a = draft.answers;
@@ -46,11 +47,10 @@ export function conversationExistingPayload(draft, profile, choices, schedule) {
   if (!draft.location?.confirmed || !a.review_confirmed || a.own_cash == null) throw new Error('Confirm your location, own money and answers first.');
   const machinery = schedule?.total_machinery_cost_inr;
   const projectCost = machinery > 0 ? Math.round((machinery / 0.55) / 1000) * 1000 : a.project_cost || 900000;
-  const multipliers = { dairy: 1.60, food_processing: 1.50, repair: 1.40, apparel: 1.40, fabrication: 1.30, artisan_trades: 1.30, general: 1.30 };
   const context = businessContext(draft);
   if (context.length > 1000) throw new Error('Please shorten the business details to 1000 characters.');
   return { ...form, project_cost: projectCost, available_margin_capital: a.own_cash,
-    margin_capital: a.own_cash, annual_turnover_estimate: a.annual_sales ?? Math.round(projectCost * (multipliers[form.sector] || 1.30) * .80 / 5000) * 5000,
+    margin_capital: a.own_cash, annual_turnover_estimate: a.annual_sales ?? Math.round(projectCost * (SECTOR_CAPITAL_MULTIPLIERS[form.sector] || 1.30) * .80 / 5000) * 5000,
     tenure_years: projectCost <= 140000 ? 3 : 7, moratorium_months: projectCost <= 140000 ? 3 : 6,
     additional_business_details: context,
   };

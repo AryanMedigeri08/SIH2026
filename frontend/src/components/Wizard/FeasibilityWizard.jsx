@@ -8,6 +8,7 @@ import { fetchStates, fetchDistricts, fetchBlocks, fetchVillages, fetchMachinery
 import { OdopHybridStep } from './OdopHybridStep';
 import { hybridInputKey, validHybridReview, hybridStepReady, selectHybridPlan, combinedBusinessContext } from './odopHybridState';
 import { usesPlanningSnapshot, planningRent } from '../Planning/planningHandoff';
+import { SECTOR_CAPITAL_MULTIPLIERS } from './wizardSizing';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -148,18 +149,6 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
   }, [formData.district_name]);
 
   // Sector Capital Velocity Multipliers
-  const SECTOR_CAPITAL_MULTIPLIERS = {
-    dairy: 1.40,
-    food_processing: 1.35,
-    repair: 1.25,
-    service: 1.25,
-    apparel: 1.30,
-    fabrication: 1.20,
-    artisan_trades: 1.15,
-    trading: 2.20,
-    retail: 2.20,
-    general: 1.30,
-  };
 
   // Dynamic Machinery Schedule & Smart Turnover auto-sizing
   useEffect(() => {
