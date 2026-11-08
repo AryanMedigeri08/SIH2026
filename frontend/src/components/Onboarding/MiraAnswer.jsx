@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Mic, Square } from 'lucide-react';
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 import { useLanguage } from '../../context/LanguageContext';
@@ -13,7 +13,9 @@ export function MiraAnswer({ onAnswer, disabled, stopSpeech, options = [], optio
   const [error, setError] = useState('');
   const alive = useRef(true);
   const { translated: problem } = useAutoTranslate(error);
-  const { translated: labels } = useAutoTranslate(options.map(item => item.label));
+  const optionKey = JSON.stringify(options);
+  const rawLabels = useMemo(() => options.map(item => item.label), [optionKey]);
+  const { translated: labels } = useAutoTranslate(rawLabels);
   const recorder = useVoiceRecorder({ maxDurationMs: 45000, onRecordingComplete: async blob => {
     setTranscribing(true); setError('');
     try {
