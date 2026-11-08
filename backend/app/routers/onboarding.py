@@ -6,12 +6,24 @@ from app.core.onboarding_store import onboarding_store
 from app.core.onboarding_location import resolve_gps, validate_location, location_options
 from app.models.onboarding import OnboardingDraft, OnboardingLocation, GpsRequest, OnboardingAnswer
 from app.core.onboarding_questions import next_question, validated_answer
+from app.core.onboarding_intent import intent_service
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix='/onboarding', tags=['Mira onboarding'])
 ALLOWED_ANSWERS = {'idea', 'idea_confirmed', 'business_id', 'sector', 'business_category', 'own_cash',
     'cash_confirmed', 'premise_type', 'monthly_rent', 'skills', 'resources', 'preferences',
     'equipment_quote', 'project_cost', 'annual_sales', 'enterprise_name', 'review_confirmed', 'odop_choice', 'original_idea'}
 gps_requests = {}
+
+
+class IdeaRequest(BaseModel):
+    idea: str = Field(min_length=10, max_length=800)
+    language: str = Field(pattern='^(en|hi|mr|ta|te|kn)$')
+
+
+@router.post('/interpret')
+async def interpret(payload: IdeaRequest, user: AuthenticatedUser = Depends(get_current_user)):
+    return await intent_service.interpret(user.uid, payload.idea, payload.language)
 
 
 @router.get('/session')

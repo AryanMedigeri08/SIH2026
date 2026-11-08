@@ -5,6 +5,7 @@
 const API_BASE = '/api/v2';
 
 export const onboardingApi = {
+  interpret: (token, idea, language) => authFetch(`${API_BASE}/onboarding/interpret`, token, { method: 'POST', body: JSON.stringify({ idea, language }) }),
   question: token => authFetch(`${API_BASE}/onboarding/question`, token),
   answer: (token, payload) => authFetch(`${API_BASE}/onboarding/answer`, token, { method: 'POST', body: JSON.stringify(payload) }),
   session: token => authFetch(`${API_BASE}/onboarding/session`, token),
