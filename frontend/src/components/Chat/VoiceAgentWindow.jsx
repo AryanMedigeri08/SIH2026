@@ -149,7 +149,7 @@ function VoiceOrb({ state, volume = 0 }) {
         }}
       >
         <img
-          src="/mira-avatar.png"
+          src="/images/mira-avatar.png"
           alt="Mira Voice Assistant"
           className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
         />
