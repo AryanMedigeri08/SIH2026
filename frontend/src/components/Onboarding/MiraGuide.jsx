@@ -7,19 +7,7 @@ import './mira.css';
 
 export function MiraAvatar({ speaking = false }) {
   return <div className={`mira-avatar ${speaking ? 'mira-speaking' : ''}`} aria-hidden="true">
-    <svg viewBox="0 0 240 240" role="presentation">
-      <rect width="240" height="240" rx="56" fill="#f1eaff" />
-      <path d="M36 238c0-54 33-73 84-73s84 19 84 73" fill="#5b21b6" />
-      <path d="M71 133V83c0-67 101-67 101 0v64l-23 28H86z" fill="#27203b" />
-      <path d="M99 156h42v29c-8 19-34 19-42 0" fill="#c17b51" />
-      <ellipse cx="120" cy="105" rx="47" ry="61" fill="#e5a779" />
-      <path d="M72 91c-5-55 59-79 94-30l8 34c-16-6-29-22-32-39-20 21-42 29-70 35" fill="#27203b" />
-      <g className="mira-eyes" fill="#332330"><ellipse cx="102" cy="108" rx="4" ry="5" /><ellipse cx="138" cy="108" rx="4" ry="5" /></g>
-      <path d="M116 111l-4 17h10" fill="none" stroke="#b46d4c" strokeWidth="3" strokeLinecap="round" />
-      <path className="mira-mouth" d="M105 140q15 14 30 0" fill="#a14357" stroke="#a14357" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="120" cy="91" r="3" fill="#a14357" />
-      <path d="M70 185l50 52 49-52" fill="none" stroke="#c4b5fd" strokeWidth="12" />
-    </svg>
+    <img src="/images/mira-avatar.png" alt="" width="1135" height="1386" decoding="async" className="h-auto w-full object-contain" />
   </div>;
 }
 
