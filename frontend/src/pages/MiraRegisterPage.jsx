@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAutoTranslate } from '../hooks/useAutoTranslate';
@@ -10,10 +10,12 @@ import { indianPhone, phoneChallenge } from '../services/phoneAuth';
 
 export function MiraRegisterPage() {
   const { language } = useLanguage();
-  const { completePhoneRegistration } = useAuth();
+  const { completePhoneRegistration, completePhoneSignIn } = useAuth();
+  const [params] = useSearchParams();
+  const signingIn = params.get('signin') === '1';
   const navigate = useNavigate();
   const [chosenLanguage, setChosenLanguage] = useState(null);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(signingIn ? 3 : 0);
   const [values, setValues] = useState({ name: '', gender: '', category: '', phone: '', otp: '' });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -47,6 +49,11 @@ export function MiraRegisterPage() {
       if (key === 'phone') { await send(); return; }
       if (key === 'otp') {
         if (!verified.current) verified.current = await challenge.current.confirm(values.otp.trim());
+        if (signingIn) {
+          const session = await completePhoneSignIn(verified.current);
+          navigate(session.profile.projects_count > 0 ? '/dashboard' : '/onboarding', { replace: true });
+          return;
+        }
         await completePhoneRegistration(verified.current, {
           name: values.name.trim(), gender: values.gender, promoter_category: values.category,
           preferred_language: chosenLanguage || language,
@@ -95,7 +102,7 @@ export function MiraRegisterPage() {
           <button className="mira-primary w-full" disabled={pending}>{copy(pending ? 'waiting' : key === 'phone' ? 'sendCode' : key === 'otp' ? 'verify' : 'next', chosenLanguage)}</button>
         </form>
         {key === 'otp' && <button type="button" disabled={pending} onClick={resend} className="mira-secondary w-full">{copy('resend', chosenLanguage)}</button>}
-        {step > 0 && <button type="button" disabled={pending} className="mira-secondary" onClick={() => {
+        {step > (signingIn ? 3 : 0) && <button type="button" disabled={pending} className="mira-secondary" onClick={() => {
           if (key === 'otp') { challenge.current?.clear(); challenge.current = null; verified.current = null; }
           setStep(previous => previous - 1);
         }}>{copy('back', chosenLanguage)}</button>}

@@ -239,6 +239,16 @@ export const AuthProvider = ({ children }) => {
     return { user, profile, token: idToken };
   };
 
+  const completePhoneSignIn = async credential => {
+    if (!credential?.user?.phoneNumber) throw new Error('Phone verification is incomplete.');
+    const user = credential.user;
+    const idToken = await getIdToken(user, true);
+    const profile = await authApi.syncSession(idToken);
+    localStorage.removeItem(LOCAL_SESSION_KEY);
+    setFirebaseUser(user); setToken(idToken); setIsDemoMode(false); setUserProfile(profile);
+    return { user, profile, token: idToken };
+  };
+
   const loginWithEmail = async (email, password) => {
     setLoading(true);
     setAuthError(null);
@@ -377,6 +387,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: !!firebaseUser,
     registerWithEmail,
     completePhoneRegistration,
+    completePhoneSignIn,
     loginWithEmail,
     loginWithGoogle,
     loginAsDemo,
