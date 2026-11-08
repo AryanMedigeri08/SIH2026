@@ -166,6 +166,8 @@ class DatabaseManager:
         existing_columns = {row[1] for row in self.sqlite.execute("PRAGMA table_info(users)")}
         if "language" not in existing_columns:
             self.sqlite.execute("ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'en'")
+        if "promoter_category" not in existing_columns:
+            self.sqlite.execute("ALTER TABLE users ADD COLUMN promoter_category TEXT NOT NULL DEFAULT 'general'")
         self.sqlite.commit()
         logger.info("DATABASE_URL not set; using durable SQLite fallback at %s.", db_path)
 
@@ -187,6 +189,9 @@ class DatabaseManager:
                 """)
 
                 # Ensure default guest / demo user exists for foreign key references
+                await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'Unspecified'")
+                await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS promoter_category TEXT DEFAULT 'general'")
+                await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS additional_business_details TEXT")
                 try:
                     await conn.execute("""
                         INSERT INTO users (firebase_uid, name, email, language)
@@ -288,6 +293,7 @@ class DatabaseManager:
         phone: Optional[str] = None,
         additional_business_details: Optional[str] = None,
         language: Optional[str] = None,
+        promoter_category: Optional[str] = None,
     ) -> dict[str, Any]:
         now = datetime.now(timezone.utc).isoformat()
         user_record = {
@@ -299,6 +305,7 @@ class DatabaseManager:
             "phone": phone,
             "additional_business_details": additional_business_details,
             "language": language or "en",
+            "promoter_category": promoter_category or "general",
             "created_at": now,
             "updated_at": now,
             "last_login_at": now,
@@ -314,6 +321,8 @@ class DatabaseManager:
                 user_record["additional_business_details"] = existing["additional_business_details"]
             if not language and existing.get("language"):
                 user_record["language"] = existing["language"]
+            if promoter_category is None:
+                user_record["promoter_category"] = existing.get("promoter_category", "general")
 
         self.in_memory_users[firebase_uid] = user_record
 
@@ -322,6 +331,8 @@ class DatabaseManager:
             if existing:
                 user_record["created_at"] = existing["created_at"]
             self.sqlite.execute("INSERT INTO users (firebase_uid, email, name, gender, auth_provider, phone, additional_business_details, language, created_at, updated_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(firebase_uid) DO UPDATE SET email=excluded.email, name=excluded.name, gender=excluded.gender, auth_provider=excluded.auth_provider, phone=COALESCE(excluded.phone, users.phone), additional_business_details=COALESCE(excluded.additional_business_details, users.additional_business_details), language=COALESCE(excluded.language, users.language), updated_at=excluded.updated_at, last_login_at=excluded.last_login_at", (firebase_uid, user_record["email"], user_record["name"], user_record["gender"], user_record["auth_provider"], user_record["phone"], user_record["additional_business_details"], user_record["language"], user_record["created_at"], now, now))
+            self.sqlite.commit()
+            self.sqlite.execute("UPDATE users SET promoter_category=? WHERE firebase_uid=?", (user_record["promoter_category"], firebase_uid))
             self.sqlite.commit()
             return user_record
 
@@ -332,15 +343,18 @@ class DatabaseManager:
                     # persistence layer compatible with it instead of relying
                     # on uncommitted, process-only fallbacks or migrations.
                     row = await conn.fetchrow("""
-                        INSERT INTO users (firebase_uid, name, email, phone, language, created_at)
-                        VALUES ($1, $2, $3, $4, COALESCE($5, 'en'), NOW())
+                        INSERT INTO users (firebase_uid, name, email, phone, language, gender, promoter_category, additional_business_details, created_at)
+                        VALUES ($1, $2, $3, $4, COALESCE($5, 'en'), $6, COALESCE($7, 'general'), $8, NOW())
                         ON CONFLICT (firebase_uid) DO UPDATE SET
                             name = COALESCE(NULLIF(EXCLUDED.name, ''), users.name),
                             email = EXCLUDED.email,
                             phone = COALESCE(EXCLUDED.phone, users.phone),
-                            language = COALESCE(EXCLUDED.language, users.language)
+                            language = COALESCE($5, users.language),
+                            gender = EXCLUDED.gender,
+                            promoter_category = COALESCE($7, users.promoter_category),
+                            additional_business_details = COALESCE($8, users.additional_business_details)
                         RETURNING *;
-                    """, firebase_uid, name, email, phone, language)
+                    """, firebase_uid, name, email, phone, language, gender, promoter_category, additional_business_details)
                     if row:
                         rec = dict(row)
                         for k in ("created_at", "updated_at", "last_login_at"):
@@ -378,7 +392,7 @@ class DatabaseManager:
 
     async def update_user(self, firebase_uid: str, fields: dict[str, Any]) -> Optional[dict[str, Any]]:
         now = datetime.now(timezone.utc).isoformat()
-        allowed_fields = {"name", "phone", "language"}
+        allowed_fields = {"name", "phone", "language", "gender", "promoter_category", "additional_business_details"}
         fields = {key: value for key, value in fields.items() if key in allowed_fields}
         if firebase_uid in self.in_memory_users:
             self.in_memory_users[firebase_uid].update(fields)
