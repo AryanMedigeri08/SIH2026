@@ -850,7 +850,7 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
               <label className="block space-y-2 text-base font-semibold text-slate-900">
                 <span>Describe your business idea (optional)</span>
                 <textarea rows={3} maxLength={600} value={formData.enterprise_idea || ''}
-                  onChange={event => setFormData({ ...formData, enterprise_idea: event.target.value })}
+                  onChange={event => { setContextError(''); setFormData({ ...formData, enterprise_idea: event.target.value }); }}
                   placeholder="What will you make or sell, and who will buy it?"
                   className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-normal focus:outline-none focus:ring-2 focus:ring-purple-700" />
               </label>
@@ -1627,18 +1627,19 @@ export function FeasibilityWizard({ isOpen, onClose, onSubmit, isSubmitting, ini
                   <label className="text-xs font-bold text-slate-700">
                     Supplementary Business Background & Operational Strengths
                   </label>
-                  <span className="text-[10px] text-slate-500 font-mono">
-                    {(formData.additional_business_details || "").length} / 1000 chars
+                  <span className={`text-[10px] font-mono ${combinedBusinessContext(formData).length > 1000 ? 'text-rose-700' : 'text-slate-500'}`}>
+                    {combinedBusinessContext(formData).length} / 1000 total chars
                   </span>
                 </div>
                 <textarea
                   rows={4}
                   maxLength={1000}
                   value={formData.additional_business_details || ""}
-                  onChange={e => setFormData({ ...formData, additional_business_details: e.target.value })}
+                  onChange={e => { setContextError(''); setFormData({ ...formData, additional_business_details: e.target.value }); }}
                   placeholder="e.g. 5 years of family experience in dairy processing; active procurement tie-up with 45 local farmers cooperative; existing cold storage facility equipped with solar backup..."
                   className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-900 leading-relaxed placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sovereign-600 focus:border-sovereign-600 shadow-subtle transition"
                 />
+                <p className="mt-1 text-xs text-slate-600">The total includes your business idea and this additional background.</p>
 
                 {/* Quick Snippet Helpers */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">

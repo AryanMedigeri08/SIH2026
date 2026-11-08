@@ -55,3 +55,8 @@ Run `tests/test_odop_hybrid.py` with the existing planning/financial regressions
 the native Node checks in `odopHybridState.test.js`, and the frontend build.
 The synthetic browser fixture supplies test-only ODOP responses without calling
 real providers or connecting to production data.
+
+Browser verification confirmed No made zero provider calls, Yes made one, and
+revisiting the same result kept the total at one. Both adopting and restoring the
+original idea worked. Editing the primary idea hid the stale score; supplementary
+background edits progressed to the eighth-step review without another evaluation.
