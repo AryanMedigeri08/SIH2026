@@ -31,7 +31,7 @@ export function useMiraSpeech(text, language, enabled = true) {
         }
         if (id !== current.current) return;
         if (!result.audio_base64) return finish();
-        const player = new Audio(`data:audio/${result.audio_format || 'mp3'};base64,${result.audio_base64}`);
+        const player = new Audio(result.audio_base64.startsWith('data:') ? result.audio_base64 : `data:audio/${result.audio_format || 'mp3'};base64,${result.audio_base64}`);
         audio.current = player;
         // Provider responses have no word timestamps. Track playback proportionally;
         // native voices below use actual word-boundary events where available.
