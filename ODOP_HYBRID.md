@@ -1,9 +1,21 @@
 # Optional ODOP hybrid step
 
-Only the existing idea-plus-investment wizard adds this step, immediately after
-Enterprise. The other two planning paths keep their direct-to-dashboard flow.
-The wizard now has eight steps; financial calculations and final appraisal rules
-are unchanged.
+The existing idea-plus-investment wizard has this step immediately after
+Enterprise. The idea-only planner also offers it after collecting details and
+before any project-cost or promoter-equity appraisal. The budget-only planner
+keeps its existing flow. Both planners still open the dashboard directly after
+selecting an appraised plan. The existing wizard has eight steps; financial
+calculations and final appraisal rules are unchanged.
+
+In the idea-only planner, Next opens the shared ODOP component without running
+calculations. No keeps the original idea. Yes requires an explicit choice between
+the proposed combination and the original idea before Compare plans is enabled.
+The chosen name/description reach the existing single planning LLM batch and its
+local fallback. The original catalogue ID, cost tiers, category, rent and funding
+inputs are preserved. Returning to details keeps valid advice; editing the idea
+or location invalidates it. Provider failure or a missing district product always
+allows continuing with the original idea. No makes zero synergy model calls;
+an explicit Yes uses the existing bounded, cached ODOP endpoint described below.
 
 The step explains ODOP and possible branding, packaging, market-link and shared
 service benefits, linking to the [official MoFPI overview](https://www.mofpi.gov.in/en/node/3285).

@@ -7,7 +7,7 @@ import { hybridInput, hybridInputKey, validHybridReview } from './odopHybridStat
 const primary = 'min-h-12 rounded-xl bg-purple-800 px-5 py-3 text-base font-bold text-white hover:bg-purple-900 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-4 focus:ring-purple-200';
 const secondary = 'min-h-12 rounded-xl border-2 border-purple-700 bg-white px-5 py-3 text-base font-bold text-purple-950 hover:bg-purple-50 focus:outline-none focus:ring-4 focus:ring-purple-200';
 
-export function OdopHybridStep({ form, review, onReview, onSelect, onSkip }) {
+export function OdopHybridStep({ form, review, onReview, onSelect, onSkip, title = 'Step 3: ODOP alignment' }) {
   const { token } = useAuth();
   const active = validHybridReview(review, form) ? review : null;
   const [context, setContext] = useState(null);
@@ -46,7 +46,7 @@ export function OdopHybridStep({ form, review, onReview, onSelect, onSkip }) {
   const tone = result?.band === 'recommended' ? 'border-green-300 bg-green-50 text-green-950'
     : result?.band === 'possible' ? 'border-amber-300 bg-amber-50 text-amber-950' : 'border-rose-300 bg-rose-50 text-rose-950';
   return <section className="space-y-5 text-base text-slate-900">
-    <h3 className="flex items-center gap-2 text-xl font-bold"><Sparkles size={22} /> Step 3: ODOP alignment</h3>
+    <h3 className="flex items-center gap-2 text-xl font-bold"><Sparkles size={22} /> {title}</h3>
     <div className="rounded-xl border border-slate-300 bg-slate-50 p-4 space-y-3">
       <p><strong>What is ODOP?</strong> One District One Product promotes products a district is known for.</p>
       <p><strong>Possible benefits:</strong> help with branding, packaging, market links and shared services. Support depends on the product, local facilities and scheme rules.</p>

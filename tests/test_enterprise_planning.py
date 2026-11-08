@@ -110,6 +110,26 @@ def test_custom_idea_requires_description_but_no_quote():
     assert request(business_id="custom", idea_description="A bicycle repair shop").machinery_quote is None
 
 
+def test_selected_hybrid_preserved_in_local_fallback_without_changing_tiers(monkeypatch):
+    original = planner.CATALOGUE["dairy_aggregation"].copy()
+    monkeypatch.setattr(planner, "evaluate_region", AsyncMock(return_value=UNKNOWN_REGION))
+    generate = AsyncMock(wraps=planner.generate_dynamic_business_ideas)
+    monkeypatch.setattr(planner, "generate_dynamic_business_ideas", generate)
+    with frozen_evidence():
+        result = asyncio.run(planner.build_plans(request(
+            enterprise_name="Curd in local food-safe clay pots",
+            idea_description="Make curd with locally sourced milk and food-safe artisan pots.",
+        )))
+    generate.assert_awaited_once()
+    assert [tier["cost"] for tier in generate.call_args.args[1]] == [300000, 600000, 900000]
+    assert result["proposals"]
+    for proposal in result["proposals"]:
+        assert proposal["name"] == "Curd in local food-safe clay pots"
+        assert proposal["input_parameters"]["enterprise_name"] == proposal["name"]
+        assert "artisan pots" in proposal["input_parameters"]["additional_business_details"]
+    assert planner.CATALOGUE["dairy_aggregation"] == original
+
+
 @pytest.mark.parametrize("kw", [{"own_cash": -1}, {"own_cash": float("nan")}, {"state_name": " "},
     {"path": "budget_only", "own_cash": None}, {"machinery_quote": -1}, {"project_cost": 1}])
 def test_invalid_inputs_rejected(kw):
@@ -224,18 +244,26 @@ def test_all_candidates_checked_once_and_only_passing_plans_returned(monkeypatch
 
 
 @pytest.mark.parametrize("provider_error", [False, True])
-def test_one_llm_batch_and_local_fallback_without_retry(monkeypatch, provider_error):
+@pytest.mark.parametrize("path", ["budget_only", "idea_only"])
+def test_one_llm_batch_and_local_fallback_without_retry(monkeypatch, provider_error, path):
     proposals = [{"tier_index": i % 3, "enterprise_name": f"Synthetic idea {i}", "sector": "dairy",
                   "business_category": "manufacturing", "description": "Check this local business", "target_cost": 1} for i in range(6)]
     create = Mock(return_value=SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps({"proposals": proposals})))]))
     if provider_error:
         create.side_effect = RuntimeError("429 rate limit (synthetic)")
     monkeypatch.setattr(planner, "_get_groq_client", lambda: SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))))
-    req = request(path="budget_only", own_cash=60000, business_id=None)
+    req = request(path=path, own_cash=60000,
+                  business_id="dairy_aggregation" if path == "idea_only" else None,
+                  enterprise_name="Curd in local clay pots" if path == "idea_only" else "",
+                  idea_description="Make curd in food-safe locally sourced artisan pots.")
     tiers = planner.calculate_budget_tiers(req.own_cash, req.promoter_category)
     ideas = asyncio.run(planner.generate_dynamic_business_ideas(req, tiers))
     create.assert_called_once()
     assert create.call_args.kwargs["max_tokens"] == 2500
+    if path == "idea_only":
+        prompt = create.call_args.kwargs["messages"][1]["content"]
+        assert req.enterprise_name in prompt
+        assert req.idea_description in prompt
     assert len(ideas) == 3
     assert all(idea["target_cost"] in [t["cost"] for t in tiers] for idea in ideas)
 

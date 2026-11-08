@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Loader2, MapPin } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { planningApi } from '../../services/api';
+import { OdopHybridStep } from '../Wizard/OdopHybridStep';
+import { hybridInputKey, hybridStepReady, validHybridReview } from '../Wizard/odopHybridState';
+import { planningHybridForm, planningPayload } from './planningOdop';
 
 const money = value => value == null ? 'Not yet known' : new Intl.NumberFormat('en-IN', {
   style: 'currency', currency: 'INR', maximumFractionDigits: 0,
@@ -95,6 +98,10 @@ export function EnterprisePlanner({ path, onBack, onAccept }) {
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState(null);
   const [choosing, setChoosing] = useState(null);
+  const [stage, setStage] = useState('details');
+  const [odopReview, setOdopReview] = useState(null);
+  const hybridForm = planningHybridForm(form, choices);
+  const odopReady = hybridStepReady(odopReview, hybridForm);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
@@ -149,19 +156,27 @@ export function EnterprisePlanner({ path, onBack, onAccept }) {
 
   const evaluate = async event => {
     event.preventDefault();
+    if (pending) return;
+    if (path === 'idea_only' && stage === 'details') {
+      setStage('odop'); setError('');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setPending(true); setError('');
     try {
-      const payload = {
-        ...form, path, business_id: path === 'idea_only' ? form.business_id : null,
-        own_cash: form.own_cash === '' ? null : Number(form.own_cash),
-        monthly_rent: form.premise_type === 'rented' ? Number(form.monthly_rent) : 0,
-      };
+      const payload = planningPayload(form, path, choices, odopReview);
       const data = await planningApi.evaluate(token, payload);
       if (mounted.current) { setResult(data); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     } catch (e) {
       if (mounted.current) setError(e.message || 'Could not compare plans. Please try again.');
     } finally { if (mounted.current) setPending(false); }
   };
+
+  const skipOdop = () => setOdopReview(previous => ({
+    ...(validHybridReview(previous, hybridForm) ? previous : {}),
+    input_key: hybridInputKey(hybridForm), original_form: { ...hybridForm },
+    choice: 'no', selection: 'original', busy: false, error: null, adopted_key: null,
+  }));
 
   const accept = async (plan, acknowledge, risk) => {
     setChoosing(plan.proposal_id); setError('');
@@ -187,7 +202,7 @@ export function EnterprisePlanner({ path, onBack, onAccept }) {
     </button>
     <div>
       <h1 className="text-2xl font-bold text-slate-950">{result ? 'Compare your plans' : path === 'budget_only' ? 'Find a business for your money' : 'Find the investment for your idea'}</h1>
-      <p className="mt-2 text-base text-slate-700">{result ? 'These plans have already been appraised. Select one to save your business and open its dashboard.' : 'First, tell us where you will work and what you have available.'}</p>
+      <p className="mt-2 text-base text-slate-700">{result ? 'These plans have already been appraised. Select one to save your business and open its dashboard.' : stage === 'odop' ? 'Choose your idea first. We will then calculate project costs and the own money you need.' : 'First, tell us where you will work and what you have available.'}</p>
     </div>
     {error && <div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-base text-red-900">{error}</div>}
     {result ? <>
@@ -198,9 +213,18 @@ export function EnterprisePlanner({ path, onBack, onAccept }) {
       <div className="grid items-stretch gap-5 lg:grid-cols-3">
         {result.proposals.map(plan => <PlanCard key={plan.proposal_id} plan={plan} choosing={choosing} onChoose={accept} />)}
       </div>
-      <button type="button" disabled={!!choosing} onClick={() => { setResult(null); setError(''); }} className="min-h-12 rounded-xl border-2 border-purple-800 bg-white px-5 py-3 text-base font-bold text-purple-900">Change details and compare again</button>
+      <button type="button" disabled={!!choosing} onClick={() => { setResult(null); setStage('details'); setError(''); }} className="min-h-12 rounded-xl border-2 border-purple-800 bg-white px-5 py-3 text-base font-bold text-purple-900">Change details and compare again</button>
     </> : <form onSubmit={evaluate} className="space-y-6">
       <fieldset disabled={pending} className="space-y-6 disabled:opacity-70">
+        {path === 'idea_only' && stage === 'odop' ? <>
+          <button type="button" onClick={() => { setStage('details'); setError(''); }} className="min-h-12 rounded-xl border-2 border-purple-800 px-5 py-3 font-bold text-purple-950">Back to your details</button>
+          <OdopHybridStep form={hybridForm} review={odopReview} onReview={setOdopReview}
+            title="Check ODOP alignment (optional)" onSkip={skipOdop}
+            onSelect={selection => setOdopReview(previous => ({ ...previous, selection, choice: 'yes' }))} />
+          {odopReady && <p role="status" className="rounded-xl bg-purple-50 p-4 font-semibold text-purple-950">
+            We will calculate costs for {odopReview.choice === 'yes' && odopReview.selection === 'hybrid' ? odopReview.result.hybrid_name : 'your original idea'}.
+          </p>}
+        </> : <>
         <div className="rounded-2xl border border-slate-300 bg-white p-5 space-y-5">
           <h2 className="flex items-center gap-2 text-xl font-bold text-slate-950"><MapPin size={22} /> Where will you start?</h2>
           <div className="grid gap-5 sm:grid-cols-2">
@@ -248,9 +272,10 @@ export function EnterprisePlanner({ path, onBack, onAccept }) {
             {form.premise_type === 'rented' && <Field label="Monthly rent (₹)"><input required type="number" min="0" max="1000000" inputMode="numeric" value={form.monthly_rent} onChange={e => update('monthly_rent', e.target.value)} className={inputClass} /></Field>}
           </div>
         </div>
+        </>}
       </fieldset>
-      <button disabled={pending || !!locationError || !token} className={`${primaryClass} inline-flex items-center justify-center gap-2 w-full sm:w-auto`}>
-        {pending ? <><Loader2 className="animate-spin" size={22} /> Comparing plans…</> : <><CheckCircle2 size={22} /> Compare plans</>}
+      <button disabled={pending || !!locationError || !token || (path === 'idea_only' && stage === 'odop' && !odopReady)} className={`${primaryClass} inline-flex items-center justify-center gap-2 w-full sm:w-auto`}>
+        {pending ? <><Loader2 className="animate-spin" size={22} /> Comparing plans…</> : <><CheckCircle2 size={22} /> {path === 'idea_only' && stage === 'details' ? 'Next: optional ODOP check' : 'Compare plans'}</>}
       </button>
       {pending && <p role="status" aria-live="polite" className="text-base text-slate-700">Generating candidates and checking each with the business model and financial engine. Your selected result will be reused directly in the dashboard. Please keep this page open.</p>}
     </form>}

@@ -11,6 +11,7 @@ class PlanningRequest(BaseModel):
     own_cash: Optional[float] = Field(None, ge=0, le=100000000)
     business_id: Optional[str] = Field(None, max_length=80)
     idea_description: str = Field("", max_length=800)
+    enterprise_name: str = Field("", max_length=160)
     # A quote means plant/equipment only, not total outlay or promoter equity (optional).
     machinery_quote: Optional[float] = Field(None, ge=0, le=55000000)
     custom_sector: Literal["dairy", "food_processing", "repair", "apparel", "fabrication", "general"] = "general"

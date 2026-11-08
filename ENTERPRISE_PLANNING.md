@@ -13,6 +13,14 @@ Idea-only inputs use the supported business reference bands or current custom-id
 tiers. The same bounded batch proposes configurations of that idea. Local
 configurations are used if the provider is unavailable.
 
+Before comparison, idea-only users can evaluate ODOP synergy using the same
+optional check as the existing wizard. They explicitly keep their idea or adopt
+the proposed hybrid, then run the ordinary planning appraisal. Skipping requires
+no synergy model call. Adopting changes the submitted idea/name, including local
+fallback, while preserving the original catalogue ID and cost-sizing rules.
+The shared ODOP endpoint retains its own cache, cooldown and provider limits;
+the subsequent planning batch and all financing formulas remain unchanged.
+
 The LLM describes candidates; it does not supply authoritative financial or
 feasibility results. Generated tier indexes, sectors, business types and duplicate
 names are validated. Project costs come from server tiers. Each candidate runs
