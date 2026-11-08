@@ -11,6 +11,7 @@ import { MiraPlanResults } from './MiraPlanResults';
 import { TranslatedText as T } from '../TranslatedText';
 import { businessContext, conversationForm, conversationPlanningPayload, conversationExistingPayload } from './payloads';
 import { copy } from './copy';
+import { questionCopy as qc } from './questionCopy';
 
 const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value || 0);
 export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJourney }) {
@@ -76,8 +77,9 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
     const answers = { ...draft.answers };
     const affected = field === 'idea' ? ['idea','business_id','sector','business_category','idea_confirmed','odop_choice','enterprise_name','original_idea']
       : ['business_id','sector','business_category'].includes(field) ? ['business_id','sector','business_category','idea_confirmed','odop_choice','enterprise_name']
+      : field === 'odop_choice' ? ['odop_choice','enterprise_name']
       : field === 'own_cash' ? ['own_cash','cash_confirmed'] : field === 'premise_type' ? ['premise_type','monthly_rent'] : [field];
-    if (affected.includes('odop_choice') && answers.original_idea) answers.idea = answers.original_idea;
+    if (affected.includes('odop_choice') && answers.original_idea) { answers.idea = answers.original_idea; delete answers.original_idea; }
     affected.forEach(key => delete answers[key]); delete answers.review_confirmed;
     setPending(true); setError('');
     try {
@@ -126,18 +128,18 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
   if (question === 'loading') prompt = copy('waiting', language);
   if (question === 'idea' && clarification) prompt = clarification.question;
   if (question === 'business_id') {
-    prompt = 'Which business best matches your idea? Choose the closest match, or another business.';
+    prompt = qc('business_id', language);
     const suggested = choices.find(item => item.id === intent?.business_id);
     options = [...(suggested ? [{ value: suggested.id, label: `Suggested match: ${suggested.name}` }] : []),
       ...choices.filter(item => item !== suggested).map(item => ({ value: item.id, label: item.name })), { value: 'custom', label: 'Another business / custom idea' }];
   }
-  if (question === 'sector') { prompt = 'Which sector best matches your business?'; options = ['dairy','food_processing','repair','apparel','fabrication','general'].map(value => ({ value, label: value.replaceAll('_', ' ') })); }
-  if (question === 'business_category') { prompt = 'Will you make products or provide a service?'; options = [{ value: 'manufacturing', label: 'Make products' }, { value: 'service', label: 'Provide a service' }]; }
-  if (question === 'idea_confirmed') { prompt = `Have I understood your idea correctly? ${a.idea}`; options = [{ value: true, label: 'Yes, that is my idea' }]; }
-  if (question === 'cash_confirmed') { prompt = `You can contribute ${money(a.own_cash)} of your own money before any loan. Is that correct?`; options = [{ value: true, label: 'Yes, that is correct' }]; }
+  if (question === 'sector') { prompt = qc('sector', language); options = ['dairy','food_processing','repair','apparel','fabrication','general'].map(value => ({ value, label: value.replaceAll('_', ' ') })); }
+  if (question === 'business_category') { prompt = qc('business_category', language); options = [{ value: 'manufacturing', label: qc('make', language) }, { value: 'service', label: qc('service', language) }]; }
+  if (question === 'idea_confirmed') { prompt = qc('idea_confirmed', language, { idea: a.idea }); options = [{ value: true, label: qc('yesIdea', language) }]; }
+  if (question === 'cash_confirmed') { prompt = qc('cash_confirmed', language, { amount: money(a.own_cash) }); options = [{ value: true, label: qc('yesCorrect', language) }]; }
   if (question === 'premise_type') options = ['owned','rented','panchayat'].map(value => ({ value, label: copy(value, language) }));
   if (question === 'review_confirmed' || question === 'ready') prompt = copy('review', language);
-  const { translated: speech } = useAutoTranslate(prompt);
+  const { translated: speech, isTranslating } = useAutoTranslate(prompt);
   const banner = error && <p role="alert" className="mira-error"><T text={error} /><button type="button" onClick={() => { setError(''); setReload(n => n + 1); }} className="ml-3 underline"><T text="Reload saved progress" /></button></p>;
   if (result) return <>{banner}<MiraPlanResults result={result} pending={pending} onAccept={accept} onEdit={() => edit(draft.journey === 'budget_only' ? 'preferences' : 'idea')} /></>;
   if (project) return <>{banner}<ExistingResult project={project} pending={pending} onContinue={() => onFinish(project, { ...draft, completed: true })} onEdit={() => edit('own_cash')} /></>;
@@ -147,13 +149,16 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
   return <section className="space-y-5">
     {banner}
     <div className="mira-layout">
-      <MiraGuide text={speech} onSpeechControl={stop => { stopSpeech.current = stop; }} />
+      <MiraGuide text={speech} enabled={!isTranslating} onSpeechControl={stop => { stopSpeech.current = stop; }} />
       <div className="mira-card space-y-5">
         {reviewing && <div className="space-y-3">
           {Object.entries(a).filter(([key]) => !['idea_confirmed','cash_confirmed','review_confirmed','original_idea'].includes(key)).map(([key, value]) => <div key={key} className="border-b pb-3">
-            <p className="text-sm font-semibold text-slate-600"><T text={key.replaceAll('_', ' ')} /></p>
-            <p className="break-words text-lg">{value == null ? copy('unknown', language) : typeof value === 'boolean' ? String(value) : String(value)}</p>
-            <button disabled={pending} type="button" className="mt-1 min-h-11 font-bold text-purple-900 underline" onClick={() => edit(key)}><T text="Change answer" /></button>
+            <p className="text-sm font-semibold text-slate-600">{qc(key, language)}</p>
+            <p className="break-words text-lg">{value == null || value === 'unknown' ? copy('unknown', language)
+              : key === 'business_id' ? <T text={choices.find(item => item.id === value)?.name || a.idea} />
+              : key === 'premise_type' ? copy(value, language) : key === 'odop_choice' ? qc(value, language)
+              : ['own_cash','monthly_rent','equipment_quote','project_cost','annual_sales'].includes(key) ? money(value) : String(value)}</p>
+            <button disabled={pending} type="button" className="mt-1 min-h-11 font-bold text-purple-900 underline" onClick={() => edit(key)}>{qc('changeAnswer', language)}</button>
           </div>)}
           {a.premise_type === 'rented' && a.monthly_rent == null && <p className="rounded-lg bg-amber-50 p-3"><T text="Rent is unknown. The existing ₹2,500 monthly estimate will be used; confirm the actual rent before borrowing." /></p>}
           {draft.journey === 'existing' && a.project_cost == null && <p className="rounded-lg bg-amber-50 p-3"><T text="The existing ₹9,00,000 starting project estimate will be sized from the machinery schedule. This is not a supplier quote." /></p>}
@@ -164,10 +169,10 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
             disabled={pending} stopSpeech={() => stopSpeech.current()} options={question === 'review_confirmed' ? [{ value: true, label: copy('yes', language) }] : options}
             optional={['skills','resources','preferences','equipment_quote','project_cost','annual_sales','monthly_rent'].includes(question) || (question === 'own_cash' && draft.journey === 'idea_only')}
             onAnswer={value => answer(value)} maxLength={question === 'enterprise_name' ? 160 : 800} />}
-        {['idea_confirmed','cash_confirmed'].includes(question) && <button disabled={pending} type="button" className="mira-secondary" onClick={() => edit(question === 'idea_confirmed' ? 'idea' : 'own_cash')}><T text="No, change my answer" /></button>}
+        {['idea_confirmed','cash_confirmed'].includes(question) && <button disabled={pending} type="button" className="mira-secondary" onClick={() => edit(question === 'idea_confirmed' ? 'idea' : 'own_cash')}>{qc('noChange', language)}</button>}
       </div>
     </div>
-    <button disabled={pending} type="button" className="mira-secondary" onClick={onChangeJourney}><T text="Choose a different starting point" /></button>
+    <button disabled={pending} type="button" className="mira-secondary" onClick={onChangeJourney}>{qc('differentStart', language)}</button>
   </section>;
 }
 

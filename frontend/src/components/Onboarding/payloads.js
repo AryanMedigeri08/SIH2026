@@ -2,8 +2,9 @@ import { SECTOR_CAPITAL_MULTIPLIERS } from '../Wizard/wizardSizing.js';
 // Map confirmed conversation values to existing API contracts, not new formulas.
 export function businessContext(draft) {
   const a = draft.answers;
-  return [a.idea, a.skills && `Skills: ${a.skills}`, a.resources && `Resources: ${a.resources}`,
-    a.preferences && `Preferences: ${a.preferences}`, a.equipment_quote != null && `Equipment quote: INR ${a.equipment_quote}`]
+  const known = value => value && !['unknown', 'none'].includes(String(value).trim().toLowerCase());
+  return [a.idea, known(a.skills) && `Skills: ${a.skills}`, known(a.resources) && `Resources: ${a.resources}`,
+    known(a.preferences) && `Preferences: ${a.preferences}`, a.equipment_quote != null && `Equipment quote: INR ${a.equipment_quote}`]
     .filter(Boolean).join('\n');
 }
 

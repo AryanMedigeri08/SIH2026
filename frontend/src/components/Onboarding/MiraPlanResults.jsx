@@ -37,6 +37,7 @@ export function MiraPlanResults({ result, onAccept, onEdit, pending }) {
         const f = plan.financial_analysis;
         return <article key={plan.proposal_id} className="mira-card flex flex-col gap-4">
           <h2 className="text-xl font-bold">{i + 1}. <T text={plan.name} /></h2>
+          <p className="font-semibold text-purple-900"><T text={plan.configuration} /></p>
           <p><T text={plan.description} /></p>
           <dl className="space-y-3">{[['Project cost',plan.project_cost],['Own money needed',plan.required_own_money],['Loan',f.loan_principal],['Monthly bank repayment',f.amortization.monthly_emi]].map(([label, value]) =>
             <div key={label} className="flex flex-wrap justify-between gap-2 border-b pb-2"><dt><T text={label} /></dt><dd className="font-extrabold">{money(value)}</dd></div>)}</dl>
@@ -49,7 +50,7 @@ export function MiraPlanResults({ result, onAccept, onEdit, pending }) {
         </article>;
       })}
     </div>}
-    {!current && plans.length > 0 && <div className="mx-auto max-w-xl"><MiraAnswer disabled={pending} onAnswer={value => { setSelected(value); setHeard(null); setAcknowledged(false); }} options={plans.map(plan => ({ value: plan.proposal_id, label: plan.name }))} /></div>}
+    {!current && plans.length > 0 && <div className="mx-auto max-w-xl"><MiraAnswer disabled={pending} onAnswer={value => { setSelected(value); setHeard(null); setAcknowledged(false); }} options={plans.map(plan => ({ value: plan.proposal_id, label: `${plan.configuration}: ${money(plan.project_cost)} — ${plan.name}` }))} /></div>}
     <button type="button" disabled={pending} onClick={onEdit} className="mira-secondary"><T text="Change my answers / explore other options" /></button>
   </section>;
 }
