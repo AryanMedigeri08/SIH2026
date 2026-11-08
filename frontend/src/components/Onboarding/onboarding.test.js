@@ -4,6 +4,7 @@ import { copyRows, languages, copy, registrationSteps } from './copy.js';
 import { conversationForm, conversationExistingPayload, conversationPlanningPayload } from './payloads.js';
 import { SECTOR_CAPITAL_MULTIPLIERS } from '../Wizard/wizardSizing.js';
 import { questionCopyRows } from './questionCopy.js';
+import { indianPhone, normalizeIndicDigits, phoneError } from '../../services/registrationValidation.js';
 
 const profile = { name: 'Test promoter', promoter_category: 'sc', gender: 'Female' };
 const choices = [{ id: 'dairy_aggregation', name: 'Dairy', sector: 'dairy', business_category: 'manufacturing' }];
@@ -72,4 +73,12 @@ test('Unconfirmed location or answers cannot form an appraisal payload', () => {
 
 test('Long descriptions fail visibly instead of silently truncating business context', () => {
   assert.throws(() => conversationPlanningPayload({ ...draft, answers: { ...draft.answers, idea: 'x'.repeat(801) } }, profile, choices));
+});
+
+test('Phone numbers and codes accept Indic digits without modifying names', () => {
+  for (const value of ['9876543210', '+91 98765 43210', '९८७६५४३२१०', '౯౮౭౬౫౪౩౨౧౦', '೯೮೭೬೫೪೩೨೧೦']) assert.equal(indianPhone(value), '+919876543210');
+  assert.equal(normalizeIndicDigits('௧௨௩௪௫௬'), '123456');
+  assert.equal(normalizeIndicDigits('सीमा'), 'सीमा');
+  for (const value of ['123','0000000000','1234567890','987654321099']) assert.throws(() => indianPhone(value));
+  assert.match(phoneError({ code: 'auth/code-expired' }), /expired/);
 });

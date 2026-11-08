@@ -158,3 +158,81 @@ def test_intent_provider_failure_never_blocks_manual_business_selection(monkeypa
     result = asyncio.run(intent.IntentService().interpret('alice', 'मुझे दही बनाकर बेचना है', 'hi'))
     assert result['business_id'] == 'custom'
     assert result['clarification'] == ''
+
+
+def test_mira_tts_enforces_bhashini_female_voice(monkeypatch):
+    from app.routers import chat
+    synthesis = AsyncMock(return_value=b'RIFFsynthetic-wave')
+    fallback = AsyncMock(side_effect=AssertionError('Mira must use Bhashini'))
+    monkeypatch.setattr(chat.bhashini_client, 'synthesize', synthesis)
+    monkeypatch.setattr(chat.audio_chat_service, 'text_to_speech_v2', fallback)
+    result = asyncio.run(chat.generate_speech(chat.TtsRequest(text='नमस्ते', language='hi', provider='bhashini')))
+    synthesis.assert_awaited_once_with('नमस्ते', 'hi', gender='female')
+    assert result['tier_used'] == 'bhashini'
+    assert result['audio_base64'].startswith('data:audio/wav;base64,')
+    fallback.assert_not_called()
+
+
+def test_bhashini_failure_does_not_substitute_another_voice(monkeypatch):
+    from app.routers import chat
+    monkeypatch.setattr(chat.bhashini_client, 'synthesize', AsyncMock(side_effect=RuntimeError('synthetic outage')))
+    fallback = AsyncMock(side_effect=AssertionError('No other voice for Mira'))
+    monkeypatch.setattr(chat.audio_chat_service, 'text_to_speech_v2', fallback)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(chat.generate_speech(chat.TtsRequest(text='Hello', language='en', provider='bhashini')))
+    assert error.value.status_code == 503
+    fallback.assert_not_called()
+
+
+def test_legacy_tts_keeps_existing_auto_behavior(monkeypatch):
+    from app.routers import chat
+    fallback = AsyncMock(return_value={'audio_base64': 'synthetic'})
+    monkeypatch.setattr(chat.audio_chat_service, 'text_to_speech_v2', fallback)
+    assert asyncio.run(chat.generate_speech(chat.TtsRequest(text='Hello')))['audio_base64'] == 'synthetic'
+    fallback.assert_awaited_once_with(text='Hello', language='en')
+
+
+def test_profile_category_language_and_gender_persist_after_memory_reset():
+    from app.database import DatabaseManager
+    connection = sqlite3.connect(':memory:'); connection.row_factory = sqlite3.Row
+    connection.execute('CREATE TABLE users (firebase_uid TEXT PRIMARY KEY,email TEXT,name TEXT,gender TEXT,auth_provider TEXT,phone TEXT,additional_business_details TEXT,language TEXT,promoter_category TEXT,created_at TEXT,updated_at TEXT,last_login_at TEXT)')
+    one = DatabaseManager(); one.sqlite = connection
+    asyncio.run(one.upsert_user('alice', 'synthetic@example.test', 'Test promoter', gender='Female', promoter_category='st', language='kn'))
+    two = DatabaseManager(); two.sqlite = connection
+    asyncio.run(two.upsert_user('alice', 'synthetic@example.test', 'Test promoter', gender='Female'))
+    restored = asyncio.run(two.get_user('alice'))
+    assert (restored['gender'], restored['promoter_category'], restored['language']) == ('Female','st','kn')
+    asyncio.run(two.update_user('alice', {'gender': 'Other', 'promoter_category': 'obc', 'language': 'ta'}))
+    two.in_memory_users.clear()
+    restored = asyncio.run(two.get_user('alice'))
+    assert (restored['gender'], restored['promoter_category'], restored['language']) == ('Other','obc','ta')
+    connection.close()
+
+
+def test_phone_profile_uses_verified_claim_not_typed_number(monkeypatch):
+    from app.routers import auth
+    from app.models.schemas import UserRegisterRequest
+    record = {'firebase_uid': 'alice', 'name': 'Test promoter', 'email': 'synthetic@example.test', 'created_at': '', 'updated_at': ''}
+    save = AsyncMock(return_value=record)
+    monkeypatch.setattr(auth, 'db_manager', SimpleNamespace(upsert_user=save, get_user_projects_count=AsyncMock(return_value=0)))
+    user = AuthenticatedUser(uid='alice', auth_provider='phone', claims={'phone_number': '+919876543210'})
+    asyncio.run(auth.register_user_profile(UserRegisterRequest(name='Test promoter', phone='+919999999999', promoter_category='sc', preferred_language='hi'), user))
+    assert save.call_args.kwargs['phone'] == '+919876543210'
+    assert save.call_args.kwargs['promoter_category'] == 'sc'
+    assert save.call_args.kwargs['language'] == 'hi'
+
+
+def test_explicit_zero_contribution_reaches_existing_pipeline():
+    from app.routers.projects import _project_dict_to_user_input
+    inputs = _project_dict_to_user_input({'project_cost': 300000, 'available_margin_capital': 0})
+    assert inputs.available_margin_capital == 0
+
+
+def test_preview_expiry_does_not_rerun_an_appraisal(monkeypatch):
+    from app.routers import planning
+    from app.core.enterprise_planning import Draft
+    expired = Draft('alice', 1, None, {})
+    monkeypatch.setattr(planning, 'draft_store', SimpleNamespace(get=AsyncMock(return_value=expired)))
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(planning.saved_preview('expired', AuthenticatedUser(uid='alice')))
+    assert error.value.status_code == 410
