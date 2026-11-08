@@ -46,7 +46,10 @@ def next_question(draft):
         return 'journey'
     order = []
     if path != 'budget_only':
-        order += ['idea', 'business_id', 'idea_confirmed', 'odop_choice']
+        order += ['idea', 'business_id']
+        if a.get('business_id') == 'custom':
+            order += ['sector', 'business_category']
+        order += ['idea_confirmed', 'odop_choice']
     if path in {'existing', 'budget_only'}:
         order += ['own_cash', 'cash_confirmed']
     if path == 'budget_only':
@@ -87,6 +90,10 @@ def validated_answer(field, value, path):
         raise HTTPException(422, 'Choose a matching business or a custom idea.')
     if field == 'odop_choice' and value not in {'original', 'hybrid'}:
         raise HTTPException(422, 'Choose the original idea or the combination.')
+    if field == 'sector' and value not in {'dairy', 'food_processing', 'repair', 'apparel', 'fabrication', 'general'}:
+        raise HTTPException(422, 'Choose a supported sector.')
+    if field == 'business_category' and value not in {'manufacturing', 'service'}:
+        raise HTTPException(422, 'Choose making products or providing a service.')
     if not isinstance(value, str) or len(value.strip()) > (800 if field == 'idea' else 160 if field == 'enterprise_name' else 350):
         raise HTTPException(422, 'Please shorten this answer.')
     if field == 'idea' and len(value.strip()) < 10:

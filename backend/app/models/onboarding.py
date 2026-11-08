@@ -28,3 +28,11 @@ class GpsRequest(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
 
+
+class OnboardingAnswer(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    field: str = Field(max_length=40)
+    value: str | float | bool | None
+    hybrid_name: str | None = Field(None, max_length=160)
+    hybrid_description: str | None = Field(None, max_length=600)
+

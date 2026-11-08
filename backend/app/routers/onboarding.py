@@ -4,18 +4,44 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.core.auth_dependency import AuthenticatedUser, get_current_user
 from app.core.onboarding_store import onboarding_store
 from app.core.onboarding_location import resolve_gps, validate_location, location_options
-from app.models.onboarding import OnboardingDraft, OnboardingLocation, GpsRequest
+from app.models.onboarding import OnboardingDraft, OnboardingLocation, GpsRequest, OnboardingAnswer
+from app.core.onboarding_questions import next_question, validated_answer
 
 router = APIRouter(prefix='/onboarding', tags=['Mira onboarding'])
 ALLOWED_ANSWERS = {'idea', 'idea_confirmed', 'business_id', 'sector', 'business_category', 'own_cash',
     'cash_confirmed', 'premise_type', 'monthly_rent', 'skills', 'resources', 'preferences',
-    'equipment_quote', 'project_cost', 'annual_sales', 'enterprise_name', 'review_confirmed', 'odop_choice'}
+    'equipment_quote', 'project_cost', 'annual_sales', 'enterprise_name', 'review_confirmed', 'odop_choice', 'original_idea'}
 gps_requests = {}
 
 
 @router.get('/session')
 async def get_session(user: AuthenticatedUser = Depends(get_current_user)):
     return await onboarding_store.get(user.uid) or OnboardingDraft().model_dump()
+
+
+@router.get('/question')
+async def question(user: AuthenticatedUser = Depends(get_current_user)):
+    draft = await onboarding_store.get(user.uid) or OnboardingDraft().model_dump()
+    return {'draft': draft, 'question': next_question(draft)}
+
+
+@router.post('/answer')
+async def answer(payload: OnboardingAnswer, user: AuthenticatedUser = Depends(get_current_user)):
+    draft = await onboarding_store.get(user.uid) or OnboardingDraft().model_dump()
+    expected = next_question(draft)
+    if payload.field != expected or expected in {'ready', 'location', 'journey'}:
+        raise HTTPException(409, 'This question has changed. Reload the current question before answering.')
+    value = validated_answer(payload.field, payload.value, draft['journey'])
+    answers = draft.setdefault('answers', {})
+    if payload.field == 'odop_choice' and value == 'hybrid':
+        if not payload.hybrid_name or not payload.hybrid_description:
+            raise HTTPException(422, 'Select an evaluated combination or keep your original idea.')
+        answers['original_idea'] = answers['idea']
+        answers['idea'] = payload.hybrid_description
+        answers['enterprise_name'] = payload.hybrid_name
+    answers[payload.field] = value
+    await onboarding_store.save(user.uid, draft)
+    return {'draft': draft, 'question': next_question(draft)}
 
 
 @router.put('/session')
