@@ -27,5 +27,6 @@ export function MiraGuide({ text, centered = false, enabled = true, onSpeechCont
     <button type="button" onClick={speech.speaking ? speech.stop : speech.speak} className="mira-secondary inline-flex items-center justify-center gap-2">
       {speech.speaking ? <VolumeX size={20} /> : <Volume2 size={20} />}{copy(speech.speaking ? 'stop' : 'repeat', language)}
     </button>
+    {speech.unavailable && <p role="status" className="mt-3 text-sm leading-relaxed text-slate-600">{copy('audioUnavailable', language)}</p>}
   </aside>;
 }

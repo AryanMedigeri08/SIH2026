@@ -26,8 +26,6 @@ export function MiraRegisterPage() {
   const input = useRef(null);
   const key = registrationSteps[step];
   const { translated: translatedError } = useAutoTranslate(error);
-  const { translated: phoneNotice } = useAutoTranslate('Google processes your phone number for authentication and abuse prevention. Standard SMS charges may apply.');
-  const { translated: loginText } = useAutoTranslate('Already registered? Sign in');
   useEffect(() => { input.current?.focus(); setError(''); }, [step, chosenLanguage]);
   useEffect(() => () => challenge.current?.clear(), []);
   const update = value => setValues(previous => ({ ...previous, [key]: value }));
@@ -96,7 +94,7 @@ export function MiraRegisterPage() {
               autoComplete={key === 'name' ? 'name' : key === 'phone' ? 'tel-national' : 'one-time-code'}
               maxLength={key === 'name' ? 100 : key === 'phone' ? 14 : 6} pattern={key === 'otp' ? '[0-9]{6}' : undefined} />
           </label>}
-          {key === 'phone' && <p className="text-sm text-slate-600">{phoneNotice}</p>}
+          {key === 'phone' && <p className="text-sm text-slate-600">{copy('phoneNotice', chosenLanguage)}</p>}
           <div id="mira-phone-recaptcha" className={key === 'phone' || key === 'otp' ? '' : 'hidden'} />
           {error && <p role="alert" className="mira-error">{translatedError}</p>}
           <button className="mira-primary w-full" disabled={pending}>{copy(pending ? 'waiting' : key === 'phone' ? 'sendCode' : key === 'otp' ? 'verify' : 'next', chosenLanguage)}</button>
@@ -106,7 +104,7 @@ export function MiraRegisterPage() {
           if (key === 'otp') { challenge.current?.clear(); challenge.current = null; verified.current = null; }
           setStep(previous => previous - 1);
         }}>{copy('back', chosenLanguage)}</button>}
-        <Link to="/login" className="block font-semibold text-purple-900 underline">{loginText}</Link>
+        <Link to="/login" className="block font-semibold text-purple-900 underline">{copy('existingAccount', chosenLanguage)}</Link>
       </section>
     </div>
   </div></main>;

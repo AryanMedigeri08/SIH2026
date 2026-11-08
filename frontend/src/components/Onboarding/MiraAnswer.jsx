@@ -37,21 +37,22 @@ export function MiraAnswer({ onAnswer, disabled, stopSpeech, options = [], optio
     } else onAnswer(text);
   };
   const busy = disabled || transcribing;
+  const silenceMira = () => { stopSpeech?.(); window.dispatchEvent(new Event('mira:stop-speech')); };
   return <form onSubmit={submit} className="space-y-4">
     {options.length > 0 && <div className="grid gap-3 max-h-80 overflow-y-auto p-1">
       {options.map((option, i) => <button type="button" key={String(option.value)} disabled={busy || recorder.isRecording}
-        onClick={() => { stopSpeech?.(); onAnswer(option.value); }} className="mira-secondary text-left">
+        onClick={() => { silenceMira(); onAnswer(option.value); }} className="mira-secondary text-left">
         <span className="mr-2 opacity-60">{i + 1}.</span>{labels[i] || option.label}
       </button>)}
     </div>}
     <label className="block space-y-2 font-semibold">
       <span>{copy('type', language)}</span>
       <textarea className="mira-input" rows={options.length ? 1 : 3} value={text} maxLength={maxLength}
-        disabled={busy || recorder.isRecording} onFocus={stopSpeech} onChange={event => setText(event.target.value)} />
+        disabled={busy || recorder.isRecording} onFocus={silenceMira} onChange={event => setText(event.target.value)} />
     </label>
     <div className="flex flex-wrap gap-3">
       <button type="button" disabled={busy} aria-pressed={recorder.isRecording} className={`mira-secondary inline-flex items-center gap-2 ${recorder.isRecording ? '!border-rose-600 !text-rose-800' : ''}`}
-        onClick={() => { stopSpeech?.(); recorder.isRecording ? recorder.stopRecording() : recorder.startRecording(); }}>
+        onClick={() => { silenceMira(); recorder.isRecording ? recorder.stopRecording() : recorder.startRecording(); }}>
         {recorder.isRecording ? <Square size={20} /> : <Mic size={20} />}{copy(recorder.isRecording ? 'stop' : 'speak', language)}
       </button>
       <button disabled={busy || recorder.isRecording || !text.trim()} className="mira-primary">{copy(busy ? 'waiting' : 'next', language)}</button>

@@ -39,25 +39,26 @@ export function MiraLocation({ location, onConfirm, detecting = false }) {
       const payload = { ...values, source: manual ? 'manual' : 'gps', confirmed: true,
         latitude: manual ? null : location?.latitude ?? null, longitude: manual ? null : location?.longitude ?? null };
       const result = await onboardingApi.confirm(token, payload);
-      onConfirm(result);
+      await onConfirm(result);
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   };
   const complete = fields.every(key => values[key]);
+  const nextMissing = fields.findIndex(key => !values[key]);
   return <div className="mira-layout">
     <MiraGuide text={`${copy(manual ? 'manual' : 'location', language)}${!manual ? ` ${fields.slice().reverse().map(key => values[key]).filter(Boolean).join(', ')}` : ''}`} />
     <section className="mira-card space-y-5">
       {detecting && <p role="status">{copy('waiting', language)}</p>}
       {manual ? fields.map((field, i) => <label key={field} className="block space-y-2 font-bold">
         <span>{copy(field.replace('_name', ''), language)}</span>
-        <select className="mira-input" required value={values[field]} disabled={busy || (i > 0 && !values[fields[i - 1]])}
+        <select className="mira-input" required value={values[field]} disabled={busy || detecting || (i > 0 && !values[fields[i - 1]])}
           onChange={event => setValues(previous => ({ ...previous, [field]: event.target.value, ...Object.fromEntries(fields.slice(i + 1).map(key => [key, ''])) }))}>
           <option value="">—</option>{(options[levels[i]] || []).map(value => <option key={value} value={value}>{value}</option>)}
         </select>
       </label>) : <p className="text-xl font-semibold leading-relaxed">{fields.slice().reverse().map(key => values[key]).filter(Boolean).join(', ')}</p>}
-      {manual && !busy && Object.values(options).some(list => list.length === 0) && <p className="text-slate-700">{empty}</p>}
+      {manual && !busy && nextMissing >= 0 && options[levels[nextMissing]]?.length === 0 && <p className="text-slate-700">{empty}</p>}
       {error && <p role="alert" className="mira-error">{problem}</p>}
-      {manual && <button type="button" onClick={() => setRetry(n => n + 1)} className="mira-secondary">{copy('repeat', language)}</button>}
+      {manual && <button type="button" onClick={() => setRetry(n => n + 1)} className="mira-secondary">{copy('retry', language)}</button>}
       <button type="button" disabled={!complete || busy || detecting} className="mira-primary w-full" onClick={confirm}>{copy(busy ? 'waiting' : 'yes', language)}</button>
       {!manual && <button type="button" className="mira-secondary w-full" onClick={() => setManual(true)}>{copy('change', language)}</button>}
     </section>

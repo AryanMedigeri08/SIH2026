@@ -52,5 +52,6 @@ export function useMiraSpeech(text, language, enabled = true) {
     await provider();
   }, [text, language, stop]);
   useEffect(() => { if (enabled) speak(); else stop(); return stop; }, [speak, stop, enabled]);
+  useEffect(() => { window.addEventListener('mira:stop-speech', stop); return () => window.removeEventListener('mira:stop-speech', stop); }, [stop]);
   return { word, speaking, speak, stop, unavailable };
 }
