@@ -43,7 +43,7 @@ function PlanCard({ plan, onChoose, choosing }) {
     {plan.equity_gap > 0 && <p className="rounded-lg bg-amber-50 p-3 font-semibold text-amber-950">
       You need {money(plan.equity_gap)} more own money. Review funding options before starting.
     </p>}
-    <p className="text-sm text-slate-700">{plan.cost_source === 'user_equipment_quote' ? 'Based on your equipment quote. Other costs are estimates.' : 'Catalogue estimate. Confirm equipment and local prices.'}</p>
+    <p className="text-sm text-slate-700">{plan.cost_source === 'user_equipment_quote' ? 'Based on your equipment quote. Other costs are estimates.' : 'Dynamic estimate calibrated to sector benchmarks. Machinery schedule configured automatically.'}</p>
     <details className="rounded-xl bg-slate-50 p-3 text-slate-800">
       <summary className="cursor-pointer py-1 text-base font-bold">Why this plan? See details</summary>
       <div className="mt-3 space-y-3 text-base">
@@ -80,7 +80,7 @@ function PlanCard({ plan, onChoose, choosing }) {
 export function EnterprisePlanner({ path, onBack, onAccept }) {
   const { token, userProfile } = useAuth();
   const [form, setForm] = useState({
-    own_cash: '', business_id: '', idea_description: '', machinery_quote: '', custom_sector: 'general', custom_category: 'manufacturing',
+    own_cash: '', business_id: '', idea_description: '', custom_sector: 'general', custom_category: 'manufacturing',
     promoter_name: userProfile?.name || '', gender: ['Male', 'Female', 'Other'].find(g => g.toLowerCase() === userProfile?.gender?.toLowerCase()) || 'Unspecified', promoter_category: 'general',
     state_name: '', district_name: '', block_name: '', village_name: '', is_rural: true,
     premise_type: 'owned', monthly_rent: '',
@@ -153,7 +153,6 @@ export function EnterprisePlanner({ path, onBack, onAccept }) {
       const payload = {
         ...form, path, business_id: path === 'idea_only' ? form.business_id : null,
         own_cash: form.own_cash === '' ? null : Number(form.own_cash),
-        machinery_quote: path === 'idea_only' && form.machinery_quote !== '' ? Number(form.machinery_quote) : null,
         monthly_rent: form.premise_type === 'rented' ? Number(form.monthly_rent) : 0,
       };
       const data = await planningApi.evaluate(token, payload);
@@ -216,7 +215,7 @@ export function EnterprisePlanner({ path, onBack, onAccept }) {
               <select required value={form.business_id} onChange={e => update('business_id', e.target.value)} className={inputClass}>
                 <option value="">Choose a business</option>
                 {choices.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                <option value="custom">Another business — I have a setup quote</option>
+                <option value="custom">Another business (Custom Idea)</option>
               </select>
             </Field>
             {form.business_id === 'custom' && <div className="grid gap-5 sm:grid-cols-2">
@@ -232,9 +231,6 @@ export function EnterprisePlanner({ path, onBack, onAccept }) {
           <Field label={path === 'budget_only' ? 'How much own money can you invest? (₹)' : 'Own money available, if known (₹, optional)'} hint="Enter your own contribution, not the loan or total project cost. Leave blank if unknown; enter 0 if none is available.">
             <input type="number" required={path === 'budget_only'} min="0" max="100000000" step="1" inputMode="numeric" value={form.own_cash} onChange={e => update('own_cash', e.target.value)} className={inputClass} />
           </Field>
-          {path === 'idea_only' && <Field label={`Equipment/setup quote (₹${form.business_id === 'custom' ? ', required' : ', optional'})`} hint="Equipment cost only. We use the existing machinery allocation to estimate total outlay. Without a quote, supported businesses use labelled catalogue estimates.">
-            <input type="number" required={form.business_id === 'custom'} min="550" max="55000000" step="1" inputMode="numeric" value={form.machinery_quote} onChange={e => update('machinery_quote', e.target.value)} className={inputClass} />
-          </Field>}
         </div>
         <div className="rounded-2xl border border-slate-300 bg-white p-5 space-y-5">
           <h2 className="text-xl font-bold text-slate-950">About you and your workspace</h2>

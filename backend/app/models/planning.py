@@ -11,8 +11,8 @@ class PlanningRequest(BaseModel):
     own_cash: Optional[float] = Field(None, ge=0, le=100000000)
     business_id: Optional[str] = Field(None, max_length=80)
     idea_description: str = Field("", max_length=800)
-    # A quote means plant/equipment only, not total outlay or promoter equity.
-    machinery_quote: Optional[float] = Field(None, gt=0, le=55000000)
+    # A quote means plant/equipment only, not total outlay or promoter equity (optional).
+    machinery_quote: Optional[float] = Field(None, ge=0, le=55000000)
     custom_sector: Literal["dairy", "food_processing", "repair", "apparel", "fabrication", "general"] = "general"
     custom_category: Literal["manufacturing", "service"] = "manufacturing"
     state_name: str = Field(..., min_length=1, max_length=100)
@@ -32,8 +32,8 @@ class PlanningRequest(BaseModel):
             raise ValueError("Enter available own money, including zero if none is available.")
         if self.path == "idea_only" and not self.business_id:
             raise ValueError("Choose the business type that matches your idea.")
-        if self.business_id == "custom" and (not self.machinery_quote or len(self.idea_description) < 10):
-            raise ValueError("For another business, describe the product/service and enter a machinery/setup quote.")
+        if self.business_id == "custom" and len(self.idea_description) < 10:
+            raise ValueError("For another business, describe what you want to make or sell (at least 10 characters).")
         return self
 
 
