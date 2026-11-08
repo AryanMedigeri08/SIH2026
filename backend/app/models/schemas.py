@@ -4,6 +4,7 @@ schemas.py — Pydantic v2 Request & Response Data Schemas for Udyam Saathi REST
 
 from __future__ import annotations
 from typing import Optional, Union, Any
+from typing import Literal
 from pydantic import BaseModel, Field
 
 
@@ -27,6 +28,8 @@ class UserRegisterRequest(BaseModel):
     name: str = Field(..., min_length=1, description="Full Name of Entrepreneur")
     gender: Optional[str] = Field("Unspecified", description="Male | Female | Other | Unspecified")
     phone: Optional[str] = Field(None, description="Mobile / Contact number")
+    promoter_category: Optional[Literal['general', 'sc', 'st', 'obc', 'women', 'artisan', 'women_shg']] = None
+    preferred_language: Optional[str] = Field(None, pattern="^(en|hi|mr|ta|te|kn)$")
     additional_business_details: Optional[str] = Field(None, max_length=1000, description="Optional free-text context for AI narrative")
 
 
@@ -34,6 +37,7 @@ class UserUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1)
     gender: Optional[str] = None
     phone: Optional[str] = None
+    promoter_category: Optional[Literal['general', 'sc', 'st', 'obc', 'women', 'artisan', 'women_shg']] = None
     additional_business_details: Optional[str] = Field(None, max_length=1000)
     preferred_language: Optional[str] = Field(None, pattern="^(en|hi|mr|ta|te|kn)$")
 
@@ -45,6 +49,7 @@ class UserProfileResponse(BaseModel):
     gender: Optional[str] = "Unspecified"
     auth_provider: str = "email"
     phone: Optional[str] = None
+    promoter_category: str = "general"
     additional_business_details: Optional[str] = None
     preferred_language: str = "en"
     projects_count: int = 0
