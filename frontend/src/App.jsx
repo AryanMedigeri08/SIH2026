@@ -18,7 +18,8 @@ import { MobileReportTabs } from './components/MobileReportTabs';
 // Public & Auth Pages
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
-import { RegisterPage } from './pages/RegisterPage';
+import { MiraRegisterPage as RegisterPage } from './pages/MiraRegisterPage';
+import { MiraOnboardingPage } from './pages/MiraOnboardingPage';
 
 // Routed Appraisal Pages
 import { OverviewPage } from './pages/report/OverviewPage';
@@ -160,7 +161,7 @@ export function AppContent() {
   } = useBusiness();
   const { language } = useLanguage();
 
-  const isAuthOrLanding = ['/', '/landing', '/login', '/register'].includes(location.pathname);
+  const isAuthOrLanding = ['/', '/landing', '/login', '/register', '/onboarding'].includes(location.pathname);
 
   // Health check on app start
   useEffect(() => {
@@ -281,6 +282,7 @@ export function AppContent() {
         <Route path="/landing" element={<Navigate to="/" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/onboarding" element={<ProtectedRoute><MiraOnboardingPage /></ProtectedRoute>} />
       </Routes>
     );
   }
