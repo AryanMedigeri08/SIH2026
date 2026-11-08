@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { copyRows, languages, copy, registrationSteps } from './copy.js';
 import { conversationForm, conversationExistingPayload, conversationPlanningPayload } from './payloads.js';
 import { SECTOR_CAPITAL_MULTIPLIERS } from '../Wizard/wizardSizing.js';
+import { questionCopyRows } from './questionCopy.js';
 
 const profile = { name: 'Test promoter', promoter_category: 'sc', gender: 'Female' };
 const choices = [{ id: 'dairy_aggregation', name: 'Dairy', sector: 'dairy', business_category: 'manufacturing' }];
@@ -11,9 +12,9 @@ const draft = { journey: 'idea_only', language: 'hi', location: { confirmed: tru
 
 test('Registration asks one field in the requested order, with six complete catalogues', () => {
   assert.deepEqual(registrationSteps, ['name','gender','category','phone','otp']);
-  for (const [key, row] of Object.entries(copyRows)) {
+  for (const [key, row] of Object.entries({ ...copyRows, ...questionCopyRows })) {
     assert.equal(row.length, languages.length, key);
-    for (const language of languages) assert.ok(copy(key, language).trim().length > 0);
+    for (const value of row) assert.ok(value.trim().length > 0);
   }
 });
 

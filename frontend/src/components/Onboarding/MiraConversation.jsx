@@ -139,7 +139,9 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
   if (question === 'cash_confirmed') { prompt = qc('cash_confirmed', language, { amount: money(a.own_cash) }); options = [{ value: true, label: qc('yesCorrect', language) }]; }
   if (question === 'premise_type') options = ['owned','rented','panchayat'].map(value => ({ value, label: copy(value, language) }));
   if (question === 'review_confirmed' || question === 'ready') prompt = copy('review', language);
-  const { translated: speech, isTranslating } = useAutoTranslate(prompt);
+  // Routine prompts are already in the selected language. Do not send them to
+  // translation again or momentarily speak an English fallback.
+  const speech = prompt;
   const banner = error && <p role="alert" className="mira-error"><T text={error} /><button type="button" onClick={() => { setError(''); setReload(n => n + 1); }} className="ml-3 underline"><T text="Reload saved progress" /></button></p>;
   if (result) return <>{banner}<MiraPlanResults result={result} pending={pending} onAccept={accept} onEdit={() => edit(draft.journey === 'budget_only' ? 'preferences' : 'idea')} /></>;
   if (project) return <>{banner}<ExistingResult project={project} pending={pending} onContinue={() => onFinish(project, { ...draft, completed: true })} onEdit={() => edit('own_cash')} /></>;
@@ -149,7 +151,7 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
   return <section className="space-y-5">
     {banner}
     <div className="mira-layout">
-      <MiraGuide text={speech} enabled={!isTranslating} onSpeechControl={stop => { stopSpeech.current = stop; }} />
+      <MiraGuide text={speech} onSpeechControl={stop => { stopSpeech.current = stop; }} />
       <div className="mira-card space-y-5">
         {reviewing && <div className="space-y-3">
           {Object.entries(a).filter(([key]) => !['idea_confirmed','cash_confirmed','review_confirmed','original_idea'].includes(key)).map(([key, value]) => <div key={key} className="border-b pb-3">

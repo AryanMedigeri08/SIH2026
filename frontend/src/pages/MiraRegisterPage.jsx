@@ -20,6 +20,7 @@ export function MiraRegisterPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [retryAt, setRetryAt] = useState(0);
+  const [clock, setClock] = useState(Date.now());
   const challenge = useRef(null);
   const verified = useRef(null);
   const busy = useRef(false);
@@ -28,6 +29,7 @@ export function MiraRegisterPage() {
   const { translated: translatedError } = useAutoTranslate(error);
   useEffect(() => { input.current?.focus(); setError(''); }, [step, chosenLanguage]);
   useEffect(() => () => challenge.current?.clear(), []);
+  useEffect(() => { if (key !== 'otp') return; const timer = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(timer); }, [key]);
   const update = value => setValues(previous => ({ ...previous, [key]: value }));
   const send = async () => {
     indianPhone(values.phone);
@@ -99,7 +101,7 @@ export function MiraRegisterPage() {
           {error && <p role="alert" className="mira-error">{translatedError}</p>}
           <button className="mira-primary w-full" disabled={pending}>{copy(pending ? 'waiting' : key === 'phone' ? 'sendCode' : key === 'otp' ? 'verify' : 'next', chosenLanguage)}</button>
         </form>
-        {key === 'otp' && <button type="button" disabled={pending} onClick={resend} className="mira-secondary w-full">{copy('resend', chosenLanguage)}</button>}
+        {key === 'otp' && <button type="button" disabled={pending || clock < retryAt} onClick={resend} className="mira-secondary w-full">{copy('resend', chosenLanguage)}{clock < retryAt ? ` (${Math.ceil((retryAt - clock) / 1000)})` : ''}</button>}
         {step > (signingIn ? 3 : 0) && <button type="button" disabled={pending} className="mira-secondary" onClick={() => {
           if (key === 'otp') { challenge.current?.clear(); challenge.current = null; verified.current = null; }
           setStep(previous => previous - 1);
