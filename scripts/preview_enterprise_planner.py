@@ -62,7 +62,7 @@ async def synthetic_tts():
     return {'audio_base64': '', 'language': 'en', 'latency_s': 0}
 
 
-async def synthetic_options(level, **parents):
+async def synthetic_options(level, state='', district='', block=''):
     return {'states': ['West Bengal'], 'districts': ['Bankura'], 'blocks': ['Test block'], 'villages': ['Test village']}[level]
 
 
