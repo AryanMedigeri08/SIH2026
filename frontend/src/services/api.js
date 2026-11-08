@@ -596,12 +596,13 @@ export const chatApi = {
     return await res.json();
   },
 
-  async generateTts(text, language = 'en', token = null) {
+  async generateTts(text, language = 'en', token = null, options = {}) {
     return await authFetch(`${API_BASE}/chat/tts`, token, {
       method: 'POST',
       body: JSON.stringify({
         text,
         language,
+        ...options,
       }),
     });
   },

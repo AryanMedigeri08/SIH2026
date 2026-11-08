@@ -6,6 +6,7 @@ from __future__ import annotations
 import time
 import json
 import asyncio
+import base64
 import logging
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Literal
@@ -64,6 +65,7 @@ class ChatCompletionResponse(BaseModel):
 class TtsRequest(BaseModel):
     text: str = Field(..., min_length=1, description="Text to synthesize to speech")
     language: Optional[str] = Field(default="en", description="Target language code (en, hi, mr, ta, te, kn)")
+    provider: Literal['auto', 'bhashini'] = 'auto'
 
 
 class TtsResponse(BaseModel):
@@ -243,11 +245,25 @@ async def generate_speech(payload: TtsRequest):
     """
     try:
         logger.info("🔊 [TTS ROUTER] Request: \"%s\" (lang=%s)", payload.text[:50], payload.language)
+        if payload.provider == 'bhashini':
+            started = time.perf_counter()
+            language = normalize_lang(payload.language or 'en')
+            try:
+                audio = await bhashini_client.synthesize(payload.text, language, gender='female')
+                if not audio:
+                    raise ValueError('Empty speech audio')
+            except Exception:
+                raise HTTPException(503, 'Bhashini voice is temporarily unavailable. Please use the text or try Hear again.')
+            return {'audio_base64': f'data:audio/wav;base64,{base64.b64encode(audio).decode()}',
+                    'language': language, 'language_name': chat_service.LANGUAGE_NAMES.get(language, language),
+                    'latency_s': round(time.perf_counter() - started, 3), 'tier_used': 'bhashini'}
         result = await audio_chat_service.text_to_speech_v2(
             text=payload.text,
             language=payload.language or "en",
         )
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("TTS generation error: %s", e, exc_info=True)
         raise HTTPException(
