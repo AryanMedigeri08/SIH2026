@@ -33,6 +33,7 @@ def reply(score=85):
 
 @pytest.fixture
 def setup(monkeypatch):
+    monkeypatch.setenv("GROQ_MODEL", "openai/gpt-oss-20b")
     now = [1000.0]
     monkeypatch.setattr(hybrid.time, "time", lambda: now[0])
     completion = Mock(return_value=SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(reply())))]))
@@ -59,7 +60,15 @@ def test_cached_results_one_provider_call_no_financial_evaluation(setup, monkeyp
     result2 = asyncio.run(service.evaluate("alice", request()))
     assert result2["cached"] is True
     completion.assert_called_once()
-    assert completion.call_args.kwargs["max_tokens"] == 1000
+    options = completion.call_args.kwargs
+    assert options["max_completion_tokens"] == 1000
+    assert options["reasoning_effort"] == "low"
+    assert options["include_reasoning"] is False
+    contract = options["response_format"]["json_schema"]
+    assert options["response_format"]["type"] == "json_schema"
+    assert contract["strict"] is True
+    assert contract["schema"]["additionalProperties"] is False
+    assert set(contract["schema"]["required"]) == set(contract["schema"]["properties"])
     payload = json.loads(completion.call_args.kwargs["messages"][1]["content"])
     assert payload["district_odop"]["odop_product"] == "Terracotta Pottery & Dokra Metal Craft"
     assert payload["enterprise"]["enterprise_name"] == "Village dairy"
@@ -83,6 +92,60 @@ def test_invalid_provider_score_is_unavailable_not_fabricated(setup, score):
     assert error.value.status_code == 503
     assert store.memory["alice"]["payload"] is None
     assert service.active == 0
+    completion.assert_called_once()
+
+
+def test_exact_numeric_integer_score_does_not_fail_validation(setup):
+    service, _, completion, _ = setup
+    completion.return_value.choices[0].message.content = json.dumps(reply(85.0))
+    result = asyncio.run(service.evaluate("alice", request()))
+    assert result["score"] == 85
+    assert type(result["score"]) is int
+    assert result["band"] == "recommended"
+
+
+def test_truncated_provider_response_is_not_cached_or_retried(setup):
+    service, store, completion, _ = setup
+    completion.return_value.choices[0].finish_reason = "length"
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(service.evaluate("alice", request()))
+    assert error.value.status_code == 503
+    assert "cut short" in error.value.detail
+    assert store.memory["alice"]["payload"] is None
+    completion.assert_called_once()
+
+
+def test_other_models_do_not_receive_unsupported_schema_or_reasoning_flags():
+    assert hybrid.output_options("llama-3.3-70b-versatile") == {"response_format": {"type": "json_object"}}
+
+
+def test_provider_diagnostics_do_not_log_raw_payloads(setup, caplog):
+    service, _, completion, _ = setup
+    extra = {**reply(), "synthetic-private-text": "Must not appear in logs"}
+    completion.return_value.choices[0].message.content = json.dumps(extra)
+    with pytest.raises(HTTPException):
+        asyncio.run(service.evaluate("alice", request()))
+    assert "extra_forbidden" in caplog.text
+    assert "synthetic-private-text" not in caplog.text
+    assert "Must not appear in logs" not in caplog.text
+
+
+@pytest.mark.parametrize("score,accepted", [(85,True),(85.0,True),(85.5,False),(-1,False)])
+def test_provider_json_error_reuses_only_a_complete_valid_answer_without_retry(setup, score, accepted):
+    service, store, completion, _ = setup
+    class JsonRejected(Exception):
+        status_code = 400
+        body = {"error": {"code": "json_validate_failed", "failed_generation": json.dumps(reply(score))}}
+    completion.side_effect = JsonRejected()
+    if accepted:
+        result = asyncio.run(service.evaluate("alice", request()))
+        assert result["score"] == 85
+        assert asyncio.run(service.evaluate("alice", request()))["cached"] is True
+    else:
+        with pytest.raises(HTTPException) as error:
+            asyncio.run(service.evaluate("alice", request()))
+        assert error.value.status_code == 503
+        assert store.memory["alice"]["payload"] is None
     completion.assert_called_once()
 
 

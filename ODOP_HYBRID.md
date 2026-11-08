@@ -42,6 +42,12 @@ The final deterministic/XGBoost appraisal still evaluates the chosen business.
   results. A changed primary idea or location invalidates the displayed score.
 - One model request on an explicit Yes. Existing Groq configuration is reused with
   zero SDK retries, a 12-second timeout and a 1,000-token output ceiling.
+  GPT-OSS uses strict JSON-schema output with low reasoning effort and a concise
+  response to keep the assessment inside that ceiling. Fractional/invalid scores
+  remain rejected; exact numeric integers such as 85.0 are preserved as 85.
+  If Groq's JSON-mode error includes an already-generated answer, it is reused
+  only when the complete app schema validates it. No second request is made;
+  incomplete answers and invalid scores remain unavailable.
 - Results for the owner's latest unchanged input are cached for 24 hours in a
   separate PostgreSQL/shared SQLite table. A request hash includes the district
   record, model and prompt version. The two deployed workers share the cache.
@@ -60,3 +66,10 @@ Browser verification confirmed No made zero provider calls, Yes made one, and
 revisiting the same result kept the total at one. Both adopting and restoring the
 original idea worked. Editing the primary idea hid the stale score; supplementary
 background edits progressed to the eighth-step review without another evaluation.
+
+`scripts/check_odop_hybrid_provider.py` makes one manual synthetic live provider
+request for integration diagnostics. It prints only status, token/length metadata
+and validation field/type codes; it never prints keys, model text or real business
+data. Live checks reproduced `json_validate_failed` before the structured-output
+fix and returned two consecutive valid assessments afterward, within the same
+1,000-token cap. There are no automatic retries or token-budget increases.

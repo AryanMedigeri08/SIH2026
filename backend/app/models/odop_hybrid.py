@@ -1,6 +1,7 @@
 """Optional business-synergy advice; never a financial/eligibility override."""
 from typing import Annotated, Literal
-from pydantic import BaseModel, ConfigDict, Field
+import math
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 ShortText = Annotated[str, Field(min_length=1, max_length=350)]
 
@@ -28,3 +29,12 @@ class HybridAssessment(BaseModel):
     practical_steps: list[ShortText] = Field(min_length=1, max_length=3)
     risks: list[ShortText] = Field(max_length=3)
     missing_information: list[ShortText] = Field(max_length=3)
+
+    @field_validator("score", mode="before")
+    @classmethod
+    def exact_integer_score(cls, value):
+        # JSON providers may serialize an integer as 85.0. Accept only that exact
+        # numeric representation; never round fractions or coerce strings/bools.
+        if isinstance(value, float) and math.isfinite(value) and value.is_integer():
+            return int(value)
+        return value
