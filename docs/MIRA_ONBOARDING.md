@@ -24,7 +24,9 @@ memory, outside speech/LLM payloads and saved drafts. Firebase Console must enab
 Phone auth and authorize the deployment domain for real SMS delivery.
 
 Routine questions use translated templates without chat-model calls. Speech input
-uses existing STT; TTS failure falls back to browser speech or readable text.
+uses existing STT. Mira requests Bhashini with `gender=female` exclusively;
+Bhashini failure leaves readable text and an explicit replay control, rather than
+silently changing the voice. Other existing chat TTS clients retain auto fallback.
 Microphone stays off until selected. Speech is canceled on navigation and input.
 Resume sessions are owner-scoped and must not replay a submitted calculation.
 
@@ -33,3 +35,53 @@ ambiguous location, six language catalogues, all three cases, stale ODOP results
 unknown/zero cash, numeric units, duplicate submit, saved appraisal handoff, and
 existing financial snapshot tests. Synthetic fixtures must make no real SMS or
 paid provider calls.
+
+## Implemented routes and presentation
+
+Landing Register opens `/register`: language, typed name, gender, social category,
+phone and six-digit SMS code, one field at a time. `/register?signin=1` supports
+returning phone users. Email/Google/evaluator sign-in remains available at `/login`.
+Registration finishes at `/onboarding`, with centered animated Mira and three
+journey cards. GPS resolution runs against backend location records; the selected
+business location is confirmed once before questions. Missing/inexact GPS matches
+show cascading manual state/district/block/village selection without a fabricated
+first-result substitute. When the LGD service is unavailable, real postal locality
+records are labelled as postal/taluk provenance; the existing rural planning default
+is unverified in that fallback, not a new amenities/population classification model.
+
+The supplied female portrait is integrated at `frontend/public/images/mira-avatar.png`
+with RGBA transparency, also reused by both dashboard assistant surfaces. Existing
+word highlighting follows audio playback progress: Bhashini's current response has
+no word timestamps, so this is proportional highlighting, not forced alignment.
+Speech promises are bounded/cached, canceled on navigation/input, and never run once
+per word. Static questions/readbacks have six-language templates. Dynamic reports,
+catalogue labels and provider explanations use the existing translation service.
+
+`/api/v2/onboarding/session`, `/question`, `/answer`, `/interpret`, and location
+endpoints are authenticated. No OTP, phone number or audio enters onboarding drafts
+or idea interpretation. The draft survives process restarts with PostgreSQL/SQLite.
+Interpretation is optional and bounded (one 700-token attempt, no SDK retries,
+10-second owner interval, at most two active requests per worker). Its failure
+leaves manual business selection available. Existing ODOP/planning limits remain.
+
+Cases 2/3 use the existing planning batch/appraisal/accept endpoints. Owner-scoped
+preview replay does not call providers, XGBoost or financial evaluation. Case 1
+uses existing machinery and create-and-analyze services; existing turnover constants
+are shared with the legacy wizard. Explicit zero contribution is now retained by
+project-to-pipeline mapping rather than being replaced by an unknown value. No
+financial equations, subsidy rules or viability thresholds were changed.
+
+## Verification and deployment
+
+Run `tests/test_mira_onboarding.py` alongside the planning, ODOP, provider budget,
+financial baseline and SCA suites. Run native Node tests in Onboarding/Planning/
+Wizard and `npm run build`. The synthetic browser fixture verified Hindi
+registration field progression, manual location confirmation, ODOP evaluation and
+adoption, unknown investment, three appraised project sizes, explicit funding/risk
+acknowledgements and direct dashboard handoff. No real SMS was sent during QA.
+
+Real phone delivery requires Firebase Phone auth and authorized domains; Bhashini
+requires its existing configured credentials/pipeline. Restart the backend to apply
+additive user-column migrations and register the new endpoints. Do not enable fake
+OTP or development-token fallback for phone auth. Synthetic preview servers must
+not be deployed in place of the real backend.

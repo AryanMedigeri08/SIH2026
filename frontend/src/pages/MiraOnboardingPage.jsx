@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useBusiness } from '../context/BusinessContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -16,7 +16,6 @@ export function MiraOnboardingPage() {
   const { adoptEvaluatedBusiness } = useBusiness();
   const { language } = useLanguage();
   const navigate = useNavigate();
-  const route = useLocation();
   const [draft, setDraft] = useState(null);
   const [phase, setPhase] = useState('loading');
   const [detecting, setDetecting] = useState(false);

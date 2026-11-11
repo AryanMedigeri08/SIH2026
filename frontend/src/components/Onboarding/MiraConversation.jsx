@@ -74,6 +74,7 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
   };
   const edit = async field => {
     if (guard.current) return;
+    guard.current = true;
     const answers = { ...draft.answers };
     const affected = field === 'idea' ? ['idea','business_id','sector','business_category','idea_confirmed','odop_choice','enterprise_name','original_idea']
       : ['business_id','sector','business_category'].includes(field) ? ['business_id','sector','business_category','idea_confirmed','odop_choice','enterprise_name']
@@ -88,7 +89,7 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
       const state = await onboardingApi.question(token);
       setResult(null); setProject(null); setIntent(null); setClarification(null); apply(state);
     } catch (err) { setError(err.message); }
-    finally { setPending(false); }
+    finally { guard.current = false; setPending(false); }
   };
   const calculate = async () => {
     if (guard.current) return;
@@ -122,6 +123,13 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
     } catch (err) { setError(err.message); }
     finally { guard.current = false; if (alive.current) setPending(false); }
   };
+  const finishExisting = async () => {
+    if (guard.current) return;
+    guard.current = true; setPending(true); setError('');
+    try { await onFinish(project, { ...draft, completed: true }); }
+    catch (err) { if (alive.current) setError(err.message); }
+    finally { guard.current = false; if (alive.current) setPending(false); }
+  };
   const a = draft.answers;
   let prompt = copy(question, language);
   let options = [];
@@ -144,7 +152,7 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
   const speech = prompt;
   const banner = error && <p role="alert" className="mira-error"><T text={error} /><button type="button" onClick={() => { setError(''); setReload(n => n + 1); }} className="ml-3 underline"><T text="Reload saved progress" /></button></p>;
   if (result) return <>{banner}<MiraPlanResults result={result} pending={pending} onAccept={accept} onEdit={() => edit(draft.journey === 'budget_only' ? 'preferences' : 'idea')} /></>;
-  if (project) return <>{banner}<ExistingResult project={project} pending={pending} onContinue={() => onFinish(project, { ...draft, completed: true })} onEdit={() => edit('own_cash')} /></>;
+  if (project) return <>{banner}<ExistingResult project={project} pending={pending} onContinue={finishExisting} onEdit={() => edit('own_cash')} /></>;
   const form = conversationForm(draft, userProfile, choices);
   if (question === 'odop_choice') return <>{banner}<MiraOdop form={form} disabled={pending} onBack={() => edit('idea')} onChoice={(choice, result) => answer(choice, choice === 'hybrid' ? { hybrid_name: result.hybrid_name, hybrid_description: result.hybrid_description } : {})} /></>;
   if (['journey','location'].includes(question)) return <>{banner}<button className="mira-primary" onClick={onChangeJourney}>{qc('differentStart', language)}</button></>;
