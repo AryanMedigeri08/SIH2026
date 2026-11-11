@@ -1,4 +1,83 @@
-.mira-page{min-height:100dvh;background:#faf8ff;color:#211536;padding:24px 16px}.mira-shell{max-width:1100px;margin:auto}.mira-layout{display:grid;grid-template-columns:minmax(260px, .85fr) minmax(300px,1.15fr);gap:40px;align-items:center;min-height:75dvh}.mira-guide{text-align:left;max-width:600px}.mira-centered{text-align:center;margin:auto}.mira-avatar{width:180px;max-width:48vw;animation:mira-float 5s ease-in-out infinite}.mira-centered .mira-avatar{margin:auto}.mira-name{font-size:20px;font-weight:800;margin:12px 0}.mira-caption{font-size:clamp(1.2rem,2.4vw,1.65rem);line-height:1.8;min-height:100px;margin-bottom:20px}.mira-active-word{background:#e9d5ff;color:#4c1d95;border-radius:5px;box-shadow:0 0 0 3px #e9d5ff}.mira-card{border:1px solid #ddd6e7;background:white;border-radius:24px;padding:clamp(20px,4vw,36px);box-shadow:0 8px 35px #4c1d9509}.mira-primary,.mira-secondary{min-height:52px;border-radius:14px;padding:12px 20px;font-size:17px;font-weight:750}.mira-primary{background:#5b21b6;color:white;border:2px solid #5b21b6}.mira-primary:hover{background:#4c1d95}.mira-secondary{background:white;color:#4c1d95;border:2px solid #b7a1ce}.mira-primary:disabled,.mira-secondary:disabled{opacity:.5;cursor:not-allowed}.mira-primary:focus-visible,.mira-secondary:focus-visible,.mira-input:focus-visible{outline:4px solid #c4b5fd;outline-offset:3px}.mira-input{width:100%;min-height:56px;border:2px solid #9f8fb3;border-radius:14px;padding:14px;font-size:19px;color:#211536;background:white}.mira-error{background:#fff1f2;border:1px solid #fda4af;color:#881337;padding:16px;border-radius:14px}.mira-eyes{transform-origin:120px 108px;animation:mira-blink 6s infinite}.mira-speaking .mira-mouth{transform-origin:120px 140px;animation:mira-talk .45s infinite alternate}@keyframes mira-talk{to{transform:scaleY(1.6)}}@keyframes mira-blink{0%,46%,50%,100%{transform:scaleY(1)}48%{transform:scaleY(.12)}}@keyframes mira-float{50%{transform:translateY(-5px)}}@media(max-width:700px){.mira-layout{grid-template-columns:1fr;gap:20px;min-height:0}.mira-avatar{width:110px}.mira-guide{text-align:center}.mira-guide .mira-avatar{margin:auto}.mira-caption{min-height:0;font-size:1.25rem}.mira-page{padding:16px 12px}}@media(prefers-reduced-motion:reduce){.mira-avatar,.mira-eyes,.mira-mouth{animation:none!important}}
-.mira-speaking img{animation:mira-attentive .8s ease-in-out infinite alternate;transform-origin:50% 90%}
-@keyframes mira-attentive{to{transform:translateY(-2px) rotate(.3deg)}}
-@media(prefers-reduced-motion:reduce){.mira-speaking img{animation:none!important}}
+.mira-page { min-height:100dvh; background:radial-gradient(ellipse at 0 0,#f1eaff 0,transparent 55%),#faf8ff; color:#211536; padding:24px 16px; }
+.mira-shell { max-width:1100px; margin:auto; }
+.mira-layout { display:grid; grid-template-columns:minmax(260px,.85fr) minmax(300px,1.15fr); gap:40px; align-items:center; min-height:70dvh; }
+.mira-guide { text-align:left; max-width:600px; }
+.mira-centered { text-align:center; margin:auto; }
+.mira-avatar { position:relative; isolation:isolate; width:180px; max-width:48vw; animation:mira-float 5s ease-in-out infinite; }
+.mira-avatar::before { content:''; position:absolute; inset:12% -10% 6%; z-index:-1; border-radius:50%; background:#ddd0fb; filter:blur(26px); opacity:.45; transition:background .3s,opacity .3s; }
+.mira-centered .mira-avatar { margin:auto; }
+.mira-speaking::before { background:#c4a1fa; opacity:.85; animation:mira-glow 1.3s ease-in-out infinite alternate; }
+.mira-listening::before { background:#5eead4; opacity:.65; }
+.mira-thinking::before { background:#fde68a; opacity:.65; animation:mira-glow 1.8s ease-in-out infinite alternate; }
+.mira-speaking img { animation:mira-attentive .8s ease-in-out infinite alternate; transform-origin:50% 90%; }
+.mira-status { display:flex; align-items:center; gap:10px; margin:14px 0; font-size:14px; font-weight:700; color:#6b5385; }
+.mira-centered .mira-status { justify-content:center; }
+.mira-status[data-state=listening] { color:#0f766e; }
+.mira-sound-bars { display:inline-flex; align-items:center; gap:3px; height:22px; }
+.mira-sound-bars i { width:3px; height:5px; border-radius:3px; background:currentColor; }
+.mira-status[data-state=speaking] i,.mira-status[data-state=listening] i { animation:mira-wave .65s ease-in-out infinite alternate; animation-delay:calc(var(--bar) * -.13s); }
+.mira-caption { font-size:clamp(1.2rem,2.4vw,1.65rem); line-height:1.8; min-height:100px; margin-bottom:20px; }
+.mira-active-word { background:#e9d5ff; color:#4c1d95; border-radius:5px; box-shadow:0 0 0 3px #e9d5ff; }
+.mira-card { border:1px solid #ddd6e7; background:white; border-radius:24px; padding:clamp(20px,4vw,36px); box-shadow:0 8px 35px #4c1d9509; }
+.mira-primary,.mira-secondary { min-height:52px; border-radius:14px; padding:12px 20px; font-size:17px; font-weight:750; transition:background .18s,transform .18s; }
+.mira-primary { background:#5b21b6; color:white; border:2px solid #5b21b6; box-shadow:0 4px 12px #5b21b620; }
+.mira-primary:hover { background:#4c1d95; }
+.mira-secondary { background:white; color:#4c1d95; border:2px solid #b7a1ce; }
+.mira-primary:disabled,.mira-secondary:disabled,.mira-voice-button:disabled { opacity:.5; cursor:not-allowed; }
+.mira-primary:focus-visible,.mira-secondary:focus-visible,.mira-input:focus-visible,.mira-voice-button:focus-visible { outline:4px solid #c4b5fd; outline-offset:3px; }
+.mira-input { width:100%; min-height:56px; border:2px solid #9f8fb3; border-radius:14px; padding:14px; font-size:19px; color:#211536; background:white; }
+.mira-error { background:#fff1f2; border:1px solid #fda4af; color:#881337; padding:16px; border-radius:14px; }
+.mira-choices { display:grid; gap:12px; min-width:0; }
+.mira-choices-long { max-height:390px; overflow-y:auto; padding:4px; scrollbar-color:#c4b5fd transparent; }
+.mira-choice { position:relative; display:flex; align-items:center; gap:12px; min-height:76px; padding:16px; border:2px solid #e1d9ec; border-radius:17px; cursor:pointer; background:#fff; transition:background .18s,border-color .18s,box-shadow .18s,transform .18s; }
+.mira-choice:hover { border-color:#a78bce; background:#faf7ff; transform:translateY(-1px); }
+.mira-choice-selected { border-color:#6d28d9; background:#f4edff; box-shadow:0 0 0 3px #ede3fc; }
+.mira-choice input { position:absolute; width:1px; height:1px; opacity:0; }
+.mira-choice:has(input:focus-visible) { outline:4px solid #c4b5fd; outline-offset:3px; }
+.mira-choice:has(input:disabled) { opacity:.55; cursor:not-allowed; transform:none; }
+.mira-choice-number { flex-shrink:0; display:grid; place-items:center; width:30px; height:30px; border-radius:9px; background:#f2edf7; color:#735c8c; font-size:14px; font-weight:700; }
+.mira-choice-selected .mira-choice-number { background:#6d28d9; color:#fff; }
+.mira-choice-label { flex:1; font-size:17px; line-height:1.5; font-weight:650; }
+.mira-choice-check { display:grid; place-items:center; width:24px; height:24px; flex-shrink:0; border:2px solid #d4c8e1; border-radius:50%; color:white; }
+.mira-choice-selected .mira-choice-check { background:#6d28d9; border-color:#6d28d9; }
+.mira-voice-button { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:8px 12px; color:#62467e; background:#f5f1fa; border:1px solid #e5ddee; border-radius:12px; font-weight:650; }
+.mira-recording { color:#9f1239; background:#fff1f2; border-color:#fda4af; }
+.mira-transcript { background:#f5f1fa; padding:12px 16px; border-radius:12px; color:#503c68; }
+.mira-navigation { display:flex; justify-content:space-between; align-items:center; gap:12px; border-top:1px solid #eee8f4; padding-top:20px; }
+.mira-progress { position:sticky; top:8px; z-index:10; border:1px solid #e5dced; border-radius:20px; background:#ffffffed; backdrop-filter:blur(12px); padding:16px 20px; margin-bottom:20px; box-shadow:0 4px 24px #4c1d9506; }
+.mira-progress-heading { display:flex; justify-content:space-between; gap:12px; color:#58327c; }
+.mira-progress-track { height:7px; background:#eee8f6; border-radius:20px; overflow:hidden; margin-top:12px; }
+.mira-progress-fill { height:100%; background:linear-gradient(90deg,#8b5cf6,#5b21b6); border-radius:20px; transition:width .5s ease; }
+.mira-milestones { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; margin:12px 0 0; list-style:none; padding:0; }
+.mira-milestones li { display:flex; align-items:center; gap:6px; color:#847390; font-size:12px; }
+.mira-milestones li>span { width:20px; height:20px; display:grid; place-items:center; border-radius:50%; background:#f1ecf7; font-size:10px; }
+.mira-milestones .mira-milestone-current { color:#5b21b6; font-weight:800; }
+.mira-milestone-current>span { background:#ede3ff!important; box-shadow:0 0 0 2px #c4b5fd; }
+.mira-milestones .mira-milestone-done { color:#087f6e; }
+.mira-milestone-done>span { background:#dcfce7!important; }
+.mira-progress-hint { color:#766682; font-size:13px; line-height:1.5; margin-top:10px; }
+.mira-question-enter { animation:mira-enter .28s ease-out; }
+@keyframes mira-float { 50% { transform:translateY(-5px); } }
+@keyframes mira-attentive { to { transform:translateY(-2px) rotate(.3deg); } }
+@keyframes mira-glow { to { opacity:.5; transform:scale(1.08); } }
+@keyframes mira-wave { to { height:21px; } }
+@keyframes mira-enter { from { opacity:.5; transform:translateY(7px); } to { opacity:1; transform:none; } }
+@media(max-width:700px) {
+  .mira-layout { grid-template-columns:1fr; gap:20px; min-height:0; }
+  .mira-avatar { width:100px; }
+  .mira-guide { text-align:center; }
+  .mira-guide .mira-avatar { margin:auto; }
+  .mira-status { justify-content:center; }
+  .mira-caption { min-height:0; font-size:1.2rem; margin-bottom:12px; }
+  .mira-page { padding:16px 12px; }
+  .mira-progress { padding:12px 14px; top:4px; border-radius:16px; }
+  .mira-progress-hint { display:none; }
+  .mira-milestones { gap:7px; }
+  .mira-milestones li { font-size:10px; gap:4px; }
+  .mira-choice { padding:13px; min-height:68px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .mira-avatar,.mira-speaking img,.mira-avatar::before,.mira-sound-bars i,.mira-question-enter { animation:none!important; }
+  .mira-progress-fill,.mira-choice { transition:none; }
+  .mira-choice:hover { transform:none; }
+}
