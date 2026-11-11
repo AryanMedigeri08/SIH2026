@@ -1,14 +1,18 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, Square } from 'lucide-react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, Mic, Square } from 'lucide-react';
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAutoTranslate } from '../../hooks/useAutoTranslate';
 import { chatApi } from '../../services/api';
 import { copy } from './copy';
+import { resolveSpokenChoice } from './answerChoices';
 
-export function MiraAnswer({ onAnswer, disabled, stopSpeech, options = [], optional = false, initial = '', maxLength = 800 }) {
+export function MiraAnswer({ onAnswer, onBack, disabled, stopSpeech, options = [], optional = false, initial = '', maxLength = 800 }) {
   const { language } = useLanguage();
-  const [text, setText] = useState(initial);
+  const groupId = useId();
+  const [text, setText] = useState(initial == null ? '' : String(initial));
+  const [selected, setSelected] = useState(() => options.find(option => option.value === initial)?.value);
+  const [transcript, setTranscript] = useState('');
   const [transcribing, setTranscribing] = useState(false);
   const [error, setError] = useState('');
   const alive = useRef(true);
@@ -16,47 +20,61 @@ export function MiraAnswer({ onAnswer, disabled, stopSpeech, options = [], optio
   const optionKey = JSON.stringify(options);
   const rawLabels = useMemo(() => options.map(item => item.label), [optionKey]);
   const { translated: labels } = useAutoTranslate(rawLabels);
+  const hasOptions = options.length > 0;
+  const silenceMira = () => { stopSpeech?.(); window.dispatchEvent(new Event('mira:stop-speech')); };
   const recorder = useVoiceRecorder({ maxDurationMs: 45000, onRecordingComplete: async blob => {
     setTranscribing(true); setError('');
     try {
       const result = await chatApi.transcribeAudio(blob, language);
-      if (alive.current) setText(result.transcript || '');
+      if (!alive.current) return;
+      if (hasOptions) {
+        const choice = resolveSpokenChoice(result.transcript, options, labels);
+        setTranscript(result.transcript || ''); setSelected(choice);
+        if (choice === undefined) setError('Please tap an option, or say its number.');
+      } else setText(result.transcript || '');
     } catch (err) { if (alive.current) setError(err.message); }
     finally { if (alive.current) setTranscribing(false); }
   } });
   useEffect(() => { alive.current = true; return () => { alive.current = false; recorder.cancelRecording(); }; }, []);
-  const submit = event => {
-    event.preventDefault(); stopSpeech?.();
-    if (options.length) {
-      const normalized = text.trim().toLocaleLowerCase().replace(/[.!।]/g, '');
-      const index = Number(normalized) - 1;
-      const match = options.find((option, i) => [String(option.value).toLocaleLowerCase(), option.label.toLocaleLowerCase(), String(labels[i]).toLocaleLowerCase()].includes(normalized));
-      if (match) onAnswer(match.value);
-      else if (Number.isInteger(index) && options[index]) onAnswer(options[index].value);
-      else setError('Choose an option, or say or type its number.');
-    } else onAnswer(text);
-  };
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('mira:answer-state', { detail: recorder.isRecording ? 'listening' : transcribing || disabled ? 'thinking' : 'idle' }));
+    return () => window.dispatchEvent(new CustomEvent('mira:answer-state', { detail: 'idle' }));
+  }, [recorder.isRecording, transcribing, disabled]);
   const busy = disabled || transcribing;
-  const silenceMira = () => { stopSpeech?.(); window.dispatchEvent(new Event('mira:stop-speech')); };
-  return <form onSubmit={submit} className="space-y-4">
-    {options.length > 0 && <div className="grid gap-3 max-h-80 overflow-y-auto p-1">
-      {options.map((option, i) => <button type="button" key={String(option.value)} disabled={busy || recorder.isRecording}
-        onClick={() => { silenceMira(); onAnswer(option.value); }} className="mira-secondary text-left">
-        <span className="mr-2 opacity-60">{i + 1}.</span>{labels[i] || option.label}
-      </button>)}
-    </div>}
-    <label className="block space-y-2 font-semibold">
+  const submit = event => {
+    event.preventDefault(); silenceMira();
+    if (busy || recorder.isRecording || (hasOptions ? selected === undefined : !text.trim())) return;
+    onAnswer(hasOptions ? selected : text);
+  };
+  return <form onSubmit={submit} className="space-y-5">
+    {hasOptions ? <fieldset className={`mira-choices ${options.length <= 4 ? 'mira-choices-short' : 'mira-choices-long'}`} disabled={busy || recorder.isRecording}>
+      <legend className="mb-3 text-sm font-semibold text-slate-600">{copy('chooseOne', language)}</legend>
+      {options.map((option, i) => <label key={String(option.value)} className={`mira-choice ${selected === option.value ? 'mira-choice-selected' : ''}`}>
+        <input type="radio" name={groupId} value={String(i)} checked={selected === option.value} onChange={() => {
+          silenceMira(); setSelected(option.value); setError(''); setTranscript('');
+        }} />
+        <span className="mira-choice-number" aria-hidden="true">{i + 1}</span>
+        <span className="mira-choice-label">{labels[i] || option.label}</span>
+        <span className="mira-choice-check" aria-hidden="true">{selected === option.value && <Check size={18} />}</span>
+      </label>)}
+    </fieldset> : <label className="block space-y-2 font-semibold">
       <span>{copy('type', language)}</span>
-      <textarea className="mira-input" rows={options.length ? 1 : 3} value={text} maxLength={maxLength}
+      <textarea className="mira-input" rows={3} value={text} maxLength={maxLength}
         disabled={busy || recorder.isRecording} onFocus={silenceMira} onChange={event => setText(event.target.value)} />
-    </label>
-    <div className="flex flex-wrap gap-3">
-      <button type="button" disabled={busy} aria-pressed={recorder.isRecording} className={`mira-secondary inline-flex items-center gap-2 ${recorder.isRecording ? '!border-rose-600 !text-rose-800' : ''}`}
+    </label>}
+    {transcript && <p role="status" className="mira-transcript">{copy('heard', language)} <span className="font-semibold">{transcript}</span></p>}
+    <div className="flex flex-wrap items-center gap-3">
+      <button type="button" disabled={busy} aria-pressed={recorder.isRecording} className={`mira-voice-button ${recorder.isRecording ? 'mira-recording' : ''}`}
         onClick={() => { silenceMira(); recorder.isRecording ? recorder.stopRecording() : recorder.startRecording(); }}>
-        {recorder.isRecording ? <Square size={20} /> : <Mic size={20} />}{copy(recorder.isRecording ? 'stop' : 'speak', language)}
+        {recorder.isRecording ? <Square size={19} /> : <Mic size={19} />}{copy(recorder.isRecording ? 'stopRecording' : 'speak', language)}
       </button>
-      <button disabled={busy || recorder.isRecording || !text.trim()} className="mira-primary">{copy(busy ? 'waiting' : 'next', language)}</button>
-      {optional && <button type="button" disabled={busy || recorder.isRecording} onClick={() => { stopSpeech?.(); onAnswer('unknown'); }} className="mira-secondary">{copy('unknown', language)}</button>}
+      {optional && <button type="button" disabled={busy || recorder.isRecording} onClick={() => { silenceMira(); onAnswer('unknown'); }} className="mira-voice-button">{copy('unknown', language)}</button>}
+    </div>
+    <div className="mira-navigation">
+      {onBack && <button type="button" disabled={busy || recorder.isRecording} onClick={() => { silenceMira(); onBack(); }} className="mira-secondary inline-flex items-center justify-center gap-2"><ArrowLeft size={19} />{copy('back', language)}</button>}
+      <button disabled={busy || recorder.isRecording || (hasOptions ? selected === undefined : !text.trim())} className="mira-primary ml-auto inline-flex items-center justify-center gap-2">
+        {copy(busy ? 'waiting' : 'next', language)}<ArrowRight size={19} />
+      </button>
     </div>
     {(error || recorder.error) && <p role="alert" className="mira-error">{problem || recorder.error}</p>}
     {transcribing && <p role="status">{copy('waiting', language)}</p>}
