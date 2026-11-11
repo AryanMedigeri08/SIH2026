@@ -85,3 +85,29 @@ requires its existing configured credentials/pipeline. Restart the backend to ap
 additive user-column migrations and register the new endpoints. Do not enable fake
 OTP or development-token fallback for phone auth. Synthetic preview servers must
 not be deployed in place of the real backend.
+
+## Choice-first UX and navigation
+
+Fixed-choice questions use selectable radio cards and an explicit Continue action.
+They have no textarea. Free-form idea, money and background questions retain text
+and opt-in voice input. Spoken choices resolve to a single available option and
+are confirmed with Continue; ambiguous speech never silently chooses an option.
+
+The server returns the actual question sequence and completed count. The progress
+bar includes these answers plus appraisal and acceptance, with no simulated timer.
+Conditional rent/custom-business questions change the sequence. Milestone hints
+use the six-language catalogue, without extra LLM calls.
+
+Back reviews saved answers without deleting them. Continuing an unchanged answer
+makes no interpretation, appraisal or revision request. Changed answers use the
+authenticated revision endpoint: investment edits require contribution confirmation;
+business edits invalidate ODOP context; affected previews and final confirmation
+are invalidated while unrelated answers remain. Reviewing an ODOP choice can keep
+the saved choice without requesting another evaluation.
+
+Mira's portrait glow, status and sound bars follow actual playback, recording and
+answer-processing state. Reduced-motion preferences disable these animations.
+The browser fixture confirmed selection/Continue, restored choices through Back,
+conditional rent removal, zero textareas on option-only screens, and no horizontal
+overflow at phone width. Fixture audio is intentionally muted; real Bhashini speech
+availability was not inferred from this browser check.
