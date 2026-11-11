@@ -4,6 +4,7 @@ import { useAutoTranslate } from '../../hooks/useAutoTranslate';
 import { TranslatedText as T } from '../TranslatedText';
 import { MiraGuide } from './MiraGuide';
 import { MiraAnswer } from './MiraAnswer';
+import { copy } from './copy';
 
 const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value || 0);
 export function MiraPlanResults({ result, onAccept, onEdit, pending }) {
@@ -11,6 +12,7 @@ export function MiraPlanResults({ result, onAccept, onEdit, pending }) {
   const [selected, setSelected] = useState(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [heard, setHeard] = useState(null);
+  const [voiceSelection, setVoiceSelection] = useState(false);
   const plans = result.proposals;
   const current = plans.find(plan => plan.proposal_id === selected);
   const prompt = current ? acknowledged && current.concerns.length
@@ -31,6 +33,7 @@ export function MiraPlanResults({ result, onAccept, onEdit, pending }) {
       <h2 className="text-2xl font-bold"><T text={current.name} /></h2>
       {current.concerns.map((text, i) => <p className="rounded-lg bg-amber-50 p-3 text-amber-950" key={i}><T text={text} /></p>)}
       <MiraAnswer key={`${selected}:${acknowledged}:${language}`} disabled={pending} onAnswer={choose}
+        onBack={() => { setHeard(null); acknowledged ? setAcknowledged(false) : setSelected(null); }}
         options={[{ value: true, label: 'Yes, I understand and want to continue' }, { value: false, label: 'No, let me choose another plan' }]} />
     </div> : <div className="grid gap-5 lg:grid-cols-3">
       {plans.map((plan, i) => {
@@ -50,7 +53,12 @@ export function MiraPlanResults({ result, onAccept, onEdit, pending }) {
         </article>;
       })}
     </div>}
-    {!current && plans.length > 0 && <div className="mx-auto max-w-xl"><MiraAnswer disabled={pending} onAnswer={value => { setSelected(value); setHeard(null); setAcknowledged(false); }} options={plans.map(plan => ({ value: plan.proposal_id, label: `${plan.configuration}: ${money(plan.project_cost)} — ${plan.name}` }))} /></div>}
+    {!current && plans.length > 0 && <div className="mx-auto max-w-xl space-y-4">
+      <button type="button" aria-expanded={voiceSelection} disabled={pending} className="mira-voice-button" onClick={() => setVoiceSelection(value => !value)}>{copy('speak', language)}</button>
+      {voiceSelection && <MiraAnswer disabled={pending} showChoices={false} onBack={() => setVoiceSelection(false)}
+        onAnswer={value => { setSelected(value); setHeard(null); setAcknowledged(false); setVoiceSelection(false); }}
+        options={plans.map(plan => ({ value: plan.proposal_id, label: `${plan.configuration}: ${money(plan.project_cost)} — ${plan.name}` }))} />}
+    </div>}
     <button type="button" disabled={pending} onClick={onEdit} className="mira-secondary"><T text="Change my answers / explore other options" /></button>
   </section>;
 }

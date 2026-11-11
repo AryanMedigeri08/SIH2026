@@ -7,7 +7,7 @@ import { chatApi } from '../../services/api';
 import { copy } from './copy';
 import { resolveSpokenChoice } from './answerChoices';
 
-export function MiraAnswer({ onAnswer, onBack, disabled, stopSpeech, options = [], optional = false, initial = '', maxLength = 800 }) {
+export function MiraAnswer({ onAnswer, onBack, disabled, stopSpeech, options = [], showChoices = true, optional = false, initial = '', maxLength = 800 }) {
   const { language } = useLanguage();
   const groupId = useId();
   const [text, setText] = useState(initial == null ? '' : String(initial));
@@ -47,7 +47,7 @@ export function MiraAnswer({ onAnswer, onBack, disabled, stopSpeech, options = [
     onAnswer(hasOptions ? selected : text);
   };
   return <form onSubmit={submit} className="space-y-5">
-    {hasOptions ? <fieldset className={`mira-choices ${options.length <= 4 ? 'mira-choices-short' : 'mira-choices-long'}`} disabled={busy || recorder.isRecording}>
+    {hasOptions ? showChoices ? <fieldset className={`mira-choices ${options.length <= 4 ? 'mira-choices-short' : 'mira-choices-long'}`} disabled={busy || recorder.isRecording}>
       <legend className="mb-3 text-sm font-semibold text-slate-600">{copy('chooseOne', language)}</legend>
       {options.map((option, i) => <label key={String(option.value)} className={`mira-choice ${selected === option.value ? 'mira-choice-selected' : ''}`}>
         <input type="radio" name={groupId} value={String(i)} checked={selected === option.value} onChange={() => {
@@ -57,12 +57,13 @@ export function MiraAnswer({ onAnswer, onBack, disabled, stopSpeech, options = [
         <span className="mira-choice-label">{labels[i] || option.label}</span>
         <span className="mira-choice-check" aria-hidden="true">{selected === option.value && <Check size={18} />}</span>
       </label>)}
-    </fieldset> : <label className="block space-y-2 font-semibold">
+    </fieldset> : <p className="font-semibold text-purple-950">{copy('chooseByVoice', language)}</p> : <label className="block space-y-2 font-semibold">
       <span>{copy('type', language)}</span>
       <textarea className="mira-input" rows={3} value={text} maxLength={maxLength}
         disabled={busy || recorder.isRecording} onFocus={silenceMira} onChange={event => setText(event.target.value)} />
     </label>}
     {transcript && <p role="status" className="mira-transcript">{copy('heard', language)} <span className="font-semibold">{transcript}</span></p>}
+    {!showChoices && selected !== undefined && <p className="font-semibold text-purple-900">{labels[options.findIndex(option => option.value === selected)]}</p>}
     <div className="flex flex-wrap items-center gap-3">
       <button type="button" disabled={busy} aria-pressed={recorder.isRecording} className={`mira-voice-button ${recorder.isRecording ? 'mira-recording' : ''}`}
         onClick={() => { silenceMira(); recorder.isRecording ? recorder.stopRecording() : recorder.startRecording(); }}>

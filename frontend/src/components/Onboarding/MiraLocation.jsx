@@ -8,7 +8,7 @@ import { copy } from './copy';
 
 const fields = ['state_name', 'district_name', 'block_name', 'village_name'];
 const levels = ['states', 'districts', 'blocks', 'villages'];
-export function MiraLocation({ location, onConfirm, detecting = false }) {
+export function MiraLocation({ location, onConfirm, onBack, detecting = false }) {
   const { token } = useAuth();
   const { language } = useLanguage();
   const [manual, setManual] = useState(!location?.village_name);
@@ -59,7 +59,10 @@ export function MiraLocation({ location, onConfirm, detecting = false }) {
       {manual && !busy && nextMissing >= 0 && options[levels[nextMissing]]?.length === 0 && <p className="text-slate-700">{empty}</p>}
       {error && <p role="alert" className="mira-error">{problem}</p>}
       {manual && <button type="button" onClick={() => setRetry(n => n + 1)} className="mira-secondary">{copy('retry', language)}</button>}
-      <button type="button" disabled={!complete || busy || detecting} className="mira-primary w-full" onClick={confirm}>{copy(busy ? 'waiting' : 'yes', language)}</button>
+      <div className="mira-navigation">
+        {onBack && <button type="button" disabled={busy} className="mira-secondary" onClick={onBack}>{copy('back', language)}</button>}
+        <button type="button" disabled={!complete || busy || detecting} className="mira-primary ml-auto" onClick={confirm}>{copy(busy ? 'waiting' : 'yes', language)}</button>
+      </div>
       {!manual && <button type="button" className="mira-secondary w-full" onClick={() => setManual(true)}>{copy('change', language)}</button>}
     </section>
   </div>;

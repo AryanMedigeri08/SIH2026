@@ -69,7 +69,7 @@ export function MiraOnboardingPage() {
     {error && <div role="alert" className="mira-error"><T text={error} /><button type="button" onClick={() => { setError(''); setRetry(n => n + 1); }} className="ml-3 underline"><T text="Retry" /></button></div>}
     {phase === 'loading' && <p role="status">{copy('waiting', language)}</p>}
     {phase === 'choice' && <MiraJourneyChoice onChoose={choose} busy={pending} />}
-    {phase === 'location' && <MiraLocation key={`${detecting}:${JSON.stringify(draft.location)}`} location={draft.location} detecting={detecting} onConfirm={async location => {
+    {phase === 'location' && <MiraLocation key={`${detecting}:${JSON.stringify(draft.location)}`} location={draft.location} detecting={detecting} onBack={() => setPhase('choice')} onConfirm={async location => {
       const { is_rural, classification_source, hierarchy_source, ...canonical } = location;
       const next = { ...draft, language, location: canonical, answers: {} };
       await onboardingApi.save(token, next);
