@@ -5,6 +5,8 @@ import { conversationForm, conversationExistingPayload, conversationPlanningPayl
 import { SECTOR_CAPITAL_MULTIPLIERS } from '../Wizard/wizardSizing.js';
 import { questionCopyRows } from './questionCopy.js';
 import { indianPhone, normalizeIndicDigits, phoneError } from '../../services/registrationValidation.js';
+import { resolveSpokenChoice } from './answerChoices.js';
+import { matchesSavedAnswer, previousQuestion, nextSavedQuestion } from './conversationNavigation.js';
 
 const profile = { name: 'Test promoter', promoter_category: 'sc', gender: 'Female' };
 const choices = [{ id: 'dairy_aggregation', name: 'Dairy', sector: 'dairy', business_category: 'manufacturing' }];
@@ -81,4 +83,28 @@ test('Phone numbers and codes accept Indic digits without modifying names', () =
   assert.equal(normalizeIndicDigits('सीमा'), 'सीमा');
   for (const value of ['123','0000000000','1234567890','987654321099']) assert.throws(() => indianPhone(value));
   assert.match(phoneError({ code: 'auth/code-expired' }), /expired/);
+});
+
+test('Spoken fixed choices resolve only unambiguous choices and retain false', () => {
+  const binary = [{value:true,label:'Yes, continue'},{value:false,label:'No, choose another plan'}];
+  assert.equal(resolveSpokenChoice('no',binary),false);
+  assert.equal(resolveSpokenChoice('नहीं',binary),false);
+  assert.equal(resolveSpokenChoice('हाँ',binary),true);
+  assert.equal(resolveSpokenChoice('२',binary),false);
+  assert.equal(resolveSpokenChoice('maybe',binary),undefined);
+  assert.equal(resolveSpokenChoice('0',binary),undefined);
+  assert.equal(resolveSpokenChoice('Dairy',[{value:'one',label:'Dairy shop'},{value:'two',label:'Dairy factory'}]),undefined);
+});
+
+test('Back and Next review saved questions without clearing answers or appraisals', () => {
+  const sequence = ['own_cash','cash_confirmed','premise_type','resources','review_confirmed'];
+  const answers = {own_cash:0,cash_confirmed:true,premise_type:'owned'};
+  assert.equal(previousQuestion(sequence,'resources',answers),'premise_type');
+  assert.equal(nextSavedQuestion(sequence,'own_cash',answers,'resources'),'cash_confirmed');
+  assert.equal(nextSavedQuestion(sequence,'premise_type',answers,'resources'),'resources');
+  assert.equal(previousQuestion(sequence,'own_cash',answers),undefined);
+  assert.equal(matchesSavedAnswer('own_cash','0',answers),true);
+  assert.equal(matchesSavedAnswer('own_cash','',answers),false);
+  assert.equal(matchesSavedAnswer('own_cash','50000',answers),false);
+  assert.equal(matchesSavedAnswer('own_cash','unknown',{own_cash:null}),true);
 });

@@ -236,3 +236,61 @@ def test_preview_expiry_does_not_rerun_an_appraisal(monkeypatch):
     with pytest.raises(HTTPException) as error:
         asyncio.run(planning.saved_preview('expired', AuthenticatedUser(uid='alice')))
     assert error.value.status_code == 410
+
+
+def test_progress_counts_explicit_unknown_answers_and_adapts_to_workspace(client):
+    browser, _, _ = client
+    browser.put('/onboarding/session', json={'journey': 'budget_only', 'location': LOCATION})
+    initial = browser.get('/onboarding/question').json()
+    assert initial['progress'] == {'completed': 0, 'total': 7}
+    assert 'monthly_rent' not in initial['sequence']
+    for field, value in [('own_cash',50000),('cash_confirmed',True),('skills','unknown'),('premise_type','rented')]:
+        state = browser.post('/onboarding/answer', json={'field':field,'value':value}).json()
+    assert state['progress'] == {'completed': 4, 'total': 8}
+    assert state['question'] == 'monthly_rent'
+    assert 'monthly_rent' in state['sequence']
+
+
+def test_unchanged_revision_preserves_saved_appraisal_and_confirmation(client):
+    browser, _, _ = client
+    browser.put('/onboarding/session', json={'journey':'budget_only','location':LOCATION,
+        'answers':{'own_cash':50000,'cash_confirmed':True,'review_confirmed':True},'preview_id':'saved-preview'})
+    state = browser.post('/onboarding/revise', json={'field':'own_cash','value':'50000'}).json()
+    assert state['draft']['preview_id'] == 'saved-preview'
+    assert state['draft']['answers']['cash_confirmed'] is True
+    assert state['draft']['answers']['review_confirmed'] is True
+
+
+def test_changed_money_requires_confirmation_and_invalidates_only_appraisal(client):
+    browser, _, _ = client
+    answers = {'own_cash':50000,'cash_confirmed':True,'skills':'Tailoring','premise_type':'owned','resources':'none','preferences':'none','review_confirmed':True}
+    browser.put('/onboarding/session', json={'journey':'budget_only','location':LOCATION,'answers':answers,'preview_id':'old'})
+    response = browser.post('/onboarding/revise', json={'field':'own_cash','value':0})
+    assert response.status_code == 200
+    state = response.json()
+    assert state['question'] == 'cash_confirmed'
+    assert state['draft']['answers']['own_cash'] == 0
+    assert state['draft']['answers']['skills'] == 'Tailoring'
+    assert state['draft']['answers']['premise_type'] == 'owned'
+    assert 'review_confirmed' not in state['draft']['answers']
+    assert state['draft']['preview_id'] is None
+
+
+def test_changing_hybrid_back_to_original_restores_original_idea(client):
+    browser, _, _ = client
+    answers = {'idea':'Make curd in artisan pots.', 'original_idea':'Make curd for local shops', 'business_id':'dairy_aggregation',
+        'idea_confirmed':True,'odop_choice':'hybrid','enterprise_name':'Curd and pottery','own_cash':0,'cash_confirmed':True}
+    browser.put('/onboarding/session', json={'journey':'idea_only','location':LOCATION,'answers':answers})
+    state = browser.post('/onboarding/revise', json={'field':'odop_choice','value':'original'}).json()
+    assert state['draft']['answers']['idea'] == answers['original_idea']
+    assert 'enterprise_name' not in state['draft']['answers']
+    assert 'original_idea' not in state['draft']['answers']
+    assert state['draft']['answers']['own_cash'] == 0
+
+
+def test_revisions_reject_missing_fields_and_remain_owner_scoped(client):
+    browser, owner, _ = client
+    browser.put('/onboarding/session', json={'journey':'budget_only','location':LOCATION,'answers':{'own_cash':50000}})
+    assert browser.post('/onboarding/revise', json={'field':'phone','value':'123456'}).status_code == 409
+    owner['uid'] = 'bob'
+    assert browser.post('/onboarding/revise', json={'field':'own_cash','value':0}).status_code == 409
