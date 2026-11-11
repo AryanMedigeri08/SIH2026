@@ -37,13 +37,13 @@ def money(value, optional=False, maximum=100000000):
     return result
 
 
-def next_question(draft):
+def question_sequence(draft):
     a = draft.get('answers', {})
     path = draft.get('journey')
     if not (draft.get('location') or {}).get('confirmed'):
-        return 'location'
+        return ['location']
     if path not in {'existing', 'budget_only', 'idea_only'}:
-        return 'journey'
+        return ['journey']
     order = []
     if path != 'budget_only':
         order += ['idea', 'business_id']
@@ -71,7 +71,55 @@ def next_question(draft):
     else:
         order += ['enterprise_name']
     order += ['review_confirmed']
-    return next((key for key in order if key not in a), 'ready')
+    return order
+
+
+def next_question(draft):
+    order = question_sequence(draft)
+    return next((key for key in order if key not in draft.get('answers', {})), 'ready')
+
+
+def conversation_state(draft):
+    sequence = question_sequence(draft)
+    question = next_question(draft)
+    completed = sum(key in draft.get('answers', {}) for key in sequence)
+    return {'draft': draft, 'question': question, 'sequence': sequence,
+            'progress': {'completed': completed, 'total': len(sequence)}}
+
+
+def revise_answer(draft, field, value, hybrid_name=None, hybrid_description=None):
+    answers = draft['answers']
+    if field not in question_sequence(draft) or field not in answers:
+        raise HTTPException(409, 'This answer is not available to revise.')
+    normalized = validated_answer(field, value, draft['journey'])
+    unchanged_hybrid = field != 'odop_choice' or value != 'hybrid' or (
+        hybrid_name == answers.get('enterprise_name') and hybrid_description == answers.get('idea'))
+    if answers[field] == normalized and unchanged_hybrid:
+        return draft
+    affected = {
+        'idea': ['business_id','sector','business_category','idea_confirmed','odop_choice','original_idea','enterprise_name'],
+        'business_id': ['sector','business_category','idea_confirmed','odop_choice','enterprise_name'],
+        'sector': ['idea_confirmed','odop_choice','enterprise_name'],
+        'business_category': ['idea_confirmed','odop_choice','enterprise_name'],
+        'own_cash': ['cash_confirmed'], 'premise_type': ['monthly_rent'],
+    }.get(field, [])
+    if (field == 'odop_choice' or 'odop_choice' in affected) and answers.get('original_idea'):
+        answers['idea'] = answers.pop('original_idea')
+    for key in affected:
+        answers.pop(key, None)
+    if field == 'odop_choice':
+        if normalized == 'hybrid':
+            if not hybrid_name or not hybrid_description:
+                raise HTTPException(422, 'Select an evaluated combination or keep your original idea.')
+            answers['original_idea'] = answers['idea']
+            answers['idea'] = hybrid_description
+            answers['enterprise_name'] = hybrid_name
+        else:
+            answers.pop('enterprise_name', None)
+    answers[field] = normalized
+    answers.pop('review_confirmed', None)
+    draft.update(preview_id=None, project_id=None, completed=False)
+    return draft
 
 
 def validated_answer(field, value, path):

@@ -8,6 +8,7 @@ export const onboardingApi = {
   interpret: (token, idea, language) => authFetch(`${API_BASE}/onboarding/interpret`, token, { method: 'POST', body: JSON.stringify({ idea, language }) }),
   question: token => authFetch(`${API_BASE}/onboarding/question`, token),
   answer: (token, payload) => authFetch(`${API_BASE}/onboarding/answer`, token, { method: 'POST', body: JSON.stringify(payload) }),
+  revise: (token, payload) => authFetch(`${API_BASE}/onboarding/revise`, token, { method: 'POST', body: JSON.stringify(payload) }),
   session: token => authFetch(`${API_BASE}/onboarding/session`, token),
   save: (token, draft) => authFetch(`${API_BASE}/onboarding/session`, token, { method: 'PUT', body: JSON.stringify(draft) }),
   detect: (token, coords) => authFetch(`${API_BASE}/onboarding/location/detect`, token, { method: 'POST', body: JSON.stringify(coords) }),

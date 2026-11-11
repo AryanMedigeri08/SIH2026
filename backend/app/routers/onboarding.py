@@ -4,7 +4,7 @@ from app.core.auth_dependency import AuthenticatedUser, get_current_user
 from app.core.onboarding_store import onboarding_store
 from app.core.onboarding_location import resolve_gps, validate_location, location_options
 from app.models.onboarding import OnboardingDraft, OnboardingLocation, GpsRequest, OnboardingAnswer
-from app.core.onboarding_questions import next_question, validated_answer
+from app.core.onboarding_questions import next_question, validated_answer, conversation_state, revise_answer
 from app.core.onboarding_intent import intent_service
 from pydantic import BaseModel, Field
 
@@ -33,7 +33,7 @@ async def get_session(user: AuthenticatedUser = Depends(get_current_user)):
 @router.get('/question')
 async def question(user: AuthenticatedUser = Depends(get_current_user)):
     draft = await onboarding_store.get(user.uid) or OnboardingDraft().model_dump()
-    return {'draft': draft, 'question': next_question(draft)}
+    return conversation_state(draft)
 
 
 @router.post('/answer')
@@ -52,7 +52,15 @@ async def answer(payload: OnboardingAnswer, user: AuthenticatedUser = Depends(ge
         answers['enterprise_name'] = payload.hybrid_name
     answers[payload.field] = value
     await onboarding_store.save(user.uid, draft)
-    return {'draft': draft, 'question': next_question(draft)}
+    return conversation_state(draft)
+
+
+@router.post('/revise')
+async def revise(payload: OnboardingAnswer, user: AuthenticatedUser = Depends(get_current_user)):
+    draft = await onboarding_store.get(user.uid) or OnboardingDraft().model_dump()
+    revised = revise_answer(draft, payload.field, payload.value, payload.hybrid_name, payload.hybrid_description)
+    await onboarding_store.save(user.uid, revised)
+    return conversation_state(revised)
 
 
 @router.put('/session')
