@@ -9,7 +9,7 @@ import { MiraAnswer } from './MiraAnswer';
 import { TranslatedText as T } from '../TranslatedText';
 import { copy } from './copy';
 
-export function MiraOdop({ form, onChoice, onBack, disabled = false }) {
+export function MiraOdop({ form, onChoice, onBack, disabled = false, savedChoice }) {
   const { token } = useAuth();
   const { language } = useLanguage();
   const [context, setContext] = useState(null);
@@ -53,10 +53,10 @@ export function MiraOdop({ form, onChoice, onBack, disabled = false }) {
         <p className="text-sm text-slate-600"><T text={result.note} /></p>
       </>}
       {error && <p role="alert" className="mira-error"><T text={error} /></p>}
-      <MiraAnswer key={`${!!result}:${language}`} disabled={busy || loading || disabled} onAnswer={choose}
+      {savedChoice && !result && <p className="rounded-xl bg-purple-50 p-3"><T text={`Saved choice: ${savedChoice === 'hybrid' ? 'use the combination' : 'keep the original idea'}. You can continue without evaluating again.`} /></p>}
+      <MiraAnswer key={`${!!result}:${language}`} disabled={busy || loading || disabled} onAnswer={choose} onBack={onBack} initial={savedChoice && !result ? 'keep' : ''}
         options={result ? [{ value: 'hybrid', label: 'Use this combination' }, { value: 'original', label: 'Continue with my own idea' }]
-          : [...(context?.has_odop_record ? [{ value: 'evaluate', label: error ? 'Try evaluation again' : 'Yes, evaluate the combination' }] : []), { value: 'original', label: 'No, continue with my own idea' }]} />
-      {onBack && <button type="button" disabled={busy || disabled} onClick={onBack} className="mira-secondary">{copy('back', language)}</button>}
+          : [...(savedChoice ? [{ value: 'keep', label: 'Keep my saved choice' }] : []), ...(context?.has_odop_record ? [{ value: 'evaluate', label: error ? 'Try evaluation again' : 'Yes, evaluate the combination' }] : []), { value: 'original', label: 'No, continue with my own idea' }]} />
     </div>
   </div>;
 }

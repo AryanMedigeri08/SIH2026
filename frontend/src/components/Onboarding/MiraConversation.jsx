@@ -12,6 +12,8 @@ import { TranslatedText as T } from '../TranslatedText';
 import { businessContext, conversationForm, conversationPlanningPayload, conversationExistingPayload } from './payloads';
 import { copy } from './copy';
 import { questionCopy as qc } from './questionCopy';
+import { MiraProgress } from './MiraProgress';
+import { matchesSavedAnswer, previousQuestion, nextSavedQuestion } from './conversationNavigation';
 
 const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value || 0);
 export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJourney }) {
@@ -20,6 +22,9 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
   const { language } = useLanguage();
   const [draft, setDraft] = useState(initialDraft);
   const [question, setQuestion] = useState('loading');
+  const [frontier, setFrontier] = useState('loading');
+  const [sequence, setSequence] = useState([]);
+  const [progress, setProgress] = useState({ completed: 0, total: 0 });
   const [choices, setChoices] = useState([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -38,6 +43,7 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
         const [state, businesses] = await Promise.all([onboardingApi.question(token), planningApi.businesses(token)]);
         if (!alive.current) return;
         setDraft(state.draft); setQuestion(state.question); setChoices(businesses);
+        setFrontier(state.question); setSequence(state.sequence || []); setProgress(state.progress || { completed: 0, total: 0 });
         if (state.draft.project_id) {
           const saved = await projectsApi.getProject(token, state.draft.project_id);
           if (alive.current) setProject(saved);
@@ -52,10 +58,21 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
   }, [token, reload]);
   const apply = state => {
     setDraft(state.draft); setQuestion(state.question); onProgress(state.draft);
+    setFrontier(state.question); setSequence(state.sequence || []); setProgress(state.progress || { completed: 0, total: 0 });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const advanceSaved = () => { stopSpeech.current(); setError(''); setQuestion(nextSavedQuestion(sequence, question, draft.answers, frontier)); };
+  const back = () => {
+    if (pending) return;
+    stopSpeech.current(); setError('');
+    if (clarification) { setClarification(null); return; }
+    const previous = previousQuestion(sequence, question, draft.answers);
+    if (previous) setQuestion(previous); else onChangeJourney();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const answer = async (value, extras = {}) => {
     if (guard.current) return;
+    if (matchesSavedAnswer(question, value, draft.answers, extras)) { advanceSaved(); return; }
     guard.current = true; setPending(true); setError(''); stopSpeech.current();
     try {
       if (question === 'idea') {
@@ -67,7 +84,8 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
           if (interpreted.clarification) { setClarification({ original: value, question: interpreted.clarification }); return; }
         }
       }
-      const state = await onboardingApi.answer(token, { field: question, value, ...extras });
+      const submit = Object.hasOwn(draft.answers, question) ? onboardingApi.revise : onboardingApi.answer;
+      const state = await submit(token, { field: question, value, ...extras });
       if (alive.current) apply(state);
     } catch (err) { if (alive.current) setError(err.message); }
     finally { guard.current = false; if (alive.current) setPending(false); }
@@ -151,17 +169,22 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
   // translation again or momentarily speak an English fallback.
   const speech = prompt;
   const banner = error && <p role="alert" className="mira-error"><T text={error} /><button type="button" onClick={() => { setError(''); setReload(n => n + 1); }} className="ml-3 underline"><T text="Reload saved progress" /></button></p>;
-  if (result) return <>{banner}<MiraPlanResults result={result} pending={pending} onAccept={accept} onEdit={() => edit(draft.journey === 'budget_only' ? 'preferences' : 'idea')} /></>;
-  if (project) return <>{banner}<ExistingResult project={project} pending={pending} onContinue={finishExisting} onEdit={() => edit('own_cash')} /></>;
+  const journeyProgress = <MiraProgress journey={draft.journey} question={question} sequence={sequence} completed={progress.completed} answers={a} evaluated={!!result || !!project} />;
+  if (result) return <>{journeyProgress}{banner}<MiraPlanResults result={result} pending={pending} onAccept={accept} onEdit={() => edit(draft.journey === 'budget_only' ? 'preferences' : 'idea')} /></>;
+  if (project) return <>{journeyProgress}{banner}<ExistingResult project={project} pending={pending} onContinue={finishExisting} onEdit={() => edit('own_cash')} /></>;
   const form = conversationForm(draft, userProfile, choices);
-  if (question === 'odop_choice') return <>{banner}<MiraOdop form={form} disabled={pending} onBack={() => edit('idea')} onChoice={(choice, result) => answer(choice, choice === 'hybrid' ? { hybrid_name: result.hybrid_name, hybrid_description: result.hybrid_description } : {})} /></>;
+  const odopForm = a.original_idea ? { ...form, enterprise_idea: a.original_idea,
+    enterprise_name: choices.find(item => item.id === a.business_id)?.name || a.original_idea.slice(0, 160) } : form;
+  if (question === 'odop_choice') return <>{journeyProgress}{banner}<MiraOdop form={odopForm} disabled={pending} onBack={back} savedChoice={a.odop_choice}
+    onChoice={(choice, result) => choice === 'keep' ? advanceSaved() : answer(choice, choice === 'hybrid' ? { hybrid_name: result.hybrid_name, hybrid_description: result.hybrid_description } : {})} /></>;
   if (['journey','location'].includes(question)) return <>{banner}<button className="mira-primary" onClick={onChangeJourney}>{qc('differentStart', language)}</button></>;
   const reviewing = ['review_confirmed', 'ready'].includes(question);
   return <section className="space-y-5">
+    {journeyProgress}
     {banner}
     <div className="mira-layout">
       <MiraGuide text={speech} onSpeechControl={stop => { stopSpeech.current = stop; }} />
-      <div className="mira-card space-y-5">
+      <div className="mira-card mira-question-enter space-y-5" key={question}>
         {reviewing && <div className="space-y-3">
           {Object.entries(a).filter(([key]) => !['idea_confirmed','cash_confirmed','review_confirmed','original_idea'].includes(key)).map(([key, value]) => <div key={key} className="border-b pb-3">
             <p className="text-sm font-semibold text-slate-600">{qc(key, language)}</p>
@@ -175,8 +198,9 @@ export function MiraConversation({ initialDraft, onProgress, onFinish, onChangeJ
           {draft.journey === 'existing' && a.project_cost == null && <p className="rounded-lg bg-amber-50 p-3"><T text="The existing ₹9,00,000 starting project estimate will be sized from the machinery schedule. This is not a supplier quote." /></p>}
         </div>}
         {question === 'loading' ? <p role="status">{copy('waiting', language)}</p> : question === 'ready'
-          ? <button type="button" disabled={pending} onClick={calculate} className="mira-primary w-full">{copy(pending ? 'waiting' : 'calculate', language)}</button>
-          : <MiraAnswer key={`${question}:${!!clarification}:${language}`} initial={question === 'enterprise_name' ? choices.find(item => item.id === a.business_id)?.name || a.idea?.slice(0, 100) || '' : ''}
+          ? <div className="mira-navigation"><button type="button" disabled={pending} onClick={back} className="mira-secondary">{copy('back', language)}</button><button type="button" disabled={pending} onClick={calculate} className="mira-primary">{copy(pending ? 'waiting' : 'calculate', language)}</button></div>
+          : <MiraAnswer key={`${question}:${!!clarification}:${language}`} initial={Object.hasOwn(a, question) ? a[question] : question === 'enterprise_name' ? choices.find(item => item.id === a.business_id)?.name || a.idea?.slice(0, 100) || '' : ''}
+            onBack={back}
             disabled={pending} stopSpeech={() => stopSpeech.current()} options={question === 'review_confirmed' ? [{ value: true, label: copy('yes', language) }] : options}
             optional={['skills','resources','preferences','equipment_quote','project_cost','annual_sales','monthly_rent'].includes(question) || (question === 'own_cash' && draft.journey === 'idea_only')}
             onAnswer={value => answer(value)} maxLength={question === 'enterprise_name' ? 160 : 800} />}
